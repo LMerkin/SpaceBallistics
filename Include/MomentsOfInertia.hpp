@@ -12,19 +12,24 @@ namespace SpaceBallistics
   //=========================================================================//
   // Types:                                                                  //
   //=========================================================================//
-  using Len4_m4_T = decltype(IPow<4>(Len_m)); // MoI per Surface Density (L^4)
-  using Area_m2_T = decltype(Sqr    (Len_m)); // Area (L^2)
+  using Len4_m4 = decltype(IPow<4>(Len_m_1)); // MoI per Surface Density (L^4)
+  using Area_m2 = decltype(Sqr    (Len_m_1)); // Area (L^2)
 
   //-------------------------------------------------------------------------//
   // "MoIS" Struct:                                                          //
   //-------------------------------------------------------------------------//
   // For convenience of using the functions below, define addition of the foll-
   // owing pairs:
-  struct MoIS: public std::pair<Len4_m4_T, Area_m2_T>
+  struct MoIS: public std::pair<Len4_m4, Area_m2>
   {
-    // Ctor just inherits that of "std::pair":
-    MoIS(Len4_m4_T a_first, Area_m2_T  a_second)
-    : std::pair<Len4_m4_T,  Area_m2_T>(a_first, a_second)
+    // Default Ctor sets both components to 0:
+    MoIS()
+    : std::pair<Len4_m4, Area_m2>(0.0, 0.0)
+    {}
+
+    // Non-Default Ctor just inherits from that of "std::pair":
+    MoIS(Len4_m4 a_first, Area_m2  a_second)
+    : std::pair<Len4_m4,  Area_m2>(a_first, a_second)
     {}
 
     // Addition:
@@ -55,16 +60,16 @@ namespace SpaceBallistics
   //           "x0" is the lowest X-coord of the axis range (the corresp Y-
   //           coord is irrelevant since the MoI is computed wrt the OY axis),
   //           corresp to the "r" radius; the "R" radius corresponds to the
-  //           other end of the code axis (with x > x0).
+  //           other end of the cone axis (with x > x0).
   // Result  : {Moment of Inertia wrt the OY axis per Surface Density [L^4],
   //            Side Surface Area [L^2]}:
   //
   inline MoIS MoIS_TrCone_XY
   (
-    Len_m_T a_r,
-    Len_m_T a_R,
-    Len_m_T a_h,
-    Len_m_T a_x0,
+    Len_m   a_r,
+    Len_m   a_R,
+    Len_m   a_h,
+    Len_m   a_x0,
     double  a_alpha    // Dimension-less
   )
   {
@@ -97,14 +102,14 @@ namespace SpaceBallistics
   // ated in the OXZ plane, at the angle "alpha" to the OX axis, with the init-
   // ial axis point coords "x0" and "z0" (both are required in this case):
   //
-  inline MoIS MoIS_TrCode_XZ
+  inline MoIS MoIS_TrCone_XZ
   (
-    Len_m_T  a_r,
-    Len_m_T  a_R,
-    Len_m_T  a_h,
-    Len_m_T  a_x0,
-    Len_m_T  a_z0,
-    double   a_alpha     // Dimension-less
+    Len_m   a_r,
+    Len_m   a_R,
+    Len_m   a_h,
+    Len_m   a_x0,
+    Len_m   a_z0,
+    double  a_alpha     // Dimension-less
   )
   {
     assert(IsPos(a_h)    && !IsNeg(a_r) && !IsNeg(a_R) &&
@@ -124,6 +129,67 @@ namespace SpaceBallistics
     // The size surface area is as in the "_XY" case:
     auto   S    = M_PI * a_h * s;
     assert(IsPos(S));
+    return MoIS(L4, S);
+  }
+
+  //=========================================================================//
+  // "MoIS_SpherSegm_XY":                                                    //
+  //=========================================================================//
+  // Similar to "MoIS_TrCone_XY", but for a Spherical Segment of radius "R" and
+  // height (from the section plane to the pole) "h";   "x0"  is the X-coord of
+  // the pole, "alpha" is the angle of the segment's rotation axis to OX in the
+  // OXY plane:
+  //
+  inline MoIS MoIS_SpherSegm_XY
+  (
+    Len_m   a_R,
+    Len_m   a_h,
+    Len_m   a_x0,
+    double  a_alpha    // Dimension-less
+  )
+  {
+    // NB: We must always have 0 < h <= R:
+    assert(IsPos(a_h) && IsPos(a_R) && a_h <= a_R);
+    double cosA = std::cos(a_alpha);
+    auto   L4   =
+      M_PI * a_R * a_h *
+      (2.0 * (Sqr(a_x0) + a_h * (a_R + a_x0 * cosA)) -
+       a_h * ((2.0/3.0) * a_h + (a_R - a_h) * cosA * cosA));
+    assert(IsPos(L4));
+    // The surface area of the Spherical Segment:
+    auto   S    = (2.0*M_PI) * a_R * a_h;
+    return MoIS(L4, S);
+  }
+
+  //=========================================================================//
+  // "MoIS_SpherSegm_XZ":                                                    //
+  //=========================================================================//
+  // Similar to "MoIS_SpherSegm_XY", but the axis of the spherical segment is
+  // in the OXZ plane, at the angle "alpha" to the OX axis,  and the pole co-
+  // ords in that plane are (x0, z0):
+  //
+  inline MoIS MoIS_SpherSegm_XZ
+  (
+    Len_m   a_R,
+    Len_m   a_h,
+    Len_m   a_x0,
+    Len_m   a_z0,
+    double  a_alpha    // Dimension-less
+  )
+  {
+    // NB: We must always have 0 < h <= R:
+    assert(IsPos(a_h) && IsPos(a_R) && a_h <= a_R);
+    double cosA = std::cos(a_alpha);
+    double sinA = std::sin(a_alpha);
+    auto   L4   =
+      M_PI * a_R * a_h *
+      (
+        a_h * (a_h/3.0   + 2.0 * (a_x0 * cosA + a_z0 * sinA) + a_R) +
+        2.0 * (Sqr(a_x0) + Sqr(a_z0))
+      );
+    assert(IsPos(L4));
+    // The surface area of the Spherical Segment:
+    auto   S    = (2.0*M_PI) * a_R * a_h;
     return MoIS(L4, S);
   }
 }

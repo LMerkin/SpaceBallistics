@@ -20,5 +20,11 @@ namespace SpaceBallistics
 		(Time, sec),
 		(Mass, kg)
 	)
+
+  //-------------------------------------------------------------------------//
+  // Derived Dims and Units:                                                 //
+  //-------------------------------------------------------------------------//
+  // Moment of Inertia:
+  using MoI = decltype(Mass_kg_1 * Sqr(Len_m_1));
 }
 // End namespace SpaceBallistics
