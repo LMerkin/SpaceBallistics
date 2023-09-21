@@ -202,6 +202,15 @@ LINK_DIRECTORIES   ("${PROJECT_BINARY_DIR}"
                     "${ENV_PREFIX}/lib")
 
 #=============================================================================#
+# The Srcs and the Target Library:                                            #
+#=============================================================================#
+# XXX: We currently build a Shared Library only:
+#
+ADD_LIBRARY(${PROJECT_NAME} SHARED
+  Src/MomentsOfInertia.cpp
+)
+
+#=============================================================================#
 # Tests:                                                                      #
 #=============================================================================#
 ADD_EXECUTABLE(Test1 Tests/Test1.cpp)
