@@ -4,31 +4,57 @@
 //          Mathematical Model of the "Soyuz-2.1b" Space Launcher            //
 //===========================================================================//
 #pragma  once
-#include "Types.h"
+#include "Types.hpp"
 
 namespace SpaceBallistics
 {
 	//=========================================================================//
 	// "Soyuz_21b" Class:																											 //
 	//=========================================================================//
-	// "Soyuz_21b" considered to be a 3-Stage rocket. The class is parametrised
-	// by the Payload (which may in particular include an Upper (4th) Stage, eg
-	// "Fregat").
-	// The embedded co-ord system Oxyz:
-	// (*) The Ox axis is the main axis of the rocket. The positive direction is
-	//     towards the nose. The origin O is in the center of the Payload Adapter
-	//     Ring.
-	// (*) The Oy and Oz axes are such that the Oxy and Oxz planes pass through
-	//     the symmetry axes of the corresp opposite strap-on boosters (Stage 1),
-	//     and Oxyz is a right-oriented co-ords system.
+	// "Soyuz_21b" is considered to be a 3-Stage rocket. This class is parameter-
+	// ised by the "Payload"  which may in particular  include the 4th Stage, eg
+	// "Fregat":
 	//
 	template<typename Payload>
   class Soyuz_21b
   {
   private:
+    //=======================================================================//
+    // Consts:                                                               //
+    //=======================================================================//
     //-----------------------------------------------------------------------//
-    // Moment of Inertia Computation for an Empty Rocket:                    //
+    // Geometry:                                                             //
     //-----------------------------------------------------------------------//
-    static MoI_T MkEmptyMoI();
+    // XXX: The max diamenter of the Fairing may depend on the Payload. However,
+    // we currently consider it to be constant:
+    constexpr static Len_m FairingDMax = Len_m(4.11);
+
+    // Stage3:
+    constexpr static Len_m Stage3D     = Len_m(2.66);
+
+    //=======================================================================//
+    // Data Flds:                                                            //
+    //=======================================================================//
+    Payload   const m_payload;
+    MoI       const m_emptyMoI;
+
+  public:
+    //=======================================================================//
+    // Methods:                                                              //
+    //=======================================================================//
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctor:                                                     //
+    //-----------------------------------------------------------------------//
+    Soyuz_21b(Payload const& a_payload);
+
+    // Default and Copy Ctors are deleted, Dtor is trivial and auto-generated:
+    Soyuz_21b()                 = delete;
+    Soyuz_21b(Soyuz_21b const&) = delete;
+
+  private:
+    //-----------------------------------------------------------------------//
+    // Moment of Inertia Computation for the Empty Rocket:                   //
+    //-----------------------------------------------------------------------//
+    MoI EmptyMoI() const;
   };
 }
