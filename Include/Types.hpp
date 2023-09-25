@@ -22,9 +22,24 @@ namespace SpaceBallistics
 	)
 
   //=========================================================================//
-  // Derived Dims and Units:                                                 //
+  // Derived Dimension Types and Values:                                     //
   //=========================================================================//
+  // Area and Volume:
+  using Area       = decltype(Sqr    (Len_m_1));
+  using Vol        = decltype(IPow<3>(Len_m_1));
+
+  // Density (ie Volume Density) and Surface (Area) Density:
+  using Density    = decltype(Mass_kg_1 / Vol (1.0));
+  using SurfDens   = decltype(Mass_kg_1 / Area(1.0));
+
   // Moment of Inertia:
-  using MoI = decltype(Mass_kg_1 * Sqr(Len_m_1));
+  using MoI        = decltype(Mass_kg_1 * Area(1.0));
+
+  // Velocity and Acceleration (in SI units):
+  using Vel        = decltype(Len_m_1   / Time_sec_1);
+  using Acc        = decltype(Len_m_1   / Area(1.0));
+
+  // Standard Gravity:
+  constexpr Acc g0 = Acc(9.80665);
 }
 // End namespace SpaceBallistics

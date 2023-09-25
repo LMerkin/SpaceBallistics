@@ -20,22 +20,19 @@ namespace SpaceBallistics
   {
   private:
     //=======================================================================//
-    // Consts:                                                               //
-    //=======================================================================//
-    //-----------------------------------------------------------------------//
-    // Geometry:                                                             //
-    //-----------------------------------------------------------------------//
-    // XXX: The max diamenter of the Fairing may depend on the Payload. However,
-    // we currently consider it to be constant:
-    constexpr static Len_m FairingDMax = Len_m(4.11);
-
-    // Stage3:
-    constexpr static Len_m Stage3D     = Len_m(2.66);
-
-    //=======================================================================//
-    // Data Flds:                                                            //
+    // Consts and Data Flds:                                                 //
     //=======================================================================//
     Payload   const m_payload;
+
+    // Fairing:
+
+    // 3rd stage:
+    // Volume of the Fuel and Oxidiser Tank:
+    Vol       const m_stage3FuelTankVol;
+    Vol       const m_stage3OxidTankVol;
+    // We also need the mass of the Aft Section, because it is jettisonable:
+    Mass_kg   const m_stage3AftMass;
+
     MoI       const m_emptyMoI;
 
   public:
