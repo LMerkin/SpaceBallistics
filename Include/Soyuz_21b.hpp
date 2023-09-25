@@ -33,83 +33,89 @@ namespace SpaceBallistics
     // gine could burn for up to 140 sec). More precisely, Stage1 thrust reduc-
     // tion occurs at 112.0 sec and Stage1 veniers cut-off at 117.7 sec:
     //
-    constexpr Time_sec Stage1SepTime    = Time_sec(118.1);
+    constexpr auto Stage1SepTime    = Time_sec(118.1);
 
     // Fairing jettisoning time:
-    constexpr Time_sec FairingJetTime   = Time_sec(208.4);
+    constexpr auto FairingJetTime   = Time_sec(208.4);
 
     // Stage2 (Block A) separation time. Some srcs indicate 278 sec but this is
     // probably for earlier version of Soyuz. The RD-108A cut-off time is approx
     // 286 sec. Stage3 ignition occurs at approx the latter time, just PRIOR to
     // Stage2 separation (but arguably not at full thrust at once). Early vers-
-    // ions of RD-108 could burn for up to 340 sec
+    // ions of RD-108 could burn for up to 340 sec:
     //
-    constexpr Time_sec Stage2SepTime    = Time_sec(287.6);
+    constexpr auto Stage2SepTime    = Time_sec(287.6);
 
     // Stage3 aft section jettisoning time:
-    constexpr Time_sec Stage3AftJetTime = Time_sec(300.4);
+    constexpr auto Stage3AftJetTime = Time_sec(300.4);
 
     // Stage3 engine (RD-0124) cut-off time. Some srcs say Stage3 burns for
     // 250..300 sec (the older RD-0110 for 240..250 sec), here we get ~271 sec
     // which is most likely correct:
-    constexpr Time_sec Stage3CutOffTime = Time_sec(558.6);
+    constexpr auto Stage3CutOffTime = Time_sec(558.6);
 
     // Payload separation time (from Stage3) -- considered to be the Orbital
     // Insertion time:
-    constexpr Time_sec Stage3SepTime    = Time_sec(561.9);
+    constexpr auto Stage3SepTime    = Time_sec(561.9);
 
     //=======================================================================//
-    // Geometry:                                                             //
-    //=======================================================================//
-    //-----------------------------------------------------------------------//
     // Fairing:                                                              //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // XXX: The max diameter of the Fairing may depend on the Payload. However,
     // we currently consider it to be constant:
-    constexpr Len_m FairingDMax = Len_m(4.11);
-
-    //-----------------------------------------------------------------------//
-    // Stage3:                                                               //
-    //-----------------------------------------------------------------------//
-    // Diameter:
-    constexpr Len_m Stage3D     = Len_m(2.66);
-
-    // Length of the cylindrical shell (not including spherical segments):
-    constexpr Len_m Stage3Len   = Len_m(6.745);
+    constexpr auto FairingDMax = Len_m(4.11);
 
     //=======================================================================//
     // Masses:                                                               //
     //=======================================================================//
-    //-----------------------------------------------------------------------//
+    // Densities of Naftil (RG-1), Kerosene (T-1) and LOX:
+    constexpr auto RG1Dens = Density( 833.0);
+    constexpr auto T1Dens  = Density( 800.0);  // Another src: ~820
+    constexpr auto LOXDens = Density(1141.0);
+
+    //=======================================================================//
     // Stage 3 (Block I):                                                    //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // DryMass (incl the jettisonable Aft Section and the RD-0124 engine):
-    constexpr auto    Stage3DryMass  = Mass_kg(  2355.0);
+    constexpr auto    Stage3DryMass     = Mass_kg(  2355.0);
 
     // Mass of the RD-0124 engine (some srcs say 480 for an earlier version):
-    constexpr Mass_kg Stage3EngMass  = Mass_kg(  572.0);
+    constexpr auto Stage3EngMass        = Mass_kg(  572.0);
 
     // Masses of Fuel and Oxidiser:
-    constexpr Mass_kg Stage3FuelMass = Mass_kg( 7600.0);
-    constexpr Mass_kg Stage3OxidMass = Mass_kg(17800.0);
+    constexpr auto Stage3FuelMass       = Mass_kg( 7600.0);
+    constexpr auto Stage3OxidMass       = Mass_kg(17800.0);
 
     // Densities of the Fuel (Naftil RG-1) and Oxidiser (LOX):
-    constexpr Density Stage3FuelDens = Density( 8330.0);
-    constexpr Density Stage3OxidDens = Density(11410.0);
+    constexpr auto Stage3FuelDens       = RG1Dens;
+    constexpr auto Stage3OxidDens       = LOXDens;
+
+    // Diameter:
+    constexpr auto Stage3D              = Len_m(2.66);
+
+    // Length of the cylindrical shell (not including spherical segments):
+    constexpr auto Stage3Len            = Len_m(6.745);
+
+    // Fuel Tank, upper (neg-facing) spherical segm: base X-coord and Height:
+    constexpr auto Stage3FuelTankUpX0   = Len_m(0.718);
+    constexpr auto Stage3FuelTankUpH    = Len_m(1.340);
+
+    // Fuel Tank, central (cylindrical) section (neg-facing):
+    constexpr auto Stage3FuelTankCylX0  = Stage3FuelTankUpX0;
+    constexpr auto Stage3FuelTankCylH   = Len_m(0.373);
+
+    // FuelTank,  lower (pos-facing) spherical segm: base X-coord and Height:
+    constexpr auto Stage3FuelTankLoX0   = Stage3FuelTankUpX0
+                                        + Stage3FuelTankCylH;
+    constexpr auto Stage3FuelTankLoH    = Len_m(0.552);
+
+    // Oxidiser Tank
+
   }
 
   //=========================================================================//
   // Non-Default Ctor:                                                       //
   //=========================================================================//
-  template<typename Payload>
-  Soyuz_21b<Payload>::Soyuz_21b(Payload const& a_payload)
-  : m_payload (a_payload),
-    m_emptyMoI(EmptyMoI())
-  {}
-
-	//=========================================================================//
-	// "EmptyMoI": Moment of Inertia Computation for the Empty Rocket:         //
-	//=========================================================================//
   // For MoI computations, the following local co-ord system is used for conve-
   // nience (so that most X-coords are positive):
   // (*) The OX axis is the main axis of the rocket. The positive direction is
@@ -120,18 +126,23 @@ namespace SpaceBallistics
   // (*) The OY and OZ axes are such that the OXY and OXZ planes pass through
   //     the symmetry axes of the corresp opposite strap-on boosters (Stage 1),
   //     and OXYZ is a right-oriented co-ords system.
-  //
-	// XXX: All computations here are *APPROXIMATE*, using the thin shell model.
-	// The result is normalised to  the total empty mass of the rocket which is
-	// known reasonably accurately. Engines are modeled as point masses.
+	// XXX:
+	// (*) All computations here are *APPROXIMATE*, using the thin shell model.
+	//     The result is normalised to  the total empty mass of the rocket which
+	//     is known reasonably accurately. Engines are modeled as point masses.
+	// (*) All consts to be computes are first initialised to NAN, then set to
+	//     their actual values via "const_cast":
 	//
-	template<typename Payload>
-	MoI Soyuz_21b<Payload>::EmptyMoI() const
-	{
+  template<typename Payload>
+  Soyuz_21b<Payload>::Soyuz_21b(Payload const& a_payload)
+  : m_payload          (a_payload),
+    m_stage3FuelTankVol(NAN),
+    m_stage3OxidTankVol(NAN),
+    m_stage3AftMass    (NAN),
+    m_emptyMoI         (NAN)
+  {
     using namespace Soyuz_21b_Consts;
-    //-----------------------------------------------------------------------//
-    // Shells:                                                               //
-    //-----------------------------------------------------------------------//
+
     // Here we accumulate MoI per Surface Density and the Surface Area of all
     // Shells (initially 0s):
     // MoISV sum;
@@ -141,12 +152,11 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // It is a conical shell from FairingDMax to Stage3D, with the OX axis:
     //
-    // sum += MoIS_TrCone(FairingDMax, Stage3D, ...);
 
     //-----------------------------------------------------------------------//
     // Stage 3 ("Block I"):                                                  //
     //-----------------------------------------------------------------------//
-
-    return MoI(0.0);
+    // Cylindrincal shell with the top at x=0:
+    auto cyl3 = MoISV_TrCone_XY(Stage3D, Stage3D, Stage3Len, Len_m_0);
 	}
 }
