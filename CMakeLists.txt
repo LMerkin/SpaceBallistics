@@ -204,5 +204,5 @@ LINK_DIRECTORIES   ("${PROJECT_BINARY_DIR}"
 #=============================================================================#
 # Tests:                                                                      #
 #=============================================================================#
-ADD_EXECUTABLE(Test1 Tests/Test1.cpp)
+ADD_EXECUTABLE(Test0 Tests/Test0.cpp)
 

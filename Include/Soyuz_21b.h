@@ -18,24 +18,22 @@ namespace SpaceBallistics
 	template<typename Payload>
   class Soyuz_21b
   {
-  private:
+  public:
     //=======================================================================//
-    // Consts and Data Flds:                                                 //
+    // Consts and Data Flds (in the "public" part):                          //
     //=======================================================================//
     Payload   const m_payload;
 
     // Fairing:
 
-    // 3rd stage:
-    // Volume of the Fuel and Oxidiser Tank:
-    Vol       const m_stage3FuelTankVol;
-    Vol       const m_stage3OxidTankVol;
-    // We also need the mass of the Aft Section, because it is jettisonable:
-    Mass_kg   const m_stage3AftMass;
+    //-----------------------------------------------------------------------//
+    // 3rd stage:                                                            //
+    //-----------------------------------------------------------------------//
+    // NB: The following consts are actually static, but since they are comput-
+    // ed by the Ctor, it is more convenient to make them member flds:
+    Mass_kg   const m_stage3AftMass;      // Jetisonable Aft Mass
+    MoI       const m_stage3EmptyMoI;     // With Aft Secrion
 
-    MoI       const m_emptyMoI;
-
-  public:
     //=======================================================================//
     // Methods:                                                              //
     //=======================================================================//

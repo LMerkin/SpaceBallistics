@@ -34,6 +34,7 @@ namespace SpaceBallistics
 
   // Moment of Inertia:
   using MoI        = decltype(Mass_kg_1 * Area(1.0));
+  using SpecMoI    = decltype(IPow<4>(Len_m_1)); // MoI / Surface Density (L^4)
 
   // Velocity and Acceleration (in SI units):
   using Vel        = decltype(Len_m_1   / Time_sec_1);
@@ -41,5 +42,8 @@ namespace SpaceBallistics
 
   // Standard Gravity:
   constexpr Acc g0 = Acc(9.80665);
+
+  // Force:
+  using Force      = decltype(Mass_kg_1 * Acc(1.0));
 }
 // End namespace SpaceBallistics
