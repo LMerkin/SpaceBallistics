@@ -2,31 +2,57 @@
 //===========================================================================//
 //                            "Tests/Test0.cpp":                             //
 //===========================================================================//
-#include "Soyuz_21b.hpp"
+#include "SpaceBallistics/Soyuz21b.h"
+#include "SpaceBallistics/Soyuz21b.hpp"
 #include <iostream>
-
-using namespace SpaceBallistics;
-using namespace Soyuz_21b_Consts;
-using namespace std;
-
-namespace
-{
-  struct BoilerPlate {};
-}
 
 int main()
 {
-  Soyuz_21b<BoilerPlate> rks { BoilerPlate() };
+  using namespace std;
+  using namespace SpaceBallistics;
+  using namespace Soyuz21b_Consts;
 
-  // Compute the total fuel and oxidiser load for Stage3:
-  Mass_kg  maxFuelMass3 = Stage3FuelTankVol * RG1Dens;
-  Mass_kg  maxOxidMass3 = Stage3OxidTankVol * LOXDens;
-  Time_sec burnTime3    = (Stage3FuelMass + Stage3OxidMass) / Stage3MassRate;
+  // The LV Object:
+  Soyuz21b lv;
 
-  cout << "Stage3MaxFuelLoad: " << ToStr(maxFuelMass3).data()   << endl;
-  cout << "Stage3MaxOxidLoad: " << ToStr(maxOxidMass3).data()   << endl;
-  cout << "Stage3MassRate   : " << ToStr(Stage3MassRate).data() << endl;
-  cout << "Stage3BurnTime   : " << ToStr(burnTime3).data()      << endl;
+  // Gap in Stage3 between the bottom of FuelTank and the top of OxidTank:
+  Len  fuelTankBot3 = Stage3FuelTankLoX0 + Stage3FuelTankLoH;
+  Len  oxidTankTop3 = Stage3OxidTankUpX0 - Stage3OxidTankUpH;
+  cout << "Stage3FuelOxidGap   : " << ToStr(oxidTankTop3 - fuelTankBot3).data()
+       << endl;
+
+  // The max possible fuel and oxidiser load for Stage3 (using the max geometr-
+  // ical tank volumes):
+  Mass maxFuelMass3 = Stage3FuelTankVol * RG1Dens;
+  Mass maxOxidMass3 = Stage3OxidTankVol * LOXDens;
+  Time maxBurnTime3 = Stage3SpentMass / Stage3MassRate;
+
+  cout << "Stage3MaxFuelLoad   : " << ToStr(maxFuelMass3).data()   << endl;
+  cout << "Stage3ActFuelLoad   : "
+       << (double(Stage3FuelMass / maxFuelMass3) * 100.0) << " %"  << endl;
+
+  cout << "Stage3MaxOxidLoad   : " << ToStr(maxOxidMass3).data()   << endl;
+  cout << "Stage3ActOxidLoad   : "
+       << (double(Stage3OxidMass / maxOxidMass3) * 100.0) << " %"  << endl;
+
+  cout << "Stage3MassRate      : " << ToStr(Stage3MassRate).data() << endl;
+  cout << "Stage3MaxBurnTime   : " << ToStr(maxBurnTime3).data()   << endl;
+
+  // Percentage of the StaticThrust in the over-all thrust of Stage3:
+  cout << "Stage3StaticThrust  : " << ToStr(Stage3StaticThrust).data()
+       << "\n\t\t\t(" << (double(Stage3StaticThrust/Stage3ThrustVac) * 100.0)
+       << " % of over-all)" << endl;
+
+  // Length and Mass of the Stage3Aft:
+  cout << "Stage3AftLen        : " << ToStr(Stage3AftH).data()  << endl;
+  cout << "Stage3AftMass       : "
+       << ToStr(lv.m_stage3EmptyMass - lv.m_stage3NoAftEmptyMass).data()
+       << endl;
+  // MoI:
+  cout << "Stage3EmptyMoIY     : " << ToStr(lv.m_stage3EmptyMoIY).data()
+       << endl;
+  cout << "Stage3NoAftEmptyMoIY: " << ToStr(lv.m_stage3NoAftEmptyMoIY).data()
+       << endl;
 
   return 0;
 }

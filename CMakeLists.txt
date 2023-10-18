@@ -202,7 +202,19 @@ LINK_DIRECTORIES   ("${PROJECT_BINARY_DIR}"
                     "${ENV_PREFIX}/lib")
 
 #=============================================================================#
+# The Target Library:                                                         #
+#=============================================================================#
+ADD_LIBRARY(${PROJECT_NAME} STATIC
+  Src/ConstrElement.cpp
+  Src/Soyuz21b.cpp)
+
+#=============================================================================#
 # Tests:                                                                      #
 #=============================================================================#
-ADD_EXECUTABLE(Test0 Tests/Test0.cpp)
+SET(SB_TESTS
+  Test0)
 
+FOREACH(SB_TEST ${SB_TESTS})
+  ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)
+  TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME})
+ENDFOREACH(SB_TEST)

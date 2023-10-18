@@ -1,10 +1,10 @@
 // vim:ts=2
 //===========================================================================//
-//                            "Propellants.hpp":                             //
+//                             "Propellants.h":                              //
 //             Characteristics of Various Rocket Propellants                 //
 //===========================================================================//
 #pragma once
-#include "Types.hpp"
+#include "SpaceBallistics/Types.hpp"
 
 namespace SpaceBallistics
 {
