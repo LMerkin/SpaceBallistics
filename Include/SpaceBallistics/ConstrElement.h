@@ -31,9 +31,10 @@ namespace SpaceBallistics
     // Data Flds:                                                            //
     //=======================================================================//
     Mass  m_mass;         // Mass
-    Area  m_surfArea;     // Surface Area
-    Vol   m_vol;          // Notional volume (with imaginary bases added)
+    Area  m_surfArea;     // Side Surface Area (w/o Bases)
+    Vol   m_vol;          // Notional volume (with imaginary Bases added)
     Len   m_CoM[3];       // (X,Y,Z) co-ords of the Center of Masses
+    MoI   m_MoIX;
     MoI   m_MoIY;         // Moment of Inertia wrt the OY axis
     bool  m_massIsFinal;  // If not set, "m_mass" and "m_MoY" are not valid
 
@@ -53,7 +54,7 @@ namespace SpaceBallistics
     ConstrElement
       (Mass a_mass,  Area a_surf_area, Vol a_vol,
        Len  a_xc,    Len  a_yc,        Len a_zc,
-       MoI  a_moi_y, bool a_mass_is_final);
+       MoI  a_moi_x, MoI  a_moi_y,     bool a_mass_is_final);
 
   public:
     //-----------------------------------------------------------------------//
@@ -73,6 +74,7 @@ namespace SpaceBallistics
     Area         GetSurfArea() const { return m_surfArea; }
     Vol          GetVol()      const { return m_vol;      }
     typedef Len  Point[3];
+    using Point = decltype(m_CoM);
     Point const& GetCoM()      const { return m_CoM;      }
 
     // But the Mass and MoI may or may not be available:

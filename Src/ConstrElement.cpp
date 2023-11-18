@@ -15,6 +15,7 @@ namespace SpaceBallistics
     m_surfArea    (0.0),
     m_vol         (0.0),
     m_CoM         {0.0_m, 0.0_m, 0.0_m},
+    m_MoIX        (0.0),
     m_MoIY        (0.0),
     m_massIsFinal (false)
   {}
@@ -27,6 +28,7 @@ namespace SpaceBallistics
     m_surfArea    (a_right.m_surfArea),
     m_vol         (a_right.m_vol),
     m_CoM         {a_right.m_CoM[0], a_right.m_CoM[1], a_right.m_CoM[2]},
+    m_MoIX        (a_right.m_MoIX),
     m_MoIY        (a_right.m_MoIY),
     m_massIsFinal (a_right.m_massIsFinal)
   {}
@@ -38,19 +40,20 @@ namespace SpaceBallistics
   // and the "a_mass_is_valid" is set accordingly:
   ConstrElement::ConstrElement
   (
-    Mass a_mass,  Area a_surf_area,  Vol a_vol,
-    Len  a_xc,    Len  a_yc,         Len a_zc,
-    MoI  a_moi_y, bool a_mass_is_final
+    Mass a_mass,  Area a_surf_area, Vol a_vol,
+    Len  a_xc,    Len  a_yc,        Len a_zc,
+    MoI  a_moi_x, MoI  a_moi_y,     bool a_mass_is_final
   )
   : m_mass        (a_mass),
     m_surfArea    (a_surf_area),
     m_vol         (a_vol),
     m_CoM         {a_xc, a_yc, a_zc},
+    m_MoIX        (a_moi_x),
     m_MoIY        (a_moi_y),
     m_massIsFinal (a_mass_is_final)
   {
     assert(!(IsNeg(m_mass) || IsNeg(m_surfArea) || IsNeg(m_vol) ||
-             IsNeg(m_MoIY)));
+             IsNeg(m_MoIX) || IsNeg(m_MoIY)));
   }
 
   //=========================================================================//
@@ -75,6 +78,7 @@ namespace SpaceBallistics
 
     // Set the Mass and adjust the MoI:
     m_mass        = a_new_mass;
+    m_MoIX       *= scaleCoeff;
     m_MoIY       *= scaleCoeff;
     m_massIsFinal = true;
   }
@@ -266,9 +270,9 @@ namespace SpaceBallistics
   ConstrElement& ConstrElement::operator+= (ConstrElement const& a_right)
   {
     assert(!(IsNeg(m_mass)         || IsNeg(m_surfArea)         ||
-             IsNeg(m_MoIY)         ||
+             IsNeg(m_MoIX)         || IsNeg(m_MoIY)             ||
              IsNeg(a_right.m_mass) || IsNeg(a_right.m_surfArea) ||
-             IsNeg(a_right.m_MoIY)));
+             IsNeg(a_right.m_MoIX) || IsNeg(a_right.m_MoIY)));
 
     if (UNLIKELY(m_massIsFinal != a_right.m_massIsFinal))
       throw std::invalid_argument
@@ -283,6 +287,7 @@ namespace SpaceBallistics
     m_mass     += a_right.m_mass;
     m_surfArea += a_right.m_surfArea;
     m_vol      += a_right.m_vol;
+    m_MoIX     += a_right.m_MoIX;
     m_MoIY     += a_right.m_MoIY;
     // For the CoM, do the weighted average (but the total mass must be non-0):
     assert(IsPos(m_mass));

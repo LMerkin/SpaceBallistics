@@ -25,8 +25,8 @@ namespace SpaceBallistics
   // Derived Dimension Types and Values:                                     //
   //=========================================================================//
   // Area (m^2) and Volume (m^3):
-  using Area       = decltype(Sqr    (1.0_m));
-  using Vol        = decltype(IPow<3>(1.0_m));
+  using Area       = decltype(Sqr (1.0_m));
+  using Vol        = decltype(Cube(1.0_m));
 
   // Density (ie Volume Density, kg/m^3) and Surface (Area) Density (kg/m^2):
   using Density    = decltype(1.0_kg / Vol (1.0));
@@ -40,7 +40,7 @@ namespace SpaceBallistics
   using Acc        = decltype(1.0_m  / Sqr(1.0_sec));
 
   // Standard Gravity (m/sec^2):
-  constexpr Acc g0 = Acc(9.80665);
+  constexpr inline Acc g0 = Acc(9.80665);
 
   // Force (N = kg*m/sec^2):
   using Force      = decltype(1.0_kg * Acc(1.0));
