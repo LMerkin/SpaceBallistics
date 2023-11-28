@@ -100,7 +100,7 @@ case "$ToolChain" in
   "CLang")
     CXX=$(which clang++)
     ;;
-  *) echo "ERROR: Invalid ToolChain=$ToolChain (must be: NVHPC|GCC)";
+  *) echo "ERROR: Invalid ToolChain=$ToolChain (must be: GCC|CLang|NVHPC)";
      exit 1
 esac
 
