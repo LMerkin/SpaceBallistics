@@ -405,8 +405,9 @@ namespace SpaceBallistics
       m_mass     += a_right.m_mass;
       m_surfArea += a_right.m_surfArea;
       m_vol      += a_right.m_vol;
-      m_MoIX     += a_right.m_MoIX;
-      m_MoIY     += a_right.m_MoIY;
+      m_MoIs[0]  += a_right.m_MoIs[0];
+      m_MoIs[1]  += a_right.m_MoIs[1];
+      m_MoIs[2]  += a_right.m_MoIs[2];
 
       // For the CoM, do the weighted avg (but the total mass must be non-0):
       assert(IsPos(m_mass));
