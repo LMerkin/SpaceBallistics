@@ -109,8 +109,7 @@ ELSEIF("${TOOL_CHAIN}" STREQUAL "CLang")
                 -Wno-vla                      -Wno-vla-extension            \
                 -Wno-c99-extensions           -Wno-zero-length-array        \
                 -Wno-packed                   -Wno-undefined-func-template  \
-                -Wno-gnu-statement-expression -Wno-unused-const-variable    \
-                -Wno-unused-template")
+                -Wno-gnu-statement-expression")
 
 #-----------------------------------------------------------------------------#
 ELSEIF("${TOOL_CHAIN}" STREQUAL "NVHPC")
@@ -169,7 +168,9 @@ ENDIF()
 SET(CMAKE_SKIP_BUILD_RPATH         FALSE)
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
-INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/Include")
+INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/Include"
+                    "${DIMTYPES_TOP_DIR}/Include"
+)
 LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
 
 #=============================================================================#

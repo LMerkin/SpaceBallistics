@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                              "ConstrElement.h":                           //
+//                             "ConstrElement.hpp":                          //
 //                 Geometrical Objects as Construction Elements              //
 //===========================================================================//
 #pragma  once
@@ -34,7 +34,7 @@ namespace SpaceBallistics
     Area  m_surfArea;    // Side Surface Area (w/o Bases)
     Vol   m_vol;         // Notional volume (with imaginary Bases added)
     Len   m_CoM [3];     // (X,Y,Z) co-ords of the Center of Masses
-    MoI   m_MoIs[3];     // Moments of Inertial wrt the OX, OY and OZ axes
+    MoI   m_MoIs[3];     // Moments of Inertia wrt the OX, OY and OZ axes
     bool  m_massIsFinal; // If not set, "m_mass" and "m_MoIs" are not valid yet
 
   public:
@@ -61,8 +61,11 @@ namespace SpaceBallistics
     //
     constexpr ConstrElement            (ConstrElement const& a_right) = default;
     constexpr ConstrElement& operator= (ConstrElement const& a_right) = default;
-    constexpr bool           operator==(ConstrElement const& a_right) = default;
-    constexpr bool           operator!=(ConstrElement const& a_right) = default;
+
+    constexpr bool           operator==(ConstrElement const& a_right) const
+      = default;
+    constexpr bool           operator!=(ConstrElement const& a_right) const
+      = default;
 
   private:
     //=======================================================================//
@@ -98,7 +101,7 @@ namespace SpaceBallistics
     // it and pro-rates the mass-dependent params). After that, the mass  will
     // be final and cannot be changed anymore:
     //
-    constexpr void SetMass(Mass a_new_mass)
+    constexpr void SetMass(Mass a_final_mass)
     {
       // Cannot adjust the Mass once it has been finalised:
       assert(!m_massIsFinal);
@@ -106,14 +109,14 @@ namespace SpaceBallistics
       // Bot the curr and the new mass must be STRICTLY positive (if the former
       // is not, the scaling factor would be infinite; if the latter is not, it
       // just makes no sense):
-      assert(IsPos(m_mass) && IsPos(a_new_mass));
+      assert(IsPos(m_mass) && IsPos(a_final_mass));
 
       // If all is OK:
-      double scaleCoeff = double(a_new_mass / m_mass);
+      double scaleCoeff = double(a_final_mass / m_mass);
       assert(scaleCoeff > 0.0);
 
       // Set the Mass and adjust the MoIs:
-      m_mass        = a_new_mass;
+      m_mass        = a_final_mass;
       m_MoIs[0]    *= scaleCoeff;
       m_MoIs[1]    *= scaleCoeff;
       m_MoIs[2]    *= scaleCoeff;
@@ -194,37 +197,51 @@ namespace SpaceBallistics
       bool inXY = IsZero(a_z0);
       bool inXZ = IsZero(a_y0);
       assert(inXY || inXZ);
-      double yz0   = inXY ? a_y0 : a_z0;
+      Len  yz0  = inXY ? a_y0 : a_z0;
 
       double cosA  = Cos(a_alpha);
       double sinA  = Sin(a_alpha);
-      double tanA  = sinA / cosA;
+      double tanA  = sinA  / cosA;
 
-      auto   r     = a_d0 / 2.0;    // "Left"  (smaller "x") base radius
-      auto   R     = a_d1 / 2.0;    // "Right" (larger  "x") base radius
+      Len    r     = a_d0  / 2.0;   // "Left"  (smaller "x") base radius
+      Len    R     = a_d1  / 2.0;   // "Right" (larger  "x") base radius
+      Len    s     = R + r;
+      Len    s1    = R + r / 2.0;
       auto   R2    = Sqr(R);
       auto   r2    = Sqr(r);
-      auto   s     = R + r;
-      auto   th2   = 2.0 * Sqr(a_h);
+      auto   h2    = Sqr(a_h);
+      auto   th2   = 2.0 * h2;
+      auto   yz02  = Sqr(yz0);
+
+      // The coeff which is present in all MoI exprs below:
       auto   coeff = (M_PI/4.0) * SqRt(Sqr(R - r) + Sqr(a_h));
 
-      // Relative MoIs (per Surface Density): Denoted "L4*", since their dim is
-      // Len^4. Must all be strictly > 0.
-      // L4 wrt OX:
-      auto L4X =
+      // The common term present in "L4x" and "L4in":
+      auto   cTerm = R2 * s + (r2 - th2) * R + (r2 - th2/3.0) * r;
 
-      // L4 wrt the other principal axis lying  IN  the  plane (OX,TrConeAxis):
+      // Relative MoIs (per Surface Density): Denoted "L4{x,in,orth}", since
+      // their dim is Len^4. Must all be strictly > 0:
+      //
+      // "L4x": L4 wrt OX:
+      auto L4x =
+        coeff *
+        (cTerm * (1.0 + Sqr(cosA)) + (16.0/3.0) * yz0 * a_h * s1 * sinA +
+         4.0   * (R * (h2 + yz02)  + r * (yz02  + h2/3.0)));
+
+      // "L4in":
+      // L4 wrt the other principal axis lying   IN the plane  (OX,TrConeAxis):
       // that is, if the TrConeAxis lies in OXY, it is OY;  if in OXZ, then XZ;
       // if in both (ie TrConeAxis coincides with OX), then "L4in" and "L4orth"
       // (see below) must be equal.
       // NB: "L4in" is invariant of the sign of "alpha":
       auto L4in =
         coeff *
-        (cosA * ((16.0/3.0) * (R  + r/2.0) * a_h * a_x0  -
+        (cosA * ((16.0/3.0) * a_h *  s1 * a_x0 -
                 cosA * (R2  * s   + (r2 - th2) * R + (r2 - th2/3.0) * r)) +
          2.0 * s * (R2 + r2 + 2.0 * Sqr(a_x0)));
       assert(IsPos(L4in));
 
+      // "L4orth":
       // L4 wrt the axis orthogonal to the (OX,TrConeAxis) plane;  that is, if
       // the TrConeAxis lies in OXY, it is OZ; if in OXZ, then XY; if  in both
       // (ie TrConeAxis coincides with OX),  then "L4in"a and "L4orth" must be
@@ -235,8 +252,8 @@ namespace SpaceBallistics
       //
       auto L4orth =
         coeff *
-        (a_h  * ((16.0/3.0) * (R + r/2.0) * (a_x0 * cosA + yz0 * sinA)  +
-                 2.0 * a_h  * (R + r/3.0))                              +
+        (a_h  * ((16.0/3.0) * s1 * (a_x0 * cosA + yz0 * sinA) +
+                 2.0 * a_h  * (R + r/3.0))                    +
          s * (R2 + r2 + 4.0 * (Sqr(a_x0)  + Sqr(yz0))));
       assert(IsPos(L4orth));
 
@@ -252,20 +269,27 @@ namespace SpaceBallistics
       // Mass and MoIs:
       bool hasMass  = IsPos(a_mass);
       auto surfDens = hasMass ? (a_mass / S) : SurfDens(1.0);
-      auto M        = hasMass ?  a_mass      : (S * surfDens);
+      Mass M        = hasMass ?  a_mass      : (S * surfDens);
+
+      // DON'T DO IT:
+      //decltype(1_kg / Sqr(1_m)) surfDens;
+      //if (hasMass)
+      //  surfDens = a_mass / S;
+      //else
+      //  surfDens = SurfDens(1.0);
 
       // So the actial MoIs are:
-      auto MoIX     = L4X                      * surfDens;
-      auto MoIY     = (inXY ? L4in   : L4orth) * surfDens;
-      auto MoIZ     = (inXY ? L4orth : L4in)   * surfDens;
+      MoI  MoIX     = L4x                      * surfDens;
+      MoI  MoIY     = (inXY ? L4in   : L4orth) * surfDens;
+      MoI  MoIZ     = (inXY ? L4orth : L4in)   * surfDens;
 
       // Co-ords of the CoM:
       // The X-coord is such that the above L4 is minimal. Other co-ords are
       // computed from the rotation axis geometry:
-      auto deltaXC  = cosA * (2.0 * R + r) / (3.0 * (R + r)) * a_h;
-      auto xC       = a_x0 + deltaXC;
-      auto yC       = inXY ? (a_y0 + deltaXC * tanA) : 0.0_m;
-      auto zC       = inXZ ? (a_z0 + deltaXC * tanA) : 0.0_m;
+      Len  deltaXC  = cosA * (2.0 * R + r) / (3.0 * (R + r)) * a_h;
+      Len  xC       = a_x0 + deltaXC;
+      Len  yC       = inXY ? (a_y0 + deltaXC * tanA) : 0.0_m;
+      Len  zC       = inXZ ? (a_z0 + deltaXC * tanA) : 0.0_m;
 
       return ConstrElement(M, S, V, xC, yC, zC, MoIX, MoIY, MoIZ, hasMass);
     }
@@ -350,6 +374,8 @@ namespace SpaceBallistics
       auto surfDens = hasMass ? (a_mass / S) : SurfDens(1.0);
       auto M        = hasMass ?  a_mass      : (S * surfDens);
       auto MoIY     = L4 * surfDens;
+      auto MoIX     = MoIY;
+      auto MoIZ     = MoIY;
 
       // Co-ords of the CoM:
       // The X-coord is such that the above L4 is minimal. Other co-ords are
@@ -363,7 +389,7 @@ namespace SpaceBallistics
       assert(( a_is_pos_facing && xC < xP) ||
              (!a_is_pos_facing && xC > xP));
 
-      return ConstrElement(M, S, V, xC, yC, zC, MoIY, hasMass);
+      return ConstrElement(M, S, V, xC, yC, zC, MoIX, MoIY, MoIZ, hasMass);
     }
 
     //=======================================================================//

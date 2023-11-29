@@ -5,7 +5,7 @@
 //===========================================================================//
 #include "SpaceBallistics/Soyuz21b.h"
 #include "SpaceBallistics/Soyuz21b.hpp"
-#include "SpaceBallistics/ConstrElement.h"
+#include "SpaceBallistics/ConstrElement.hpp"
 
 namespace SpaceBallistics
 {
@@ -15,7 +15,6 @@ namespace SpaceBallistics
   Soyuz21b::Soyuz21b()
   {
     using namespace Soyuz21b_Consts;
-    using CE =      ConstrElement;
 
     //-----------------------------------------------------------------------//
     // IntegStage and Stage 3 ("Block I"):                                   //
@@ -79,14 +78,14 @@ namespace SpaceBallistics
 
     // Set the computed Stage3 Consts:
     const_cast<Mass&>(m_stage3EmptyMass)      = st3.GetMass();
-    const_cast<MoI&> (m_stage3EmptyMoIY)      = st3.GetMoIY();
+    const_cast<MoI&> (m_stage3EmptyMoIY)      = st3.GetMoIs()[1];
 
     const_cast<Mass&>(m_stage3NoAftEmptyMass) =
       m_stage3EmptyMass - aft3Mass;
     assert(IsPos(m_stage3NoAftEmptyMass));
 
     const_cast<MoI&> (m_stage3NoAftEmptyMoIY) =
-      m_stage3EmptyMoIY - aft3.GetMoIY();
+      m_stage3EmptyMoIY - aft3.GetMoIs()[1];
     assert(IsPos(m_stage3NoAftEmptyMoIY));
   }
 }

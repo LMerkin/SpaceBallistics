@@ -22,8 +22,8 @@
 //
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
-#include "SpaceBallistics/ConstrElement.h"
 #include "SpaceBallistics/Propellants.h"
+#include "SpaceBallistics/ConstrElement.hpp"
 
 namespace SpaceBallistics::Soyuz21b_Consts
 {
