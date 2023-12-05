@@ -11,7 +11,7 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // Construction Element:                                                   //
+  // "ConstrElement": Base Class for Construction Elements:                  //
   //=========================================================================//
   // General characteristics of standard construction elements:
   // Currently, 2D Shells (Truncated Cones and Spherical Segments), 3D Volumes
@@ -26,14 +26,30 @@ namespace SpaceBallistics
   //
   class ConstrElement
   {
-  private:
+  public:
+    //=======================================================================//
+    // Consts and Types:                                                     //
+    //=======================================================================//
+    // "UnKnownMass": Param to be used for "ConstElement"s when their mass is
+    // not yet known (all real Masses are of course strictly positive):
+    //
+    constexpr static Mass UnKnownMass = 0.0_kg;
+
+    // The following types might be useful for derived classes:
+    using Len2 = decltype(Sqr     (1.0_m));    // Same as "Area"
+    using Len3 = decltype(Cube    (1.0_m));    // Same as "Vol"
+    using Len4 = decltype(Sqr(Sqr (1.0_m)));
+    using Len5 = decltype(Sqr(Sqr (1.0_m)) * 1.0_m);
+    using Len6 = decltype(Sqr(Cube(1.0_m)));
+
+  protected:
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
-    Mass  m_mass;        // Mass
     Area  m_surfArea;    // Side Surface Area (w/o Bases)
     Vol   m_vol;         // Notional volume (with imaginary Bases added)
     Len   m_CoM [3];     // (X,Y,Z) co-ords of the Center of Masses
+    Mass  m_mass;        // Mass
     MoI   m_MoIs[3];     // Moments of Inertia wrt the OX, OY and OZ axes
     bool  m_massIsFinal; // If not set, "m_mass" and "m_MoIs" are not valid yet
 
@@ -46,10 +62,10 @@ namespace SpaceBallistics
     // for summation ("+", "+="):
     //
     constexpr ConstrElement()
-    : m_mass       (0.0),
-      m_surfArea   (0.0),
+    : m_surfArea   (0.0),
       m_vol        (0.0),
       m_CoM        {0.0_m,    0.0_m,    0.0_m},
+      m_mass       (0.0),
       m_MoIs       {MoI(0.0), MoI(0.0), MoI(0.0)},
       m_massIsFinal(false)
     {}
@@ -67,33 +83,6 @@ namespace SpaceBallistics
     constexpr bool           operator!=(ConstrElement const& a_right) const
       = default;
 
-  private:
-    //=======================================================================//
-    // Non-Default Ctor:                                                     //
-    //=======================================================================//
-    // For internal use only. NB: The "a_mass" param may be final or provisio-
-    // nal, and the "a_mass_is_valid" is set accordingly.
-    // External callers should use various Generators (see below) instead:
-    //
-    constexpr ConstrElement
-    (
-      Mass a_mass,  Area a_surf_area, Vol a_vol,
-      Len  a_xc,    Len  a_yc,        Len a_zc,
-      MoI  a_moi_x, MoI  a_moi_y,     MoI a_moi_z,
-      bool a_mass_is_final
-    )
-    : m_mass        (a_mass),
-      m_surfArea    (a_surf_area),
-      m_vol         (a_vol),
-      m_CoM         {a_xc,    a_yc,    a_zc},
-      m_MoIs        {a_moi_x, a_moi_y, a_moi_z},
-      m_massIsFinal (a_mass_is_final)
-    {
-      assert(!(IsNeg(m_mass)    || IsNeg(m_surfArea) || IsNeg(m_vol)    ||
-               IsNeg(m_MoIs[0]) || IsNeg(m_MoIs[1])  || IsNeg(m_MoIs[2])));
-    }
-
-  public:
     //=======================================================================//
     // "SetMass":                                                            //
     //=======================================================================//
@@ -134,197 +123,457 @@ namespace SpaceBallistics
     using     Point = decltype(m_CoM);
     using     MoIs  = decltype(m_MoIs);
 
-    constexpr Point const& GetCoM() const { return m_CoM;   }
+    constexpr Point const& GetEmptyCoM() const { return m_CoM; }
 
     // But the Mass and MoIs  may or may not be available.
     // If not, assert failure will be signaled (NB: in C++ >= 14, "assert" is
     // allowed in "constexpr" functions, whereas throwing exceptions is not):
     //
-    constexpr Mass GetMass() const
+    constexpr Mass GetEmptyMass() const
     {
       assert(m_massIsFinal);
       return m_mass;
     }
 
-    constexpr MoIs const& GetMoIs() const
+    constexpr MoIs const& GetEmptyMoIs() const
     {
       assert(m_massIsFinal);
       return m_MoIs;
     }
 
     //=======================================================================//
-    // "ShellTrCone" Generator:                                              //
+    // Addition:                                                             //
     //=======================================================================//
-    // Object  : Truncated (in general) conical shell (side surface only), with
-    //           SurfDensity assumed to be 1 (this may later be changed by cal-
-    //           ling "ProRateMass" on the object constructed).
-    // Geometry: Base diameters "d0" and "d1", height "h";  may have  d0<=>d1 ;
-    //           either "d0" or "d1" may be be 0 (ie full cone), but  not both.
-    // Location: XXX: Either "z0" or "y0" must be 0. The cone axis is lying in
-    //           the XY or XZ plane, resp., at the angle  "alpha" to the posit-
-    //           ive direction of the OX axis; we assume that |alpha| < Pi/2;
-    //           the "d0" base diameter corresponds to the base center (x0,y0)
-    //           (if z0=0, ie XY plane) or (x0,z0) (if y0=0, ie XZ plane); the
-    //           "d1" diameter corresponds to  the other end of the cone axis
-    //           segment (with X = x1 > x0);
-    //           when alpha=0, the axis of the Spherical Segment coincides with
-    //           OX, which is the most common case.
-    // Mass:     If the "mass" param is set, its value is used  for the element
-    //           mass which is in this case final. If this param is 0, the mass
-    //           is set under the assumtion of SutfDensity=1, and it is NOT fi-
-    //           nal yet (needs to be set later via "SetMass").
-    // Return value: The resulting "ConstrElement" object.
+    // The summands must both have final or non-final masses. Only one summand
+    // is allowed to have zero mass, otherwise we cannot compute the CoM:
     //
-    constexpr static ConstrElement ShellTrCone
+    constexpr ConstrElement& operator+= (ConstrElement const& a_right)
+    {
+      assert(m_massIsFinal == a_right.m_massIsFinal    &&
+             !(IsZero(m_mass) && IsZero(a_right.m_mass)));
+
+      // Masses, SurfAreas, Vols and MoIs are directly-additive:
+      Mass    m0  = m_mass;
+      m_surfArea += a_right.m_surfArea;
+      m_vol      += a_right.m_vol;
+      m_mass     += a_right.m_mass;
+      m_MoIs[0]  += a_right.m_MoIs[0];
+      m_MoIs[1]  += a_right.m_MoIs[1];
+      m_MoIs[2]  += a_right.m_MoIs[2];
+
+      // For the CoM, do the weighted avg (but the total mass must be non-0):
+      assert(IsPos(m_mass));
+      double mu0 = double(m0             / m_mass);
+      double mu1 = double(a_right.m_mass / m_mass);
+      m_CoM[0]   = mu0 * m_CoM[0]  + mu1 * a_right.m_CoM[0];
+      m_CoM[1]   = mu0 * m_CoM[1]  + mu1 * a_right.m_CoM[1];
+      m_CoM[2]   = mu0 * m_CoM[2]  + mu1 * a_right.m_CoM[2];
+      return *this;
+    }
+
+    constexpr ConstrElement operator+ (ConstrElement const& a_right) const
+    {
+      ConstrElement res = *this;
+      res += a_right;
+      return res;
+    }
+  };
+
+  //=========================================================================//
+  // "PointMass":                                                            //
+  //=========================================================================//
+  // A positive mass concentrated in the (x0, y0, z0) point:
+  //
+  class PointMass final: public ConstrElement
+  {
+  public:
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctor:                                                     //
+    //-----------------------------------------------------------------------//
+    constexpr PointMass(Len a_x0, Len a_y0, Len a_z0, Mass a_mass)
+    {
+      assert(IsPos(a_mass));
+
+      // Initialising the Base Class's Flds:
+      m_surfArea = Area(0.0);
+      m_vol      = Vol (0.0);
+      m_CoM[0]   = a_x0;
+      m_CoM[1]   = a_y0;
+      m_CoM[2]   = a_z0;
+
+      m_mass     = a_mass;
+      Len2 x2    = Sqr(a_x0);
+      Len2 y2    = Sqr(a_y0);
+      Len2 z2    = Sqr(a_z0);
+      m_MoI[0]   = a_mass * (y2 + z2); // Distance^2 to the OX axis
+      m_MoI[1]   = a_mass * (x2 + z2); // Distance^2 to the OY axis
+      m_MoI[2]   = a_mass * (x2 + y2); // Distance^2 to the OZ axis
+
+      // The point-mass is considered to be final:
+      m_massIsFinal = true;
+    }
+  };
+
+  //=========================================================================//
+  // "TrCone": Truncated Cone Shell (w/o and with Propellant):               //
+  //=========================================================================//
+  // Object  : Truncated (in general) conical shell (side surface only), with
+  //           SurfDensity assumed to be 1 (this may later be changed by cal-
+  //           ling "ProRateMass" on the object constructed).
+  // Geometry: Base diameters "d0" and "d1", height "h";  may have  d0<=>d1 ;
+  //           either "d0" or "d1" may be be 0 (ie full cone), but  not both.
+  // Location: XXX: Either "z0" or "y0" must be 0. The cone axis is lying in
+  //           the XY or XZ plane, resp., at the angle  "alpha" to the posit-
+  //           ive direction of the OX axis; we assume that |alpha| < Pi/2;
+  //           the "d0" base diameter corresponds to the base center (x0,y0)
+  //           (if z0=0, ie XY plane) or (x0,z0) (if y0=0, ie XZ plane); the
+  //           "d1" diameter corresponds to  the other end of the cone axis
+  //           segment (with X = x1 > x0);
+  //           when alpha=0, the axis of the Spherical Segment coincides with
+  //           OX, which is the most common case.
+  // Mass:     If the "mass" param is set, its value is used  for the element
+  //           mass which is in this case final. If this param is 0, the mass
+  //           is set under the assumtion of SutfDensity=1, and it is NOT fi-
+  //           nal yet (needs to be set later via "SetMass").
+  // Return value: The resulting "ConstrElement" object.
+  //
+  class TrCone final: public ConstrElement
+  {
+  private:
+    //-----------------------------------------------------------------------//
+    // Data Flds: Truncated Cone's Geometry:                                 //
+    //-----------------------------------------------------------------------//
+    Len       m_r;        // Left  (upper) base radius
+    Len       m_R;        // Right (lower) base radius
+    Len       m_h;        // Height
+    double    m_cosA;     // cos(alpha)
+    double    m_cosA2;    // cos(alpha)^2
+    double    m_sinA;     // sin(alpha)
+    double    m_sinA2;    // sin(alpha)^2
+    Len       m_base1[3]; // Right (lower) base center
+    bool      m_inXY;     // If false, then inXZ holds (but both may be true)
+    bool      m_inXZ;     //
+
+    // Propellant-related flds:
+    Density   m_rho;      // Propellant Density
+    Mass      m_propCap;  // Propellant Mass Capacity
+
+    // We also memoise pre-computed coeffs of the Cardano formula and MoIs
+    // computation in the 3D case (with Propellant):
+    Len       m_deltaR;
+    Len3      m_clVol;
+    Len2      m_Rh;
+    Len6      m_Rh3;
+    // The following coeffs has different dimensions, so cannot make an array
+    // of them -- they need to be stored individually:
+    double    m_JP05;   // coeff(JP0, l^5)
+    Len       m_JP04;   // coeff(JP0, l^4)
+    Len2      m_JP03;   // coeff(JP0, l^3)
+    double    m_JP15;   // coeff(JP1, l^5)
+    Len       m_JP14;   // coeff(JP1, l^4)
+    Len2      m_JP13;   // coeff(JP1, l^3)
+    Len3      m_JP12;   // coeff(JP1, l^2)
+    Len4      m_JP11;   // coeff(JP1, l)
+    double    m_KP4;    // coeff(KP,  l^4)
+    Len       m_KP3;    // coeff(KP,  l^3)
+    Len2      m_KP2;    // coeff(KP,  l^2)
+
+  public:
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctor:                                                     //
+    //-----------------------------------------------------------------------//
+    constexpr TrCone
     (
-      Len     a_x0,
-      Len     a_y0,
-      Len     a_z0,
-      double  a_alpha,     // Dimension-less, in (-Pi/2 .. Pi/2)
-      Len     a_d0,        // Base diameter at x0
-      Len     a_d1,        // Base diameter at the other section (x1 > x0)
-      Len     a_h,         // Must be > 0
-      Mass    a_mass       // 0 if the mass is not known yet
+      Len     a_x0,       // Left  (upper) base center
+      Len     a_y0,       //
+      Len     a_z0,       //
+      double  a_alpha,    // Dimension-less, in (-Pi/2 .. Pi/2)
+      Len     a_d0,       // Left  (upper) base diameter
+      Len     a_d1,       // Right (lower) base diameter
+      Len     a_h,        // Height
+      Density a_rho,      // Propellant Density (may be 0)
+      Mass    a_empty_mass = UnKnownMass
     )
     {
+      //---------------------------------------------------------------------//
+      // This Class's Flds Initialisation:                                   //
+      //---------------------------------------------------------------------//
       assert( IsPos(a_h)   && !IsNeg(a_d0)  && !IsNeg(a_d1) &&
-            !(IsZero(a_d0) && IsZero(a_d1)) && Abs(a_alpha) < M_PI_2);
+            !(IsZero(a_d0) && IsZero(a_d1)) && Abs(a_alpha) < Pi_2<double> &&
+            ! IsNeg(a_rho) && !IsNeg(a_rho));
 
-      // At least one of "z0", "y0" must be 0, because the TrCone axis lies
-      // either in the OXY plane or in the OXZ plane (or indeed in both, if
-      // that axis coincides with OX):
-      //
-      bool inXY = IsZero(a_z0);
-      bool inXZ = IsZero(a_y0);
-      assert(inXY || inXZ);
-      Len  yz0  = inXY ? a_y0 : a_z0;
+      // Is the rotation axis lying in the XY plane or XZ plane (or both, in
+      // which case "alpha" must be 0):
+      m_inXY     = IsZero(a_z0);
+      m_inXZ     = IsZero(a_y0);
+      assert(  m_inXY || m_inXZ );
+      assert(!(m_inXY && m_inXZ) || a_alpha == 0.0);
 
-      double cosA  = Cos(a_alpha);
-      double sinA  = Sin(a_alpha);
-      double tanA  = sinA  / cosA;
+      // The over-all sizes:
+      m_r        = a_d0 / 2.0; // Left  (upper, smaller "x") base radius
+      m_R        = a_d1 / 2.0; // Right (lower, larger  "x") base radius
+      m_h        = a_h;
 
-      Len    r     = a_d0  / 2.0;   // "Left"  (smaller "x") base radius
-      Len    R     = a_d1  / 2.0;   // "Right" (larger  "x") base radius
-      Len    s     = R + r;
-      Len    s1    = R + r / 2.0;
-      auto   R2    = Sqr(R);
-      auto   r2    = Sqr(r);
-      auto   h2    = Sqr(a_h);
-      auto   th2   = 2.0 * h2;
-      auto   yz02  = Sqr(yz0);
+      // Rotation axis orientation angle:
+      m_cosA     = Cos(a_alpha);
+      m_cosA2    = Sqr(m_cosA);
+      m_sinA     = Sin(a_alpha);
+      m_sinA2    = Sqr(m_sinA);
 
-      // The coeff which is present in all MoI exprs below:
-      auto   coeff = (M_PI/4.0) * SqRt(Sqr(R - r) + Sqr(a_h));
+      // Co-ords of the right (lower) base center:
+      m_base1[0] = a_x0            + cosA * m_h;
+      m_base1[1] = (m_inXY ? (a_y0 + sinA * m_h) : 0.0_m);
+      m_base1[2] = (m_inXZ ? (a_z0 + sinA * m_h) : 0.0_m);
 
-      // The common term present in "L4x" and "L4in":
-      auto   cTerm = R2 * s + (r2 - th2) * R + (r2 - th2/3.0) * r;
-
-      // Relative MoIs (per Surface Density): Denoted "L4{x,in,orth}", since
-      // their dim is Len^4. Must all be strictly > 0:
-      //
-      // "L4x": L4 wrt OX:
-      auto L4x =
-        coeff *
-        (cTerm * (1.0 + Sqr(cosA)) + (16.0/3.0) * yz0 * a_h * s1 * sinA +
-         4.0   * (R * (h2 + yz02)  + r * (yz02  + h2/3.0)));
-
-      // "L4in":
-      // L4 wrt the other principal axis lying   IN the plane  (OX,TrConeAxis):
-      // that is, if the TrConeAxis lies in OXY, it is OY;  if in OXZ, then XZ;
-      // if in both (ie TrConeAxis coincides with OX), then "L4in" and "L4orth"
-      // (see below) must be equal.
-      // NB: "L4in" is invariant of the sign of "alpha":
-      auto L4in =
-        coeff *
-        (cosA * ((16.0/3.0) * a_h *  s1 * a_x0 -
-                cosA * (R2  * s   + (r2 - th2) * R + (r2 - th2/3.0) * r)) +
-         2.0 * s * (R2 + r2 + 2.0 * Sqr(a_x0)));
-      assert(IsPos(L4in));
-
-      // "L4orth":
-      // L4 wrt the axis orthogonal to the (OX,TrConeAxis) plane;  that is, if
-      // the TrConeAxis lies in OXY, it is OZ; if in OXZ, then XY; if  in both
-      // (ie TrConeAxis coincides with OX),  then "L4in"a and "L4orth" must be
-      // equal.
-      // NB: "L4orth" is invariant iunder the transform
-      //              yz0 <-> (-yz0), alpha <-> (-alpha),
-      // where yz0 is "a_y0" or "a_z0" depending on the plane of TrConeAxis:
-      //
-      auto L4orth =
-        coeff *
-        (a_h  * ((16.0/3.0) * s1 * (a_x0 * cosA + yz0 * sinA) +
-                 2.0 * a_h  * (R + r/3.0))                    +
-         s * (R2 + r2 + 4.0 * (Sqr(a_x0)  + Sqr(yz0))));
-      assert(IsPos(L4orth));
-
-      // And indeed, if alpha==0 and yz0==0, then indeed L4in == L4orth (verif-
-      // ied with Maple).
+      //---------------------------------------------------------------------//
+      // Parent Class's Flds Initialisation:                                 //
+      //---------------------------------------------------------------------//
+      m_deltaR   = m_R - m_r;
+      Len2 h2    = Sqr(m_h);
+      Len  s     = SqRt(Sqr(m_deltaR) + h2);
+      double a   = double(m_deltaR /  m_h);
+      double a2  = Sqr(a);
+      double a3  = a2 * a;
+      double a4  = Sqr(a2);
+      Len2   R2  = Sqr(m_R);
+      Len3   R3  = R2 * m_R;
+      Len4   R4  = Sqr(R2);
 
       // Side Surface Area and Notional Volume:
-      auto S = SideSurfArea_TrCone(a_d0, a_d1, a_h);
-      auto V = Volume_TrCone      (a_d0, a_d1, a_h);
+      m_surfArea = Pi<double>     * s   * (m_R + m_r);
+      m_vol      = Pi<double>/3.0 * m_h * (R2  + m_R * m_r + r2);
 
       // The mass may or may not be given. If it is given,  calculate the Surf-
       // ace Density; otherwise, assume the SurfDens to be 1.0.   Then set the
       // Mass and MoIs:
-      bool hasMass  = IsPos(a_mass);
-      auto surfDens = hasMass ? (a_mass / S) : SurfDens(1.0);
-      Mass M        = hasMass ?  a_mass      : (S * surfDens);
+      m_massIsFinal = IsPos(a_empty_mass);
+      SurfDens surfDens =
+        m_massIsFinal   ? (a_empty_mass / m_surfArea) : SurfDens(1.0);
+      m_mass            =
+        m_massIsFinal   ?  a_empty_mass               : (m_surfArea * surfDens);
 
-      // DON'T DO IT:
-      //decltype(1_kg / Sqr(1_m)) surfDens;
-      //if (hasMass)
-      //  surfDens = a_mass / S;
-      //else
-      //  surfDens = SurfDens(1.0);
+      // Components of the "empty" MoI per SurfDensity in the "embedded" axes:
+      Len4 J0    =  Pi<double> * h2 * s * (m_r / 2.0  + m_R / 6.0);
+      Len4 J1    =  Pi<double>/4.0  * s * (m_R + m_r) * (R2 + r2);
+      Len3 K     = -Pi<double>/3.0  * s *  m_h * (2.0 * m_r + m_R);
 
-      // So the actial MoIs are:
-      MoI  MoIX     = L4x                      * surfDens;
-      MoI  MoIY     = (inXY ? L4in   : L4orth) * surfDens;
-      MoI  MoIZ     = (inXY ? L4orth : L4in)   * surfDens;
+      Len4 Jx    =  m_sinA2 * J0    + (1.0 + m_cosA2) * J1  +
+                    m_yz1 * (m_yz1  * m_surfArea + 2.0 * m_sinA * K);
+      assert(IsPos(Jx));
 
-      // Co-ords of the CoM:
-      // The X-coord is such that the above L4 is minimal. Other co-ords are
-      // computed from the rotation axis geometry:
-      Len  deltaXC  = cosA * (2.0 * R + r) / (3.0 * (R + r)) * a_h;
-      Len  xC       = a_x0 + deltaXC;
-      Len  yC       = inXY ? (a_y0 + deltaXC * tanA) : 0.0_m;
-      Len  zC       = inXZ ? (a_z0 + deltaXC * tanA) : 0.0_m;
+      Len4 Jin   =  m_cosA2 * J0  + (1.0 + m_sinA2) * J1  +
+                    m_x1  * (m_x1 * m_surfArea  + 2.0 * m_cosA * K);
+      assert(IsPos(Jin));
 
-      return ConstrElement(M, S, V, xC, yC, zC, MoIX, MoIY, MoIZ, hasMass);
+      Len4 Jort  =  J0  + J1    + (Sqr(m_x1)    + Sqr(m_yz1)) * m_surfArea +
+                    2.0 * (cosA * m_x1  +  sinA * m_yz1) * K;
+      assert(IsPos(Jort));
+
+      m_MoIs[0]  =  m_surfDens * Jx;
+      m_MoIs[1]  =  m_surfDens * (m_inXY ? Jin  : Jort);
+      m_MoIs[2]  =  m_surfDens * (m_inXY ? Jort : Jin);
+
+      // The "empty" CoM:
+      // "xiC" is the "local" co-ord of the CoM (xi=0 at x=x1), so it is < 0:
+      Len  xiC   =  K / m_surfArea;
+      assert(IsNeg(xiC));
+      m_CoM[0]   =  m_base1[0]           + cosA * xiC;
+      m_CoM[1]   =  m_inXY ? (m_base1[1] + sinA * xiC) : 0.0_m;
+      m_CoM[2]   =  m_inXZ ? (m_base1[2] + sinA * xiC) : 0.0_m;
+
+      // Propellant:
+      m_rho      =  a_rho;
+      m_propCap  =  m_vol * m_rho;
+
+      // Memoised coeffs of the Cardano formula (used in "GetPropParams"):
+      m_clVol    =  (3.0 / Pi<double>) * h2 * m_deltaR;
+      m_Rh       =  m_R * m_h;
+      m_Rh3      =  Cube (m_Rh);
+
+      // Memoised coeffs for MoIs of the 3D Propellant (see "GetPropParams"):
+      m_JP05     =  Pi<double> / 5.0 * a2;
+      m_JP04     = -Pi<double> / 2.0 * a  * m_R;
+      m_JP03     =  Pi<double> / 3.0 * R2;
+
+      m_JP15     =  Pi<double> /20.0 * a4;
+      m_JP14     = -Pi<double> / 4.0 * a3 * m_R;
+      m_JP13     =  Pi<double> / 2.0 * a2 * R2;
+      m_JP12     = -Pi<double> / 2.0 * a  * R3;
+      m_JP11     =  Pi<double> / 4.0 * R4;
+
+      m_KP4      = -Pi<double> / 4.0 * a2;
+      m_KP3      =  Pi<double> * 2.0 / 3.0 * a * m_R;
+      m_KP2      = -Pi<double> / 2.0 * R2;
     }
 
-    //=======================================================================//
-    // "ShellSpherSegm":                                                     //
-    //=======================================================================//
-    // Similar to "ShellTrCone", but for a Spherical Segment of the base diam-
-    // eter "d" and the height (from the base plane to the pole) "h", where we
-    // assume h <= d/2 (the equality corresponds to the case of a HemiSphere).
-    // NB: this is a Shperical Segment,  NOT a Spherical Slice,  ie it always
-    // contains a pole. The Spherical Slice would be a more general case and a
-    // more close analogy of the Truncated Cone, but it would (arguably) have
-    // almost no real applications.
-    // Furthermore, "alpha" is the angle between the segment's axis and the po-
-    // sitive direction of the X axis; we assume that |alpha| < Pi/2;
-    // (x0, y0, z0) are the co-ords of the base center (NOT of the pole!), and
-    // either "z0" or "y0" must be 0;  in the former case, the Segment's rotat-
-    // ion axis is assumed to lie in the XY plane, in the latter -- in XZ.
-    // The spherical segment may be facing towards the positive direction   of
-    // the OX axis (ie the X-coord of the pole is > x0), or otherise, as given
-    // by the "is_pos_facing" flag.
-    // When alpha=0, the axis of the Spherical Segment coincides with OX, which
-    // is the most common case:
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctor, Simple Common Case:                                 //
+    //-----------------------------------------------------------------------//
+    // Assume that the rotation axis coinsides with Ox, then y0=z0=alpha=0:
     //
-    constexpr static ConstrElement ShellSpherSegm
+    constexpr TrCone
     (
-      bool    a_is_pos_facing,
+      Len     a_x0,       // Left  (upper) base center
+      Len     a_d0,       // Left  (upper) base diameter
+      Len     a_d1,       // Right (lower) base diameter
+      Len     a_h,        // Height
+      Mass    a_empty_mass = UnKnownMass
+    )
+    : TrCone(a_x0, 0.0_m, 0.0_m, 0.0, a_d0, a_d1, a_h, a_empty_mass)
+    {}
+
+    //-----------------------------------------------------------------------//
+    // "GetPropParams":                                                      //
+    //-----------------------------------------------------------------------//
+    // Fills in the CoM and MoI of the Propellant filling this TrCone, with the
+    // current volume "m_prop_vol". If the "InclEmpty" flag is set,  the result
+    // also incorporates the "empty" CoM and MoI:
+    //
+    constexpr void GetPropParams
+    (
+      Mass  a_prop_mass;  // Curr mass of propellant in this TrCone
+      bool  a_with_empty, // Incorporate "empty" CoM and MoI in the results?
+      Len   a_com [3],    // Output
+      MoI   a_mois[3]     // Output
+    )
+    const
+    {
+      // Checks:
+      assert(a_com != nullptr && a_mois != nullptr);
+
+      // Check the limits of the Propellant Mass:
+      assert(!IsNeg(a_prop_mass) && a_prop_mass <= m_propCap);
+
+      // Also, there is little point in calling this method if the "empty" mass
+      // and MoIs atr not final yet:
+      assert(m_massIsFinal);
+
+      // The Propellant Volume: Make sure it is within the limits to avoid
+      // rounding errors:
+      Vol propVol = std::min(a_prop_mass / m_rho, m_vol);
+
+      // The Propellant Level. XXX: We assume that the propellant surface is
+      // always orthogonal to the TrCone rotation axis:
+      Len l =
+        IsZero(m_deltaR):
+        ? // R==r: The simplest and the most common case: A Cylinder:
+          double(propVol / m_vol) * m_h
+
+        : // General case: Solving a cubic equation by the Cardano formula;
+          // since Vol'(l) > 0, there is only 1 root:
+          (CbRt(m_clVol * propVol - m_Rh3) + m_Rh) / m_deltaR;
+
+      // Mathematically, we must have 0 <= l <= h; but enforce that interval
+      // explicitly to prevent rounding errors:
+      l = std::max(std::min(l, m_h), 0.0_m);
+
+      // Radius of the propellant surface (at the level "l"). Again, enforce
+      // its range:
+      double x  = double(l / m_h);
+      assert(0 <= x && x <= 1.0);     // 0 --> R;  1 --> r:
+      Len    rl = (1.0-x) * m_R + x * m_r;
+
+      // MoIs of the Priopellant: similar to the "empty" case in the Ctor, but
+      // in 3D:
+      // NB: The formulas for Jx, Jin, Jort and MoIs are similar to those  the
+      // 2D case (with SurfArea -> PropVol), but the "low-level" J0, J1, K are
+      // somewhat different. BEWARE: use "propVol", not the total "m_vol"!
+      //
+      Len2 l2    = Sqr (l);
+      Len3 l3    = l2 * l;
+      Len5 JP0   = (   (m_JP05 * l + m_JP04) * l + m_JP03) * l3;
+      Len5 JP1   = (((((m_JP15 * l + m_JP14) * l + m_JP13) * l) + m_JP12)
+                               * l + m_JP11) * l;
+      Len4 KP    = (  ((m_KP4  * l + m_KP3 ) * l + m_KP2 ) * l2;
+      assert(!IsPos(KP));
+
+      Len5 JPx   =  m_sinA2 * JP0  + (1.0    + m_cosA2)     * JP1   +
+                    m_yz1 * (m_yz1 * propVol + 2.0 * m_sinA * K);
+      assert(IsPos(JPx));
+
+      Len5 JPin  =  m_cosA2 * JP0  + (1.0    + m_sinA2)     * JP1   +
+                    m_x1  * (m_x1  * propVol + 2.0 * m_cosA * KP);
+      assert(IsPos(JPin));
+
+      Len5 JPort =  JP0 + JP1   + (Sqr(m_x1)  + Sqr(m_yz1)) * propVol +
+                    2.0 * (cosA * m_x1 + sinA * m_yz1) * KP;
+      assert(IsPos(JPort));
+
+      a_mois[0]  =  m_rho * JPx;
+      a_mois[1]  =  m_rho * (m_inXY ? JPin  : JPort);
+      a_mois[2]  =  m_rho * (m_inXY ? JPort : JPin);
+
+      // CoM of the Propellant:
+      // "xiC" is the "local" co-ord of the CoM (xi=0 at x=x1), so it is < 0.
+      // NB:   if propVol=0, then l=0 and KP=0 as well, so the generic formula
+      // for "xiC" does not work anymore; but the limit is obviously xiC=0:
+      Len xiC    = (LIKELY(!IsZero(propVol))) ? KP : 0.0_m;
+      assert(!IsPos(xiC));
+      a_com[0]   =  m_base1[0]           + cosA * xiC;
+      a_com[1]   =  m_inXY ? (m_base1[1] + sinA * xiC) : 0.0_m;
+      a_com[2]   =  m_inXZ ? (m_base1[2] + sinA * xiC) : 0.0_m;
+
+      // Finally, if "empty" CoM and MoIs are to be taken into account, do so
+      // (we made sure they are final yet):
+      //
+      if (a_with_empty)
+      {
+        // MoIs are simpli additive:
+        a_mois[0] += m_MoIs[0];
+        a_mois[1] += m_MoIs[1];
+        a_mois[2] += m_MoIs[2];
+
+        // CoM co-ords are weighted averages:
+        Mass   totalMass = m_mass + a_prop_mass;
+        assert(IsPos(totalMass));
+        double fP        = double(a_prop_mass / totalMass); // Prop  Mass Frac
+        double fE        = 1.0 - fP;                        // Empty Mass Frac
+        a_com[0]  = fP * a_com[0] + fE * m_CoM[0];
+        a_com[1]  = fP * a_com[1] + fE * m_CoM[1];
+        a_com[2]  = fP * a_com[2] + fP * m_CoM[2];
+      }
+      // All Done!
+    }
+  };
+
+  //=========================================================================//
+  // "SpherSegm":                                                            //
+  //=========================================================================//
+  // Similar to "TrCone", but for a Spherical Segment of the base diameter "d"
+  // and the height (from the base plane to the pole) "h", where we assume
+  // h <= d/2 (the equality corresponds to the case of a HemiSphere).
+  // NB: this is a Shperical Segment,  NOT a Spherical Slice,  ie it always
+  // contains a pole. The Spherical Slice would be a more general case and a
+  // more close analogy of the Truncated Cone, but it would (arguably) have
+  // almost no real applications.
+  // Furthermore, "alpha" is the angle between the segment's axis and the po-
+  // sitive direction of the X axis; we assume that |alpha| < Pi/2;
+  // (x0, y0, z0) are the co-ords of the base center (NOT of the pole!), and
+  // either "z0" or "y0" must be 0;  in the former case, the Segment's rotat-
+  // ion axis is assumed to lie in the XY plane, in the latter -- in XZ.
+  // The spherical segment may be facing towards the positive direction   of
+  // the OX axis (ie the X-coord of the pole is > x0), or otherise, as given
+  // by the "is_pos_facing" flag.
+  // When alpha=0, the axis of the Spherical Segment coincides with OX, which
+  // is the most common case:
+  //
+/*
+  class SpherSegm
+  {
+
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctor:                                                     //
+    //-----------------------------------------------------------------------//
+    SpherSegm
+    (
+      bool    a_facing_up,
       Len     a_x0,           // X-coord of the base center (NOT of the pole!)
       Len     a_y0,
       Len     a_z0,
       double  a_alpha,        // Dimension-less, in (-Pi/2 .. Pi/2)
       Len     a_d,            // Base diameter
       Len     a_h,            // Height: 0 < a_h <= a_d/2.0
-      Mass    a_mass          // 0 if the mass is not known yet
+      Mass    a_empty_mass    // 0 if the mass is not known yet
     )
     {
       // NB: We must always have 0 < h <= R:
@@ -332,7 +581,7 @@ namespace SpaceBallistics
              Abs(a_alpha) < M_PI_2);
 
       // The mass may or may not be given:
-      bool hasMass = IsPos(a_mass);
+      bool hasMass = IsPos(a_empty_mass);
 
       // At least one of "z0", "y0" must be 0:
       bool inXY    = IsZero(a_z0);
@@ -371,8 +620,8 @@ namespace SpaceBallistics
 
       // If the mass is given, calculate the Surface Density; otherwise, assume
       // it is 1.0. Then set the Mass and MoI:
-      auto surfDens = hasMass ? (a_mass / S) : SurfDens(1.0);
-      auto M        = hasMass ?  a_mass      : (S * surfDens);
+      auto surfDens = hasMass ? (a_empty_mass / S) : SurfDens(1.0);
+      auto M        = hasMass ?  a_empty_mass      : (S * surfDens);
       auto MoIY     = L4 * surfDens;
       auto MoIX     = MoIY;
       auto MoIZ     = MoIY;
@@ -392,88 +641,6 @@ namespace SpaceBallistics
       return ConstrElement(M, S, V, xC, yC, zC, MoIX, MoIY, MoIZ, hasMass);
     }
 
-    //=======================================================================//
-    // "PointMass":                                                          //
-    //=======================================================================//
-    // A positive mass concentrated in the (x0, y0, z0) point:
-    //
-    constexpr static ConstrElement PointMass
-      (Len a_x0, Len a_y0, Len a_z0, Mass a_mass)
-    {
-      assert(IsPos(a_mass));
-
-      auto x2   = Sqr(a_x0);
-      auto y2   = Sqr(a_y0);
-      auto z2   = Sqr(a_z0);
-      auto MoIX = a_mass * (y2 + z2); // Distance^2 to the OX axis
-      auto MoIY = a_mass * (x2 + z2); // Distance^2 to the OY axis
-      auto MoIZ = a_mass * (x2 + y2); // Distance^2 to the OZ axis
-
-      // The mass is considered to be final:
-      return ConstrElement
-             (a_mass, Area(0.0), Vol(0.0), a_x0, a_y0, a_z0, MoIX, MoIY, MoIZ,
-              true);
-    }
-
-    //=======================================================================//
-    // Addition:                                                             //
-    //=======================================================================//
-    // The summands must both have final or non-final masses. Only one summand
-    // is allowed to have zero mass, otherwise we cannot compute the CoM:
-    //
-    constexpr ConstrElement& operator+= (ConstrElement const& a_right)
-    {
-      assert(m_massIsFinal == a_right.m_massIsFinal    &&
-             !(IsZero(m_mass) && IsZero(a_right.m_mass)));
-
-      // Masses, SurfAreas, Vols and MoIs are directly-additive:
-      auto m0     = m_mass;
-      m_mass     += a_right.m_mass;
-      m_surfArea += a_right.m_surfArea;
-      m_vol      += a_right.m_vol;
-      m_MoIs[0]  += a_right.m_MoIs[0];
-      m_MoIs[1]  += a_right.m_MoIs[1];
-      m_MoIs[2]  += a_right.m_MoIs[2];
-
-      // For the CoM, do the weighted avg (but the total mass must be non-0):
-      assert(IsPos(m_mass));
-      double mu0 = double(m0             / m_mass);
-      double mu1 = double(a_right.m_mass / m_mass);
-      m_CoM[0]   = mu0 * m_CoM[0]  + mu1 * a_right.m_CoM[0];
-      m_CoM[1]   = mu0 * m_CoM[1]  + mu1 * a_right.m_CoM[1];
-      m_CoM[2]   = mu0 * m_CoM[2]  + mu1 * a_right.m_CoM[2];
-      return *this;
-    }
-
-    constexpr ConstrElement operator+ (ConstrElement const& a_right) const
-    {
-      ConstrElement res = *this;
-      res += a_right;
-      return res;
-    }
-
-    //=======================================================================//
-    // UTILS: Side Surface Areas and Volumes of Construction Elements:       //
-    //=======================================================================//
-    //-----------------------------------------------------------------------//
-    // Shell -- Truncated Cone:                                              //
-    //-----------------------------------------------------------------------//
-    // "d0" and "d1" are the diameters of the bases, "h" is the height:
-    //
-    constexpr static Area SideSurfArea_TrCone(Len a_d0, Len a_d1, Len a_h)
-    {
-      assert(!(IsNeg(a_d0) || IsNeg(a_d1) || (IsZero(a_d0) && IsZero(a_d1))) &&
-             IsPos(a_h));
-      return M_PI_2 * a_h * (a_d0 + a_d1);
-    }
-
-    constexpr static Vol  Volume_TrCone      (Len a_d0, Len a_d1, Len a_h)
-    {
-      assert(!(IsNeg(a_d0) || IsNeg(a_d1) || (IsZero(a_d0) && IsZero(a_d1))) &&
-             IsPos(a_h));
-      return (M_PI/12.0) * a_h * (Sqr(a_d0) + a_d0 * a_d1 + Sqr(a_d1));
-    }
-
     //-----------------------------------------------------------------------//
     // Shell -- Spherical Segment:                                           //
     //-----------------------------------------------------------------------//
@@ -490,6 +657,6 @@ namespace SpaceBallistics
       assert(IsPos(a_h) && a_h <= a_d/2.0);
       return M_PI * a_h * (Sqr(a_d)/8.0 + Sqr(a_h)/6.0);
     }
-  };
+*/
 }
 // End namespace SpaceBallistics
