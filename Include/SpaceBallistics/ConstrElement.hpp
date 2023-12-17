@@ -208,7 +208,8 @@ namespace SpaceBallistics
     // Addition / Subtraction:                                               //
     //=======================================================================//
     // The summands must both have FINAL masses. Only one summand is allowed to
-    // have zero mass, otherwise we cannot compute the CoM:
+    // have zero mass, otherwise we cannot compute the CoM.  WE ASSUME that the
+    // summands DO NOT INTERSECT in space:
     //
     constexpr ConstrElement& operator+= (ConstrElement const& a_right)
     {
@@ -789,6 +790,7 @@ namespace SpaceBallistics
       Density a_rho,      // Propellant Density (may be 0)
       Mass    a_empty_mass = UnKnownMass
     )
+    : RotationBody()      // Trivial as yet
     {
       //---------------------------------------------------------------------//
       // Over-All Geometry:                                                  //
@@ -858,9 +860,9 @@ namespace SpaceBallistics
     }
 
     //=======================================================================//
-    // Non-Default Ctor, Simple Case (Cylinder with OX axis):                //
+    // Non-Default Ctor, Simple Cases (TrCone/Cylinder with OX axis):        //
     //=======================================================================//
-    // Assume that the rotation axis coinsides with Ox, then y0=z0=alpha=0:
+    // "TrCone" with the rotation axis coinsiding with Ox: y0=z0=alpha=0:
     //
     constexpr TrCone
     (
@@ -872,6 +874,18 @@ namespace SpaceBallistics
       Mass    a_empty_mass = UnKnownMass
     )
     : TrCone(a_x0, 0.0_m, 0.0_m, 0.0, a_d0, a_d1, a_h, a_rho, a_empty_mass)
+    {}
+
+    // As above, but with d0=d1, ie a Cylinder:
+    constexpr TrCone
+    (
+      Len     a_x0,       // Left  (Upper, Smaller-X) base center
+      Len     a_d0,       // Left  (Upper, Smaller-X) base diameter
+      Len     a_h,        // Height
+      Density a_rho,      // 0 may be OK
+      Mass    a_empty_mass = UnKnownMass
+    )
+    : TrCone(a_x0, 0.0_m, 0.0_m, 0.0, a_d0, a_d0, a_h, a_rho, a_empty_mass)
     {}
   };
 
@@ -978,6 +992,7 @@ namespace SpaceBallistics
       Density a_rho,            // Propellant Density (may be 0)
       Mass    a_empty_mass = UnKnownMass
     )
+    : RotationBody()            // Trivial as yet
     {
       //---------------------------------------------------------------------//
       // Over-All Geometry:                                                  //
@@ -1051,8 +1066,10 @@ namespace SpaceBallistics
     }
 
     //=======================================================================//
-    // Non-Default Ctor, Simple Case: (Hemi-Sphere with OX axis):            //
+    // Non-Default Ctor, Simple Cases:
     //=======================================================================//
+    // Rotation axis coinciding with OX:
+    //
     constexpr SpherSegm
     (
       bool    a_facing_right,
@@ -1063,6 +1080,20 @@ namespace SpaceBallistics
       Mass    a_empty_mass = UnKnownMass
     )
     : SpherSegm(a_facing_right, a_x0, 0.0_m, 0.0_m, 0.0, a_d, a_h, a_rho,
+                a_empty_mass)
+    {}
+
+    // As above, but with d/2 = h, ie a HemiSpehere:
+    //
+    constexpr SpherSegm
+    (
+      bool    a_facing_right,
+      Len     a_x0,       // Base center
+      Len     a_d,        // Base diameter
+      Density a_rho,      // 0 may be OK
+      Mass    a_empty_mass = UnKnownMass
+    )
+    : SpherSegm(a_facing_right, a_x0, 0.0_m, 0.0_m, 0.0, a_d, a_d / 2.0, a_rho,
                 a_empty_mass)
     {}
   };

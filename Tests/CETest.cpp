@@ -14,7 +14,9 @@ int main()
   using namespace SpaceBallistics;
   using namespace std;
 
-  // MoIs and CoM of a Cylinder:
+  //-------------------------------------------------------------------------//
+  // MoIs and CoM of a Cylinder:                                             //
+  //-------------------------------------------------------------------------//
   constexpr Len     D   = 2.0_m;
   constexpr Len     h   = 5.0_m;
   constexpr Density rho(1.0);
@@ -22,24 +24,23 @@ int main()
   constexpr Vol     v   = Pi<double> * Sqr(R) * h;
   constexpr Mass    propMass = v * rho;
 
-  TrCone cyl(0.0_m, D, D, h, rho, 1.0_kg);
-
+  constexpr TrCone  cyl {0.0_m, D, D, h, rho, 1.0_kg};
   Len com [3];
   MoI mois[3];
   cyl(propMass, false, com, mois);
 
-  cout << "V="    << v      << endl;
-  cout << "  xC=" << com[0] << ", yC=" << com[1] << ", zC="   << com[2]
-       << endl;
-  cout << "Expected: xC="   << (h/2.0) << ", yC=zC=" << 0.0_m << endl << endl;
+  // Diffs:
+  Len dC  [3] {Abs(com[0] - h/2.0), Abs(com[1]), Abs(com[2])};
 
-  cout <<   "Jx=" << mois[0]
-       << ", Jy=" << mois[1]
-       << ", Jz=" << mois[2] << endl;
+  cout << "CYLINDER:" << endl;
+  cout << "dxC=" << dC[0] << ", dyC=" << dC[1] << ", dzC=" << dC[2] << endl;
+
   // Expected MoIs for the Cylinder:
-  MoI JxE = propMass *  Sqr(R) / 2.0;
-  MoI JyE = propMass * (Sqr(R) / 4.0 + Sqr(h) / 3.0);
+  MoI JxE  = propMass *  Sqr(R) / 2.0;
+  MoI JyzE = propMass * (Sqr(R) / 4.0 + Sqr(h) / 3.0);
 
-  cout << "Expected: Jx=" << JxE << ", Jy=Jz=" << JyE << std::endl;
+  cout <<   "dJx=" << Abs(mois[0] - JxE)  << ", dJy=" << Abs(mois[1] - JyzE)
+       << ", dJz=" << Abs(mois[2] - JyzE) << endl;
+
   return 0;
 }
