@@ -93,7 +93,7 @@ ELSEIF("${TOOL_CHAIN}" STREQUAL "CLang")
 #-----------------------------------------------------------------------------#
   # Optimisation and debugging flags:
   IF ("${CMAKE_BUILD_TYPE}"     STREQUAL "Release")
-    SET(CXXFLAGS "-O3 -mavx2 -DNDEBUG -funroll-loops -fomit-frame-pointer")
+    SET(CXXFLAGS "-O3 -mavx2 -funroll-loops -fomit-frame-pointer")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
     SET(CXXFLAGS "-O2 -g -funroll-loops")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug"  )
@@ -123,7 +123,7 @@ ELSEIF("${TOOL_CHAIN}" STREQUAL "NVHPC")
 #-----------------------------------------------------------------------------#
   # Optimisation and debugging flags:
   IF ("${CMAKE_BUILD_TYPE}"     STREQUAL "Release")
-    SET(CXXFLAGS "-O3 -mavx2 -DNDEBUG")
+    SET(CXXFLAGS "-O3 -mavx2")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
     SET(CXXFLAGS "-O2 -g")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug"  )
