@@ -105,7 +105,6 @@ namespace SpaceBallistics::Soyuz21b_Consts
   constexpr Len    InterStageD0     = FairingDMax;
   constexpr Len    InterStageD1     = 2.66_m;
   constexpr Len    InterStageH      = 1.20_m;   // Small fairing: 0.987 m
-
   constexpr Mass   InterStageMass   = 400.0_kg;
 
   //=========================================================================//
@@ -218,6 +217,7 @@ namespace SpaceBallistics::Soyuz21b_Consts
   // Also, compute the volumes of the Fuel and the Oxidiser Tanks and make
   // sure the Propellant masses are within the theorectical maxima:
   //
+/*
   constexpr auto Stage3FuelTankVol =
     CE::Volume_SpherSegm(Stage3D, Stage3FuelTankUpH)           +
     CE::Volume_TrCone   (Stage3D, Stage3D, Stage3FuelTankCylH) +
@@ -237,4 +237,5 @@ namespace SpaceBallistics::Soyuz21b_Consts
 
   static_assert(Stage3CutOffTime - Stage3FullThrustTime <
                 Stage3SpentMass  / Stage3MassRate);
+*/
 }

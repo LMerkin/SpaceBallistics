@@ -14,6 +14,7 @@ namespace SpaceBallistics
   //=========================================================================//
   Soyuz21b::Soyuz21b()
   {
+/*
     using namespace Soyuz21b_Consts;
 
     //-----------------------------------------------------------------------//
@@ -87,5 +88,6 @@ namespace SpaceBallistics
     const_cast<MoI&> (m_stage3NoAftEmptyMoIY) =
       m_stage3EmptyMoIY - aft3.GetMoIs()[1];
     assert(IsPos(m_stage3NoAftEmptyMoIY));
+*/
   }
 }

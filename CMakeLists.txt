@@ -43,10 +43,17 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${BIN_DIR}")
 #=============================================================================#
 # First of all, we need "DimType" (which is a Headers-Only library):
 # 
-SET(DIMTYPES_TOP_DIR "${CMAKE_SOURCE_DIR}/../DimTypes")
-IF (NOT IS_DIRECTORY   "${DIMTYPES_TOP_DIR}")
-  MESSAGE(FATAL_ERROR  "${DYMTYPES_TOP_DIR} not found")
+SET(DIMTYPES_TOP_DIR  "${CMAKE_SOURCE_DIR}/../DimTypes")
+IF (NOT IS_DIRECTORY  "${DIMTYPES_TOP_DIR}")
+  MESSAGE(FATAL_ERROR "${DYMTYPES_TOP_DIR} not found")
 ENDIF()
+
+# Extend the PkgConfig search path (for *.pc files) -- useful for those modules
+# which can be found via PkgConfig:
+SET(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${ENV_PREFIX}/lib/pkgconfig")
+
+# Boost (no specific version checks); here used as a Headers-Only library:
+FIND_PACKAGE(Boost  REQUIRED)
 
 #=============================================================================#
 # Compiler Settings:                                                          #
@@ -62,7 +69,7 @@ IF("${TOOL_CHAIN}" STREQUAL "GCC")
     # "-ffast-math" option -- it will result in incorrect treatment of "NaN"s!
     # -flto"               -- it intereacts in a strange way with header-only
     #                         code!
-    SET(CXXFLAGS "-O3 -mavx2 -DNDEBUG -funroll-loops -fomit-frame-pointer")
+    SET(CXXFLAGS "-O3 -mavx2 -funroll-loops -fomit-frame-pointer")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
     SET(CXXFLAGS "-O2 -g -funroll-loops")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
@@ -143,11 +150,10 @@ SET(CMAKE_CXX_FLAGS_RELEASE        "")
 SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "")
 SET(CMAKE_CXX_FLAGS_DEBUG          "")
 
-#-----------------------------------------------------------------------------#
-# Special defs (mostly for Boost) and libs:                                   #
-#-----------------------------------------------------------------------------#
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXXFLAGS}")
-ADD_DEFINITIONS(-DUNCHECKED_MODE=${UNCHECKED_MODE})
+IF (UNCHECKED_MODE)
+  ADD_DEFINITIONS(-DUNCHECKED_MODE=1 -DNDEBUG)
+ENDIF()
 
 #-----------------------------------------------------------------------------#
 # Common Configs:                                                             #
@@ -183,6 +189,7 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
 # Tests:                                                                      #
 #=============================================================================#
 SET(SB_TESTS
+  CETest
   Test0)
 
 FOREACH(SB_TEST ${SB_TESTS})
