@@ -151,8 +151,10 @@ SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "")
 SET(CMAKE_CXX_FLAGS_DEBUG          "")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXXFLAGS}")
+
+ADD_DEFINITIONS(-DUNCHECKED_MODE=${UNCHECKED_MODE})
 IF (UNCHECKED_MODE)
-  ADD_DEFINITIONS(-DUNCHECKED_MODE=1 -DNDEBUG)
+  ADD_DEFINITIONS(-DNDEBUG)
 ENDIF()
 
 #-----------------------------------------------------------------------------#
@@ -183,14 +185,14 @@ LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
 # The Target Library:                                                         #
 #=============================================================================#
 ADD_LIBRARY(${PROJECT_NAME} STATIC
-  Src/Soyuz21b.cpp)
+  Src/Soyuz21b_Stage3.cpp)
 
 #=============================================================================#
 # Tests:                                                                      #
 #=============================================================================#
 SET(SB_TESTS
   CETest
-  Test0)
+  Stage3Test)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)
