@@ -84,12 +84,11 @@ namespace SpaceBallistics::Soyuz21b_Stage3_Consts
   // XXX: These figures may not be highly accurate, as it is unclear whether
   // they refer to Naftil or Kerosene. The OxidRate is quoted somewhere as
   // 56.7 kg/sec, which is clearly too low.
-  // In different sources, Oxidiser/Fuel Ratio is 2.5..2.6, here 2.54 which
-  // looks about right.
+  // In different sources, Oxidiser/Fuel Ratio is 2.5..2.6, here 2.50:
   // These figure must be consistent with the BurnDur and the StaticThrust
   // below:
-  constexpr inline auto   FuelRateFT    = 23.6_kg / 1.0_sec;
-  constexpr inline auto   OxidRateFT    = 59.9_kg / 1.0_sec;
+  constexpr inline auto   FuelRateFT    = 23.8_kg / 1.0_sec;
+  constexpr inline auto   OxidRateFT    = 59.6_kg / 1.0_sec;
   constexpr inline auto   MassRateFT    = FuelRateFT + OxidRateFT;
 
   // The MassRate is connected to Specific Impulse and Thrust, but we must
