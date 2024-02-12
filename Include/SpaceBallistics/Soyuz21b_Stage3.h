@@ -6,16 +6,16 @@
 #pragma  once
 #include "SpaceBallistics/ConstrElement.hpp"
 #include "SpaceBallistics/Soyuz21b_Consts.h"
-#include "SpaceBallistics/Soyuz21b_Head_Consts.h"
+#include "SpaceBallistics/Soyuz21b_Head.h"
 #include "SpaceBallistics/Propellants.h"
 #include "SpaceBallistics/StageDynParams.h"
 #include <cassert>
 
 namespace SpaceBallistics
 {
-  namespace SC  = Soyuz21b_Consts;
-  namespace SHC = Soyuz21b_Head_Consts;
-  using     CE  = ConstrElement;
+  namespace SC = Soyuz21b_Consts;
+  namespace SH = Soyuz21b_Head;
+  using     CE = ConstrElement;
 
   //=========================================================================//
   // "Soyuz21b_Stage3" Class:                                                //
@@ -46,7 +46,7 @@ namespace SpaceBallistics
     // Geometry:                                                             //
     //-----------------------------------------------------------------------//
     // Stage3 Over-All:
-    constexpr static Len  D               = SHC::InterStageD1;
+    constexpr static Len  D               = SH::InterStageD1;
     constexpr static Len  H               = 6.745_m;
 
     // Stage3 Fore Section:
@@ -95,7 +95,7 @@ namespace SpaceBallistics
     constexpr static Mass   GasesMass     = 30.0_kg;  // He, air, ...
     constexpr static Mass   FullMass      = EmptyMass + FuelMass + OxidMass +
                                             GasesMass;
- 
+
     // UnSpendable Remnants of the Fuel and Oxidiser in Stage3 at the engine
     // cut-off time:
     constexpr static Mass   FuelRem       = 104.0_kg; // StarSem: 98 kg
@@ -108,6 +108,7 @@ namespace SpaceBallistics
     constexpr static Time   IspVac        = 359.0_sec;
     constexpr static Force  ThrustVac     = Force(294.3e3);
     constexpr static double ThrottlRate   = 0.5;
+    constexpr static Force  ThrottlThrust = ThrottlRate * ThrustVac;
 
     // The actual MassRates at Full Thrust:
     // XXX: These figures may not be highly accurate, as it is unclear whether
@@ -128,9 +129,6 @@ namespace SpaceBallistics
       ThrustVac - MassRateFT * IspVac * g0;
     static_assert(IsPos(StaticThrust));
 
-    //=======================================================================//
-    // Data Flds:                                                            //
-    //=======================================================================//
   private:
     //-----------------------------------------------------------------------//
     // "ConstrElement"s: "Proto"s with Yet-UnKnown Masses:                   //
@@ -235,17 +233,20 @@ namespace SpaceBallistics
       );
 
   private:
-    // Scale Factor to determine the individual masses:
+    // Scale Factor to determine the individual masses. NB: For simplicity, we
+    // include the Mass of the Gases (which is very small) into the  TotalMass
+    // of the "ConstElement"s:
+    //
     constexpr static double ScaleFactor =
       CE::GetMassScale
       (
-        // Components for which we have the TotalMass:
+        // Components for which we provide the TotalMass (below):
         { &ForeSectionProto,
           &FuelTankUpProto, &FuelTankMidProto, &FuelTankLowProto,
           &EquipBayProto,
           &OxidTankUpProto, &OxidTankMidProto, &OxidTankLowProto
         },
-        // The TotalMass (XXX: incl Gases -- we need to put them somewhere):
+        // The TotalMass (incl Gases):
         EmptyMass + GasesMass - AftMass - EngMass
       );
 
@@ -280,6 +281,14 @@ namespace SpaceBallistics
     constexpr static SpherSegm OxidTankLow =
       CE::ProRateMass(OxidTankLowProto, ScaleFactor);
 
+    // "ConstrElement"s for the Empty Stage with Gases ("EG"): Before and After
+    // Jettisoning of the AftSection:
+    constexpr static CE EGAfterCE  =
+      ForeSection + FuelTankUp  + FuelTankMid  + FuelTankLow +
+      EquipBay    + OxidTankUp  + OxidTankMid  + OxidTankLow + Engine;
+
+    constexpr static CE EGBeforeCE = EGAfterCE + AftSection;
+ 
     //-----------------------------------------------------------------------//
     // Geometry Checks:                                                      //
     //-----------------------------------------------------------------------//
@@ -294,8 +303,8 @@ namespace SpaceBallistics
     // cylindrical shell (but inside both kinds of InterStages):
     constexpr static Len FuelTankTop  = FuelTankUp.GetLeft()[0];
     static_assert(IsNeg (FuelTankTop) &&
-                  FuelTankTop > - SHC::InterStageLargeH  &&
-                  FuelTankTop > - SHC::InterStageSmallH);
+                  FuelTankTop > - SH::InterStageLargeH  &&
+                  FuelTankTop > - SH::InterStageSmallH);
 
     // Also, the bottom of the OxidiserTank must be well inside the over-all
     // cylindrical shell:
@@ -303,32 +312,47 @@ namespace SpaceBallistics
 
   private:
     //-----------------------------------------------------------------------//
-    // Propellant Loads in Tank Sections:                                    //
+    // "ConstrElement"s for Propellant Loads:                                //
     //-----------------------------------------------------------------------//
     // Propallant Mass Capacities (MC) of Fuel and Oxid Tank Sections:
-    constexpr static Mass FuelTankUpMC  = FuelTankUp .GetPropMassCap();
-    constexpr static Mass FuelTankMidMC = FuelTankMid.GetPropMassCap();
-    constexpr static Mass FuelTankLowMC = FuelTankLow.GetPropMassCap();
+    constexpr static Mass FuelTankUpMC     = FuelTankUp .GetPropMassCap();
+    constexpr static Mass FuelTankMidMC    = FuelTankMid.GetPropMassCap();
+    constexpr static Mass FuelTankLowMC    = FuelTankLow.GetPropMassCap();
+    constexpr static Mass FuelTankLowMidMC = FuelTankLowMC + FuelTankMidMC;
 
-    constexpr static Mass OxidTankUpMC  = OxidTankUp .GetPropMassCap();
-    constexpr static Mass OxidTankMidMC = OxidTankMid.GetPropMassCap();
-    constexpr static Mass OxidTankLowMC = OxidTankLow.GetPropMassCap();
+    constexpr static Mass OxidTankUpMC     = OxidTankUp .GetPropMassCap();
+    constexpr static Mass OxidTankMidMC    = OxidTankMid.GetPropMassCap();
+    constexpr static Mass OxidTankLowMC    = OxidTankLow.GetPropMassCap();
+    constexpr static Mass OxidTankLowMidMC = OxidTankLowMC + OxidTankMidMC;
+
+  public:
+    // Volumes of the Fuel and Oxid Tanks:
+    constexpr static Vol  FuelTankVol  =
+      FuelTankUp .GetEnclVol() + FuelTankMid.GetEnclVol() +
+      FuelTankLow.GetEnclVol();
+
+    constexpr static Vol  OxidTankVol  =
+      OxidTankUp .GetEnclVol() + OxidTankMid.GetEnclVol() +
+      OxidTankLow.GetEnclVol();
 
     // Maximum Theoretical Fuel and Oxid Capacities of the resp Tanks:
-    constexpr static Mass   FuelTankMC  =
+    constexpr static Mass FuelTankMC   =
       FuelTankUpMC + FuelTankMidMC + FuelTankLowMC;
-    constexpr static Mass   OxidTankMC  =
+    constexpr static Mass OxidTankMC   =
       OxidTankUpMC + OxidTankMidMC + OxidTankLowMC;
 
-    // "ConstElement" objs for Full Propellant Volumes in Tank Sections (for
-    // optimisation of "GetDynParams"):
-    constexpr static CE   FuelUp        = FuelTankUp .GetPropCE(FuelTankUpMC);
-    constexpr static CE   FuelMid       = FuelTankMid.GetPropCE(FuelTankMidMC);
-    constexpr static CE   FuelLow       = FuelTankLow.GetPropCE(FuelTankLowMC);
+  private:
+    // "ConstElement" objs for Maximum Theoretical Propellant Loads in Tank
+    // Sections (for optimisation of "GetDynParams"):
+    constexpr static CE   FuelUpCE     = FuelTankUp .GetPropCE(FuelTankUpMC);
+    constexpr static CE   FuelMidCE    = FuelTankMid.GetPropCE(FuelTankMidMC);
+    constexpr static CE   FuelLowCE    = FuelTankLow.GetPropCE(FuelTankLowMC);
+    constexpr static CE   FuelLowMidCE = FuelLowCE + FuelMidCE;
 
-    constexpr static CE   OxidUp        = OxidTankUp .GetPropCE(OxidTankUpMC);
-    constexpr static CE   OxidMid       = OxidTankMid.GetPropCE(OxidTankMidMC);
-    constexpr static CE   OxidLow       = OxidTankLow.GetPropCE(OxidTankLowMC);
+    constexpr static CE   OxidUpCE      = OxidTankUp .GetPropCE(OxidTankUpMC);
+    constexpr static CE   OxidMidCE     = OxidTankMid.GetPropCE(OxidTankMidMC);
+    constexpr static CE   OxidLowCE     = OxidTankLow.GetPropCE(OxidTankLowMC);
+    constexpr static CE   OxidLowMidCE  = OxidLowCE + OxidMidCE;
 
   public:
     // Fuel and Oxid Load Ratios (ActualMass / TheorMassCapacity):
@@ -349,8 +373,11 @@ namespace SpaceBallistics
     constexpr static Time FTEndTime   = FTStartTime + SC::Stage3FTBurnDur;
     constexpr static Time CutOffTime  = FTEndTime   + SC::Stage3ThrBurnDur;
 
-    // Needless to say, AftJet must occur before FTEnd:
-    static_assert(AftJetTime < FTEndTime);
+    // Ordering of Events:
+    static_assert
+      (IsPos(IgnTime)           && IgnTime    < FTStartTime &&
+       FTStartTime < AftJetTime && AftJetTime < FTEndTime   &&
+       FTEndTime   < CutOffTime);
 
     //-----------------------------------------------------------------------//
     // Max Theoretical Burn Duration at Full Thrust (FT):                    //
@@ -365,59 +392,86 @@ namespace SpaceBallistics
 
     // The actual FullThrust Burn Duration must not exceed the above theoreti-
     // cal maximum:
-    static_assert(SC::Stage3FTBurnDur < MaxFTBurnDur);
+    constexpr static Time   FTBurnDur = SC::Stage3FTBurnDur;
+    static_assert(FTBurnDur < MaxFTBurnDur);
 
   private:
     //-----------------------------------------------------------------------//
-    // Masses at Time Nodes (for "GetDynParams" Optimisation):               //
+    // Masses at Event Times (for "GetDynParams" Optimisation):              //
     //-----------------------------------------------------------------------//
-/*
-    constexpr static Mass FullMass     = S3C::FullMass;
-    constexpr static auto ThrMassRate  = S3C::Throttling  * S3C::MassRateFT;
-    constexpr static auto ThrFuelRate  = S3C::Throttling  * S3C::FuelRateFT;
-    constexpr static auto ThrOxidRate  = S3C::Throttling  * S3C::OxidRateFT;
+    constexpr static auto ThrMassRate = ThrottlRate * MassRateFT;
+    constexpr static auto ThrFuelRate = ThrottlRate * FuelRateFT;
+    constexpr static auto ThrOxidRate = ThrottlRate * OxidRateFT;
 
-    // Masses at Full Thrust Start instant: Full, Fuel and Oxid:
-    constexpr static Mass FTStartMass  =
-      FullMass - ThrMassRate * (SC::Stage3FullThrustTime - IgnTime);
+    // Masses at FullThrust Start: Full, Fuel and Oxid:
+    constexpr static Mass FTStartFullMass =
+      FullMass        - ThrMassRate * (SC::Stage3FullThrustTime  - IgnTime);
 
-    constexpr static Mass FTStartFuel  =
-      S3C::FuelMass
-               - ThrFuelRate * (SC::Stage3FullThrustTime - IgnTime);
+    constexpr static Mass FTStartFuelMass =
+      FuelMass        - ThrFuelRate * (SC::Stage3FullThrustTime  - IgnTime);
 
-    constexpr static Mass FTStartOxid  =
-      S3C::OxidMass
-               - ThrOxidRate * (SC::Stage3FullThrustTime - IgnTime);
+    constexpr static Mass FTStartOxidMass =
+      OxidMass        - ThrOxidRate * (SC::Stage3FullThrustTime  - IgnTime);
 
-    // Mass just after jettisoning of the Aft Section:
-    constexpr static Mass AftJetMass   =
-    FTStartMass -
-      S3C::MassRateFT * (AftJetTime - FTStartTime) -
-      S3C::AftMass;
+    // Full Mass just after jettisoning of the Aft Section:
+    constexpr static Mass AftJetFullMass  =
+      FTStartFullMass - MassRateFT * (AftJetTime - FTStartTime) - AftMass;
 
-    // Masses at the end of Full Thrust:
-    Mass      const  m_ftEndMass       =
-      AftJetMass  - S3C::MassRateFT * (m_ftEndTime - AftJetTime);
+    // Masses at the end of Full Thrust: Full, Fuel and Oxid:
+    constexpr static Mass FTEndFullMass   =
+      AftJetFullMass  - MassRateFT * (FTEndTime  - AftJetTime);
 
-    Mass      const  m_ftEndFuel       =
-      FTStartFuel - S3C::FuelRateFT * (m_ftEndTime - FTStartTime);
+    constexpr static Mass FTEndFuelMass   =
+      FTStartFuelMass - FuelRateFT * (FTEndTime  - FTStartTime);
 
-    Mass      const  m_ftEndOxid       =
-      FTStartOxid - S3C::OxidRateFT * (m_ftEndTime - FTStartTime);
+    constexpr static Mass FTEndOxidMass   =
+      FTStartOxidMass - OxidRateFT * (FTEndTime  - FTStartTime);
 
+  public:
     // Masses at the Engine Cut-Off:
-    Mass      const  m_cutOffMass      =
-      m_ftEndMass - ThrMassRate    * SC::Stage3ThrBurnDur;
+    constexpr static Mass CutOffFullMass  =
+      FTEndFullMass   - ThrMassRate  * SC::Stage3ThrBurnDur;
 
-    Mass      const m_cutOffFuel       =
-      m_ftEndFuel - ThrFuelRate    * SC::Stage3ThrBurnDur;
+    constexpr static Mass CutOffFuelMass  =
+      FTEndFuelMass   - ThrFuelRate  * SC::Stage3ThrBurnDur;
 
-    Mass      const m_cutOffOxid       =
-      m_ftEndOxid - ThrOxidRate    * SC::Stage3ThrBurnDur;
-  */
+    constexpr static Mass CutOffOxidMass  =
+      FTEndOxidMass   - ThrOxidRate  * SC::Stage3ThrBurnDur;
+
+  private:
+    // Checks: The Empty incl Gases ("RG") Mass must be the same in all cases,
+    // up to the mass of the AftSection (jettisonable):
+    //
+    constexpr static Mass EGMassBefore  = EmptyMass    + GasesMass;
+    constexpr static Mass EGMassAfter   = EGMassBefore - AftMass;
+    static_assert  (IsPos(EGMassAfter));
+
+    constexpr static Mass FTStartEGMass =
+      FTStartFullMass - FTStartFuelMass - FTStartOxidMass;
+
+    constexpr static Mass FTEndEGMass   =
+      FTEndFullMass   - FTEndFuelMass   - FTEndOxidMass;
+
+    constexpr static Mass CutOffEGMass  =
+      CutOffFullMass  - CutOffFuelMass  - CutOffOxidMass;
+
+    static_assert(FTStartEGMass.ApproxEquals(EGMassBefore) &&
+                  FTEndEGMass  .ApproxEquals(EGMassAfter)  &&
+                  CutOffEGMass .ApproxEquals(EGMassAfter));
+
+    // Also, "EGMass{Before,After}" must be equal to the corresp vals in the
+    // "EG{Before,After}CE":
+    static_assert(EGMassBefore.ApproxEquals(EGBeforeCE.GetMass()) &&
+                  EGMassAfter .ApproxEquals(EGAfterCE .GetMass()));
+
+    // Also, Fuel and Oxid Masses at CutOff must be greater than UnSpendable
+    // Remnants:
+    static_assert(CutOffFuelMass > FuelRem &&
+                  CutOffOxidMass > OxidRem);
+
   public:
     //=======================================================================//
-    // Dynamic Params as functions of Flight Time:                           //
+    // Dynamic Params as a function of Flight Time:                          //
     //=======================================================================//
     // NB: This method is NOT "constexpr": it is intended to be called at Run-
     // Time (eg multiple times during Trajectory Integration):

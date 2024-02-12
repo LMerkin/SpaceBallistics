@@ -11,95 +11,141 @@ namespace SpaceBallistics
   // "GetDynParams":                                                         //
   //=========================================================================//
   // "a_t" is Flight Time since the "Contact Separation" event:
-/*
+  //
   StageDynParams Soyuz21b_Stage3::GetDynParams(Time a_t)
   {
     StageDynParams res;           // XXX: Uninitialised yet
 
     //-----------------------------------------------------------------------//
-    // Masses:                                                               //
+    // Current Masses and Thrust:                                            //
     //-----------------------------------------------------------------------//
-    Mass fullMass(NaN<double>);
-    Mass fuelMass(NaN<double>);
-    Mass oxidMass(NaN<double>);
+    Mass  fullMass(NaN<double>);
+    Mass  fuelMass(NaN<double>);
+    Mass  oxidMass(NaN<double>);
+    Force thrust  (NaN<double>);
 
     if (a_t < IgnTime)        // Before Stage3 Ignition
     {
       fullMass = FullMass;
-      fuelMass = S3C::FuelMass;
-      oxidMass = S3C::OxidMass;
+      fuelMass = FuelMass;
+      oxidMass = OxidMass;
+      thrust   = Force(0.0);
     }
     else
     if (a_t < FTStartTime)    // Running at Initially-Throttled Thrust
     {
       Time   dt = a_t - IgnTime;
-      fullMass  = FullMass      - ThrMassRate * dt;
-      fuelMass  = S3C::FuelMass - ThrFuelRate * dt;
-      oxidMass  = S3C::OxidMass - ThrOxidRate * dt;
+      fullMass  = FullMass  - ThrMassRate * dt;
+      fuelMass  = FuelMass  - ThrFuelRate * dt;
+      oxidMass  = OxidMass  - ThrOxidRate * dt;
+      thrust    = ThrottlThrust;
     }
     else
     if (a_t < AftJetTime)     // Running at Full Thrust, with Aft (yet)
     {
       Time   dt = a_t - FTStartTime;
-      fullMass  = FTStartMass - S3C::MassRateFT * dt;
-      fuelMass  = FTStartFuel - S3C::FuelRateFT * dt;
-      oxidMass  = FTStartOxid - S3C::OxidRateFT * dt;
+      fullMass  = FTStartFullMass - MassRateFT * dt;
+      fuelMass  = FTStartFuelMass - FuelRateFT * dt;
+      oxidMass  = FTStartOxidMass - OxidRateFT * dt;
+      thrust    = ThrustVac;
     }
     else
-    if (a_t < m_ftEndTime)    // Running at Full Thrust, no Aft
+    if (a_t < FTEndTime)      // Running at Full Thrust, no Aft
     {
-      Time  dt  = a_t - AftJetTime;
       Time  dt1 = a_t - FTStartTime;
-      fullMass  = AftJetMass  - S3C::MassRateFT * dt;
-      fuelMass  = FTStartFuel - S3C::FuelRateFT * dt1;
-      oxidMass  = FTStartOxid - S3C::OxidRateFT * dt1;
+      Time  dt2 = a_t - AftJetTime;
+      fullMass  = AftJetFullMass  - MassRateFT * dt2;
+      fuelMass  = FTStartFuelMass - FuelRateFT * dt1;
+      oxidMass  = FTStartOxidMass - OxidRateFT * dt1;
+      thrust    = ThrustVac;
     }
     else
-    if (a_t < m_cutOffTime)   // Running at Throttled Thrust again
+    if (a_t < CutOffTime)     // Running at Throttled Thrust again
     {
-      Time dt   = a_t - m_ftEndTime;
-      fullMass  = m_ftEndMass - ThrMassRate * dt;
-      fuelMass  = m_ftEndFuel - ThrFuelRate * dt;
-      oxidMass  = m_ftEndOxid - ThrOxidRate * dt;
+      Time dt   = a_t - FTEndTime;
+      fullMass  = FTEndFullMass   - ThrMassRate * dt;
+      fuelMass  = FTEndFuelMass   - ThrFuelRate * dt;
+      oxidMass  = FTEndOxidMass   - ThrOxidRate * dt;
+      thrust    = ThrottlThrust;
     }
     else                      // After the Engine Cut-Off: "Spent" Stage
     {
-      fullMass  = m_cutOffMass;
-      fuelMass  = m_cutOffFuel;
-      oxidMass  = m_cutOffOxid;
+      fullMass  = CutOffFullMass;
+      fuelMass  = CutOffFuelMass;
+      oxidMass  = CutOffOxidMass;
+      thrust    = Force(0.0);
     }
 
+    // Verify the Masses:
+    DEBUG_ONLY
+    (
+      //  "egMass" includes EmptyMass and GasesMass:
+      Mass egMass = fullMass - fuelMass - oxidMass;
+      assert
+        (egMass.ApproxEquals(a_t < AftJetTime ? EGMassBefore : EGMassAfter));
+    )
     // Save the masses in the "res":
     res.m_fullMass = fullMass;
     res.m_fuelMass = fuelMass;
     res.m_oxidMass = oxidMass;
+    res.m_thrust   = thrust;
 
     //-----------------------------------------------------------------------//
     // Moments of Inertia and Center of Masses:                              //
     //-----------------------------------------------------------------------//
-    // XXX: Gases used for Stage3 tanks pressurisation are NOT included yet
-    // into the MoI computation:
-    //-----------------------------------------------------------------------//
-    // Fuel:                                                                 //
-    //-----------------------------------------------------------------------//
-    if (fuelMass > m_fuelTankLow.GetPropCap() + m_fuelTankMod.GetPropCap())
-    {
-      // Fuel level is within the FuelTankUp:
-      Mass fuelMassUp =
-        fuelMass - m_fuelTankLow.GetPropCap() - m_fuelTankMod.GetPropCap();
+    // XXX: For the purpose of MoI computation, we include the masses  of Tank
+    // Pressurisation Gases into the corresp Fuel/Oxid masses (proportional to
+    // the volumes of the corresp Tanks):
+    //
+    // Fuel:
+    assert(IsPos(fuelMass) && fuelMass <= FuelMass && FuelMass < FuelTankMC);
+    CE fuelCE =
+      (fuelMass > FuelTankLowMidMC)
+      ? // Fuel level is within the FuelTankUp:
+        FuelTankUp .GetPropCE(fuelMass - FuelTankLowMidMC) + FuelLowMidCE
+      :
+      (fuelMass > FuelTankLowMC)
+      ? // Fuel level is within the FuelTankMid:
+        FuelTankMid.GetPropCE(fuelMass - FuelTankLowMC)    + FuelLowCE
+      :
+        // Fuel level is within the FuelTankLow:
+        FuelTankLow.GetPropCE(fuelMass);
 
-      MoI fuelUpMoIs[3];
-      Len fuelUpCoM [3];
+    // Oxid:
+    assert(IsPos(oxidMass) && oxidMass <= OxidMass && OxidMass < OxidTankMC);
+    CE oxidCE =
+      (oxidMass > OxidTankLowMidMC)
+      ? // Oxid level is within the OxidTankUp:
+        OxidTankUp .GetPropCE(oxidMass - OxidTankLowMidMC) + OxidLowMidCE
+      :
+      (oxidMass > OxidTankLowMC)
+      ? // Oxid level is within the OxidTankMid:
+        OxidTankMid.GetPropCE(oxidMass - OxidTankLowMC)    + OxidLowCE
+      :
+        // Oxid level is within the OxidTankLow:
+        OxidTankLow.GetPropCE(oxidMass);
 
-      m_fuelTankUp(fuelMassUp, false, fuelUpMoIs, fuelUpCoM);
+    // Full = (Empty+Gases) + Fuel + Oxid:
+    CE fullCE = (a_t < AftJetTime ? EGBeforeCE : EGAfterCE) + fuelCE + oxidCE;
 
-      // Add the MoIs and CoM from the Mid and Low sections. For that, create
-      // a tmp "ConstrElement":
-      ConstrElement tmp(Area(0.0), 
-      res.m_mois[i] += m_fuelMidMoIs[i] + m_fuelLowMoIs[i];
+    // Double-check the Masses:
+    assert(fullMass.ApproxEquals(fullCE.GetMass()) &&
+           fuelMass.ApproxEquals(fuelCE.GetMass()) &&
+           oxidMass.ApproxEquals(oxidCE.GetMass()));
 
-    }
+    // Extract the the CoM and the MoIs:
+    CE::Point const& com  = fullCE.GetCoM ();
+    CE::MoIs  const& mois = fullCE.GetMoIs();
+
+    res.m_com [0] =  com [0];
+    res.m_com [1] =  com [1];
+    res.m_com [2] =  com [2];
+
+    res.m_mois[0] =  mois[0];
+    res.m_mois[1] =  mois[1];
+    res.m_mois[2] =  mois[2];
+
+    // All Done:
     return res;
   }
-*/
 }

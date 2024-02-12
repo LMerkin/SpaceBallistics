@@ -10,6 +10,7 @@
 #include <cassert>
 #include <type_traits>
 #include <initializer_list>
+#include <iostream>
 
 namespace SpaceBallistics
 {
@@ -674,12 +675,14 @@ namespace SpaceBallistics
       // rounding errors:
       Vol propVol = std::min(a_prop_mass / GetPropDens(), GetEnclVol());
 
-      // The Propellant Level. XXX: We assume that the propellant surface is
-      // always orthogonal to the rotation axis:
+      // The Propellant Level, relative to the Right (Lower) Base.
+      // XXX: We assume that the propellant surface is always orthogonal to the
+      // rotation axis, due to the tank pressurisation:
       Len l = m_LoV(propVol, this);
 
-      // Mathematically, we must have 0 <= l <= h; but enforce that interval
-      // explicitly to prevent rounding errors:
+      // Mathematically, we must have 0 <= l <= h, where l=0 corresponds to the
+      // empty segment, and l=h to the full one. We enforce this interval expli-
+      // citly to prevent rounding errors:
       l = std::max(std::min(l, m_h), 0.0_m);
 
       // "Intrinsic" MoIs components of the Priopellant:
@@ -786,7 +789,7 @@ namespace SpaceBallistics
           double(a_v / GetEnclVol()) * m_h
 
         : // General case: Solving a cubic equation by the Cardano formula;
-          // since Vol'(l) > 0, there is only 1 root:
+          // since Vol'(l) > 0 globally, there is only 1 real root:
           (m_Rh - CbRt(m_Rh3 - m_clVol * a_v)) / m_deltaR;
     }
 
@@ -931,10 +934,11 @@ namespace SpaceBallistics
     //=======================================================================//
     // Data Flds: Spherical Segment's Geometry:                              //
     //=======================================================================//
-    // Over-all sizes:
+    // Over-all sizes and Orientation:
     Len    m_r;              // Segment Base Radius
     Len    m_R;              // Sphere  Radius
     Len3   m_R3;             // Radius^3
+    bool   m_facingRight;
 
     // Default Ctor is deleted:
     SpherSegm() = delete;
@@ -947,16 +951,22 @@ namespace SpaceBallistics
       // "a_ctx" must actually be a ptr to "SpherSegm":
       SpherSegm const* segm = static_cast<SpherSegm const*>(a_ctx);
       assert(segm != nullptr);
-      return segm->LevelOfVol(a_v);
+      return
+        segm->m_facingRight
+        ? segm->LevelOfVolRight(a_v)
+        : segm->LevelOfVolLeft (a_v);
     }
 
-    constexpr Len LevelOfVol(Vol a_v) const
+    //-----------------------------------------------------------------------//
+    // For the Right-Facing SpherSegm:                                       //
+    //-----------------------------------------------------------------------//
+    constexpr Len LevelOfVolRight(Vol a_v) const
     {
       // Solving the equation
-      //   x^2*(1-x/3) = v,
+      //   x^2*(3-x) = v,
       // where
-      //   "x" is the Propellant level relative to "R", 0 <= x <= 1;
-      //   "v" is the Volume/(Pi*R^3),                  0 <= v <= 2/3;
+      //   "x" is the Propellant level relative to "R": x=l/R, 0 <= x <= 1;
+      //   "v" is the Volume/(Pi/3*R^3),                       0 <= v <= 2;
       // by using Halley's Method (to avoid dealing with complex roots in the
       // Cardano formula):
       // x=1/2 is a reasonble initial approximation (XXX: We may use "h"  for
@@ -964,7 +974,10 @@ namespace SpaceBallistics
       //
       double           x   = 0.5;
       double           tv  = 3.0   * double(a_v / m_R3) / Pi<double>;
+
       constexpr double Tol = 100.0 * Eps<double>;
+      assert(0.0 <= tv && tv < 2.0 + Tol);
+      tv = std::min(2.0,  tv);       // Enforce the boundary
 
       // For safety, restrict the number of iterations:
       constexpr int N = 100;
@@ -995,6 +1008,60 @@ namespace SpaceBallistics
       return x * m_R;
     }
 
+    //-----------------------------------------------------------------------//
+    // For the Left-Facing "SpherSegm":                                      //
+    //-----------------------------------------------------------------------//
+    constexpr Len LevelOfVolLeft(Vol a_v) const
+    {
+      // Solving the equation
+      //   x*(3-x^2) = v,
+      // where
+      //   "x" is the Propellant level relative to "R": x=l/R, 0 <= x <= 1;
+      //   "v" is the Volume/(Pi/3*R^3),                       0 <= v <= 2;
+      // by using Halley's Method (to avoid dealing with complex roots in the
+      // Cardano formula):
+      // x=1/2 is a reasonble initial approximation (XXX: We may use "h"  for
+      // a more accurate initial point, but this is not required yet):
+      //
+      double           x   = 0.5;
+      double           tv  = 3.0   * double(a_v / m_R3) / Pi<double>;
+
+      constexpr double Tol = 100.0 * Eps<double>;
+      assert(0.0 <= tv && tv < 2.0 + Tol);
+      tv = std::min(2.0,  tv);       // Enforce the boundary
+
+      // For safety, restrict the number of iterations:
+      constexpr int N = 100;
+      int           i = 0;
+      for (; i < N; ++i)
+      {
+        double x2 = Sqr(x);
+        double x3 = x2 * x;
+        double x4 = Sqr(x2);
+        double dx =
+          UNLIKELY(tv == 2.0)
+          ? // Degenerate Case:
+            (x2 - 1.0) * (x + 2.0) / (2.0 * x2 + 4.0 * x + 3.0)
+          : // Generic Case:
+            (x3 - 3.0 * x + tv)  * (x2 - 1.0)   /
+            (2.0 * x4 - 3.0 * x2 - tv * x + 3.0);
+
+        // Iterative update:
+        x -= dx;
+
+        // Exit condition:
+        if (UNLIKELY(Abs(dx) < Tol))
+          break;
+      }
+      // If we got here w/o achieving the required precision, it's an error:
+      assert(i < N);
+
+      // If all is fine: To prevent rounding errors, enforce the boundaries:
+      x = std::max(std::min(x, 1.0), 0.0);
+
+      // And finally, the level:
+      return x * m_R;
+    }
   public:
     //=======================================================================//
     // Non-Default Ctor:                                                     //
@@ -1019,10 +1086,11 @@ namespace SpaceBallistics
       assert(IsPos(a_d)   &&  IsPos(a_h) && Abs(a_alpha) < Pi_2<double> &&
             !IsNeg(a_rho) && !IsNeg(a_empty_mass));
 
-      m_r         = a_d / 2.0;                         // Base   radius
-      assert(a_h <= m_r * (1.0 + 10.0 * Eps<double>)); // Important constraint!
-      m_R         = (Sqr(m_r) / a_h + a_h) / 2.0;      // Sphere radius
-      m_R3        = Cube(m_R);
+      m_r           = a_d / 2.0;                         // Base   radius
+      assert(a_h   <= m_r * (1.0 + 10.0 * Eps<double>)); // Import. constraint!
+      m_R           = (Sqr(m_r) / a_h + a_h) / 2.0;      // Sphere radius
+      m_R3          = Cube(m_R);
+      m_facingRight = a_facing_right;
 
       //---------------------------------------------------------------------//
       // Parent Classes Initialisation:                                      //

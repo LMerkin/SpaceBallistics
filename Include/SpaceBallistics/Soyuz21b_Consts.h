@@ -49,15 +49,15 @@ namespace SpaceBallistics::Soyuz21b_Consts
 
   // Stage3 engine (RD-0124) cut-off time. Some srcs say Stage3 burns for
   // 250..300 sec or even 320 sec  (for the older RD-0110, 240..250 sec),
-  // here we get ~271.5 sec at Full Thrust, which is probably about correct:
-  constexpr inline Time   Stage3FTBurnDur        = 271.5_sec;
+  // here we get ~273.0 sec at Full Thrust, which is probably about correct:
+  constexpr inline Time   Stage3FTBurnDur        = 273.0_sec;
   constexpr inline Time   Stage3ThrottlTime      =
                           Stage3FullThrustTime   + Stage3FTBurnDur;
   constexpr inline Time   Stage3CutOffTime       =
                           Stage3ThrottlTime      + Stage3ThrBurnDur;
 
   // Payload separation time (from Stage3) -- considered to be the Orbital
-  // Insertion time:
-  constexpr inline Time   Stage3SepTime          = 561.9_sec;
+  // Insertion time (ArianeSpace/StarSem says 561.9 sec):
+  constexpr inline Time   Stage3SepTime          = 564.0_sec;
   static_assert(Stage3SepTime > Stage3CutOffTime);
 }
