@@ -38,6 +38,12 @@ namespace SpaceBallistics
   //
   class Soyuz21b_Stage3
   {
+  private:
+    //=======================================================================//
+    // No objects can be created of this class:                              //
+    //=======================================================================//
+    Soyuz21b_Stage3() = delete;
+
   public:
     //=======================================================================//
     // Consts:                                                               //
@@ -140,7 +146,7 @@ namespace SpaceBallistics
         ForeX0, 
         D,
         ForeH,
-        Density(0.0) // No Propellant there
+        Density(0.0)                    // No Propellant there
       );
 
     // Fuel Tank "Proto" components (with yet-unknown masses):

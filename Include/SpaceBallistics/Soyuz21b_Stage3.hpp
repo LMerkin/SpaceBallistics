@@ -3,6 +3,7 @@
 //                            "Soyuz21b_Stage3.hpp":                         //
 //         Mathematical Model of the "Soyuz-2.1b" Stage3 ("Block I")         //
 //===========================================================================//
+#pragma  once
 #include "SpaceBallistics/Soyuz21b_Stage3.h"
 
 namespace SpaceBallistics
