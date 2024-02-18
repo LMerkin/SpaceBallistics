@@ -31,8 +31,8 @@ int main()
        << "\n#\t\t\t(UnSpendableRemnant: " << S3::OxidRem << ')' << endl;
 
   // Max Theoretical and Real Burn Durations:
-  cout << "# Stage3MaxBurnDurFT: " << S3::MaxFTBurnDur << endl;
-  cout << "# Stage3BurnDurFT   : " << S3::FTBurnDur    << endl;
+  cout << "# Stage3MaxBurnDur  : " << S3::MaxBurnDur << endl;
+  cout << "# Stage3BurnDur     : " << S3::BurnDur    << endl;
 
   // Percentage of the StaticThrust in the over-all thrust of Stage3:
   cout << "# Stage3StaticThrust: " << S3::StaticThrust

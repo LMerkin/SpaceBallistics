@@ -21,9 +21,9 @@ namespace SpaceBallistics::Soyuz21b_Consts
 
   // Stage1 (Blocks B, V, G, D) separation time.  XXX: approximately, Stage1
   // engines cut-off occur at the same time  (earlier versions of the RD-107
-  // engine could burn for up to 140 sec). More precisely, Stage1 thrust red-
-  // uction occurs at 112.0 sec and Stage1 veniers cut-off at 117.7 sec:
-  //
+  // engine could burn for up to 140 sec):
+  constexpr inline Time   Stage1ThrottlTime      = 112.0_sec;
+  constexpr inline Time   Stage1VernCutOffTime   = 117.7_sec;
   constexpr inline Time   Stage1SepTime          = 118.1_sec;
 
   // Fairing jettisoning time (some srcs say ~183 sec):
@@ -38,23 +38,18 @@ namespace SpaceBallistics::Soyuz21b_Consts
   //
   constexpr inline Time   Stage2CutOffTime       = 286.0_sec;
   constexpr inline Time   Stage3IgnTime          = Stage2CutOffTime;
-  constexpr inline Time   Stage3ThrBurnDur       = 1.6_sec;
-
-  constexpr inline Time   Stage2SepTime          = Stage2CutOffTime +
-                                                   Stage3ThrBurnDur;
-  constexpr inline Time   Stage3FullThrustTime   = Stage2SepTime;
+  constexpr inline Time   Stage2SepTime          = 287.6_sec;
 
   // Stage3 aft section jettisoning time (some srcs say 297 sec):
   constexpr inline Time   Stage3AftJetTime       = 300.4_sec;
 
   // Stage3 engine (RD-0124) cut-off time. Some srcs say Stage3 burns for
   // 250..300 sec or even 320 sec  (for the older RD-0110, 240..250 sec),
-  // here we get ~273.0 sec at Full Thrust, which is probably about correct:
-  constexpr inline Time   Stage3FTBurnDur        = 273.0_sec;
-  constexpr inline Time   Stage3ThrottlTime      =
-                          Stage3FullThrustTime   + Stage3FTBurnDur;
-  constexpr inline Time   Stage3CutOffTime       =
-                          Stage3ThrottlTime      + Stage3ThrBurnDur;
+  // here we set  ~274.9 sec of burn time (see "Soyuz21b_Stage3.h" for the
+  // details), which is probably about correct (StarSem says 270 sec):
+  constexpr inline Time   Stage3BurnDur          = 274.9_sec;
+  constexpr inline Time   Stage3CutOffTime       = Stage3IgnTime +
+                                                   Stage3BurnDur;
 
   // Payload separation time (from Stage3) -- considered to be the Orbital
   // Insertion time (ArianeSpace/StarSem says 561.9 sec):

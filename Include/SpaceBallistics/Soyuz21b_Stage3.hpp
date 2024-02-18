@@ -33,41 +33,23 @@ namespace SpaceBallistics
       thrust   = Force(0.0);
     }
     else
-    if (a_t < FTStartTime)    // Running at Initially-Throttled Thrust
-    {
-      Time   dt = a_t - IgnTime;
-      fullMass  = FullMass  - ThrMassRate * dt;
-      fuelMass  = FuelMass  - ThrFuelRate * dt;
-      oxidMass  = OxidMass  - ThrOxidRate * dt;
-      thrust    = ThrottlThrust;
-    }
-    else
     if (a_t < AftJetTime)     // Running at Full Thrust, with Aft (yet)
     {
-      Time   dt = a_t - FTStartTime;
-      fullMass  = FTStartFullMass - MassRateFT * dt;
-      fuelMass  = FTStartFuelMass - FuelRateFT * dt;
-      oxidMass  = FTStartOxidMass - OxidRateFT * dt;
-      thrust    = ThrustVac;
-    }
-    else
-    if (a_t < FTEndTime)      // Running at Full Thrust, no Aft
-    {
-      Time  dt1 = a_t - FTStartTime;
-      Time  dt2 = a_t - AftJetTime;
-      fullMass  = AftJetFullMass  - MassRateFT * dt2;
-      fuelMass  = FTStartFuelMass - FuelRateFT * dt1;
-      oxidMass  = FTStartOxidMass - OxidRateFT * dt1;
+      Time   dt = a_t      - IgnTime;
+      fullMass  = FullMass - MassRate * dt;
+      fuelMass  = FuelMass - FuelRate * dt;
+      oxidMass  = OxidMass - OxidRate * dt;
       thrust    = ThrustVac;
     }
     else
     if (a_t < CutOffTime)     // Running at Throttled Thrust again
     {
-      Time dt   = a_t - FTEndTime;
-      fullMass  = FTEndFullMass   - ThrMassRate * dt;
-      fuelMass  = FTEndFuelMass   - ThrFuelRate * dt;
-      oxidMass  = FTEndOxidMass   - ThrOxidRate * dt;
-      thrust    = ThrottlThrust;
+      Time dt0  = a_t             - IgnTime;
+      Time dt1  = a_t             - AftJetTime;
+      fullMass  = AftJetFullMass  - MassRate * dt1;
+      fuelMass  = FuelMass        - FuelRate * dt0;
+      oxidMass  = OxidMass        - OxidRate * dt0;
+      thrust    = ThrustVac;
     }
     else                      // After the Engine Cut-Off: "Spent" Stage
     {

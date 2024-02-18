@@ -113,26 +113,24 @@ namespace SpaceBallistics
     // (In Vacuum; SeaLevel is meaningless here). StarSem: Thrust = 297.9e3 N
     constexpr static Time   IspVac        = 359.0_sec;
     constexpr static Force  ThrustVac     = Force(294.3e3);
-    constexpr static double ThrottlRate   = 0.5;
-    constexpr static Force  ThrottlThrust = ThrottlRate * ThrustVac;
 
-    // The actual MassRates at Full Thrust:
+    // The actual MassRates:
     // XXX: These figures may not be highly accurate, as it is unclear whether
     // they refer to Naftil or Kerosene. The OxidRate is quoted somewhere as
     // 56.7 kg/sec, which is clearly too low.
     // In different sources, Oxidiser/Fuel Ratio is 2.5..2.6, here 2.50:
     // These figure must be consistent with the BurnDur and the StaticThrust
     // below:
-    constexpr static auto   FuelRateFT    = 23.8_kg / 1.0_sec;
-    constexpr static auto   OxidRateFT    = 59.6_kg / 1.0_sec;
-    constexpr static auto   MassRateFT    = FuelRateFT + OxidRateFT;
+    constexpr static auto   FuelRate      = 23.8_kg / 1.0_sec;
+    constexpr static auto   OxidRate      = 59.6_kg / 1.0_sec;
+    constexpr static auto   MassRate      = FuelRate + OxidRate;
 
     // The MassRate is connected to Specific Impulse and Thrust, but we must
     // take into account that Thrust is a sum of Reactive Force (proportional
     // to MassRate) and the residual inline pressure force at the nozzle exh-
     // aust:
     constexpr static Force  StaticThrust  =
-      ThrustVac - MassRateFT * IspVac * g0;
+      ThrustVac - MassRate * IspVac * g0;
     static_assert(IsPos(StaticThrust));
 
   private:
@@ -371,99 +369,58 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // TimeLine Consts:                                                      //
     //-----------------------------------------------------------------------//
-    // Once again, "FT" stands for "FullThrust":
-    //
     constexpr static Time IgnTime     = SC::Stage3IgnTime;
-    constexpr static Time FTStartTime = SC::Stage3FullThrustTime;
     constexpr static Time AftJetTime  = SC::Stage3AftJetTime;
-    constexpr static Time FTEndTime   = FTStartTime + SC::Stage3FTBurnDur;
-    constexpr static Time CutOffTime  = FTEndTime   + SC::Stage3ThrBurnDur;
+    constexpr static Time CutOffTime  = SC::Stage3CutOffTime;
 
     // Ordering of Events:
     static_assert
-      (IsPos(IgnTime)           && IgnTime    < FTStartTime &&
-       FTStartTime < AftJetTime && AftJetTime < FTEndTime   &&
-       FTEndTime   < CutOffTime);
+      (IsPos(IgnTime) && IgnTime < AftJetTime && AftJetTime < CutOffTime);
 
     //-----------------------------------------------------------------------//
-    // Max Theoretical Burn Duration at Full Thrust (FT):                    //
+    // Max Theoretical Burn Duration:                                        //
     //-----------------------------------------------------------------------//
-    // NB: The following takes into account 2 periods of Throttled run as well,
-    // which reduce the FullThrust Burn Duration:
-    //
-    constexpr static Time   MaxFTBurnDur =
-      std::min((FuelMass - FuelRem) / FuelRateFT,
-               (OxidMass - OxidRem) / OxidRateFT)
-      - 2.0 * SC::Stage3ThrBurnDur * ThrottlRate;
+    constexpr static Time MaxBurnDur =
+      std::min((FuelMass - FuelRem) / FuelRate,
+               (OxidMass - OxidRem) / OxidRate);
 
-    // The actual FullThrust Burn Duration must not exceed the above theoreti-
-    // cal maximum:
-    constexpr static Time   FTBurnDur = SC::Stage3FTBurnDur;
-    static_assert(FTBurnDur < MaxFTBurnDur);
+    // The actual Burn Duration must not exceed the above theoretical maximum:
+    constexpr static Time BurnDur = SC::Stage3BurnDur;
+    static_assert(BurnDur < MaxBurnDur);
 
-  private:
+  public:
     //-----------------------------------------------------------------------//
     // Masses at Event Times (for "GetDynParams" Optimisation):              //
     //-----------------------------------------------------------------------//
-    constexpr static auto ThrMassRate = ThrottlRate * MassRateFT;
-    constexpr static auto ThrFuelRate = ThrottlRate * FuelRateFT;
-    constexpr static auto ThrOxidRate = ThrottlRate * OxidRateFT;
-
-    // Masses at FullThrust Start: Full, Fuel and Oxid:
-    constexpr static Mass FTStartFullMass =
-      FullMass        - ThrMassRate * (SC::Stage3FullThrustTime  - IgnTime);
-
-    constexpr static Mass FTStartFuelMass =
-      FuelMass        - ThrFuelRate * (SC::Stage3FullThrustTime  - IgnTime);
-
-    constexpr static Mass FTStartOxidMass =
-      OxidMass        - ThrOxidRate * (SC::Stage3FullThrustTime  - IgnTime);
-
     // Full Mass just after jettisoning of the Aft Section:
     constexpr static Mass AftJetFullMass  =
-      FTStartFullMass - MassRateFT * (AftJetTime - FTStartTime) - AftMass;
+      FullMass - MassRate * (AftJetTime - IgnTime) - AftMass;
 
-    // Masses at the end of Full Thrust: Full, Fuel and Oxid:
-    constexpr static Mass FTEndFullMass   =
-      AftJetFullMass  - MassRateFT * (FTEndTime  - AftJetTime);
-
-    constexpr static Mass FTEndFuelMass   =
-      FTStartFuelMass - FuelRateFT * (FTEndTime  - FTStartTime);
-
-    constexpr static Mass FTEndOxidMass   =
-      FTStartOxidMass - OxidRateFT * (FTEndTime  - FTStartTime);
-
-  public:
     // Masses at the Engine Cut-Off:
     constexpr static Mass CutOffFullMass  =
-      FTEndFullMass   - ThrMassRate  * SC::Stage3ThrBurnDur;
+      AftJetFullMass - MassRate  * (CutOffTime - AftJetTime);
 
     constexpr static Mass CutOffFuelMass  =
-      FTEndFuelMass   - ThrFuelRate  * SC::Stage3ThrBurnDur;
+      FuelMass       - FuelRate  * SC::Stage3BurnDur;
 
     constexpr static Mass CutOffOxidMass  =
-      FTEndOxidMass   - ThrOxidRate  * SC::Stage3ThrBurnDur;
+      OxidMass       - OxidRate  * SC::Stage3BurnDur;
 
   private:
-    // Checks: The Empty incl Gases ("RG") Mass must be the same in all cases,
+    // Checks: The Empty incl Gases ("EG") Mass must be the same in all cases,
     // up to the mass of the AftSection (jettisonable):
     //
     constexpr static Mass EGMassBefore  = EmptyMass    + GasesMass;
     constexpr static Mass EGMassAfter   = EGMassBefore - AftMass;
     static_assert  (IsPos(EGMassAfter));
 
-    constexpr static Mass FTStartEGMass =
-      FTStartFullMass - FTStartFuelMass - FTStartOxidMass;
-
-    constexpr static Mass FTEndEGMass   =
-      FTEndFullMass   - FTEndFuelMass   - FTEndOxidMass;
+    constexpr static Mass IgnEGMass     = FullMass - FuelMass - OxidMass;
 
     constexpr static Mass CutOffEGMass  =
-      CutOffFullMass  - CutOffFuelMass  - CutOffOxidMass;
+      CutOffFullMass - CutOffFuelMass   - CutOffOxidMass;
 
-    static_assert(FTStartEGMass.ApproxEquals(EGMassBefore) &&
-                  FTEndEGMass  .ApproxEquals(EGMassAfter)  &&
-                  CutOffEGMass .ApproxEquals(EGMassAfter));
+    static_assert(IgnEGMass   .ApproxEquals(EGMassBefore) &&
+                  CutOffEGMass.ApproxEquals(EGMassAfter));
 
     // Also, "EGMass{Before,After}" must be equal to the corresp vals in the
     // "EG{Before,After}CE":
