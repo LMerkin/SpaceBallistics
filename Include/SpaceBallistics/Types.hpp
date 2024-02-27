@@ -39,6 +39,10 @@ namespace SpaceBallistics
   using Vel        = decltype(1.0_m  / 1.0_sec);
   using Acc        = decltype(1.0_m  / Sqr(1.0_sec));
 
+  // Angular Velocity and Angular Acceleration:
+  using AngVel     = decltype(1.0    / 1.0_sec);
+  using AngAcc     = decltype(1.0    / Sqr(1.0_sec));
+
   // Standard Gravity (m/sec^2):
   constexpr inline Acc g0 = Acc(9.80665);
 

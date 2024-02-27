@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                                "CETest.cpp":                              //
+//                            "Tests/CETest.cpp":                            //
 //                   Tests of the "ConstrElement" Class                      //
 //===========================================================================//
 #include "SpaceBallistics/ConstrElement.hpp"

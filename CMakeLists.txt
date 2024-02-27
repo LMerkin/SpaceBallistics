@@ -192,7 +192,8 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
 #=============================================================================#
 SET(SB_TESTS
   CETest
-  Stage3Test)
+  Stage3Test
+  LocationsTest)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)
