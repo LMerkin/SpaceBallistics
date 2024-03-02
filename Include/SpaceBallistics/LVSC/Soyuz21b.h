@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                               "Soyuz21b.h":                               //
+//                   "SpaceBallistics/LVSC/Soyuz21b.h":                      //
 //          Mathematical Model of the "Soyuz-2.1b" Launch Vehicle            //
 //===========================================================================//
 // Includes Blocks A, B-D, I, InterStage and Fairing, but does NOT include the

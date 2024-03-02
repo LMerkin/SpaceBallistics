@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                            "StageDynParams.h":                            //
+//               "SpaceBallistics/LVSC/StageDynParams.h":                    //
 //               Masses, MoIs and Thrust of a Rocket Stage                   //
 //===========================================================================//
 #pragma once

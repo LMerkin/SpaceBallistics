@@ -1,12 +1,12 @@
 // vim:ts=2
 //===========================================================================//
-//                             "Propellants.h":                              //
+//                 "SpaceBallistics/LVSC/Propellants.h":                     //
 //             Characteristics of Various Rocket Propellants                 //
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/Types.hpp"
 
-namespace SpaceBallistics
+namespace SpaceBallistics::Propellants
 {
   // Densities of Naftil (RG-1), Kerosene (T-1) and LOX:
   constexpr auto RG1Dens = Density( 833.0);

@@ -3,7 +3,7 @@
 //                            "Tests/CETest.cpp":                            //
 //                   Tests of the "ConstrElement" Class                      //
 //===========================================================================//
-#include "SpaceBallistics/ConstrElement.hpp"
+#include "SpaceBallistics/CE/TrConeSpherSegm.hpp"
 #include <iostream>
 
 //===========================================================================//

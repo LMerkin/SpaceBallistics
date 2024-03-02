@@ -1,8 +1,8 @@
 // vim:ts=2:et
 //===========================================================================//
-//                            "Tests/Test0.cpp":                             //
+//                          "Tests/State3Test.cpp":                          //
 //===========================================================================//
-#include "SpaceBallistics/Soyuz21b_Stage3.h"
+#include "SpaceBallistics/LVSC/Soyuz21b_Stage3.h"
 #include <iostream>
 
 int main()

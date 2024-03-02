@@ -1,10 +1,10 @@
 // vim:ts=2:et
 //===========================================================================//
-//                     "SpaceBallistics/Locations.hpp":                      //
-//                          Well-Known Locations                             //
+//                  "SpaceBallistics/CoOrds/Locations.hpp":                  //
+//                      Constants: Geodetic Locations                        //
 //===========================================================================//
 #pragma once
-#include "SpaceBallistics/Locations.h"
+#include "SpaceBallistics/CoOrds/Locations.h"
 
 namespace SpaceBallistics
 {

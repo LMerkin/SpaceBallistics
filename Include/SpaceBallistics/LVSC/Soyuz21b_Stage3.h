@@ -1,14 +1,14 @@
 // vim:ts=2:et
 //===========================================================================//
-//                             "Soyuz21b_Stage3.h":                          //
+//                 "SpaceBallistics/LVSC/Soyuz21b_Stage3.h":                 //
 //         Mathematical Model of the "Soyuz-2.1b" Stage3 ("Block I")         //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/ConstrElement.hpp"
-#include "SpaceBallistics/Soyuz21b_Consts.h"
-#include "SpaceBallistics/Soyuz21b_Head.h"
-#include "SpaceBallistics/Propellants.h"
-#include "SpaceBallistics/StageDynParams.h"
+#include "SpaceBallistics/CE/TrConeSpherSegm.hpp"
+#include "SpaceBallistics/LVSC/Soyuz21b_Consts.h"
+#include "SpaceBallistics/LVSC/Soyuz21b_Head.h"
+#include "SpaceBallistics/LVSC/Propellants.h"
+#include "SpaceBallistics/LVSC/StageDynParams.h"
 #include <cassert>
 
 namespace SpaceBallistics
@@ -154,7 +154,7 @@ namespace SpaceBallistics
         false,                          // Facing Up = Left = !Right
         ForeSectionProto.GetRight()[0], // Bottom of ForeSection
         D,
-        RG1Dens                         // Naftil
+        Propellants::RG1Dens            // Naftil
       );
     constexpr static TrCone    FuelTankMidProto =
       TrCone
@@ -162,7 +162,7 @@ namespace SpaceBallistics
         ForeSectionProto.GetRight()[0], // Common base with FuelTankUp
         D,
         FuelTankMidH,
-        RG1Dens                         // Naftil
+        Propellants::RG1Dens            // Naftil
       );
     constexpr static SpherSegm FuelTankLowProto =
       SpherSegm
@@ -171,7 +171,7 @@ namespace SpaceBallistics
         FuelTankMidProto.GetRight()[0], // Common base with FuelTankMid (right)
         D,
         FuelTankLowH,
-        RG1Dens                         // Naftil
+        Propellants::RG1Dens            // Naftil
       );
 
     // Equipment Bay (containing the Control System):
@@ -192,7 +192,7 @@ namespace SpaceBallistics
         false,                          // Facing Up = Left = !Right
         EquipBayProto.GetRight()[0],    // Common base with EquipBay (right)
         D,
-        LOxDens
+        Propellants::LOxDens
       );
     constexpr static TrCone    OxidTankMidProto =
       TrCone
@@ -200,7 +200,7 @@ namespace SpaceBallistics
         EquipBayProto.GetRight()[0],    // Common base with EquipBay (right)
         D,
         OxidTankMidH,
-        LOxDens
+        Propellants::LOxDens
       );
     constexpr static SpherSegm OxidTankLowProto =
       SpherSegm
@@ -208,7 +208,7 @@ namespace SpaceBallistics
         true,                           // Facing Down = Right
         OxidTankMidProto.GetRight()[0], // Common base with OxidTankMid (right)
         D,
-        LOxDens
+        Propellants::LOxDens
       );
 
   public:

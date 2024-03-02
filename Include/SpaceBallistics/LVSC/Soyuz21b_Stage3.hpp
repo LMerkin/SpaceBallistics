@@ -1,15 +1,15 @@
 // vim:ts=2:et
 //===========================================================================//
-//                            "Soyuz21b_Stage3.hpp":                         //
+//                "SpaceBallistics/LVSC/Soyuz21b_Stage3.hpp":                //
 //         Mathematical Model of the "Soyuz-2.1b" Stage3 ("Block I")         //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/Soyuz21b_Stage3.h"
+#include "SpaceBallistics/LVSC/Soyuz21b_Stage3.h"
 
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // "GetDynParams":                                                         //
+  // "Soyuz21b_Stage3::GetDynParams":                                        //
   //=========================================================================//
   // "a_t" is Flight Time since the "Contact Separation" event:
   //

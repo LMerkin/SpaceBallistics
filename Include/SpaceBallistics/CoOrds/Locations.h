@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
-//                     "SpaceBallistics/Locations.h":                        //
-//                       Well-Known Earth Locations                          //
+//                    "SpaceBallistics/CoOrds/Locations.h":                  //
+//                              Geodetic Locations                           //
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/Types.hpp"

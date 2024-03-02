@@ -2,7 +2,7 @@
 //===========================================================================//
 //                      "Tests/LocationsTest.cpp":                           //
 //===========================================================================//
-#include "SpaceBallistics/Locations.hpp"
+#include "SpaceBallistics/CoOrds/Locations.hpp"
 #include <iostream>
 
 int main()
