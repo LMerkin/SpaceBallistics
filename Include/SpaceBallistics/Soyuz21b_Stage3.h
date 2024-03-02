@@ -141,7 +141,7 @@ namespace SpaceBallistics
     constexpr static TrCone ForeSectionProto =
       TrCone
       (
-        ForeX0, 
+        ForeX0,
         D,
         ForeH,
         Density(0.0)                    // No Propellant there
@@ -178,17 +178,17 @@ namespace SpaceBallistics
     // "Proto" with yet-unknown mass:
     constexpr static TrCone    EquipBayProto =
       TrCone
-      ( 
+      (
         FuelTankMidProto.GetRight()[0], // Common base with FuelTankMid (right)
         D,
-        EquipBayH,               
+        EquipBayH,
         Density(0.0)                    // No Propellant there
-      );                            
+      );
 
     // Oxidiser Tank "Proto" components (with yet-unknown masses):
     constexpr static SpherSegm OxidTankUpProto =
       SpherSegm
-      ( 
+      (
         false,                          // Facing Up = Left = !Right
         EquipBayProto.GetRight()[0],    // Common base with EquipBay (right)
         D,
@@ -292,7 +292,7 @@ namespace SpaceBallistics
       EquipBay    + OxidTankUp  + OxidTankMid  + OxidTankLow + Engine;
 
     constexpr static CE EGBeforeCE = EGAfterCE + AftSection;
- 
+
     //-----------------------------------------------------------------------//
     // Geometry Checks:                                                      //
     //-----------------------------------------------------------------------//
@@ -348,15 +348,15 @@ namespace SpaceBallistics
   private:
     // "ConstElement" objs for Maximum Theoretical Propellant Loads in Tank
     // Sections (for optimisation of "GetDynParams"):
-    constexpr static CE   FuelUpCE     = FuelTankUp .GetPropCE(FuelTankUpMC);
+    constexpr static CE   FuelUpCE     = FuelTankUp .GetPropCE(FuelTankUpMC) ;
     constexpr static CE   FuelMidCE    = FuelTankMid.GetPropCE(FuelTankMidMC);
     constexpr static CE   FuelLowCE    = FuelTankLow.GetPropCE(FuelTankLowMC);
     constexpr static CE   FuelLowMidCE = FuelLowCE + FuelMidCE;
 
-    constexpr static CE   OxidUpCE      = OxidTankUp .GetPropCE(OxidTankUpMC);
-    constexpr static CE   OxidMidCE     = OxidTankMid.GetPropCE(OxidTankMidMC);
-    constexpr static CE   OxidLowCE     = OxidTankLow.GetPropCE(OxidTankLowMC);
-    constexpr static CE   OxidLowMidCE  = OxidLowCE + OxidMidCE;
+    constexpr static CE   OxidUpCE     = OxidTankUp .GetPropCE(OxidTankUpMC) ;
+    constexpr static CE   OxidMidCE    = OxidTankMid.GetPropCE(OxidTankMidMC);
+    constexpr static CE   OxidLowCE    = OxidTankLow.GetPropCE(OxidTankLowMC);
+    constexpr static CE   OxidLowMidCE = OxidLowCE + OxidMidCE;
 
   public:
     // Fuel and Oxid Load Ratios (ActualMass / TheorMassCapacity):

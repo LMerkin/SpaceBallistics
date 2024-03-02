@@ -79,34 +79,42 @@ namespace SpaceBallistics
     // XXX: For the purpose of MoI computation, we include the masses  of Tank
     // Pressurisation Gases into the corresp Fuel/Oxid masses (proportional to
     // the volumes of the corresp Tanks):
+    // XXX: "fuelLevel" and "oxidLevel" are hooks provided for debugging purpo-
+    // ses only:
     //
     // Fuel:
     assert(IsPos(fuelMass) && fuelMass <= FuelMass && FuelMass < FuelTankMC);
+    Len fuelLevel = 0.0_m;
     CE fuelCE =
       (fuelMass > FuelTankLowMidMC)
       ? // Fuel level is within the FuelTankUp:
-        FuelTankUp .GetPropCE(fuelMass - FuelTankLowMidMC) + FuelLowMidCE
+        FuelTankUp .GetPropCE(fuelMass - FuelTankLowMidMC, &fuelLevel) +
+        FuelLowMidCE
       :
       (fuelMass > FuelTankLowMC)
       ? // Fuel level is within the FuelTankMid:
-        FuelTankMid.GetPropCE(fuelMass - FuelTankLowMC)    + FuelLowCE
+        FuelTankMid.GetPropCE(fuelMass - FuelTankLowMC,    &fuelLevel) +
+        FuelLowCE
       :
         // Fuel level is within the FuelTankLow:
-        FuelTankLow.GetPropCE(fuelMass);
+        FuelTankLow.GetPropCE(fuelMass,  &fuelLevel);
 
     // Oxid:
+    Len oxidLevel = 0.0_m;
     assert(IsPos(oxidMass) && oxidMass <= OxidMass && OxidMass < OxidTankMC);
     CE oxidCE =
       (oxidMass > OxidTankLowMidMC)
       ? // Oxid level is within the OxidTankUp:
-        OxidTankUp .GetPropCE(oxidMass - OxidTankLowMidMC) + OxidLowMidCE
+        OxidTankUp .GetPropCE(oxidMass - OxidTankLowMidMC, &oxidLevel) +
+        OxidLowMidCE
       :
       (oxidMass > OxidTankLowMC)
       ? // Oxid level is within the OxidTankMid:
-        OxidTankMid.GetPropCE(oxidMass - OxidTankLowMC)    + OxidLowCE
+        OxidTankMid.GetPropCE(oxidMass - OxidTankLowMC,    &oxidLevel) +
+        OxidLowCE
       :
         // Oxid level is within the OxidTankLow:
-        OxidTankLow.GetPropCE(oxidMass);
+        OxidTankLow.GetPropCE(oxidMass,  &oxidLevel);
 
     // Full = (Empty+Gases) + Fuel + Oxid:
     CE fullCE = (a_t < AftJetTime ? EGBeforeCE : EGAfterCE) + fuelCE + oxidCE;

@@ -30,7 +30,7 @@ int main()
   constexpr Mass      propMassCyl = vCyl * rho;
   constexpr Mass      surfMassCyl = sCyl * sigma;
 
-  constexpr TrCone  cyl {0.0_m, D, D, hCyl, rho, surfMassCyl};
+  constexpr TrCone cyl(0.0_m, D, D, hCyl, rho, surfMassCyl);
 
   // Computed CoM and MoIs for the Prop Cylinder (3D, w/o the Shell):
   constexpr   ConstrElement propCyl = cyl.GetPropCE(propMassCyl);
@@ -87,8 +87,8 @@ int main()
   constexpr Mass      emptyMassHS = TwoPi<double> * R2 * sigma;
   constexpr Mass      emptyMassS  = 2.0 * emptyMassHS;
 
-  constexpr SpherSegm leftHS  { true, R, D, rho, emptyMassHS};
-  constexpr SpherSegm rightHS {false, R, D, rho, emptyMassHS};
+  constexpr SpherSegm leftHS (true,  R, D, rho, emptyMassHS);
+  constexpr SpherSegm rightHS(false, R, D, rho, emptyMassHS);
 
   constexpr ConstrElement leftPropCE  = leftHS .GetPropCE(propMassHS);
   constexpr ConstrElement rightPropCE = rightHS.GetPropCE(propMassHS);

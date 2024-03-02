@@ -53,11 +53,11 @@ namespace SpaceBallistics
     //=======================================================================//
     // Over-All Dynamical Params of this "ConstrElement":
     //
-    Len   m_CoM [3];    // (X,Y,Z) co-ords of the Center of Masses
-    Mass  m_mass;       // Mass due due to SurfDensity, 
-    MoI   m_MoIs[3];    // Moments of Inertia wrt the OX, OY and OZ axes
-    bool  m_isFinal;    // If not set, "m_mass", "m_MoIs" are not valid yet
-                        //   (but CoM still is!)
+    Len         m_CoM [3];  // (X,Y,Z) co-ords of the Center of Masses
+    Mass        m_mass;     // Mass
+    MoI         m_MoIs[3];  // Moments of Inertia wrt the OX, OY and OZ axes
+    bool        m_isFinal;  // If not set, "m_mass", "m_MoIs" are not valid yet
+                            //   (but the CoM still is!)
   protected:
     //=======================================================================//
     // "Init":                                                               //
@@ -94,10 +94,10 @@ namespace SpaceBallistics
 
   public:
     //=======================================================================//
-    // External Default Ctor:                                                //
+    // Default Ctor:                                                         //
     //=======================================================================//
     // NB:
-    // (*) All data fields are initialised to 0s, not to NaNs, so the "empty"
+    // (*) All numeric fields are initialised to 0s, not to NaNs, so the "empty"
     //     obj (constructed by the Default Ctor) can be used as an initial value
     //     for summation ("+", "+=", etc);
     // (*) IsFinal is set to "true", because the empty "ConstrElement" is typi-
@@ -115,25 +115,14 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr ConstrElement
     (
-      Len     a_com [3],
-      Mass    a_mass,
-      MoI     a_mois[3],
-      bool    a_is_final
+      Len         a_com [3],
+      Mass        a_mass,
+      MoI         a_mois[3],
+      bool        a_is_final
     )
     { Init(this, a_com, a_mass, a_mois, a_is_final); }
 
-    //=======================================================================//
-    // Copy Ctor, Assignment, Equality:                                      //
-    //=======================================================================//
-    // Copy Ctor is auto-generated, the Assignment and Equality are the
-    // default ones:
-    //
-    constexpr ConstrElement& operator= (ConstrElement const& a_right)
-      = default;
-    constexpr bool           operator==(ConstrElement const& a_right) const
-      = default;
-    constexpr bool           operator!=(ConstrElement const& a_right) const
-      = default;
+    // Copy Ctor, Assignment and Equality are auto-generated...
 
     //=======================================================================//
     // "GetMassScale":                                                       //
@@ -185,7 +174,7 @@ namespace SpaceBallistics
       // Cannot adjust the Mass once it has been finalised:
       assert(!copy.m_isFinal);
 
-      // Set the Mass and adjust the MoIs; but the CoM is unchanged!
+      // Set the Mass and adjust the MoIs; but the CoM is unchanged:
       copy.m_mass    *= a_scale;
       copy.m_MoIs[0] *= a_scale;
       copy.m_MoIs[1] *= a_scale;
@@ -306,9 +295,7 @@ namespace SpaceBallistics
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
     constexpr PointMass(Len a_x0, Len a_y0, Len a_z0, Mass a_mass)
-    : // First, invoke the Default Ctor on the Base Class (this is slightly sub-
-      // optimal):
-      ConstrElement()
+    : ConstrElement()  // Slightly sub-optimal...
     {
       Len  pt[3] { a_x0, a_y0, a_z0 };
 
@@ -339,6 +326,14 @@ namespace SpaceBallistics
   //
   class RotationBody: public ConstrElement
   {
+  protected:
+    //=======================================================================//
+    // Consts:                                                               //
+    //=======================================================================//
+    // Computation Tolerances:
+    constexpr static double Tol     = 100.0 * Eps<double>;
+    constexpr static double TolFact = 1.0   + Tol;
+
   private:
     //=======================================================================//
     // Data Flds:                                                            //
@@ -351,57 +346,57 @@ namespace SpaceBallistics
     // yR=0 (the rotation axis is in OXY)  or zR=0 (in OXZ), or both (in which
     // case alpha=0 as well):
     //
-    bool       m_inXY;         // If false, then inXZ holds (both may be true)
-    bool       m_inXZ;         //
-    double     m_cosA;         // cos(alpha)
-    double     m_sinA;         // sin(alpha)
-    Len        m_left [3];     // Left  (Upper, Smaller-X) axis end
-    Len        m_h;            // Over-all body length along the rotation axis
-    Len        m_right[3];     // Right (Lower, Larger-X) axis end: MoI ORIGIN
-    Len        m_yzR;          // right[1] or right[2]
+    bool        m_inXY;         // If false, then inXZ holds (both may be true)
+    bool        m_inXZ;         //
+    double      m_cosA;         // cos(alpha)
+    double      m_sinA;         // sin(alpha)
+    Len         m_left [3];     // Left  (Upper, Smaller-X) axis end
+    Len         m_h;            // Over-all body length along the rotation axis
+    Len         m_right[3];     // Right (Lower, Larger-X) axis end: MoI ORIGIN
+    Len         m_yzR;          // right[1] or right[2]
 
     // Geometric Properties:
-    Area       m_sideSurfArea; // W/o the Bases
-    Vol        m_enclVol;      // Nominal Volume enclosed (with imag. Bases)
+    Area        m_sideSurfArea; // W/o the Bases
+    Vol         m_enclVol;      // Nominal Volume enclosed (with imag. Bases)
 
     // Propellant-related flds (ie it is assumed that this rotation body may
     // contain Propellant):
     //
-    Density    m_rho;          // Propellant Density (0 if no propellant)
-    Mass       m_propMassCap;  // Propellant Mass Capacity
+    Density     m_rho;          // Propellant Density (0 if no propellant)
+    Mass        m_propMassCap;  // Propellant Mass Capacity
 
     // Coeffs for translation of "instrinsic" MoI params (J0, J1, K) into XYZ
     // MoI params (Jx, Jin, Jort and ultimately to Jx, Jy, Jz):
     // For Jx:
-    double     m_Jx0;
-    double     m_Jx1;
-    Len        m_JxK;
-    Len2       m_JxSV;
+    double      m_Jx0;
+    double      m_Jx1;
+    Len         m_JxK;
+    Len2        m_JxSV;
     // For Jin:
-    double     m_Jin0;
-    double     m_Jin1;
-    Len        m_JinK;
-    Len2       m_JinSV;
+    double      m_Jin0;
+    double      m_Jin1;
+    Len         m_JinK;
+    Len2        m_JinSV;
     // For Jort (Jort0 = Jort1 = 1):
-    Len        m_JortK;
-    Len2       m_JortSV;
+    Len         m_JortK;
+    Len2        m_JortSV;
 
     // Coeffs for computation of "intrinsic" MoI params (J0, J1, K) as polynom-
-    // ial functions of the propellant level.  XXX: Interestingly, the degress
+    // ial functions of the propellant level.  XXX: Interestingly, the degrees
     // of such polynomials are the same for the concrete hapes currently imple-
     // mented ("TrCone", "SpherSegm", ...), though extra coeffs may potentially
     // be required for other shapes:
-    double     m_JP05;     // coeff(JP0, l^5)
-    Len        m_JP04;     // coeff(JP0, l^4)
-    Len2       m_JP03;     // coeff(JP0, l^3)
-    double     m_JP15;     // coeff(JP1, l^5)
-    Len        m_JP14;     // coeff(JP1, l^4)
-    Len2       m_JP13;     // coeff(JP1, l^3)
-    Len3       m_JP12;     // coeff(JP1, l^2)
-    Len4       m_JP11;     // coeff(JP1, l)
-    double     m_KP4;      // coeff(KP,  l^4)
-    Len        m_KP3;      // coeff(KP,  l^3)
-    Len2       m_KP2;      // coeff(KP,  l^2)
+    double      m_JP05;     // coeff(JP0, l^5)
+    Len         m_JP04;     // coeff(JP0, l^4)
+    Len2        m_JP03;     // coeff(JP0, l^3)
+    double      m_JP15;     // coeff(JP1, l^5)
+    Len         m_JP14;     // coeff(JP1, l^4)
+    Len2        m_JP13;     // coeff(JP1, l^3)
+    Len3        m_JP12;     // coeff(JP1, l^2)
+    Len4        m_JP11;     // coeff(JP1, l)
+    double      m_KP4;      // coeff(KP,  l^4)
+    Len         m_KP3;      // coeff(KP,  l^3)
+    Len2        m_KP2;      // coeff(KP,  l^2)
 
     // Emulating virtual methods:
     // The following function ptr is provided by derived classes:
@@ -409,11 +404,13 @@ namespace SpaceBallistics
     LevelOfVol m_LoV;
 
   protected:
-    //=======================================================================//
-    // Default Ctor:                                                         //
-    //=======================================================================//
-    // Just an auto-generated place-holder:
-    constexpr RotationBody() = default;
+    // Default and Copy Ctors, Assignment and Equality are auto-generated, and
+    // they are Protected:
+    constexpr RotationBody()                                      = default;
+    constexpr RotationBody            (RotationBody const&)       = default;
+    constexpr RotationBody& operator= (RotationBody const&)       = default;
+    constexpr bool          operator==(RotationBody const&) const = default;
+    constexpr bool          operator!=(RotationBody const&) const = default;
 
     //=======================================================================//
     // "Init":                                                               //
@@ -436,7 +433,7 @@ namespace SpaceBallistics
       bool        a_0is_left, // (x0,y0,z0) is the left or right end?
       Len         a_h,        // Over-all body length  (along the rotation axis)
 
-      // "Empty" MoI Coeffs:
+      // "Empty" MoI Coeffs (wrt the RIGHT end of the rotation axis):
       Len4        a_je0,
       Len4        a_je1,
       Len3        a_ke,
@@ -447,7 +444,8 @@ namespace SpaceBallistics
       // Propellant Vol -> Propellant Level:
       LevelOfVol  a_lov,
 
-      // Propellant MoI Coeffs as functions of Propellant Level:
+      // Propellant MoI Coeffs as functions of Propellant Level (also wrt RIGHT
+      // end of the rotation axis):
       double      a_jp05,
       Len         a_jp04,
       Len2        a_jp03,
@@ -514,8 +512,14 @@ namespace SpaceBallistics
       m_propMassCap  = m_rho * a_encl_vol;
       m_LoV          = a_lov;
 
+      // IMPORTANT!
       // Coeffs for (Jx, Jy, Jz) wrt (J0, J1, K, SurfOrVol), where J0, J1, K
-      // are computed relative to the RIGHT end of the rotation axis:
+      // are computed relative to the RIGHT end-point of the rotation axis.
+      // This is just a matter of choice for 2D Shells, but becomes important
+      // for 3D Propellant Volumes: as Propellants are spent, the Right end
+      // of the Propellant Volume remains unchanged, whereas the Left one moves
+      // with the decreasing level of Propellant:
+      //
       // Jx =  m_sinA^2   * J0 + (1.0 + m_cosA^2)    * J1 +
       //       yzR * (yzR * SurfOrVol + 2.0 * m_sinA * K) :
       m_Jx0     = Sqr(m_sinA);
@@ -608,7 +612,7 @@ namespace SpaceBallistics
     template<typename J>
     constexpr void MoIsCoM
     (
-      J                          a_j0,      // Len4 or Len5
+      J                          a_j0,      // Len4 or Len5, wrt RIGHT axis end
       J                          a_j1,      // ditto
       decltype(J(1.0)/1.0_m)     a_k,       // Len3 or Len4
       decltype(J(1.0)/Len2(1.0)) a_sv,      // Len2 or Len3 (ie SurfArea or Vol)
@@ -618,7 +622,7 @@ namespace SpaceBallistics
     )
     const
     {
-      // "Intrinsic" empty MoI components must be > 0 for any finite body size.
+      // "Intrinsic" MoI components must be > 0 for any finite body size.
       // But "a_k" must be negative (relative to the right-most point):
       assert(IsPos(a_j0) && IsPos(a_j1) && IsPos(a_sv) && IsNeg(a_k));
 
@@ -632,11 +636,11 @@ namespace SpaceBallistics
       a_mois[0]  = a_dens * Jx;
       a_mois[1]  = a_dens * Jy;
       a_mois[2]  = a_dens * Jz;
+      assert(!(IsNeg(a_mois[0]) || IsNeg(a_mois[1]) || IsNeg(a_mois[2])));
 
       // Now the CoM: "xiC" is its co-ord along the rotation axis, relative to
       // the right-most axis point:
       Len  xiC   = a_k / a_sv;
-      assert(IsNeg(xiC));
       a_com[0]   = m_right[0]   + m_cosA * xiC;
       Len  yzC   = m_yzR        + m_sinA * xiC;
       a_com[1]   = m_inXY ? yzC : 0.0_m;
@@ -649,6 +653,7 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr Area GetSideSurfArea() const { return m_sideSurfArea; }
     constexpr Vol  GetEnclVol()      const { return m_enclVol;      }
+    constexpr Len  GetHeight ()      const { return m_h;            }
 
     //=======================================================================//
     // "GetPropCE":                                                          //
@@ -662,18 +667,21 @@ namespace SpaceBallistics
     // Returns a ficticious "ConstrElement" obj acting as a container for the
     // results computed, and suitable for the "+" operation:
     // Although declared "constexpr", this function will mostly be called at
-    // Run-Time:
+    // Run-Time. For the info, it also returns the PropLevel if the output ptr
+    // is non-NULL:
     //
-    constexpr ConstrElement GetPropCE(Mass a_prop_mass) const
+    constexpr ConstrElement   GetPropCE
+      (Mass a_prop_mass, Len* a_prop_level = nullptr) const
     {
       // Check the limits of the Propellant Mass. For the 2nd inequaluty, allow
       // some floating-point tolerance:
-      assert(!IsNeg(a_prop_mass) &&
-             a_prop_mass <= GetPropMassCap() * (1.0 + 10.0 * Eps<double>));
+      assert(!IsNeg(a_prop_mass) && a_prop_mass <= GetPropMassCap() * TolFact);
 
       // The Propellant Volume: Make sure it is within the limits to avoid
       // rounding errors:
-      Vol propVol = std::min(a_prop_mass / GetPropDens(), GetEnclVol());
+      Vol propVol = a_prop_mass / GetPropDens();
+      assert    (!IsNeg (propVol) && propVol <= GetEnclVol() * TolFact);
+      propVol = std::min(propVol, GetEnclVol());
 
       // The Propellant Level, relative to the Right (Lower) Base.
       // XXX: We assume that the propellant surface is always orthogonal to the
@@ -683,15 +691,19 @@ namespace SpaceBallistics
       // Mathematically, we must have 0 <= l <= h, where l=0 corresponds to the
       // empty segment, and l=h to the full one. We enforce this interval expli-
       // citly to prevent rounding errors:
-      l = std::max(std::min(l, m_h), 0.0_m);
+      assert(!IsNeg(l) && l <= m_h * TolFact);
+      l        = std::min(l,   m_h);
+
+      if (a_prop_level != nullptr)
+        * a_prop_level  = l;
 
       // "Intrinsic" MoIs components of the Priopellant:
-      Len2 l2    = Sqr (l);
-      Len3 l3    = l2 * l;
-      Len5 JP0   = (   (m_JP05 * l + m_JP04) * l + m_JP03) * l3;
-      Len5 JP1   = (((((m_JP15 * l + m_JP14) * l + m_JP13) * l) + m_JP12)
-                               * l + m_JP11) * l;
-      Len4 KP    = (   (m_KP4  * l + m_KP3 ) * l + m_KP2 ) * l2;
+      Len2 l2  = Sqr (l);
+      Len3 l3  = l2 * l;
+      Len5 JP0 = (   (m_JP05 * l + m_JP04) * l + m_JP03) * l3;
+      Len5 JP1 = (((((m_JP15 * l + m_JP14) * l + m_JP13) * l) + m_JP12)
+                             * l + m_JP11) * l;
+      Len4 KP  = (   (m_KP4  * l + m_KP3 ) * l + m_KP2 ) * l2;
       assert(!IsNeg(JP0) && !IsNeg(JP1) && !IsPos(KP));
 
       // Get the MoIs and the CoM of the Popellant (returned straight to the
@@ -783,6 +795,7 @@ namespace SpaceBallistics
 
     constexpr Len LevelOfVol(Vol a_v) const
     {
+      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
       return
         IsZero(m_deltaR)
         ? // R==r: The simplest and the most common case: A Cylinder:
@@ -799,17 +812,16 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr TrCone
     (
-      Len     a_x0,       // Left  (upper) base center (Left rotation axis end)
-      Len     a_y0,       //
-      Len     a_z0,       //
-      double  a_alpha,    // Dimension-less, in (-Pi/2 .. Pi/2)
-      Len     a_d0,       // Left  (Upper, Smaller-X) base diameter
-      Len     a_d1,       // Right (Lower, Larger-X)  base diameter
-      Len     a_h,        // Height
-      Density a_rho,      // Propellant Density (may be 0)
-      Mass    a_empty_mass = UnKnownMass
+      Len         a_x0,       // Left  (upper) base center (Left rot.axis end)
+      Len         a_y0,       //
+      Len         a_z0,       //
+      double      a_alpha,    // Dimension-less, in (-Pi/2 .. Pi/2)
+      Len         a_d0,       // Left  (Upper, Smaller-X) base diameter
+      Len         a_d1,       // Right (Lower, Larger-X)  base diameter
+      Len         a_h,        // Height
+      Density     a_rho,      // Propellant Density (may be 0)
+      Mass        a_empty_mass = UnKnownMass
     )
-    : RotationBody()      // Trivial as yet
     {
       //---------------------------------------------------------------------//
       // Over-All Geometry:                                                  //
@@ -885,12 +897,12 @@ namespace SpaceBallistics
     //
     constexpr TrCone
     (
-      Len     a_x0,       // Left  (Upper, Smaller-X) base center
-      Len     a_d0,       // Left  (Upper, Smaller-X) base diameter
-      Len     a_d1,       // Right (Lower, Larger-X)  base diameter
-      Len     a_h,        // Height
-      Density a_rho,      // 0 may be OK
-      Mass    a_empty_mass = UnKnownMass
+      Len         a_x0,       // Left  (Upper, Smaller-X) base center
+      Len         a_d0,       // Left  (Upper, Smaller-X) base diameter
+      Len         a_d1,       // Right (Lower, Larger-X)  base diameter
+      Len         a_h,        // Height
+      Density     a_rho,      // 0 may be OK
+      Mass        a_empty_mass = UnKnownMass
     )
     : TrCone(a_x0, 0.0_m, 0.0_m, 0.0, a_d0, a_d1, a_h, a_rho, a_empty_mass)
     {}
@@ -898,18 +910,18 @@ namespace SpaceBallistics
     // As above, but with d0=d1, ie a Cylinder:
     constexpr TrCone
     (
-      Len     a_x0,       // Left  (Upper, Smaller-X) base center
-      Len     a_d0,       // Left  (Upper, Smaller-X) base diameter
-      Len     a_h,        // Height
-      Density a_rho,      // 0 may be OK
-      Mass    a_empty_mass = UnKnownMass
+      Len         a_x0,       // Left  (Upper, Smaller-X) base center
+      Len         a_d0,       // Left  (Upper, Smaller-X) base diameter
+      Len         a_h,        // Height
+      Density     a_rho,      // 0 may be OK
+      Mass        a_empty_mass = UnKnownMass
     )
     : TrCone(a_x0, 0.0_m, 0.0_m, 0.0, a_d0, a_d0, a_h, a_rho, a_empty_mass)
     {}
   };
 
   //=========================================================================//
-  // "SpherSegm":                                                            //
+  // "SpherSegm" Class:                                                      //
   //=========================================================================//
   // Similar to "TrCone", but for a Spherical Segment of the base diameter "d"
   // and the height (from the base plane to the pole) "h", where we assume
@@ -958,7 +970,7 @@ namespace SpaceBallistics
     }
 
     //-----------------------------------------------------------------------//
-    // For the Right-Facing SpherSegm:                                       //
+    // For the Right-Facing "SpherSegm":                                     //
     //-----------------------------------------------------------------------//
     constexpr Len LevelOfVolRight(Vol a_v) const
     {
@@ -972,8 +984,8 @@ namespace SpaceBallistics
       // x=1/2 is a reasonble initial approximation (XXX: We may use "h"  for
       // a more accurate initial point, but this is not required yet):
       //
-      double           x   = 0.5;
-      double           tv  = 3.0   * double(a_v / m_R3) / Pi<double>;
+      double x   = 0.5;
+      double tv  = 3.0 * double(a_v / m_R3) / Pi<double>;
 
       constexpr double Tol = 100.0 * Eps<double>;
       assert(0.0 <= tv && tv < 2.0 + Tol);
@@ -1011,74 +1023,33 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // For the Left-Facing "SpherSegm":                                      //
     //-----------------------------------------------------------------------//
+    // Using the invariant
+    // V_left(l) + V_right(h-l) = EnclVol:
+    //
     constexpr Len LevelOfVolLeft(Vol a_v) const
     {
-      // Solving the equation
-      //   x*(3-x^2) = v,
-      // where
-      //   "x" is the Propellant level relative to "R": x=l/R, 0 <= x <= 1;
-      //   "v" is the Volume/(Pi/3*R^3),                       0 <= v <= 2;
-      // by using Halley's Method (to avoid dealing with complex roots in the
-      // Cardano formula):
-      // x=1/2 is a reasonble initial approximation (XXX: We may use "h"  for
-      // a more accurate initial point, but this is not required yet):
-      //
-      double           x   = 0.5;
-      double           tv  = 3.0   * double(a_v / m_R3) / Pi<double>;
-
-      constexpr double Tol = 100.0 * Eps<double>;
-      assert(0.0 <= tv && tv < 2.0 + Tol);
-      tv = std::min(2.0,  tv);       // Enforce the boundary
-
-      // For safety, restrict the number of iterations:
-      constexpr int N = 100;
-      int           i = 0;
-      for (; i < N; ++i)
-      {
-        double x2 = Sqr(x);
-        double x3 = x2 * x;
-        double x4 = Sqr(x2);
-        double dx =
-          UNLIKELY(tv == 2.0)
-          ? // Degenerate Case:
-            (x2 - 1.0) * (x + 2.0) / (2.0 * x2 + 4.0 * x + 3.0)
-          : // Generic Case:
-            (x3 - 3.0 * x + tv)  * (x2 - 1.0)   /
-            (2.0 * x4 - 3.0 * x2 - tv * x + 3.0);
-
-        // Iterative update:
-        x -= dx;
-
-        // Exit condition:
-        if (UNLIKELY(Abs(dx) < Tol))
-          break;
-      }
-      // If we got here w/o achieving the required precision, it's an error:
-      assert(i < N);
-
-      // If all is fine: To prevent rounding errors, enforce the boundaries:
-      x = std::max(std::min(x, 1.0), 0.0);
-
-      // And finally, the level:
-      return x * m_R;
+      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
+      Len res = GetHeight() - LevelOfVolRight(GetEnclVol() - a_v);
+      assert(!IsNeg(res) && res <= GetHeight());
+      return res;
     }
+
   public:
     //=======================================================================//
     // Non-Default Ctor:                                                     //
     //=======================================================================//
     constexpr SpherSegm
     (
-      bool    a_facing_right,
-      Len     a_x0,             // Base center
-      Len     a_y0,             //
-      Len     a_z0,             //
-      double  a_alpha,          // Dimension-less, in (-Pi/2 .. Pi/2)
-      Len     a_d,              // Base diameter
-      Len     a_h,              // Height
-      Density a_rho,            // Propellant Density (may be 0)
-      Mass    a_empty_mass = UnKnownMass
+      bool        a_facing_right,
+      Len         a_x0,          // Base center
+      Len         a_y0,          //
+      Len         a_z0,          //
+      double      a_alpha,       // Dimension-less, in (-Pi/2 .. Pi/2)
+      Len         a_d,           // Base diameter
+      Len         a_h,           // Height
+      Density     a_rho,         // Propellant Density (may be 0)
+      Mass        a_empty_mass = UnKnownMass
     )
-    : RotationBody()            // Trivial as yet
     {
       //---------------------------------------------------------------------//
       // Over-All Geometry:                                                  //
@@ -1103,9 +1074,13 @@ namespace SpaceBallistics
       // Side Surface Area and Nominal Enclosed Volume:
       Area sideSurfArea = TwoPi<double> * m_R *  a_h;
       Vol  enclVol      =    Pi<double> * h2  * (m_R - a_h / 3.0);
-    
-      // "Intrinsic" "empty" MoIs (NB: just by coincidence, they do not depend
-      // on "FacingRight"!):
+
+      // "Intrinsic" "empty" MoIs (NB: they do not depend on "FacingRight",
+      // because JE0 is wrt the rotation axis "xi"; furthermore, the Left- and
+      // Right-facing segments  are mutually-symmetric wrt any axis  orthogonal
+      // to "xi", hence "JE1" must also be the same; for "KE", it is just a lu-
+      // cky coincidence due to f(xi)*sqrt(1+f'(xi)^2)=R=const):
+      //
       Len4 JE0    = TwoPi<double> / 3.0 * m_R * h3;
       Len4 JE1    = m_R * enclVol;
       Len3 KE     = -  Pi<double> * m_R * h2;
@@ -1161,12 +1136,12 @@ namespace SpaceBallistics
     //
     constexpr SpherSegm
     (
-      bool    a_facing_right,
-      Len     a_x0,       // Base center
-      Len     a_d,        // Base diameter
-      Len     a_h,        // Height
-      Density a_rho,      // 0 may be OK
-      Mass    a_empty_mass = UnKnownMass
+      bool        a_facing_right,
+      Len         a_x0,       // Base center
+      Len         a_d,        // Base diameter
+      Len         a_h,        // Height
+      Density     a_rho,      // 0 may be OK
+      Mass        a_empty_mass = UnKnownMass
     )
     : SpherSegm(a_facing_right, a_x0, 0.0_m, 0.0_m, 0.0, a_d, a_h, a_rho,
                 a_empty_mass)
@@ -1176,11 +1151,11 @@ namespace SpaceBallistics
     //
     constexpr SpherSegm
     (
-      bool    a_facing_right,
-      Len     a_x0,       // Base center
-      Len     a_d,        // Base diameter
-      Density a_rho,      // 0 may be OK
-      Mass    a_empty_mass = UnKnownMass
+      bool        a_facing_right,
+      Len         a_x0,       // Base center
+      Len         a_d,        // Base diameter
+      Density     a_rho,      // 0 may be OK
+      Mass        a_empty_mass = UnKnownMass
     )
     : SpherSegm(a_facing_right, a_x0, 0.0_m, 0.0_m, 0.0, a_d, a_d / 2.0, a_rho,
                 a_empty_mass)
