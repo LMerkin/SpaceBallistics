@@ -15,22 +15,22 @@ namespace SpaceBallistics
   //
   StageDynParams Soyuz21b_Stage3::GetDynParams(Time a_t)
   {
-    StageDynParams res;           // XXX: Uninitialised yet
+    StageDynParams res;   // XXX: Uninitialised yet
 
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
     //-----------------------------------------------------------------------//
-    Mass  fullMass(NaN<double>);
-    Mass  fuelMass(NaN<double>);
-    Mass  oxidMass(NaN<double>);
-    Force thrust  (NaN<double>);
+    Mass  fullMass (NaN<double>);
+    Mass  fuelMass (NaN<double>);
+    Mass  oxidMass (NaN<double>);
+    Force absThrust(NaN<double>);
 
     if (a_t < IgnTime)        // Before Stage3 Ignition
     {
-      fullMass = FullMass;
-      fuelMass = FuelMass;
-      oxidMass = OxidMass;
-      thrust   = Force(0.0);
+      fullMass  = FullMass;
+      fuelMass  = FuelMass;
+      oxidMass  = OxidMass;
+      absThrust = Force(0.0);
     }
     else
     if (a_t < AftJetTime)     // Running at Full Thrust, with Aft (yet)
@@ -39,7 +39,7 @@ namespace SpaceBallistics
       fullMass  = FullMass - MassRate * dt;
       fuelMass  = FuelMass - FuelRate * dt;
       oxidMass  = OxidMass - OxidRate * dt;
-      thrust    = ThrustVac;
+      absThrust = ThrustVac;
     }
     else
     if (a_t < CutOffTime)     // Running at Throttled Thrust again
@@ -49,14 +49,14 @@ namespace SpaceBallistics
       fullMass  = AftJetFullMass  - MassRate * dt1;
       fuelMass  = FuelMass        - FuelRate * dt0;
       oxidMass  = OxidMass        - OxidRate * dt0;
-      thrust    = ThrustVac;
+      absThrust = ThrustVac;
     }
     else                      // After the Engine Cut-Off: "Spent" Stage
     {
       fullMass  = CutOffFullMass;
       fuelMass  = CutOffFuelMass;
       oxidMass  = CutOffOxidMass;
-      thrust    = Force(0.0);
+      absThrust = Force(0.0);
     }
 
     // Verify the Masses:
@@ -68,10 +68,14 @@ namespace SpaceBallistics
         (egMass.ApproxEquals(a_t < AftJetTime ? EGMassBefore : EGMassAfter));
     )
     // Save the masses in the "res":
-    res.m_fullMass = fullMass;
-    res.m_fuelMass = fuelMass;
-    res.m_oxidMass = oxidMass;
-    res.m_thrust   = thrust;
+    res.m_fullMass  = fullMass;
+    res.m_fuelMass  = fuelMass;
+    res.m_oxidMass  = oxidMass;
+    // FIXME: We currently assume that the Thrust vector is parallel to the
+    // embedded OX axis (pointing in the positive direction):
+    res.m_thrust[0] = absThrust;
+    res.m_thrust[1] = Force(0.0);
+    res.m_thrust[2] = Force(0.0);
 
     //-----------------------------------------------------------------------//
     // Moments of Inertia and Center of Masses:                              //

@@ -24,10 +24,10 @@ namespace SpaceBallistics
   // X-coords are positive and the origin  is not  affected by separation of
   // stages):
   // (*) The OX axis is the main axis of the rocket. The OX positive direction
-  //     is towards the TAIL (REAL of the LV). The origin O is the LOWER base
-  //     of the InterStage (junction plane with Stage3).  That is, X <= 0 for
+  //     is towards the HEAD of the LV. The origin O is the LOWER base of the
+  //     InterStage (junction plane with Stage3). That is, X >= 0 for
   //     for InterStage, the optional Stage4, Payload Adapter/Dispenser, Pay-
-  //     load itself and the Fairing, and X >= 0 for Stages 3, 2, 1.
+  //     load itself and the Fairing, and X <= 0 for Stages 3, 2, 1.
   // (*) The OY and OZ axes are such that the OXY and OXZ planes pass through
   //     the symmetry axes of the corresp opposite strap-on boosters (Blocks
   //     B, V, G, D -- Stage 1), and OXYZ is a right-oriented co-ords system.
@@ -133,6 +133,14 @@ namespace SpaceBallistics
       ThrustVac - MassRate * IspVac * g0;
     static_assert(IsPos(StaticThrust));
 
+    // IMPORTANT:
+    // Each of the 4 Chambers of RD-0124 is gimbaled in the Tangential Plane.
+    // The Chambers are installed in the same planes as the Blocks B,V,G,D of
+    // Stage1, that is, in planes XY and XZ. Therefore, Tangential Planes are
+    // at the 45 deg angles to the XY and XZ planes.  The max gimbaling angle
+    // of RD-0124 Chambers is not known, probably in the range +-(3..8) degs;
+    // we can safely assume +-5 degs.
+
   private:
     //-----------------------------------------------------------------------//
     // "ConstrElement"s: "Proto"s with Yet-UnKnown Masses:                   //
@@ -141,7 +149,7 @@ namespace SpaceBallistics
     constexpr static TrCone ForeSectionProto =
       TrCone
       (
-        ForeX0,
+        ForeX0,                         // Up @ X=0
         D,
         ForeH,
         Density(0.0)                    // No Propellant there
@@ -151,15 +159,15 @@ namespace SpaceBallistics
     constexpr static SpherSegm FuelTankUpProto  =
       SpherSegm
       (
-        false,                          // Facing Up = Left = !Right
-        ForeSectionProto.GetRight()[0], // Bottom of ForeSection
+        true,                           // Facing Up
+        ForeSectionProto.GetLow()[0],   // Base @ Low (Bottom) of ForeSection
         D,
         Propellants::RG1Dens            // Naftil
       );
     constexpr static TrCone    FuelTankMidProto =
       TrCone
       (
-        ForeSectionProto.GetRight()[0], // Common base with FuelTankUp
+        ForeSectionProto.GetLow()[0],   // Up   @ Low (Bottom) of ForeSection
         D,
         FuelTankMidH,
         Propellants::RG1Dens            // Naftil
@@ -167,8 +175,8 @@ namespace SpaceBallistics
     constexpr static SpherSegm FuelTankLowProto =
       SpherSegm
       (
-        true,                           // Facing Down = Right
-        FuelTankMidProto.GetRight()[0], // Common base with FuelTankMid (right)
+        false,                          // Facing Low
+        FuelTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of FuelTankMid
         D,
         FuelTankLowH,
         Propellants::RG1Dens            // Naftil
@@ -179,7 +187,7 @@ namespace SpaceBallistics
     constexpr static TrCone    EquipBayProto =
       TrCone
       (
-        FuelTankMidProto.GetRight()[0], // Common base with FuelTankMid (right)
+        FuelTankMidProto.GetLow()[0],   // Up @ Low (Bottom) of FuelTankMid
         D,
         EquipBayH,
         Density(0.0)                    // No Propellant there
@@ -189,15 +197,15 @@ namespace SpaceBallistics
     constexpr static SpherSegm OxidTankUpProto =
       SpherSegm
       (
-        false,                          // Facing Up = Left = !Right
-        EquipBayProto.GetRight()[0],    // Common base with EquipBay (right)
+        true,                           // Facing Up
+        EquipBayProto.GetLow()[0],      // Base @ Low (Bottom) of EquipBay
         D,
         Propellants::LOxDens
       );
     constexpr static TrCone    OxidTankMidProto =
       TrCone
       (
-        EquipBayProto.GetRight()[0],    // Common base with EquipBay (right)
+        EquipBayProto.GetLow()[0],      // Up @   Low (Bottom) of EquipBay
         D,
         OxidTankMidH,
         Propellants::LOxDens
@@ -205,8 +213,8 @@ namespace SpaceBallistics
     constexpr static SpherSegm OxidTankLowProto =
       SpherSegm
       (
-        true,                           // Facing Down = Right
-        OxidTankMidProto.GetRight()[0], // Common base with OxidTankMid (right)
+        false,                          // Facing Low
+        OxidTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of OxidTankMid
         D,
         Propellants::LOxDens
       );
@@ -219,7 +227,7 @@ namespace SpaceBallistics
     constexpr static TrCone AftSection =
       TrCone
       (
-        OxidTankMidProto.GetRight()[0], // Common base with OxidTankMid (right)
+        OxidTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of OxidTankMid
         D,
         AftH,
         Density(0.0),                   // No Propellant in this Section
@@ -230,7 +238,7 @@ namespace SpaceBallistics
     constexpr static PointMass Engine =
       PointMass
       (
-        OxidTankMidProto.GetRight()[0] + EngCoMdX,
+        OxidTankMidProto.GetLow()[0] - EngCoMdX,
         0.0_m,
         0.0_m,
         EngMass                         // Mass is known!
@@ -300,19 +308,19 @@ namespace SpaceBallistics
     // there must be a positive gap between them:
     //
     constexpr static Len FuelOxidTanksGap =
-      OxidTankUp.GetLeft()[0] - FuelTankLow.GetRight()[0];
+      FuelTankLow.GetLow()[0] - OxidTankUp.GetUp()[0];
     static_assert(IsPos (FuelOxidTanksGap));
 
     // On the other hand, the top of the FuelTank appears over the over-all
     // cylindrical shell (but inside both kinds of InterStages):
-    constexpr static Len FuelTankTop  = FuelTankUp.GetLeft()[0];
-    static_assert(IsNeg (FuelTankTop) &&
-                  FuelTankTop > - SH::InterStageLargeH  &&
-                  FuelTankTop > - SH::InterStageSmallH);
+    constexpr static Len FuelTankTop  = FuelTankUp.GetUp()[0];
+    static_assert(IsPos (FuelTankTop) &&
+                  FuelTankTop < ForeX0 + SH::InterStageLargeH  &&
+                  FuelTankTop < ForeX0 + SH::InterStageSmallH);
 
     // Also, the bottom of the OxidiserTank must be well inside the over-all
     // cylindrical shell:
-    static_assert(OxidTankLow.GetRight()[0] < H);
+    static_assert(OxidTankLow.GetLow()[0] > ForeX0 - H);
 
   private:
     //-----------------------------------------------------------------------//

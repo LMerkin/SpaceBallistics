@@ -30,7 +30,7 @@ int main()
   constexpr Mass      propMassCyl = vCyl * rho;
   constexpr Mass      surfMassCyl = sCyl * sigma;
 
-  constexpr TrCone cyl(0.0_m, D, D, hCyl, rho, surfMassCyl);
+  constexpr TrCone cyl(0.0_m, D, hCyl, rho, surfMassCyl);
 
   // Computed CoM and MoIs for the Prop Cylinder (3D, w/o the Shell):
   constexpr   ConstrElement propCyl = cyl.GetPropCE(propMassCyl);
@@ -79,7 +79,7 @@ int main()
   //-------------------------------------------------------------------------//
   // MoIs and CoM of a Sphere:                                               //
   //-------------------------------------------------------------------------//
-  // It is made of 2 HemiSpeheres: Facing left and right: Center at x=D/2:
+  // It is made of 2 HemiSpeheres: Facing Up and Low: Center at x=D/2:
   //
   constexpr Vol       vHS         = (2.0/3.0) * Pi<double> * R2 * R;
   constexpr Mass      propMassHS  = vHS * rho;               // HemiSphere
@@ -87,29 +87,29 @@ int main()
   constexpr Mass      emptyMassHS = TwoPi<double> * R2 * sigma;
   constexpr Mass      emptyMassS  = 2.0 * emptyMassHS;
 
-  constexpr SpherSegm leftHS (true,  R, D, rho, emptyMassHS);
-  constexpr SpherSegm rightHS(false, R, D, rho, emptyMassHS);
+  constexpr SpherSegm upHS (true,  R, D, rho, emptyMassHS);
+  constexpr SpherSegm lowHS(false, R, D, rho, emptyMassHS);
 
-  constexpr ConstrElement leftPropCE  = leftHS .GetPropCE(propMassHS);
-  constexpr ConstrElement rightPropCE = rightHS.GetPropCE(propMassHS);
+  constexpr ConstrElement upPropCE  = upHS .GetPropCE(propMassHS);
+  constexpr ConstrElement lowPropCE = lowHS.GetPropCE(propMassHS);
 
-  auto const& leftCoM   = leftPropCE .GetCoM();
-  auto const& rightCoM  = rightPropCE.GetCoM();
-  auto const& leftMoIs  = leftPropCE .GetMoIs();
-  auto const& rightMoIs = rightPropCE.GetMoIs();
+  auto const& upCoM   = upPropCE .GetCoM ();
+  auto const& upMoIs  = upPropCE .GetMoIs();
+  auto const& lowCoM  = lowPropCE.GetCoM ();
+  auto const& lowMoIs = lowPropCE.GetMoIs();
 
   // Over-All CoM and MoIs for the Spehere (3D, w/o the Shell):
   Len comS[3]
   {
-    0.5 * (leftCoM[0] + rightCoM[0]),
-    0.5 * (leftCoM[1] + rightCoM[1]),
-    0.5 * (leftCoM[2] + rightCoM[2])
+    0.5 * (upCoM[0] + lowCoM[0]),
+    0.5 * (upCoM[1] + lowCoM[1]),
+    0.5 * (upCoM[2] + lowCoM[2])
   };
   MoI moisS[3]
   {
-    leftMoIs[0] + rightMoIs[0],
-    leftMoIs[1] + rightMoIs[1],
-    leftMoIs[2] + rightMoIs[2]
+    upMoIs[0] + lowMoIs[0],
+    upMoIs[1] + lowMoIs[1],
+    upMoIs[2] + lowMoIs[2]
   };
 
   // Diffs with theoretical vals:
@@ -127,22 +127,22 @@ int main()
        << endl     << endl;
 
   // Finally, the Empty Sphere:
-  auto const& leftECoM   = leftHS .GetCoM ();
-  auto const& rightECoM  = rightHS.GetCoM ();
-  auto const& leftEMoIs  = leftHS .GetMoIs();
-  auto const& rightEMoIs = rightHS.GetMoIs();
+  auto const& upECoM   = upHS .GetCoM ();
+  auto const& upEMoIs  = upHS .GetMoIs();
+  auto const& lowECoM  = lowHS.GetCoM ();
+  auto const& lowEMoIs = lowHS.GetMoIs();
 
   Len  comES [3]
   {
-    0.5*(leftECoM[0] + rightECoM[0]),
-    0.5*(leftECoM[1] + rightECoM[1]),
-    0.5*(leftECoM[2] + rightECoM[2])
+    0.5 * (upECoM[0] + lowECoM[0]),
+    0.5 * (upECoM[1] + lowECoM[1]),
+    0.5 * (upECoM[2] + lowECoM[2])
   };
   MoI  moisES[3]
   {
-    leftEMoIs[0] + rightEMoIs[0],
-    leftEMoIs[1] + rightEMoIs[1],
-    leftEMoIs[2] + rightEMoIs[2]
+    upEMoIs[0] + lowEMoIs[0],
+    upEMoIs[1] + lowEMoIs[1],
+    upEMoIs[2] + lowEMoIs[2]
   };
 
   // Diffs with theoretical vals:

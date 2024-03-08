@@ -23,10 +23,10 @@ namespace SpaceBallistics
   // Centers of Masses (CoM) and Moments of Inertia (MoI) wrt OX, OY, OZ axes.
   // NB:
   // It is assumed that the co-ords system OXYZ is such that  OX  is  the LV's
-  // principal axis of symmetry, with the positive direction pointing DOWNWARDS
-  // (ie from the Nose to the Tail). This is important when it comes to the CoM
-  // and MoIs of the contained Propellant: we assume that it is concentrated at
-  // the bottom (Larger-X) of the "ConstrElement":
+  // principal axis of symmetry, with the positive direction pointing UPWARDS
+  // (ie from the Tail to the Nose). This is important when it comes to the CoM
+  // and MoIs of the contained Propellant:    we assume that the Propellant is
+  // concentrated at the bottom (Lower, Smaller-X) part of the "ConstrElement":
   //
   class ConstrElement
   {
@@ -338,21 +338,22 @@ namespace SpaceBallistics
     // Data Flds:                                                            //
     //=======================================================================//
     // Orientation of the rotation axis: "alpha" (|alpha| < Pi/2)  is the angle
-    // between the positive direction of the OX axis and the rotation axis. The
-    // latter is assumed to lie in the OXY plane or in the OXZ plane  (or both,
-    // in which case it coincides with OX);  MoIs are computed wrt (xR, yR, zR)
-    // which is the "right" (Lower, Larger-X) rotation axis end;  we must have
-    // yR=0 (the rotation axis is in OXY)  or zR=0 (in OXZ), or both (in which
-    // case alpha=0 as well):
+    // between the positive direction of the OX axis and the rotation axis
+    // (from the Low (Smaller-X) to the Up (Larger-X) end points). The latter is
+    // assumed to lie in the OXY plane or in the OXZ plane (or both, in which
+    // case it coincides with OX);  MoIs are computed wrt (xL, yL, zL)  which is
+    // the Low (Smaller-X) rotation axis end, because this point is invariant
+    // under the change of the Propellant level. We must have yL=0 (the rotation
+    // axis is in OXY) or zL=0 (in OXZ), or both (then alpha=0 as well):
     //
     bool        m_inXY;         // If false, then inXZ holds (both may be true)
     bool        m_inXZ;         //
     double      m_cosA;         // cos(alpha)
     double      m_sinA;         // sin(alpha)
-    Len         m_left [3];     // Left  (Upper, Smaller-X) axis end
+    Len         m_up [3];       // Upper (Smaller-X) axis end
     Len         m_h;            // Over-all body length along the rotation axis
-    Len         m_right[3];     // Right (Lower, Larger-X) axis end: MoI ORIGIN
-    Len         m_yzR;          // right[1] or right[2]
+    Len         m_low[3];       // Lower (Larger-X)  axis end: MoI ORIGIN
+    Len         m_yzL;          // Low[1] or Low[2]
 
     // Geometric Properties:
     Area        m_sideSurfArea; // W/o the Bases
@@ -426,13 +427,13 @@ namespace SpaceBallistics
 
       // Params for "RotationBody" itself:
       double      a_alpha,    // Rotation axis orientation
-      Len         a_x0,       // The left or right axis end
+      Len         a_x0,       // The Up or Low rotation axis end
       Len         a_y0,       //
       Len         a_z0,       //
-      bool        a_0is_left, // (x0,y0,z0) is the left or right end?
+      bool        a_0is_up,   // Is (x0,y0,z0) the Up or Low end?
       Len         a_h,        // Over-all body length  (along the rotation axis)
 
-      // "Empty" MoI Coeffs (wrt the RIGHT end of the rotation axis):
+      // "Empty" MoI Coeffs (wrt the LOW end of the rotation axis):
       Len4        a_je0,
       Len4        a_je1,
       Len3        a_ke,
@@ -443,8 +444,8 @@ namespace SpaceBallistics
       // Propellant Vol -> Propellant Level:
       LevelOfVol  a_lov,
 
-      // Propellant MoI Coeffs as functions of Propellant Level (also wrt RIGHT
-      // end of the rotation axis):
+      // Propellant MoI Coeffs as functions of Propellant Level (also wrt the
+      // LOW end of the rotation axis):
       double      a_jp05,
       Len         a_jp04,
       Len2        a_jp03,
@@ -463,41 +464,39 @@ namespace SpaceBallistics
       //---------------------------------------------------------------------//
       // Initialise the "RotationBody" flds FIRST:                           //
       //---------------------------------------------------------------------//
-      // Co-ords of the Right (Lower, Larger-X) base center (ie right end of
-      // the rotation axis):
+      // Rotation axis orientation angle, and the over-all length:
       m_inXY = IsZero(a_z0);
       m_inXZ = IsZero(a_y0);
       assert(  m_inXY || m_inXZ);
       assert(!(m_inXY && m_inXZ) || a_alpha == 0.0);
 
-      // Rotation axis orientation angle, and the over-all length:
       m_cosA  = Cos(a_alpha);
       m_sinA  = Sin(a_alpha);
       m_h     = a_h;
       assert(m_cosA > 0.0 && IsPos(m_h));
 
-      // Left and right ends of the rotation axis:
-      if (a_0is_left)
+      // The Up (Larger-X) and Low (Smaller-X) ends of the rotation axis:
+      if (a_0is_up)
       {
-        m_left [0] = a_x0;
-        m_left [1] = a_y0;
-        m_left [2] = a_z0;
+        m_up   [0] = a_x0;
+        m_up   [1] = a_y0;
+        m_up   [2] = a_z0;
         Len dyz    =          m_sinA * m_h;
-        m_right[0] = a_x0   + m_cosA * m_h;
-        m_right[1] = m_inXY ? (a_y0  + dyz) : 0.0_m;
-        m_right[2] = m_inXZ ? (a_z0  + dyz) : 0.0_m;
+        m_low  [0] = a_x0   - m_cosA * m_h;
+        m_low  [1] = m_inXY ? (a_y0  - dyz) : 0.0_m;
+        m_low  [2] = m_inXZ ? (a_z0  - dyz) : 0.0_m;
       }
       else
       {
-        m_right[0] = a_x0;
-        m_right[1] = a_y0;
-        m_right[2] = a_z0;
+        m_low  [0] = a_x0;
+        m_low  [1] = a_y0;
+        m_low  [2] = a_z0;
         Len dyz    =          m_sinA * m_h;
-        m_left [0] = a_x0   - m_cosA * m_h;
-        m_left [1] = m_inXY ? (a_y0  - dyz) : 0.0_m;
-        m_left [2] = m_inXZ ? (a_z0  - dyz) : 0.0_m;
+        m_up   [0] = a_x0   + m_cosA * m_h;
+        m_up   [1] = m_inXY ? (a_y0  + dyz) : 0.0_m;
+        m_up   [2] = m_inXZ ? (a_z0  + dyz) : 0.0_m;
       }
-      m_yzR = m_inXY  ? m_right[1] : m_right[2];
+      m_yzL = m_inXY ? m_low[1] : m_low[2];
 
       // Side Surace Area and Nominal Volume Enclosed:
       m_sideSurfArea = a_side_surf_area;
@@ -513,30 +512,30 @@ namespace SpaceBallistics
 
       // IMPORTANT!
       // Coeffs for (Jx, Jy, Jz) wrt (J0, J1, K, SurfOrVol), where J0, J1, K
-      // are computed relative to the RIGHT end-point of the rotation axis.
+      // are computed relative to the Low end-point of the rotation axis.
       // This is just a matter of choice for 2D Shells, but becomes important
-      // for 3D Propellant Volumes: as Propellants are spent, the Right end
-      // of the Propellant Volume remains unchanged, whereas the Left one moves
+      // for 3D Propellant Volumes: as Propellants are spent, the Low end of
+      // of the Propellant Volume remains unchanged, whereas the Up one moves
       // with the decreasing level of Propellant:
       //
       // Jx =  m_sinA^2   * J0 + (1.0 + m_cosA^2)    * J1 +
-      //       yzR * (yzR * SurfOrVol + 2.0 * m_sinA * K) :
-      m_Jx0     = Sqr(m_sinA);
-      m_Jx1     = 1.0 + Sqr(m_cosA);
-      m_JxK     = 2.0 * m_sinA * m_yzR;
-      m_JxSV    = Sqr(m_yzR);
+      //       yzL * (yzL * SurfOrVol + 2.0 * m_sinA * K) :
+      m_Jx0    = Sqr(m_sinA);
+      m_Jx1    = 1.0 + Sqr(m_cosA);
+      m_JxK    = 2.0 * m_sinA * m_yzL;
+      m_JxSV   = Sqr(m_yzL);
 
       // Jin = m_cosA^2   * J0 + (1.0 + m_sinA^2)    * J1 +
-      //       xR  * (xR  * SurfOrVol + 2.0 * m_cosA * K) :
-      m_Jin0    = Sqr(m_cosA);
-      m_Jin1    = 1.0 + Sqr(m_sinA);
-      m_JinK    = 2.0 * m_cosA * m_right[0];
-      m_JinSV   = Sqr(m_right[0]);
+      //       xL  * (xL  * SurfOrVol + 2.0 * m_cosA * K) :
+      m_Jin0   = Sqr(m_cosA);
+      m_Jin1   = 1.0 + Sqr(m_sinA);
+      m_JinK   = 2.0 * m_cosA * m_low[0];
+      m_JinSV  = Sqr(m_low[0]);
 
-      // Jort = J0  + J1    + (Sqr(xR)    + Sqr(yzR)) * SurfOrVol +
-      //        2.0 * (cosA * xR  + sinA * yzR) * K :
-      m_JortK   = 2.0 * (m_cosA   * m_right[0] + m_sinA * m_yzR);
-      m_JortSV  = Sqr(m_right[0]) + Sqr(m_yzR);
+      // Jort =  J0  + J1    + (Sqr(xL)  + Sqr(yzL)) * SurfOrVol +
+      //         2.0 * (cosA * xL + sinA * yzL) * K :
+      m_JortK  = 2.0 * (m_cosA  * m_low[0] + m_sinA * m_yzL);
+      m_JortSV = Sqr(m_low[0])  + Sqr(m_yzL);
 
       // Coeffs for computing (J0, J1, K) as polynomial functions of the Propel-
       // lant Level:
@@ -591,7 +590,7 @@ namespace SpaceBallistics
       MoIsCoM
         (a_je0, a_je1, a_ke, a_side_surf_area, surfDens, emptyCoM, emptyMoIs);
 
-      // Check: "m_inXY", "m_inXZ" derived from "a_right" must be consistent
+      // Check: "m_inXY", "m_inXZ" derived from "a_{xyz}0" must be consistent
       // with "emptyCoM":
       assert(!m_inXY || IsZero(emptyCoM[2]));
       assert(!m_inXZ || IsZero(emptyCoM[1]));
@@ -611,7 +610,7 @@ namespace SpaceBallistics
     template<typename J>
     constexpr void MoIsCoM
     (
-      J                          a_j0,      // Len4 or Len5, wrt RIGHT axis end
+      J                          a_j0,      // Len4 or Len5, wrt Low axis end
       J                          a_j1,      // ditto
       decltype(J(1.0)/1.0_m)     a_k,       // Len3 or Len4
       decltype(J(1.0)/Len2(1.0)) a_sv,      // Len2 or Len3 (ie SurfArea or Vol)
@@ -621,10 +620,11 @@ namespace SpaceBallistics
     )
     const
     {
-      // "Intrinsic" MoI components must be > 0 for any finite body size.
-      // But "a_k" must be negative (relative to the right-most point):
-      assert(IsPos(a_j0) && IsPos(a_j1) && IsPos(a_sv) && IsNeg(a_k));
-
+      // "Intrinsic" MoI components must be > 0 for any finite body size,  as
+      // well as "a_k" (because it's a moment relative to the Low (Smallest-X)
+      // point):
+      assert(IsPos(a_j0) && IsPos(a_j1) && IsPos(a_sv) && IsPos(a_k) &&
+             IsPos(a_sv));
       // MoIs:
       J Jx   = m_Jx0  * a_j0 + m_Jx1  * a_j1 + m_JxK   * a_k + m_JxSV   * a_sv;
       J Jin  = m_Jin0 * a_j0 + m_Jin1 * a_j1 + m_JinK  * a_k + m_JinSV  * a_sv;
@@ -638,10 +638,11 @@ namespace SpaceBallistics
       assert(!(IsNeg(a_mois[0]) || IsNeg(a_mois[1]) || IsNeg(a_mois[2])));
 
       // Now the CoM: "xiC" is its co-ord along the rotation axis, relative to
-      // the right-most axis point:
+      // the Low (Smallest-X) axis end, hence positive:
       Len  xiC   = a_k / a_sv;
-      a_com[0]   = m_right[0]   + m_cosA * xiC;
-      Len  yzC   = m_yzR        + m_sinA * xiC;
+      assert(IsPos(xiC));
+      a_com[0]   = m_low[0]     + m_cosA * xiC;
+      Len  yzC   = m_yzL        + m_sinA * xiC;
       a_com[1]   = m_inXY ? yzC : 0.0_m;
       a_com[2]   = m_inXZ ? yzC : 0.0_m;
     }
@@ -664,7 +665,9 @@ namespace SpaceBallistics
     // Uses the "LevelOfVol" func installed by the derived class, in the NON-
     // virtual way.
     // Returns a ficticious "ConstrElement" obj acting as a container for the
-    // results computed, and suitable for the "+" operation:
+    // results computed, and suitable for the "+" operation. May also return
+    // the curr Propellant Level via the 2nd arg (if non-NULL), primarily for
+    // debugging purposes.
     // Although declared "constexpr", this function will mostly be called at
     // Run-Time. For the info, it also returns the PropLevel if the output ptr
     // is non-NULL:
@@ -682,13 +685,13 @@ namespace SpaceBallistics
       assert    (!IsNeg (propVol) && propVol <= GetEnclVol() * TolFact);
       propVol = std::min(propVol, GetEnclVol());
 
-      // The Propellant Level, relative to the Right (Lower) Base.
+      // The Propellant Level, relative to the Low (Smallest-X) Base.
       // XXX: We assume that the propellant surface is always orthogonal to the
       // rotation axis, due to the tank pressurisation:
       Len l = m_LoV(propVol, this);
 
       // Mathematically, we must have 0 <= l <= h, where l=0 corresponds to the
-      // empty segment, and l=h to the full one. We enforce this interval expli-
+      // empty Element, and l=h to the full one. We enforce this interval expli-
       // citly to prevent rounding errors:
       assert(!IsNeg(l) && l <= m_h * TolFact);
       l        = std::min(l,   m_h);
@@ -703,7 +706,7 @@ namespace SpaceBallistics
       Len5 JP1 = (((((m_JP15 * l + m_JP14) * l + m_JP13) * l) + m_JP12)
                              * l + m_JP11) * l;
       Len4 KP  = (   (m_KP4  * l + m_KP3 ) * l + m_KP2 ) * l2;
-      assert(!IsNeg(JP0) && !IsNeg(JP1) && !IsPos(KP));
+      assert(!(IsNeg(JP0) || IsNeg(JP1) || IsNeg(KP)));
 
       // Get the MoIs and the CoM of the Popellant (returned straight to the
       // CallER). NB: Needless to say, use the current "propVol" here, NOT
@@ -728,8 +731,8 @@ namespace SpaceBallistics
     //=======================================================================//
     // Accessors (for use by Derived Classes):                               //
     //=======================================================================//
-    constexpr Point const& GetLeft ()        const { return m_left;  }
-    constexpr Point const& GetRight()        const { return m_right; }
+    constexpr Point const& GetLow()          const { return m_low; }
+    constexpr Point const& GetUp ()          const { return m_up;  }
 
     // The Maximum Propellant Mass (Capacity):
     constexpr Mass         GetPropMassCap()  const { return m_propMassCap; }
