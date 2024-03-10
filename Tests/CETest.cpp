@@ -17,6 +17,7 @@ int main()
 
   // Used for both Cylinder and Spehere:
   constexpr Len       D   = 2.0_m;
+  constexpr Len       HCyl= 5.0_m;
   constexpr Density   rho  (1.0);
   constexpr SurfDens  sigma(1.0);
   constexpr Len       R   = D / 2.0;
@@ -25,16 +26,17 @@ int main()
   // Major Diameter used for Torus:
   constexpr Len       TD  = 3.0 * D;
 
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // MoIs and CoM of a Cylinder:                                             //
-  //-------------------------------------------------------------------------//
-  constexpr Len       hCyl        = 5.0_m;
-  constexpr Vol       vCyl        = Pi<double> * R2 * hCyl;
-  constexpr Area      sCyl        = Pi<double> * D  * hCyl;
+  //=========================================================================//
+  constexpr Vol       vCyl        = Pi<double> * R2 * HCyl;
+  constexpr Area      sCyl        = Pi<double> * D  * HCyl;
   constexpr Mass      propMassCyl = vCyl * rho;
   constexpr Mass      surfMassCyl = sCyl * sigma;
 
-  constexpr TrCone cyl(0.0_m, D, hCyl, rho, surfMassCyl);
+  // Upper Base is @ X=0; therefore, the center is @ (-HCyl/2):
+  constexpr Len       XCCyl       = -HCyl / 2.0;
+  constexpr TrCone cyl(0.0_m, D, HCyl, rho, surfMassCyl);
 
   // Computed CoM and MoIs for the Solid Cylinder (3D):
   constexpr   ConstrElement propCyl = cyl.GetPropCE(propMassCyl);
@@ -42,11 +44,11 @@ int main()
   auto const& moisCyl     = propCyl.GetMoIs();
 
   // Diffs with Expected CoM:
-  Len dCCyl  [3] {Abs(comCyl[0] - hCyl/2.0), Abs(comCyl[1]), Abs(comCyl[2])};
+  Len dCCyl  [3] {Abs(comCyl[0] - XCCyl), Abs(comCyl[1]), Abs(comCyl[2])};
 
   // Expected MoIs for the Cylinder:
   constexpr MoI JxCyl  = propMassCyl *  Sqr(R) / 2.0;
-  constexpr MoI JyzCyl = propMassCyl * (Sqr(R) / 4.0 + Sqr(hCyl) / 3.0);
+  constexpr MoI JyzCyl = propMassCyl * (Sqr(R) / 4.0 + Sqr(HCyl) / 3.0);
 
   MoI dJCyl  [3]
     { Abs(moisCyl[0] - JxCyl ),
@@ -61,13 +63,13 @@ int main()
 
   // And now for the Empty (Hollow) Cylinder (2D):
   constexpr MoI JxECyl  = surfMassCyl * R2;
-  constexpr MoI JyzECyl = surfMassCyl * (R2 / 2.0 + Sqr(hCyl) / 3.0);
+  constexpr MoI JyzECyl = surfMassCyl * (R2 / 2.0 + Sqr(HCyl) / 3.0);
 
   auto const& comECyl  = cyl.GetCoM ();
   auto const& moisECyl = cyl.GetMoIs();
 
   Len dCECyl [3]
-    { Abs(comECyl[0] - hCyl/2.0), Abs(comECyl[1]), Abs(comECyl[2]) };
+    { Abs(comECyl[0] - XCCyl), Abs(comECyl[1]), Abs(comECyl[2]) };
 
   MoI dJECyl [3]
     { Abs(moisECyl[0] - JxECyl ),
@@ -80,9 +82,9 @@ int main()
        << "dJx=" << dJECyl[0] << "\ndJy=" << dJECyl[1] << "\ndJz=" << dJECyl[2]
        << endl   << endl;
 
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // MoIs and CoM of a Sphere:                                               //
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // It is made of 2 HemiSpeheres: Facing Up and Low: Center at x=R:
   //
   constexpr Vol       vHS         = (2.0/3.0) * Pi<double> * R2 * R;
@@ -163,9 +165,9 @@ int main()
        <<   "dJx=" << dJES[0] << "\ndJy=" << dJES[1] << "\ndJz=" << dJES[2]
        << endl     << endl;
 
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // MoIs and CoM of a Torus:                                                //
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // It is made of 2 ToricSegments: Facing Up and Low: Center at x=R:
   //
   constexpr Len       Q           = (TD - D)  / 2.0;
@@ -257,6 +259,67 @@ int main()
        << "dxC="   << dCET[0] << "\ndyC=" << dCET[1] << "\ndzC=" << dCET[2]
        << endl
        <<   "dJx=" << dJET[0] << "\ndJy=" << dJET[1] << "\ndJz=" << dJET[2]
+       << endl     << endl;
+
+  //=========================================================================//
+  // MoIs and CoM of a Double Cylinder:                                      //
+  //=========================================================================//
+  // We will use "R" for the Inner Radius and the above-defined "Q" for the
+  // outer one, with UpperBase @ x=R:
+  //
+  constexpr Vol       vDC          = Pi<double> * (Sqr(Q) - Sqr(R)) * HCyl;
+  constexpr Area      sDC          = (2.0 * Pi<double>)   * (Q + R) * HCyl;
+  constexpr Mass      propMassDC   = vDC  * rho;
+  constexpr Mass      emptyMassDC  = sDC  * sigma;
+
+  // Upper Base is @ X=R; therefore, the center is @ (R-HCyl/2):
+  constexpr Len            XCDC    = R - HCyl / 2.0;
+  constexpr DoubleCylinder dc(R, 2.0*Q, 2.0*R, HCyl, rho, emptyMassDC);
+
+  constexpr ConstrElement  dcPropCE = dc.GetPropCE(propMassDC);
+  auto const&  dcCoM    =  dcPropCE.GetCoM ();
+  auto const&  dcMoIs   =  dcPropCE.GetMoIs();
+
+  // Diffs with theoretical vals:
+  Len dcDC [3] { Abs(dcCoM[0] - XCDC), Abs(dcCoM[1]), Abs(dcCoM[2]) };
+
+  constexpr MoI JxDC   =
+    0.5   * propMassDC * (Sqr(Q) + Sqr(R));
+  constexpr MoI JyzDC  =
+    propMassDC * (3.0  * (Sqr(Q) + Sqr(R)) + Sqr(HCyl)) / 12.0 +
+    propMassDC * Sqr(XCDC);        // Steiner's Parallel Axis Theorem
+
+  MoI dJDC [3]
+    { Abs(dcMoIs[0] - JxDC), Abs(dcMoIs[1] - JyzDC), Abs(dcMoIs[2] - JyzDC) };
+
+  cout << "SOLID DOUBLE CYLINDER (THICK TUBE):"      << endl
+       << "dxC="   << dcDC[0] << "\ndyC=" << dcDC[1] << "\ndzC=" << dcDC[2]
+       << endl
+       <<   "dJx=" << dJDC[0] << "\ndJy=" << dJDC[1] << "\ndJz=" << dJDC[2]
+       << endl     << endl;
+
+  // Finally, the Empty (Hollow) Double Cylinder (2D):
+  auto const& dcECoM    = dc.GetCoM ();
+  auto const& dcEMoIs   = dc.GetMoIs();
+
+  // Diffs with theoretical vals:
+  Len dcEDC[3] { Abs(dcECoM[0] - XCDC), Abs(dcECoM[1]), Abs(dcECoM[2]) };
+
+  constexpr auto Q3     = Sqr(Q) * Q;
+  constexpr MoI  JxEDC  = sigma  * (TwoPi<double> * (R3 + Q3) * HCyl);
+  constexpr MoI  JyzEDC =
+    TwoPi<double> * HCyl * sigma *
+    (0.5 * (R3 + Q3) + (R + Q) * (Sqr(HCyl) / 12.0 + Sqr(XCDC)));
+
+  MoI dJEDC[3]
+    { Abs(dcEMoIs[0] - JxEDC),
+      Abs(dcEMoIs[1] - JyzEDC),
+      Abs(dcEMoIs[2] - JyzEDC) };
+
+  cout << "HOLLOW DOUBLE CYLINDER (2-WALLED SHELL):" << endl
+       << "dxC="   << dcEDC[0] << "\ndyC=" << dcEDC[1] << "\ndzC=" << dcEDC[2]
+       << endl
+       <<   "dJx=" << dJEDC[0] << "\ndJy=" << dJEDC[1] << "\ndJz=" << dJEDC[2]
        << endl     << endl;
   return 0;
 }

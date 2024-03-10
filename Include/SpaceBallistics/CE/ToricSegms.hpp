@@ -350,5 +350,123 @@ namespace SpaceBallistics
       return {JP0, JP1, KP};
     }
   };
+
+  //=========================================================================//
+  // "DoubleCylinder" Class:                                                 //
+  //=========================================================================//
+  // Provides a "cylindrical torus" (a body obtained by rotating a rectangle
+  // around an outside axis parallel to the cylinder's main axis):
+  //
+  class DoubleCylinder: public RotationBody<DoubleCylinder>
+  {
+  private:
+    //=======================================================================//
+    // Data Flds:                                                            //
+    //=======================================================================//
+    // Memoised Coeffs for Propellant MoI Components:
+    Len2    m_cJP0;
+    Len4    m_cJP1;
+    Len2    m_cKP;
+
+  public:
+    //=======================================================================//
+    // Non-Default Ctor:                                                     //
+    //=======================================================================//
+    //-----------------------------------------------------------------------//
+    // The General Case:                                                     //
+    //-----------------------------------------------------------------------//
+    constexpr DoubleCylinder
+    (
+      Len         a_xu,          // Upper  Base Center
+      Len         a_yu,          //
+      Len         a_zu,          //
+      double      a_alpha,       // Dimension-less, in (-Pi/2 .. Pi/2)
+      Len         a_D,           // Outer Diameter
+      Len         a_d,           // Inner Diameter
+      Len         a_h,           // Height
+      Density     a_rho,         // Propellant Density (may be 0 if no Propelt)
+      Mass        a_empty_mass = UnKnownMass
+    )
+    {
+      assert(IsPos(a_D)  && IsPos(a_d)   && a_D > a_d     && IsPos(a_h) &&
+             Abs(a_alpha) < Pi_2<double> && !IsNeg(a_rho) &&
+             !IsNeg(a_empty_mass));
+
+      // Geometry:
+      Len   R  = a_D / 2.0;
+      Len   r  = a_d / 2.0;
+      Len2  R2 = Sqr(R);
+      Len2  r2 = Sqr(r);
+      Len2  h2 = Sqr(a_h);
+      Len3  R3 = R * R2;
+      Len3  r3 = r * r2;
+      Len4  R4 = Sqr(R2);
+      Len4  r4 = Sqr(r2);
+
+      // Side Surface Area and Enclosed Volume:
+      Area   sideSurfArea = Pi<double> * (a_D + a_d) * a_h;
+      Vol    enclVol      = Pi<double> * (R2  - r2 ) * a_h;
+
+      // "Intrinsic" "empty" MoI components:
+      Len4 JE0 = sideSurfArea * h2  / 3.0;
+      Len4 JE1 = Pi<double>   * a_h * (R3 + r3);
+      Len3 KE  = Pi<double>   * h2  * (R  + r );
+
+      // Memoised coeffs for the Propellant MoIs:
+      m_cJP0   = (Pi<double> / 3.0) * (R2 - r2);
+      m_cJP1   = Pi_4<double>       * (R4 - r4);
+      m_cKP    = Pi_2<double>       * (R2 - r2);
+
+      // Initialise the Parent Classes' Flds:
+      // NB: (xu,yu,zu) is the Upper Base Center, so BaseIsUp = true here:
+      RotationBody<DoubleCylinder>::Init
+      (
+        sideSurfArea,  enclVol,    a_empty_mass,
+        a_alpha, a_xu, a_yu, a_zu, true,   a_h,
+        JE0,     JE1,  KE,   a_rho
+      );
+    }
+
+    //-----------------------------------------------------------------------//
+    // Simple Case: Rotation Axis coincides with OX:                         //
+    //-----------------------------------------------------------------------//
+    constexpr DoubleCylinder
+    (
+      Len         a_xu,          // Upper  Base Center
+      Len         a_D,           // Outer Diameter
+      Len         a_d,           // Inner Diameter
+      Len         a_h,           // Height
+      Density     a_rho,         // Propellant Density (may be 0 if no Propelt)
+      Mass        a_empty_mass = UnKnownMass
+    )
+    : DoubleCylinder
+        (a_xu, 0.0_m, 0.0_m, 0.0, a_D, a_d, a_h, a_rho, a_empty_mass)
+    {}
+
+    //=======================================================================//
+    // Propellant Volume -> Propellant Level:                                //
+    //=======================================================================//
+    constexpr Len PropLevelOfVol(Vol a_v) const
+    {
+      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
+      return double(a_v / GetEnclVol()) * GetHeight();
+    }
+
+    //=======================================================================//
+    // MoI Components for the Propellant of Given Level:                     //
+    //=======================================================================//
+    constexpr std::tuple<Len5, Len5, Len4> PropMoIComps(Len a_l) const
+    {
+      assert(!IsNeg(a_l) && a_l <= GetHeight());
+      Len2 l2 = Sqr(a_l);
+      Len3 l3 = a_l * l2;
+
+      Len5 JP0 = m_cJP0 * l3;
+      Len5 JP1 = m_cJP1 * a_l;
+      Len4 KP  = m_cKP  * l2;
+
+      return {JP0, JP1, KP};
+    }
+  };
 }
 // End namespace SpaceBallistics
