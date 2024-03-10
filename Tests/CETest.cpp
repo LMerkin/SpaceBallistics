@@ -4,6 +4,7 @@
 //                   Tests of the "ConstrElement" Class                      //
 //===========================================================================//
 #include "SpaceBallistics/CE/TrConeSpherSegm.hpp"
+#include "SpaceBallistics/CE/ToricSegms.hpp"
 #include <iostream>
 
 //===========================================================================//
@@ -14,12 +15,15 @@ int main()
   using namespace SpaceBallistics;
   using namespace std;
 
-  // Used for both Cylinder amd Spehere:
+  // Used for both Cylinder and Spehere:
   constexpr Len       D   = 2.0_m;
   constexpr Density   rho  (1.0);
   constexpr SurfDens  sigma(1.0);
   constexpr Len       R   = D / 2.0;
   constexpr Area      R2  = Sqr(R);
+  constexpr Vol       R3  = R * R2;
+  // Major Diameter used for Torus:
+  constexpr Len       TD  = 3.0 * D;
 
   //-------------------------------------------------------------------------//
   // MoIs and CoM of a Cylinder:                                             //
@@ -32,7 +36,7 @@ int main()
 
   constexpr TrCone cyl(0.0_m, D, hCyl, rho, surfMassCyl);
 
-  // Computed CoM and MoIs for the Prop Cylinder (3D, w/o the Shell):
+  // Computed CoM and MoIs for the Solid Cylinder (3D):
   constexpr   ConstrElement propCyl = cyl.GetPropCE(propMassCyl);
   auto const& comCyl      = propCyl.GetCoM ();
   auto const& moisCyl     = propCyl.GetMoIs();
@@ -49,13 +53,13 @@ int main()
       Abs(moisCyl[1] - JyzCyl),
       Abs(moisCyl[2] - JyzCyl) };
 
-  cout << "FILLED CYLINDER (w/o Shell):" << endl
+  cout << "SOLID CYLINDER:"  << endl
        << "dxC=" << dCCyl[0] << "\ndyC=" << dCCyl[1] << "\ndzC=" << dCCyl[2]
        << endl
        << "dJx=" << dJCyl[0] << "\ndJy=" << dJCyl[1] << "\ndJz=" << dJCyl[2]
        << endl   << endl;
 
-  // And now for the Empty Cylinder (2D):
+  // And now for the Empty (Hollow) Cylinder (2D):
   constexpr MoI JxECyl  = surfMassCyl * R2;
   constexpr MoI JyzECyl = surfMassCyl * (R2 / 2.0 + Sqr(hCyl) / 3.0);
 
@@ -70,7 +74,7 @@ int main()
       Abs(moisECyl[1] - JyzECyl),
       Abs(moisECyl[2] - JyzECyl) };
 
-  cout << "EMPTY CYLINDER (SHELL):"       << endl
+  cout << "HOLLOW CYLINDER (SHELL):"      << endl
        << "dxC=" << dCECyl[0] << "\ndyC=" << dCECyl[1] << "\ndzC=" << dCECyl[2]
        << endl
        << "dJx=" << dJECyl[0] << "\ndJy=" << dJECyl[1] << "\ndJz=" << dJECyl[2]
@@ -79,7 +83,7 @@ int main()
   //-------------------------------------------------------------------------//
   // MoIs and CoM of a Sphere:                                               //
   //-------------------------------------------------------------------------//
-  // It is made of 2 HemiSpeheres: Facing Up and Low: Center at x=D/2:
+  // It is made of 2 HemiSpeheres: Facing Up and Low: Center at x=R:
   //
   constexpr Vol       vHS         = (2.0/3.0) * Pi<double> * R2 * R;
   constexpr Mass      propMassHS  = vHS * rho;               // HemiSphere
@@ -98,7 +102,7 @@ int main()
   auto const& lowCoM  = lowPropCE.GetCoM ();
   auto const& lowMoIs = lowPropCE.GetMoIs();
 
-  // Over-All CoM and MoIs for the Spehere (3D, w/o the Shell):
+  // Over-All CoM and MoIs for the Solid Sphere (3D):
   Len comS[3]
   {
     0.5 * (upCoM[0] + lowCoM[0]),
@@ -120,13 +124,13 @@ int main()
   MoI dJS [3]
     { Abs(moisS[0] - JxS), Abs(moisS[1] - JyzS), Abs(moisS[2] - JyzS) };
 
-  cout << "FILLED SPHERE (w/o Shell):"   << endl
+  cout << "SOLID SPHERE:"    << endl
        << "dxC="   << dCS[0] << "\ndyC=" << dCS[1] << "\ndzC=" << dCS[2]
        << endl
        <<   "dJx=" << dJS[0] << "\ndJy=" << dJS[1] << "\ndJz=" << dJS[2]
        << endl     << endl;
 
-  // Finally, the Empty Sphere:
+  // Finally, the Empty (Hollow) Sphere (2D):
   auto const& upECoM   = upHS .GetCoM ();
   auto const& upEMoIs  = upHS .GetMoIs();
   auto const& lowECoM  = lowHS.GetCoM ();
@@ -153,10 +157,106 @@ int main()
   MoI dJES[3]
     { Abs(moisES[0] - JxES), Abs(moisES[1] - JyzES), Abs(moisES[2] - JyzES) };
 
-  cout << "EMPTY SPHERE (SHELL)"          << endl
+  cout << "HOLLOW SPHERE (SHELL):"        << endl
        << "dxC="   << dCES[0] << "\ndyC=" << dCES[1] << "\ndzC=" << dCES[2]
        << endl
        <<   "dJx=" << dJES[0] << "\ndJy=" << dJES[1] << "\ndJz=" << dJES[2]
+       << endl     << endl;
+
+  //-------------------------------------------------------------------------//
+  // MoIs and CoM of a Torus:                                                //
+  //-------------------------------------------------------------------------//
+  // It is made of 2 ToricSegments: Facing Up and Low: Center at x=R:
+  //
+  constexpr Len       Q           = (TD - D)  / 2.0;
+  constexpr Vol       vHT         = Sqr(      Pi<double>  * R) * Q;
+  constexpr Area      sHT         = 2.0 * Sqr(Pi<double>) * R  * Q;
+  constexpr Mass      propMassHT  = vHT * rho;               // ToricSegm
+  constexpr Mass      propMassT   = 2.0 * propMassHT;        // FullTorus
+  constexpr Mass      emptyMassHT = sHT * sigma;
+  constexpr Mass      emptyMassT  = 2.0 * emptyMassHT;
+
+  constexpr ToricSegm upHT (true,  R, D, TD, rho, emptyMassHT);
+  constexpr ToricSegm lowHT(false, R, D, TD, rho, emptyMassHT);
+
+  constexpr ConstrElement upHTPropCE  = upHT .GetPropCE(propMassHT);
+  constexpr ConstrElement lowHTPropCE = lowHT.GetPropCE(propMassHT);
+
+  auto const& upHTCoM   = upHTPropCE .GetCoM ();
+  auto const& upHTMoIs  = upHTPropCE .GetMoIs();
+  auto const& lowHTCoM  = lowHTPropCE.GetCoM ();
+  auto const& lowHTMoIs = lowHTPropCE.GetMoIs();
+
+  // Over-All CoM and MoIs for the Solid Torus (3D):
+  Len comT[3]
+  {
+    0.5 * (upHTCoM[0] + lowHTCoM[0]),
+    0.5 * (upHTCoM[1] + lowHTCoM[1]),
+    0.5 * (upHTCoM[2] + lowHTCoM[2])
+  };
+  MoI moisT[3]
+  {
+    upHTMoIs[0] + lowHTMoIs[0],
+    upHTMoIs[1] + lowHTMoIs[1],
+    upHTMoIs[2] + lowHTMoIs[2]
+  };
+
+  // Diffs with theoretical vals:
+  Len dCT [3] { Abs(comT[0] - R), Abs(comT[1]), Abs(comT[2]) };
+
+  constexpr MoI JxT  =
+    0.25  * propMassT * (4.0 * Sqr(Q) + 3.0 * Sqr(R));
+  constexpr MoI JyzT =
+    0.125 * propMassT * (4.0 * Sqr(Q) + 5.0 * Sqr(R)) +
+    propMassT * R2;     // Steiner's Parallel Axis Theorem
+
+  MoI dJT [3]
+    { Abs(moisT[0] - JxT), Abs(moisT[1] - JyzT), Abs(moisT[2] - JyzT) };
+
+  cout << "SOLID TORUS:"     << endl
+       << "dxC="   << dCT[0] << "\ndyC=" << dCT[1] << "\ndzC=" << dCT[2]
+       << endl
+       <<   "dJx=" << dJT[0] << "\ndJy=" << dJT[1] << "\ndJz=" << dJT[2]
+       << endl     << endl;
+
+  // Finally, the Empty (Hollow) Torus (2D):
+  auto const& upEHTCoM   = upHT .GetCoM ();
+  auto const& upEHTMoIs  = upHT .GetMoIs();
+  auto const& lowEHTCoM  = lowHT.GetCoM ();
+  auto const& lowEHTMoIs = lowHT.GetMoIs();
+
+  Len  comET [3]
+  {
+    0.5 * (upEHTCoM[0] + lowEHTCoM[0]),
+    0.5 * (upEHTCoM[1] + lowEHTCoM[1]),
+    0.5 * (upEHTCoM[2] + lowEHTCoM[2])
+  };
+  MoI  moisET[3]
+  {
+    upEHTMoIs[0] + lowEHTMoIs[0],
+    upEHTMoIs[1] + lowEHTMoIs[1],
+    upEHTMoIs[2] + lowEHTMoIs[2]
+  };
+
+  // Diffs with theoretical vals:
+  Len dCET[3] { Abs(comET[0] - R), Abs(comET[1]), Abs(comET[2]) };
+
+  // Theoretical vals obtained by manual integration:
+  constexpr double q2    = Sqr(double(Q / R));
+  constexpr MoI    JxET  =
+    2.0 * Sqr(Pi<double>) * Q * R3 * (2.0 * q2 + 3.0)  * sigma;
+  constexpr MoI    JyzET =
+    JxET / 2.0 +
+    2.0 * Sqr(Pi<double>) * Q * R3 * sigma  +
+    emptyMassT * R2;      // Steiner's Theorem again...
+
+  MoI dJET[3]
+    { Abs(moisET[0] - JxET), Abs(moisET[1] - JyzET), Abs(moisET[2] - JyzET) };
+
+  cout << "HOLLOW TORUS (SHELL):"         << endl
+       << "dxC="   << dCET[0] << "\ndyC=" << dCET[1] << "\ndzC=" << dCET[2]
+       << endl
+       <<   "dJx=" << dJET[0] << "\ndJy=" << dJET[1] << "\ndJz=" << dJET[2]
        << endl     << endl;
   return 0;
 }

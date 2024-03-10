@@ -31,48 +31,35 @@ namespace SpaceBallistics
   //           nal yet (needs to be set later via "ProRateMass").
   // Return value: The resulting "ConstrElement" object.
   //
-  class TrCone final: public RotationBody
+  class TrCone final: public RotationBody<TrCone>
   {
   private:
     //=======================================================================//
     // Data Flds: Truncated Cone's Geometry:                                 //
     //=======================================================================//
-    // Over-all sizes:
-    Len       m_R;   // Upper (Larger-X)  Base Radius
-    Len       m_r;   // Lower (Smaller-X) Base Radius
-
     // Memoise pre-computed coeffs of the Cardano formula in "LevelOfVol":
     Len       m_deltaR;
     Len3      m_clVol;
     Len2      m_rh;
     Len6      m_rh3;
 
+    // Coeffs for computation of "intrinsic" MoI params (J0, J1, K) as polynom-
+    // ial functions (of degress 5 for JP0, JP1, and of degree 4 for KP) of the
+    // Propellant Level:
+    double    m_JP05;     // coeff(JP0, l^5)
+    Len       m_JP04;     // coeff(JP0, l^4)
+    Len2      m_JP03;     // coeff(JP0, l^3)
+    double    m_JP15;     // coeff(JP1, l^5)
+    Len       m_JP14;     // coeff(JP1, l^4)
+    Len2      m_JP13;     // coeff(JP1, l^3)
+    Len3      m_JP12;     // coeff(JP1, l^2)
+    Len4      m_JP11;     // coeff(JP1, l)
+    double    m_KP4;      // coeff(KP,  l^4)
+    Len       m_KP3;      // coeff(KP,  l^3)
+    Len2      m_KP2;      // coeff(KP,  l^2)
+
     // Default Ctor is deleted:
     TrCone() = delete;
-
-    //=======================================================================//
-    // Propellant Volume -> Propellant Level:                                //
-    //=======================================================================//
-    constexpr static Len LevelOfVol(Vol a_v, RotationBody const* a_ctx)
-    {
-      // "a_ctx" must actually be a ptr to "TrCone":
-      TrCone const* trc = static_cast<TrCone const*>(a_ctx);
-      assert(trc != nullptr);
-      return trc->LevelOfVol(a_v);
-    }
-
-    constexpr Len LevelOfVol(Vol a_v) const
-    {
-      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
-      return
-        IsZero(m_deltaR)
-        ? // R==r: The simplest and the most common case: A Cylinder:
-          double(a_v / GetEnclVol()) * GetHeight()
-
-        : // General case: Solving a cubic equation by the Cardano formula;
-          // since Vol'(l) > 0 globally, there is only 1 real root:
-          (CbRt(m_clVol * a_v + m_rh3) - m_rh) / m_deltaR;
-    }
 
   public:
     //=======================================================================//
@@ -99,15 +86,15 @@ namespace SpaceBallistics
             ! IsNeg(a_rho) && !IsNeg(a_empty_mass));
 
       // The over-all sizes:
-      m_R         = a_du / 2.0;   // Upper base radius
-      m_r         = a_dl / 2.0;   // Lower base radius
-      m_deltaR    = m_R - m_r;    // Any sign
+      Len   R     = a_du / 2.0;   // Upper base radius
+      Len   r     = a_dl / 2.0;   // Lower base radius
+      m_deltaR    = R - r;        // Any sign
       Len2  h2    = Sqr(a_h);
 
-      // Memoised coeffs of the Cardano formula (used in "LevelOfVol"):
+      // Memoised coeffs of the Cardano formula (used in "PropLevelOfVol"):
       m_clVol     = (3.0 / Pi<double>) * h2 * m_deltaR;
-      m_rh        = m_r * a_h;
-      m_rh3       = Cube (m_rh);
+      m_rh        = r * a_h;
+      m_rh3       = Cube(m_rh);
 
       //---------------------------------------------------------------------//
       // Parent Classes Initialisation:                                      //
@@ -118,43 +105,42 @@ namespace SpaceBallistics
       double a2   = Sqr(a);
       double a3   = a2 * a;
       double a4   = Sqr(a2);
-      Len2   R2   = Sqr(m_R);
-      Len2   r2   = Sqr(m_r);
-      Len3   r3   = R2 * m_r;
+      Len2   R2   = Sqr(R);
+      Len2   r2   = Sqr(r);
+      Len3   r3   = r2 * r;
       Len4   r4   = Sqr(r2);
 
       // Side Surface Area and Nominal Enclosed Volume:
-      Area   sideSurfArea = Pi<double>     * s   * (m_R + m_r);
-      Vol    enclVol      = Pi<double>/3.0 * a_h * (R2  + m_R * m_r + r2);
+      Area   sideSurfArea = Pi<double>     * s   * (R  + r);
+      Vol    enclVol      = Pi<double>/3.0 * a_h * (R2 + R * r + r2);
 
       // "Intrinsic" "empty" MoIs:
-      Len4   JE0  = Pi<double> * h2 * s * (m_R / 2.0  + m_r / 6.0);
-      Len4   JE1  = Pi<double>/4.0  * s * (m_R + m_r) * (R2 + r2);
-      Len3   KE   = Pi<double>/3.0  * s *  a_h * (2.0 * m_R + m_r);
+      Len4   JE0  = Pi<double> * h2 * s * (R / 2.0 + r / 6.0);
+      Len4   JE1  = Pi_4<double>    * s * (R + r)  * (R2  + r2);
+      Len3   KE   = Pi<double>/3.0  * s *  a_h * (2.0 * R + r );
 
       // Coeffs of "intrtinsic" MoIs with Propellant:
-      double JP05 = Pi<double> / 5.0 * a2;
-      Len    JP04 = Pi<double> / 2.0 * a  * m_r;
-      Len2   JP03 = Pi<double> / 3.0 * r2;
+      m_JP05 = Pi<double> / 5.0 * a2;
+      m_JP04 = Pi_2<double>     * a  * r;
+      m_JP03 = Pi<double> / 3.0 * r2;
 
-      double JP15 = Pi<double> /20.0 * a4;
-      Len    JP14 = Pi<double> / 4.0 * a3 * m_r;
-      Len2   JP13 = Pi<double> / 2.0 * a2 * r2;
-      Len3   JP12 = Pi<double> / 2.0 * a  * r3;
-      Len4   JP11 = Pi<double> / 4.0 * r4;
+      m_JP15 = Pi<double> /20.0 * a4;
+      m_JP14 = Pi_4<double>     * a3 * r;
+      m_JP13 = Pi_2<double>     * a2 * r2;
+      m_JP12 = Pi_2<double>     * a  * r3;
+      m_JP11 = Pi_4<double>     * r4;
 
-      double KP4  = Pi<double> / 4.0 * a2;
-      Len    KP3  = Pi<double> * 2.0 / 3.0 * a * m_r;
-      Len2   KP2  = Pi<double> / 2.0 * r2;
+      m_KP4  = Pi_4<double>     * a2;
+      m_KP3  = TwoPi<double> / 3.0   * a * r;
+      m_KP2  = Pi_2<double>     * r2;
 
       // Initialise the Parent Classes' Flds: NB: For (xu,yu,zu), IsUp=true:
-      RotationBody::Init
-        (sideSurfArea, enclVol, a_empty_mass,
-         a_alpha,      a_xu,    a_yu,  a_zu,  true, a_h, JE0, JE1, KE,
-         a_rho,        LevelOfVol,
-         JP05,         JP04,    JP03,
-         JP15,         JP14,    JP13,  JP12,  JP11,
-         KP4,          KP3,     KP2);
+      RotationBody<TrCone>::Init
+      (
+        sideSurfArea,  enclVol, a_empty_mass,
+        a_alpha, a_xu, a_yu,    a_zu,   true, a_h,
+        JE0,     JE1,  KE,      a_rho
+      );
     }
 
     //=======================================================================//
@@ -185,6 +171,39 @@ namespace SpaceBallistics
     )
     : TrCone(a_xu, 0.0_m, 0.0_m, 0.0, a_d, a_d, a_h, a_rho, a_empty_mass)
     {}
+
+    //=======================================================================//
+    // Propellant Volume -> Propellant Level:                                //
+    //=======================================================================//
+    constexpr Len PropLevelOfVol(Vol a_v) const
+    {
+      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
+      return
+        IsZero(m_deltaR)
+        ? // R==r: The simplest and the most common case: A Cylinder:
+          double(a_v / GetEnclVol()) * GetHeight()
+
+        : // General case: Solving a cubic equation by the Cardano formula;
+          // since Vol'(l) > 0 globally, there is only 1 real root:
+          (CbRt(m_clVol * a_v + m_rh3) - m_rh) / m_deltaR;
+    }
+
+    //=======================================================================//
+    // MoI Components for the Propellant of Given Level:                     //
+    //=======================================================================//
+    constexpr std::tuple<Len5, Len5, Len4> PropMoIComps(Len a_l) const
+    {
+      Len2 l2  = Sqr (a_l);
+      Len3 l3  = l2 * a_l;
+
+      Len5 JP0 = (   (m_JP05 * a_l + m_JP04) * a_l + m_JP03) * l3;
+      Len5 JP1 = (((((m_JP15 * a_l + m_JP14) * a_l + m_JP13) * a_l) + m_JP12)
+                             * a_l + m_JP11) * a_l;
+      Len4 KP  = (   (m_KP4  * a_l + m_KP3 ) * a_l + m_KP2 ) * l2;
+
+      assert(!(IsNeg(JP0) || IsNeg(JP1) || IsNeg(KP)));
+      return {JP0, JP1, KP};
+    }
   };
 
   //=========================================================================//
@@ -207,98 +226,38 @@ namespace SpaceBallistics
   // When alpha=0, the axis of the Spherical Segment coincides with OX, which
   // is the most common case:
   //
-  class SpherSegm final: public RotationBody
+  class SpherSegm final: public RotationBody<SpherSegm>
   {
   private:
+    using RotationBody<SpherSegm>::Tol;
+    using RotationBody<SpherSegm>::TolFact;
+
     //=======================================================================//
     // Data Flds: Spherical Segment's Geometry:                              //
     //=======================================================================//
     // Over-all sizes and Orientation:
-    Len    m_r;              // Segment Base Radius
-    Len    m_R;              // Sphere  Radius
-    Len3   m_R3;             // Sphere  Radius^3
-    bool   m_facingUp;       // Segment Ortientation
+    Len     m_R;          // Sphere  Radius
+    Len3    m_R3;         // Sphere  Radius^3
+    bool    m_facingUp;   // Segment Ortientation
+
+    // Coeffs for computation of "intrinsic" MoI params (J0, J1, K) as polynom-
+    // ial functions (of degress 5 for JP0, JP1, and of degree 4 for KP) of the
+    // Propellant Level -- similar to "TrCone":
+    //
+    double  m_JP05;       // coeff(JP0, l^5)
+    Len     m_JP04;       // coeff(JP0, l^4)
+    Len2    m_JP03;       // coeff(JP0, l^3)
+    double  m_JP15;       // coeff(JP1, l^5)
+    Len     m_JP14;       // coeff(JP1, l^4)
+    Len2    m_JP13;       // coeff(JP1, l^3)
+    Len3    m_JP12;       // coeff(JP1, l^2)
+    Len4    m_JP11;       // coeff(JP1, l)
+    double  m_KP4;        // coeff(KP,  l^4)
+    Len     m_KP3;        // coeff(KP,  l^3)
+    Len2    m_KP2;        // coeff(KP,  l^2)
 
     // Default Ctor is deleted:
     SpherSegm() = delete;
-
-    //=======================================================================//
-    // Propellant Volume -> Propellant Level:                                //
-    //=======================================================================//
-    constexpr static Len LevelOfVol(Vol a_v, RotationBody const* a_ctx)
-    {
-      // "a_ctx" must actually be a ptr to "SpherSegm":
-      SpherSegm const* segm = static_cast<SpherSegm const*>(a_ctx);
-      assert(segm != nullptr);
-      return
-        segm->m_facingUp
-        ? segm->LevelOfVolUp (a_v)
-        : segm->LevelOfVolLow(a_v);
-    }
-
-    //-----------------------------------------------------------------------//
-    // For the Low-Facing "SpherSegm":                                       //
-    //-----------------------------------------------------------------------//
-    constexpr Len LevelOfVolLow(Vol a_v) const
-    {
-      // Solving the equation
-      //   x^2*(3-x) = v,
-      // where
-      //   "x" is the Propellant level relative to "R": x=l/R, 0 <= x <= 1;
-      //   "v" is the Volume/(Pi/3*R^3),                       0 <= v <= 2;
-      // by using Halley's Method (to avoid dealing with complex roots in the
-      // Cardano formula):
-      // x=1/2 is a reasonble initial approximation (XXX: We may use "h"  for
-      // a more accurate initial point, but this is not required yet):
-      //
-      double x   = 0.5;
-      double tv  = 3.0 * double(a_v / m_R3) / Pi<double>;
-
-      assert(0.0 <= tv && tv < 2.0 + RotationBody::Tol);
-      tv = std::min(2.0,  tv);       // Enforce the boundary
-
-      // For safety, restrict the number of iterations:
-      constexpr int N = 100;
-      int           i = 0;
-      for (; i < N; ++i)
-      {
-        double x2 = Sqr(x);
-        double x3 = x2 * x;
-        double x4 = Sqr(x2);
-        double dx =
-          x * (x - 2.0)   * (x3 - 3.0 * x2 + tv) /
-          (2.0 * x4 - 8.0 *  x3 + 9.0 * x2 + tv * (1.0 - x));
-
-        // Iterative update:
-        x -= dx;
-
-        // Exit condition:
-        if (UNLIKELY(Abs(dx) < RotationBody::Tol))
-          break;
-      }
-      // If we got here w/o achieving the required precision, it's an error:
-      assert(i < N);
-
-      // If all is fine: To prevent rounding errors, enforce the boundaries:
-      x = std::max(std::min(x, 1.0), 0.0);
-
-      // And finally, the level:
-      return x * m_R;
-    }
-
-    //-----------------------------------------------------------------------//
-    // For the Up-Facing "SpherSegm":                                        //
-    //-----------------------------------------------------------------------//
-    // Using the invariant
-    // V_up(l) + V_low(h-l) = EnclVol:
-    //
-    constexpr Len LevelOfVolUp(Vol a_v) const
-    {
-      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
-      Len res = GetHeight() - LevelOfVolLow(GetEnclVol() - a_v);
-      assert(!IsNeg(res) && res <= GetHeight());
-      return res;
-    }
 
   public:
     //=======================================================================//
@@ -323,9 +282,10 @@ namespace SpaceBallistics
       assert(IsPos(a_d)   &&  IsPos(a_h) && Abs(a_alpha) < Pi_2<double> &&
             !IsNeg(a_rho) && !IsNeg(a_empty_mass));
 
-      m_r           = a_d / 2.0;                         // Base   radius
-      assert(a_h   <= m_r * (1.0 + 10.0 * Eps<double>)); // Import. constraint!
-      m_R           = (Sqr(m_r) / a_h + a_h) / 2.0;      // Sphere radius
+      Len  r        = a_d / 2.0;                    // Base   radius
+      assert(a_h   <= r * TolFact);                 // Important!
+      a_h           = std::min(a_h, r);
+      m_R           = (Sqr(r) / a_h + a_h) / 2.0;   // Sphere radius
       m_R3          = Cube(m_R);
       m_facingUp    = a_facing_up;
 
@@ -357,44 +317,43 @@ namespace SpaceBallistics
       assert(!IsNeg(Rmh));
       Len TRmh = m_R + Rmh;
 
-      double JP05 = -Pi<double>   / 5.0;
-      Len    JP04 =  Pi_2<double> * (a_facing_up ? -Rmh : m_R);
-      Len2   JP03 =  a_facing_up
-                     ? Pi<double> / 3.0 * TRmh * a_h
-                     : Len2(0.0);
+      m_JP05 = -Pi<double>   / 5.0;
+      m_JP04 =  Pi_2<double> * (a_facing_up ? -Rmh : m_R);
+      m_JP03 =  a_facing_up
+                ? Pi<double> / 3.0 * TRmh * a_h
+                : Len2(0.0);
 
-      double JP15 =  Pi<double> / 20.0;
-      Len    JP14 =  Pi_4<double> * (a_facing_up ? Rmh : -m_R);
-      Len2   JP13 =  Pi<double> *
-                     (a_facing_up
-                      ? R2 / 3.0 - m_R * a_h + h2 / 2.0
-                      : R2 / 3.0);
-      Len3   JP12 =  a_facing_up
-                     ? -Pi_2<double> * Rmh * TRmh * a_h
-                     : Len3(0.0);
-      Len4   JP11 =  a_facing_up
-                     ? Pi_4<double>  * Sqr(TRmh)  * h2
-                     : Len4(0.0);
+      m_JP15 =  Pi<double>   / 20.0;
+      m_JP14 =  Pi_4<double> * (a_facing_up ? Rmh : -m_R);
+      m_JP13 =  Pi<double> *
+                (a_facing_up
+                 ? R2 / 3.0 - m_R * a_h + h2 / 2.0
+                 : R2 / 3.0);
+      m_JP12 =  a_facing_up
+                ? -Pi_2<double> * Rmh * TRmh * a_h
+                : Len3(0.0);
+      m_JP11 =  a_facing_up
+                ? Pi_4<double>  * Sqr(TRmh)  * h2
+                : Len4(0.0);
 
-      double KP4  = -Pi_4<double>;
-      Len    KP3  = (Pi<double> * 2.0/3.0) * (a_facing_up  ? -Rmh : m_R);
-      Len2   KP2  =  a_facing_up
-                     ? Pi_2<double>  * TRmh * a_h
-                     : Len2(0.0);
+      m_KP4  = -Pi_4<double>;
+      m_KP3  =  (TwoPi<double> / 3.0) * (a_facing_up  ? -Rmh : m_R);
+      m_KP2  =  a_facing_up
+                ? Pi_2<double>  * TRmh * a_h
+                : Len2(0.0);
 
       // Initialise the Parent Classes' Flds:
-      // NB: (xb,yb,zb) is the Base Center, so for it, IsUp = !IsFacingUp:
-      RotationBody::Init
-        (sideSurfArea, enclVol, a_empty_mass,
-         a_alpha,   a_xb, a_yb, a_zb, !a_facing_up, a_h, JE0, JE1, KE,
-         a_rho,     LevelOfVol,
-         JP05,      JP04, JP03,
-         JP15,      JP14, JP13, JP12, JP11,
-         KP4,       KP3,  KP2);
+      // NB: (xb,yb,zb) is the Base Center, so for it, BaseIsUp = !IsFacingUp:
+      RotationBody<SpherSegm>::Init
+      (
+        sideSurfArea,   enclVol,    a_empty_mass,
+        a_alpha,  a_xb, a_yb, a_zb, !a_facing_up, a_h,
+        JE0,      JE1,  KE,   a_rho
+      );
     }
 
     //=======================================================================//
-    // Non-Default Ctor, Simple Cases:
+    // Non-Default Ctor, Simple Cases:                                       //
     //=======================================================================//
     // Rotation axis coinciding with OX:
     //
@@ -424,6 +383,102 @@ namespace SpaceBallistics
     : SpherSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_d / 2.0, a_rho,
                 a_empty_mass)
     {}
+
+    //=======================================================================//
+    // Propellant Volume -> Propellant Level:                                //
+    //=======================================================================//
+    constexpr Len PropLevelOfVol(Vol a_v) const
+    {
+      return
+        m_facingUp
+        ? PropLevelOfVolUp (a_v)
+        : PropLevelOfVolLow(a_v);
+    }
+
+  private:
+    //-----------------------------------------------------------------------//
+    // For the Low-Facing "SpherSegm":                                       //
+    //-----------------------------------------------------------------------//
+    constexpr Len PropLevelOfVolLow(Vol a_v) const
+    {
+      // Solving the equation
+      //   x^2*(3-x) = v,
+      // where
+      //   "x" is the Propellant level relative to "R": x=l/R, 0 <= x <= 1;
+      //   "v" is the Volume/(Pi/3*R^3),                       0 <= v <= 2;
+      // by using Halley's Method (to avoid dealing with complex roots in the
+      // Cardano formula):
+      // x=1/2 is a reasonble initial approximation (XXX: We may use "h"  for
+      // a more accurate initial point, but this is not required yet):
+      //
+      double x   = 0.5;
+      double tv  = 3.0 * double(a_v / m_R3) / Pi<double>;
+
+      assert(0.0 <= tv && tv < 2.0*TolFact);
+      tv = std::min(2.0,  tv);       // Enforce the boundary
+
+      // For safety, restrict the number of iterations:
+      constexpr int N = 100;
+      int           i = 0;
+      for (; i < N; ++i)
+      {
+        double x2 = Sqr(x);
+        double x3 = x2 * x;
+        double x4 = Sqr(x2);
+        double dx =
+          x * (x - 2.0)   * (x3 - 3.0 * x2 + tv) /
+          (2.0 * x4 - 8.0 *  x3 + 9.0 * x2 + tv * (1.0 - x));
+
+        // Iterative update:
+        x -= dx;
+
+        // Exit condition:
+        if (UNLIKELY(Abs(dx) < Tol))
+          break;
+      }
+      // If we got here w/o achieving the required precision, it's an error:
+      assert(i < N);
+
+      // If all is fine: To prevent rounding errors, enforce the boundaries:
+      x = std::max(std::min(x, 1.0), 0.0);
+
+      // And finally, the level:
+      return x * m_R;
+    }
+
+    //-----------------------------------------------------------------------//
+    // For the Up-Facing "SpherSegm":                                        //
+    //-----------------------------------------------------------------------//
+    // Using the invariant
+    // V_up(l) + V_low(h-l) = EnclVol:
+    //
+    constexpr Len PropLevelOfVolUp(Vol a_v) const
+    {
+      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
+      Len res = GetHeight() - PropLevelOfVolLow(GetEnclVol() - a_v);
+      assert(!IsNeg(res) && res <= GetHeight());
+      return res;
+    }
+
+  public:
+    //=======================================================================//
+    // MoI Components for the Propellant of Given Level:                     //
+    //=======================================================================//
+    // Same function as for "TrCone":
+    //
+    constexpr std::tuple<Len5, Len5, Len4> PropMoIComps(Len a_l) const
+    {
+      Len2 l2  = Sqr (a_l);
+      Len3 l3  = l2 * a_l;
+
+      Len5 JP0 = (   (m_JP05 * a_l + m_JP04) * a_l + m_JP03) * l3;
+      Len5 JP1 = (((((m_JP15 * a_l + m_JP14) * a_l + m_JP13) * a_l) + m_JP12)
+                             * a_l + m_JP11) * a_l;
+      Len4 KP  = (   (m_KP4  * a_l + m_KP3 ) * a_l + m_KP2 ) * l2;
+
+      assert(!(IsNeg(JP0) || IsNeg(JP1) || IsNeg(KP)));
+      return {JP0, JP1, KP};
+    }
   };
 }
 // End namespace SpaceBallistics

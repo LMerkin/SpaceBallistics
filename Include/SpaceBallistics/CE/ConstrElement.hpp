@@ -323,6 +323,7 @@ namespace SpaceBallistics
   // SubClass of "ConstrElement", SuperClass of "TrCone", "SpherSegment" and
   // others. Provides common functionality of  Rotation Surfaces and Bodies:
   //
+  template<typename Derived>
   class RotationBody: public ConstrElement
   {
   protected:
@@ -381,28 +382,6 @@ namespace SpaceBallistics
     Len         m_JortK;
     Len2        m_JortSV;
 
-    // Coeffs for computation of "intrinsic" MoI params (J0, J1, K) as polynom-
-    // ial functions of the propellant level.  XXX: Interestingly, the degrees
-    // of such polynomials are the same for the concrete hapes currently imple-
-    // mented ("TrCone", "SpherSegm", ...), though extra coeffs may potentially
-    // be required for other shapes:
-    double      m_JP05;     // coeff(JP0, l^5)
-    Len         m_JP04;     // coeff(JP0, l^4)
-    Len2        m_JP03;     // coeff(JP0, l^3)
-    double      m_JP15;     // coeff(JP1, l^5)
-    Len         m_JP14;     // coeff(JP1, l^4)
-    Len2        m_JP13;     // coeff(JP1, l^3)
-    Len3        m_JP12;     // coeff(JP1, l^2)
-    Len4        m_JP11;     // coeff(JP1, l)
-    double      m_KP4;      // coeff(KP,  l^4)
-    Len         m_KP3;      // coeff(KP,  l^3)
-    Len2        m_KP2;      // coeff(KP,  l^2)
-
-    // Emulating virtual methods:
-    // The following function ptr is provided by derived classes:
-    typedef    Len (*LevelOfVol) (Vol, RotationBody const*);
-    LevelOfVol m_LoV;
-
   protected:
     // Default and Copy Ctors, Assignment and Equality are auto-generated, and
     // they are Protected:
@@ -438,27 +417,8 @@ namespace SpaceBallistics
       Len4        a_je1,
       Len3        a_ke,
 
-      // Propellant Density (may be 0):
-      Density     a_rho,
-
-      // Propellant Vol -> Propellant Level:
-      LevelOfVol  a_lov,
-
-      // Propellant MoI Coeffs as functions of Propellant Level (also wrt the
-      // LOW end of the rotation axis):
-      double      a_jp05,
-      Len         a_jp04,
-      Len2        a_jp03,
-
-      double      a_jp15,
-      Len         a_jp14,
-      Len2        a_jp13,
-      Len3        a_jp12,
-      Len4        a_jp11,
-
-      double      a_kp4,
-      Len         a_kp3,
-      Len2        a_kp2
+      // Propellant Density (may be 0 if no Propellant is held in this Body):
+      Density     a_rho
     )
     {
       //---------------------------------------------------------------------//
@@ -508,7 +468,6 @@ namespace SpaceBallistics
       // Propellant Params:
       m_rho          = a_rho;
       m_propMassCap  = m_rho * a_encl_vol;
-      m_LoV          = a_lov;
 
       // IMPORTANT!
       // Coeffs for (Jx, Jy, Jz) wrt (J0, J1, K, SurfOrVol), where J0, J1, K
@@ -537,22 +496,6 @@ namespace SpaceBallistics
       m_JortK  = 2.0 * (m_cosA  * m_low[0] + m_sinA * m_yzL);
       m_JortSV = Sqr(m_low[0])  + Sqr(m_yzL);
 
-      // Coeffs for computing (J0, J1, K) as polynomial functions of the Propel-
-      // lant Level:
-      m_JP05 = a_jp05;
-      m_JP04 = a_jp04;
-      m_JP03 = a_jp03;
-
-      m_JP15 = a_jp15;
-      m_JP14 = a_jp14;
-      m_JP13 = a_jp13;
-      m_JP12 = a_jp12;
-      m_JP11 = a_jp11;
-
-      m_KP4  = a_kp4;
-      m_KP3  = a_kp3;
-      m_KP2  = a_kp2;
-
       //---------------------------------------------------------------------//
       // Checks:                                                             //
       //---------------------------------------------------------------------//
@@ -568,9 +511,6 @@ namespace SpaceBallistics
 
       // Propellant Density must be non-negative (0 is OK if no propellant):
       assert(!IsNeg(m_rho));
-
-      // The LevelOfVolume function ptr must be non-NULL:
-      assert(m_LoV != nullptr);
 
       //---------------------------------------------------------------------//
       // Now the Base Class ("ConstrElement"):                               //
@@ -662,8 +602,6 @@ namespace SpaceBallistics
     // lant filling this RotationBody, with the current propellant mass given
     // by "a_prop_mass".   The resulting "ConstrElement" does NOT include the
     // Shell!
-    // Uses the "LevelOfVol" func installed by the derived class, in the NON-
-    // virtual way.
     // Returns a ficticious "ConstrElement" obj acting as a container for the
     // results computed, and suitable for the "+" operation. May also return
     // the curr Propellant Level via the 2nd arg (if non-NULL), primarily for
@@ -688,7 +626,8 @@ namespace SpaceBallistics
       // The Propellant Level, relative to the Low (Smallest-X) Base.
       // XXX: We assume that the propellant surface is always orthogonal to the
       // rotation axis, due to the tank pressurisation:
-      Len l = m_LoV(propVol, this);
+      Len l =
+        static_cast<Derived const*>(this)->Derived::PropLevelOfVol(propVol);
 
       // Mathematically, we must have 0 <= l <= h, where l=0 corresponds to the
       // empty Element, and l=h to the full one. We enforce this interval expli-
@@ -699,18 +638,12 @@ namespace SpaceBallistics
       if (a_prop_level != nullptr)
         * a_prop_level  = l;
 
-      // "Intrinsic" MoIs components of the Priopellant:
-      Len2 l2  = Sqr (l);
-      Len3 l3  = l2 * l;
-      Len5 JP0 = (   (m_JP05 * l + m_JP04) * l + m_JP03) * l3;
-      Len5 JP1 = (((((m_JP15 * l + m_JP14) * l + m_JP13) * l) + m_JP12)
-                             * l + m_JP11) * l;
-      Len4 KP  = (   (m_KP4  * l + m_KP3 ) * l + m_KP2 ) * l2;
-      assert(!(IsNeg(JP0) || IsNeg(JP1) || IsNeg(KP)));
+      // Get the MoIs and the CoM of the Popellant. NB: Needless to say, use the
+      // current "propVol" here, NOT the maximum "GetEnclVol()". NB: "Intrinsic"
+      // MoI components of the Propellant are computed by "Derived":
+      auto [JP0, JP1, KP] =
+        static_cast<Derived const*>(this)->Derived::PropMoIComps(l);
 
-      // Get the MoIs and the CoM of the Popellant (returned straight to the
-      // CallER). NB: Needless to say, use the current "propVol" here, NOT
-      // the maximum "GetEnclVol()":
       Len com [3];
       MoI mois[3];
       MoIsCoM(JP0, JP1, KP, propVol, GetPropDens(), com, mois);
