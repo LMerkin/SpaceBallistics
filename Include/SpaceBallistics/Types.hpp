@@ -16,9 +16,17 @@ namespace SpaceBallistics
   DECLARE_DIMS
   (
     double,
-    (Mass, kg),
-    (Len,  m, (km, 1000.0)),
-    (Time, sec)
+    (Mass,  kg),
+    (Len,   m,   (km, 1000.0)),
+    (Time,  sec),
+
+    // Angles: When expressed in "rad", angles are directly convertible to a
+    // dimension-less "double";  other units must first be converted into "rad":
+    (Angle,  rad,                       // Radians
+      (deg,  Pi<double> / 180.0   ),    // Degrees
+      (amin, Pi<double> / 10800.0 ),    // Arc-Minutes
+      (asec, Pi<double> / 648000.0)     // Arc-Seconds
+    )
   )
 
   //=========================================================================//
@@ -50,3 +58,25 @@ namespace SpaceBallistics
   using Force      = decltype(1.0_kg * Acc(1.0));
 }
 // End namespace SpaceBallistics
+
+
+namespace DimTypes
+{
+  using namespace SpaceBallistics;
+
+  //=========================================================================//
+  // Conversion of Angles:                                                   //
+  //=========================================================================//
+  // Explicily allow conversion of "Angle[_rad]" into "double":
+  template<>
+  constexpr inline
+  DimQ
+  <
+    Bits::DimExp(unsigned(DimsE::Angle)),
+    Bits::MkUnit(unsigned(DimsE::Angle), 0),   // 0=rad: the main unit
+    double
+  >
+  ::operator double() const
+    { return Magnitude(); }
+}
+// End namespace DimTypes

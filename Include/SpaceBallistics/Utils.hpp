@@ -4,6 +4,7 @@
 //                                Misc Utils                                 //
 //===========================================================================//
 #pragma once
+#include "SpaceBallistics/Types.hpp"
 #include <tuple>
 
 namespace SpaceBallistics
@@ -24,7 +25,11 @@ namespace SpaceBallistics
     double secs = std::get<3> (a_angle);          // Must be 0..60-
     assert(0.0 <= secs && secs <  60.0);
 
-    double rads = (degs + mins / 60.0 + secs / 3600.0) * (Pi<double> / 180.0);
+    double rads =
+      double(To_Angle_rad(Angle_deg (double(degs))) +
+             To_Angle_rad(Angle_amin(double(mins))) +
+             To_Angle_rad(Angle_asec(secs)));
+
     return (sign == '-') ? (-rads) : rads;
   }
 }
