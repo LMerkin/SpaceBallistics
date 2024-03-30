@@ -55,4 +55,13 @@ namespace SpaceBallistics::Soyuz21b_Consts
   // Insertion time (ArianeSpace/StarSem says 561.9 sec):
   constexpr inline Time   Stage3SepTime          = 564.0_sec;
   static_assert(Stage3SepTime > Stage3CutOffTime);
+
+  //=========================================================================//
+  // Over-All Dimensions:                                                    //
+  //=========================================================================//
+  // (So that Stages can, to some extent, be modeled imdependently of each
+  // other):
+  //
+  constexpr inline Len    X0                     = 0.0_m; // Top of Stage3
+  constexpr inline Len    Stage3Len              = 6.745_m;
 }

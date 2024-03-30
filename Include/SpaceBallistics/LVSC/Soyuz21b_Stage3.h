@@ -53,10 +53,10 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Stage3 Over-All:
     constexpr static Len  D               = SH::InterStageD1;
-    constexpr static Len  H               = 6.745_m;
+    constexpr static Len  H               = SC::Stage3Len;
 
     // Stage3 Fore Section:
-    constexpr static Len  ForeX0          = 0.0_m;  // THE ORIGIN IS HERE!!!
+    constexpr static Len  ForeX0          = SC::X0;    // THE ORIGIN IS HERE!!!
     constexpr static Len  ForeH           = 0.718_m;
 
     // Stage3 Fuel Tank:
