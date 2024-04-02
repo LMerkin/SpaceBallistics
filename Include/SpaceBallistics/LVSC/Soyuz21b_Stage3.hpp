@@ -20,43 +20,55 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
     //-----------------------------------------------------------------------//
-    Mass  fullMass (NaN<double>);
-    Mass  fuelMass (NaN<double>);
-    Mass  oxidMass (NaN<double>);
-    Force absThrust(NaN<double>);
+    using MR = ::SpaceBallistics::MassRate;
+
+    Mass    fullMass   (NaN<double>);
+    Mass    fuelMass   (NaN<double>);
+    Mass    oxidMass   (NaN<double>);
+    MR      fuelMassDot(NaN<double>);
+    MR      oxidMassDot(NaN<double>);
+    Force   absThrust  (NaN<double>);
 
     if (a_t < IgnTime)        // Before Stage3 Ignition
     {
-      fullMass  = FullMass;
-      fuelMass  = FuelMass;
-      oxidMass  = OxidMass;
-      absThrust = Force(0.0);
+      fullMass    = FullMass;
+      fuelMass    = FuelMass;
+      oxidMass    = OxidMass;
+      absThrust   = Force(0.0);
+      fuelMassDot = MR(0.0);
+      oxidMassDot = MR(0.0);
     }
     else
     if (a_t < AftJetTime)     // Running at Full Thrust, with Aft (yet)
     {
-      Time   dt = a_t      - IgnTime;
-      fullMass  = FullMass - MassRate * dt;
-      fuelMass  = FuelMass - FuelRate * dt;
-      oxidMass  = OxidMass - OxidRate * dt;
-      absThrust = ThrustVac;
+      Time     dt = a_t      - IgnTime;
+      fullMass    = FullMass - MassRate * dt;
+      fuelMass    = FuelMass - FuelRate * dt;
+      oxidMass    = OxidMass - OxidRate * dt;
+      absThrust   = ThrustVac;
+      fuelMassDot = - FuelRate;
+      oxidMassDot = - OxidRate;
     }
     else
     if (a_t < CutOffTime)     // Running at Throttled Thrust again
     {
-      Time dt0  = a_t             - IgnTime;
-      Time dt1  = a_t             - AftJetTime;
-      fullMass  = AftJetFullMass  - MassRate * dt1;
-      fuelMass  = FuelMass        - FuelRate * dt0;
-      oxidMass  = OxidMass        - OxidRate * dt0;
-      absThrust = ThrustVac;
+      Time dt0    = a_t             - IgnTime;
+      Time dt1    = a_t             - AftJetTime;
+      fullMass    = AftJetFullMass  - MassRate * dt1;
+      fuelMass    = FuelMass        - FuelRate * dt0;
+      oxidMass    = OxidMass        - OxidRate * dt0;
+      absThrust   = ThrustVac;
+      fuelMassDot = - FuelRate;
+      oxidMassDot = - OxidRate;
     }
     else                      // After the Engine Cut-Off: "Spent" Stage
     {
-      fullMass  = CutOffFullMass;
-      fuelMass  = CutOffFuelMass;
-      oxidMass  = CutOffOxidMass;
-      absThrust = Force(0.0);
+      fullMass    = CutOffFullMass;
+      fuelMass    = CutOffFuelMass;
+      oxidMass    = CutOffOxidMass;
+      absThrust   = Force(0.0);
+      fuelMassDot = MR(0.0);
+      oxidMassDot = MR(0.0);
     }
 
     // Verify the Masses:
@@ -92,16 +104,18 @@ namespace SpaceBallistics
     CE fuelCE =
       (fuelMass > FuelTankLowMidMC)
       ? // Fuel level is within the FuelTankUp:
-        FuelTankUp .GetPropCE(fuelMass - FuelTankLowMidMC, &fuelLevel) +
+        FuelTankUp .GetPropCE
+          (fuelMass - FuelTankLowMidMC, fuelMassDot, &fuelLevel) +
         FuelLowMidCE
       :
       (fuelMass > FuelTankLowMC)
       ? // Fuel level is within the FuelTankMid:
-        FuelTankMid.GetPropCE(fuelMass - FuelTankLowMC,    &fuelLevel) +
+        FuelTankMid.GetPropCE
+          (fuelMass - FuelTankLowMC,    fuelMassDot, &fuelLevel) +
         FuelLowCE
       :
         // Fuel level is within the FuelTankLow:
-        FuelTankLow.GetPropCE(fuelMass,  &fuelLevel);
+        FuelTankLow.GetPropCE(fuelMass, fuelMassDot, &fuelLevel);
 
     // Oxid:
     Len oxidLevel = 0.0_m;
@@ -109,16 +123,18 @@ namespace SpaceBallistics
     CE oxidCE =
       (oxidMass > OxidTankLowMidMC)
       ? // Oxid level is within the OxidTankUp:
-        OxidTankUp .GetPropCE(oxidMass - OxidTankLowMidMC, &oxidLevel) +
+        OxidTankUp .GetPropCE
+          (oxidMass - OxidTankLowMidMC, oxidMassDot, &oxidLevel) +
         OxidLowMidCE
       :
       (oxidMass > OxidTankLowMC)
       ? // Oxid level is within the OxidTankMid:
-        OxidTankMid.GetPropCE(oxidMass - OxidTankLowMC,    &oxidLevel) +
+        OxidTankMid.GetPropCE
+          (oxidMass - OxidTankLowMC,    oxidMassDot, &oxidLevel) +
         OxidLowCE
       :
         // Oxid level is within the OxidTankLow:
-        OxidTankLow.GetPropCE(oxidMass,  &oxidLevel);
+        OxidTankLow.GetPropCE(oxidMass, oxidMassDot, &oxidLevel);
 
     // Full = (Empty+Gases) + Fuel + Oxid:
     CE fullCE = (a_t < AftJetTime ? EGBeforeCE : EGAfterCE) + fuelCE + oxidCE;

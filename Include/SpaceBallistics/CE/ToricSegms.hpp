@@ -96,13 +96,22 @@ namespace SpaceBallistics
       m_pQR4      = m_pQR3 * m_R;
 
       // Pre-Compute the MoI Components for Full Propellant Load for Low-Facing
-      // Segm, and the Nominal Enclosed Volume:
-      auto res    = PropMoICompsLow<true>(a_h);
-      m_JPL0      = std::get<0>(res);
-      m_JPL1      = std::get<1>(res);
-      m_KPL       = std::get<2>(res);
-      Vol enclVol = std::get<3>(res);
-      assert(IsPos(m_JPL0) && IsPos(m_JPL1) && IsPos(m_KPL) && IsPos(enclVol));
+      // Segm, and the Nominal Enclosed Volume. The "Dots" are ignored:
+      Len5Rate JPL0Dot, JPL1Dot;
+      Len4Rate KPLDot;
+      Vol      enclVol;
+      VolRate  enclVolRate;
+      PropMoICompsLow
+      (
+        a_h,      Vel(0.0),
+        &m_JPL0,  &m_JPL1,  &m_KPL,
+        &JPL0Dot, &JPL1Dot, &KPLDot,
+        &enclVol, &enclVolRate
+      );
+      assert
+        (IsPos (m_JPL0)  && IsPos (m_JPL1)  && IsPos (m_KPL)   &&
+         IsPos (enclVol) && IsZero(JPL0Dot) && IsZero(JPL1Dot) &&
+         IsZero(KPLDot)  && IsZero(enclVolRate));
 
       //---------------------------------------------------------------------//
       // Parent Classes Initialisation:                                      //
@@ -171,21 +180,24 @@ namespace SpaceBallistics
     //=======================================================================//
     // Propellant Volume -> Propellant Level:                                //
     //=======================================================================//
-    constexpr Len PropLevelOfVol(Vol a_v) const
+    constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)));
       return
         m_facingUp
-        ? PropLevelOfVolUp (a_v)
-        : PropLevelOfVolLow(a_v);
+        ? PropLevelOfVolUp (a_v, a_v_dot)
+        : PropLevelOfVolLow(a_v, a_v_dot);
     }
 
   private:
     //-----------------------------------------------------------------------//
     // For the Low-Facing "ToricSegm":                                       //
     //-----------------------------------------------------------------------//
-    constexpr Len PropLevelOfVolLow(Vol a_v) const
+    constexpr std::pair<Len,Vel> PropLevelOfVolLow
+      (Vol a_v, VolRate a_v_dot) const
     {
       assert(!IsNeg(a_v));
+      // But "a_v_dot" may be of any sign in different use cases...
 
       // Solving the equation
       //   arccos(z) - z * SqRt(1-z^2) = y
@@ -230,8 +242,18 @@ namespace SpaceBallistics
       // If all is fine: To prevent rounding errors, enforce the boundaries:
       z = std::min(std::max(z, 0.0), 1.0);
 
-      // And finally, the Propellant level:
-      return (1.0 - z) * m_R;
+      // So the Propellant level:
+      Len l = (1.0 - z) * m_R;
+      assert(!IsNeg(l));
+
+      // And "lDot" from the equation solved:
+      // -2 * sqrt(1-z^2) * z_dot = y_dot :
+      //
+      auto yDot = a_v_dot    / m_NV;
+      Vel  lDot = m_R * yDot / (2.0 * SqRt(1.0 - Sqr(z)));  // Infinite if z=1
+      assert(!IsPos(lDot));
+
+      return std::make_pair(l, lDot);
     }
 
     //-----------------------------------------------------------------------//
@@ -239,45 +261,75 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Using the invariant
     // V_up(l) + V_low(h-l) = EnclVol:
+    // Same implementation as for "SpherSegm::PropLevelOfVolUp":
     //
-    constexpr Len PropLevelOfVolUp(Vol a_v) const
+    constexpr std::pair<Len,Vel> PropLevelOfVolUp
+      (Vol a_v, VolRate a_v_dot) const
     {
-      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
-      Len res = GetHeight() - PropLevelOfVolLow(GetEnclVol() - a_v);
-      assert(!IsNeg(res) && res <= GetHeight());
-      return res;
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= GetEnclVol());
+
+      auto lowRes = PropLevelOfVolLow(GetEnclVol() - a_v, - a_v_dot);
+      Len l       = GetHeight() - lowRes.first;
+      Vel lDot    = -             lowRes.second;
+      assert(!IsNeg(l) || IsPos(lDot));
+      return std::make_pair (l, lDot);
     }
 
   public:
     //=======================================================================//
     // MoI Components for the Propellant of Given Level:                     //
     //=======================================================================//
-    constexpr std::tuple<Len5, Len5, Len4> PropMoIComps(Len a_l) const
+    constexpr void PropMoIComps
+    (
+      Len       a_l,
+      Vel       a_l_dot,
+      Len5*     a_jp0,
+      Len5*     a_jp1,
+      Len4*     a_kp,
+      Len5Rate* a_jp0_dot,
+      Len5Rate* a_jp1_dot,
+      Len4Rate* a_kp_dot
+    )
+    const
     {
-      assert(!IsNeg(a_l) && a_l <= GetHeight());
-      return
-        m_facingUp
-        ? PropMoICompsUp        (a_l)
-        : PropMoICompsLow<false>(a_l);
+      assert(!(IsNeg(a_l) || IsPos(a_l_dot)) && a_l <= GetHeight());
+      if (m_facingUp)
+        PropMoICompsUp
+          (a_l, a_l_dot, a_jp0, a_jp1, a_kp, a_jp0_dot, a_jp1_dot, a_kp_dot);
+      else
+        PropMoICompsLow
+          (a_l, a_l_dot, a_jp0, a_jp1, a_kp, a_jp0_dot, a_jp1_dot, a_kp_dot,
+           nullptr,      nullptr);
     }
 
     //-----------------------------------------------------------------------//
     // For the Low-Facing "ToricSegm":                                       //
     //-----------------------------------------------------------------------//
-    // NB: The return type depends on the template flag. XXX: This method is
-    // also called from the "ToricSegm" Ctor, when the parent classes are not
-    // yet initialised -- so it MUST NOT call any methods on "RotationBody":
+    // XXX: This method is also called from the "ToricSegm" Ctor, when the par-
+    // ent classes are not yet initialised, so it MUST NOT call any methods of
+    // "RotationBody":
     //
-    template<bool WithVol>
-    constexpr
-      std::conditional_t
-      <
-        WithVol,
-        std::tuple<Len5, Len5, Len4, Vol>,
-        std::tuple<Len5, Len5, Len4>
-      >
-    PropMoICompsLow(Len a_l) const
+    constexpr void PropMoICompsLow
+    (
+      Len       a_l,
+      Vel       a_l_dot,
+      Len5*     a_jp0,
+      Len5*     a_jp1,
+      Len4*     a_kp,
+      Len5Rate* a_jp0_dot,
+      Len5Rate* a_jp1_dot,
+      Len4Rate* a_kp_dot,
+      Vol*      a_vp,       // May be NULL
+      VolRate*  a_vp_dot    // Ditto
+    )
+    const
     {
+      // NB: "a_l_dot" may be for any sign in different use cases of this func:
+      assert(!IsNeg(a_l)                                  &&
+             a_jp0     != nullptr && a_jp1     != nullptr &&
+             a_kp      != nullptr && a_jp0_dot != nullptr &&
+             a_jp1_dot != nullptr && a_kp_dot  != nullptr);
+
       // In this case, the formulas are relatively simple, so use the direct
       // computations:
       double x   = double(a_l / m_R);
@@ -290,27 +342,51 @@ namespace SpaceBallistics
       double x3  = x2 * x;
       double s   = SqRt(x * (2.0 - x));
 
-      Len5 JP0   =
-        m_pQR4 * (2.5   * acx + s * (x3 - x2/3.0 - (5.0/6.0) * x - 2.5));
-      Len5 JP1   =
-        m_pQR4 * (m_q2L * acx - s * cx * (m_q2L  + x - 0.5 * x2));
-      Len4 KP    =
-         m_pQR3 * (2.0  * acx - s * (x + 1.0) * (2.0 - (4.0/3.0) * x));
+      // MoI Components:
+      *a_jp0     =
+        m_pQR4   * (2.5   * acx + s * (x3 - x2/3.0 - (5.0/6.0) * x - 2.5));
+      *a_jp1     =
+        m_pQR4   * (m_q2L * acx - s * cx * (m_q2L  + x - 0.5 * x2));
+      *a_kp      =
+         m_pQR3  * (2.0   * acx - s * (x + 1.0) * (2.0 - (4.0/3.0) * x));
 
-      if constexpr(WithVol)
-      {
-        Vol VP   = m_NV * (acx - cx  * s);
-        return {JP0, JP1, KP, VP};
-      }
-      else
-        return {JP0, JP1, KP};
+      // And their "Dots":
+      auto xDot  = a_l_dot / m_R;
+      auto jkDot = 4.0 * x * s * xDot;
+      *a_jp0_dot = m_pQR4  * x * jkDot;
+      *a_jp1_dot = m_pQR4  * (2.0 * s * (m_q2L + 2.0 * x - x2 - 0.75)) * xDot;
+      *a_kp_dot  = m_pQR3  * jkDot;
+
+      if (a_vp != nullptr)
+        *a_vp   = m_NV * (acx - cx  * s);
+
+      if (a_vp_dot != nullptr)
+        *a_vp_dot   = m_NV  *  (2.0 * s) * xDot;
     }
 
     //-----------------------------------------------------------------------//
     // For the Up-Facing "ToricSegm":                                        //
     //-----------------------------------------------------------------------//
-    constexpr std::tuple<Len5, Len5, Len4> PropMoICompsUp(Len a_l) const
+    // Here there is no optional rerturn values "VP" and "VPDot":
+    //
+    constexpr void PropMoICompsUp
+    (
+      Len       a_l,
+      Vel       a_l_dot,
+      Len5*     a_jp0,
+      Len5*     a_jp1,
+      Len4*     a_kp,
+      Len5Rate* a_jp0_dot,
+      Len5Rate* a_jp1_dot,
+      Len4Rate* a_kp_dot
+    )
+    const
     {
+      assert(!(IsNeg(a_l)         || IsPos(a_l_dot))      &&
+             a_jp0     != nullptr && a_jp1     != nullptr &&
+             a_kp      != nullptr && a_jp0_dot != nullptr &&
+             a_jp1_dot != nullptr && a_kp_dot  != nullptr);
+
       // In this case, the formulas are more involved,  so we first compute the
       // MoI components of the corresp complementary Segment, take a difference
       // wrt a Fully-Propellant-Loaded Segment, and apply a shift:
@@ -318,9 +394,20 @@ namespace SpaceBallistics
       // MoI components for a complementary segment  can be obtained using the
       // same formulas as for a Low-Facing one (for which the Propellant is ad-
       // jacent to the Pole, not to the Bottom Plane):
-      //
-      auto [JC0, JC1, KC, VC] = PropMoICompsLow<true>(GetHeight() - a_l);
+      Len5     JC0,    JC1;
+      Len4     KC;
+      Vol      VC;
+      Len5Rate JC0Dot, JC1Dot;
+      Len4Rate KCDot;
+      VolRate  VCDot;
 
+      PropMoICompsLow
+      (
+        GetHeight() - a_l, -a_l_dot,
+        &JC0,    &JC1,     &KC,
+        &JC0Dot, &JC1Dot,  &KCDot,
+        &VC,     &VCDot
+      );
       // Subtract the above vals from the MoI components for a Fully-Loaded
       // Low-Facing Segment:
       Len5 JP0 = m_JPL0 - JC0;
@@ -329,25 +416,28 @@ namespace SpaceBallistics
       Vol  VP  = GetEnclVol() - VC;
       assert(IsPos(JP0) && IsPos(JP1) && IsPos(KP) && IsPos(VP));
 
-      // "JC0" is now almost what we need:
+      // "JP0" is now almost what we need:
       // for our  required segm,  Base    @ 0,     Surface @ l,
       // for what we got so far,  Surface @ (h-l), Base    @ h;
       // the orientation does not matter, but the distance to the OEta axis is;
       // so move it in the Low direction of Xi by "h":
-      JP0 += m_h2 * VP - m_twoH * KP;
-      assert(IsPos(JP0));
+      *a_jp0     =   JP0    + m_h2 * VP    - m_twoH * KP;
+      *a_jp0_dot = -(JC0Dot + m_h2 * VCDot - m_twoH * KCDot);
+      assert(IsPos(*a_jp0) && !IsPos(*a_jp0_dot));
 
       // "JP1" is taken as is, because the Eta co-ords are unaffected by Xi
       // shifts:
-      assert(IsPos(JP1));
+      *a_jp1     =  JP1;
+      *a_jp1_dot = -JC1Dot;
+      assert(IsPos(*a_jp1) && !IsPos(*a_jp1_dot));
 
       // "KP" is subject to a similar shift and sign inversion (due to mirror
       // symmetry wrt OEta axis):
-      KP = GetHeight() * VP - KP;
-      assert(IsPos(KP));
+      *a_kp      =   GetHeight() * VP    - KP;
+      *a_kp_dot  = -(GetHeight() * VCDot - KCDot);
+      assert(IsPos(*a_kp)  && !IsPos(*a_kp_dot));
 
-      // All Done:
-      return {JP0, JP1, KP};
+      // All Done!
     }
   };
 
@@ -364,9 +454,12 @@ namespace SpaceBallistics
     // Data Flds:                                                            //
     //=======================================================================//
     // Memoised Coeffs for Propellant MoI Components:
+    Area    m_S;       // Base Area
     Len2    m_cJP0;
+    Len2    m_dJP0;
     Len4    m_cJP1;
     Len2    m_cKP;
+    Len2    m_dKP;
 
   public:
     //=======================================================================//
@@ -413,9 +506,12 @@ namespace SpaceBallistics
       Len3 KE  = Pi<double>   * h2  * (R  + r );
 
       // Memoised coeffs for the Propellant MoIs:
-      m_cJP0   = (Pi<double> / 3.0) * (R2 - r2);
-      m_cJP1   = Pi_4<double>       * (R4 - r4);
-      m_cKP    = Pi_2<double>       * (R2 - r2);
+      m_S      = Pi<double>   * (R2 - r2);
+      m_cJP0   = m_S / 3.0;
+      m_dJP0   = 3.0 * m_cJP0;
+      m_cJP1   = Pi_4<double> * (R4 - r4);
+      m_cKP    = m_S / 2.0;
+      m_dKP    = 2.0 * m_cKP;
 
       // Initialise the Parent Classes' Flds:
       // NB: (xu,yu,zu) is the Upper Base Center, so BaseIsUp = true here:
@@ -446,26 +542,45 @@ namespace SpaceBallistics
     //=======================================================================//
     // Propellant Volume -> Propellant Level:                                //
     //=======================================================================//
-    constexpr Len PropLevelOfVol(Vol a_v) const
+    constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
-      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
-      return double(a_v / GetEnclVol()) * GetHeight();
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= GetEnclVol());
+      Len l    = a_v     /  m_S;
+      Vel lDot = a_v_dot /  m_S;
+      return std::make_pair(l, lDot);
     }
 
     //=======================================================================//
     // MoI Components for the Propellant of Given Level:                     //
     //=======================================================================//
-    constexpr std::tuple<Len5, Len5, Len4> PropMoIComps(Len a_l) const
+    constexpr void PropMoIComps
+    (
+      Len       a_l,
+      Vel       a_l_dot,
+      Len5*     a_jp0,
+      Len5*     a_jp1,
+      Len4*     a_kp,
+      Len5Rate* a_jp0_dot,
+      Len5Rate* a_jp1_dot,
+      Len4Rate* a_kp_dot
+    )
+    const
     {
-      assert(!IsNeg(a_l) && a_l <= GetHeight());
+      assert(!(IsNeg(a_l) || IsPos(a_l_dot))   && a_l <= GetHeight() &&
+             a_jp0     != nullptr && a_jp1     != nullptr  &&
+             a_kp      != nullptr && a_jp0_dot != nullptr  &&
+             a_jp1_dot != nullptr && a_kp_dot  != nullptr);
+
       Len2 l2 = Sqr(a_l);
       Len3 l3 = a_l * l2;
 
-      Len5 JP0 = m_cJP0 * l3;
-      Len5 JP1 = m_cJP1 * a_l;
-      Len4 KP  = m_cKP  * l2;
+      *a_jp0     = m_cJP0 * l3;
+      *a_jp1     = m_cJP1 * a_l;
+      *a_kp      = m_cKP  * l2;
 
-      return {JP0, JP1, KP};
+      *a_jp0_dot = m_dJP0 * l2  * a_l_dot;
+      *a_jp1_dot = m_cJP1       * a_l_dot;
+      *a_kp_dot  = m_dKP  * a_l * a_l_dot;
     }
   };
 }

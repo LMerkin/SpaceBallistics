@@ -56,6 +56,12 @@ namespace SpaceBallistics
 
   // Force (N = kg*m/sec^2):
   using Force      = decltype(1.0_kg * Acc(1.0));
+
+  // Mass Rate (kg/sec):
+  using MassRate   = decltype(1.0_kg   / 1.0_sec);
+
+  // MoI Change Rate (kg*m^2 / sec):
+  using MoIRate    = decltype(MoI(1.0) / 1.0_sec);
 }
 // End namespace SpaceBallistics
 

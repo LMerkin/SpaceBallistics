@@ -39,6 +39,7 @@ namespace SpaceBallistics
     //=======================================================================//
     // Memoise pre-computed coeffs of the Cardano formula in "LevelOfVol":
     Len       m_deltaR;
+    Len2      m_clD;
     Len3      m_clVol;
     Len2      m_rh;
     Len6      m_rh3;
@@ -57,6 +58,19 @@ namespace SpaceBallistics
     double    m_KP4;      // coeff(KP,  l^4)
     Len       m_KP3;      // coeff(KP,  l^3)
     Len2      m_KP2;      // coeff(KP,  l^2)
+
+    // And similar for JP0, JP1 and K Rates ("Dots"):
+    double    m_JP0D4;
+    Len       m_JP0D3;
+    Len2      m_JP0D2;
+    double    m_JP1D4;
+    Len       m_JP1D3;
+    Len2      m_JP1D2;
+    Len3      m_JP1D1;
+    Len4      m_JP1D0;
+    double    m_KPD3;
+    Len       m_KPD2;
+    Len2      m_KPD1;
 
     // Default Ctor is deleted:
     TrCone() = delete;
@@ -92,7 +106,8 @@ namespace SpaceBallistics
       Len2  h2    = Sqr(a_h);
 
       // Memoised coeffs of the Cardano formula (used in "PropLevelOfVol"):
-      m_clVol     = (3.0 / Pi<double>) * h2 * m_deltaR;
+      m_clD       = h2  / Pi<double>;
+      m_clVol     = 3.0 * m_deltaR * m_clD;
       m_rh        = r * a_h;
       m_rh3       = Cube(m_rh);
 
@@ -120,19 +135,34 @@ namespace SpaceBallistics
       Len3   KE   = Pi<double>/3.0  * s *  a_h * (2.0 * R + r );
 
       // Coeffs of "intrtinsic" MoIs with Propellant:
-      m_JP05 = Pi<double> / 5.0 * a2;
-      m_JP04 = Pi_2<double>     * a  * r;
-      m_JP03 = Pi<double> / 3.0 * r2;
+      m_JP05  = Pi<double> / 5.0 * a2;
+      m_JP04  = Pi_2<double>     * a  * r;
+      m_JP03  = Pi<double> / 3.0 * r2;
 
-      m_JP15 = Pi<double> /20.0 * a4;
-      m_JP14 = Pi_4<double>     * a3 * r;
-      m_JP13 = Pi_2<double>     * a2 * r2;
-      m_JP12 = Pi_2<double>     * a  * r3;
-      m_JP11 = Pi_4<double>     * r4;
+      m_JP15  = Pi<double> /20.0 * a4;
+      m_JP14  = Pi_4<double>     * a3 * r;
+      m_JP13  = Pi_2<double>     * a2 * r2;
+      m_JP12  = Pi_2<double>     * a  * r3;
+      m_JP11  = Pi_4<double>     * r4;
 
-      m_KP4  = Pi_4<double>     * a2;
-      m_KP3  = TwoPi<double> / 3.0   * a * r;
-      m_KP2  = Pi_2<double>     * r2;
+      m_KP4   = Pi_4<double>     * a2;
+      m_KP3   = TwoPi<double> / 3.0   * a * r;
+      m_KP2   = Pi_2<double>     * r2;
+
+      // Similar Coeffs for JP0, JP1 and KP Rates ("Dots"):
+      m_JP0D4 = 5.0 * m_JP05;
+      m_JP0D3 = 4.0 * m_JP04;
+      m_JP0D2 = 3.0 * m_JP03;
+
+      m_JP1D4 = 5.0 * m_JP15;
+      m_JP1D3 = 4.0 * m_JP14;
+      m_JP1D2 = 3.0 * m_JP13;
+      m_JP1D1 = 2.0 * m_JP12;
+      m_JP1D0 =       m_JP11;
+
+      m_KPD3  = 4.0 * m_KP4;
+      m_KPD2  = 3.0 * m_KP3;
+      m_KPD1  = 2.0 * m_KP2;
 
       // Initialise the Parent Classes' Flds: NB: For (xu,yu,zu), IsUp=true:
       RotationBody<TrCone>::Init
@@ -175,35 +205,85 @@ namespace SpaceBallistics
     //=======================================================================//
     // Propellant Volume -> Propellant Level:                                //
     //=======================================================================//
-    constexpr Len PropLevelOfVol(Vol a_v) const
+    // Returns (Level, LevelDot):
+    constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
-      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
-      return
-        IsZero(m_deltaR)
-        ? // R==r: The simplest and the most common case: A Cylinder:
-          double(a_v / GetEnclVol()) * GetHeight()
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= GetEnclVol());
 
-        : // General case: Solving a cubic equation by the Cardano formula;
-          // since Vol'(l) > 0 globally, there is only 1 real root:
-          (CbRt(m_clVol * a_v + m_rh3) - m_rh) / m_deltaR;
+      if (IsZero(m_deltaR))
+      {
+        // R==r: The simplest and the most common case: A Cylinder:
+        auto x    = GetHeight() / GetEnclVol();
+        Len  l    = a_v     * x;
+        Vel  lDot = a_v_dot * x;
+
+        assert(!(IsNeg(l) || IsPos(lDot)));
+        return std::make_pair(l, lDot);
+      }
+      else
+      {
+        // General case: Solving a cubic equation by the Cardano formula;
+        // since Vol'(l) > 0 globally, there is only 1 real root:
+        auto x    = CbRt(m_clVol * a_v  + m_rh3);
+        Len  l    = (x - m_rh) / m_deltaR;
+        Vel  lDot = m_clD      / Sqr(x) * a_v_dot;
+
+        assert(!(IsNeg(l) || IsPos(lDot)));
+        return std::make_pair(l, lDot);
+      }
     }
 
     //=======================================================================//
     // MoI Components for the Propellant of Given Level:                     //
     //=======================================================================//
-    constexpr std::tuple<Len5, Len5, Len4> PropMoIComps(Len a_l) const
-    {
-      Len2 l2  = Sqr (a_l);
-      Len3 l3  = l2 * a_l;
-
-      Len5 JP0 = (   (m_JP05 * a_l + m_JP04) * a_l + m_JP03) * l3;
-      Len5 JP1 = (((((m_JP15 * a_l + m_JP14) * a_l + m_JP13) * a_l) + m_JP12)
-                             * a_l + m_JP11) * a_l;
-      Len4 KP  = (   (m_KP4  * a_l + m_KP3 ) * a_l + m_KP2 ) * l2;
-
-      assert(!(IsNeg(JP0) || IsNeg(JP1) || IsNeg(KP)));
-      return {JP0, JP1, KP};
+    // This function is exacytly the same for "TrCone" and "SpherSegm", yet we
+    // cannot factor it out without creating an untermediate parent class.  So
+    // use a macro to generate it:
+#   ifdef  MK_PROP_MOI_COMPS
+#   undef  MK_PROP_MOI_COMPS
+#   endif
+#   define MK_PROP_MOI_COMPS  \
+    constexpr void PropMoIComps \
+    ( \
+      Len       a_l,       \
+      Vel       a_l_dot,   \
+      Len5*     a_jp0,     \
+      Len5*     a_jp1,     \
+      Len4*     a_kp,      \
+      Len5Rate* a_jp0_dot, \
+      Len5Rate* a_jp1_dot, \
+      Len4Rate* a_kp_dot   \
+    ) \
+    const \
+    { \
+      assert(!(IsNeg(a_l)         || IsPos(a_l_dot))      && \
+             a_l       <= GetHeight()                     && \
+             a_jp0     != nullptr && a_jp1     != nullptr && \
+             a_kp      != nullptr && a_jp0_dot != nullptr && \
+             a_jp1_dot != nullptr && a_kp_dot  != nullptr);  \
+      \
+      Len2 l2 = Sqr (a_l); \
+      Len3 l3 = l2 * a_l;  \
+      Len4 l4 = Sqr (l2);  \
+      Len5 l5 = l4 * a_l;  \
+      \
+      /* MoI Components: */   \
+      *a_jp0 =  m_JP05 * l5 + m_JP04 * l4 + m_JP03 * l3; \
+      *a_jp1 =  m_JP15 * l5 + m_JP14 * l4 + m_JP13 * l3 + m_JP12 * l2 + \
+                m_JP11 * a_l; \
+      *a_kp  =  m_KP4  * l4 + m_KP3  * l3 + m_KP2  * l2; \
+      \
+      /* MoI Component's "Dots": */ \
+      *a_jp0_dot = (m_JP0D4 * l4  + m_JP0D3  * l3 + m_JP0D2 * l2)  * a_l_dot; \
+      *a_jp1_dot = (m_JP1D4 * l4  + m_JP1D3  * l3 + m_JP1D2 * l2   +          \
+                    m_JP1D1 * a_l + m_JP1D0) * a_l_dot;                       \
+      *a_kp_dot  = (m_KPD3  * l3  + m_KPD2   * l2 + m_KPD1  * a_l) * a_l_dot; \
+      \
+      assert(!(IsNeg(*a_jp0)     || IsNeg(*a_jp1)     || IsNeg(*a_kp)    ||   \
+               IsPos(*a_jp0_dot) || IsPos(*a_jp1_dot) || IsPos(*a_kp_dot)));  \
     }
+    // Apply the above macro:
+    MK_PROP_MOI_COMPS
   };
 
   //=========================================================================//
@@ -238,6 +318,7 @@ namespace SpaceBallistics
     // Over-all sizes and Orientation:
     Len     m_R;          // Sphere  Radius
     Len3    m_R3;         // Sphere  Radius^3
+    Len3    m_cR3;        // Pi*R^3 / 3 = HemiSphereVol / 2
     bool    m_facingUp;   // Segment Ortientation
 
     // Coeffs for computation of "intrinsic" MoI params (J0, J1, K) as polynom-
@@ -255,6 +336,19 @@ namespace SpaceBallistics
     double  m_KP4;        // coeff(KP,  l^4)
     Len     m_KP3;        // coeff(KP,  l^3)
     Len2    m_KP2;        // coeff(KP,  l^2)
+
+    // And similar for JP0, JP1 and K Rates ("Dots"):
+    double  m_JP0D4;
+    Len     m_JP0D3;
+    Len2    m_JP0D2;
+    double  m_JP1D4;
+    Len     m_JP1D3;
+    Len2    m_JP1D2;
+    Len3    m_JP1D1;
+    Len4    m_JP1D0;
+    double  m_KPD3;
+    Len     m_KPD2;
+    Len2    m_KPD1;
 
     // Default Ctor is deleted:
     SpherSegm() = delete;
@@ -287,6 +381,7 @@ namespace SpaceBallistics
       a_h           = std::min(a_h, r);
       m_R           = (Sqr(r) / a_h + a_h) / 2.0;   // Sphere radius
       m_R3          = Cube(m_R);
+      m_cR3         = (Pi<double> / 3.0) * m_R3;
       m_facingUp    = a_facing_up;
 
       //---------------------------------------------------------------------//
@@ -307,9 +402,9 @@ namespace SpaceBallistics
       // to "xi", hence "JE1" must also be the same; for "KE",  it is just a
       // lucky coincidence due to f(xi)*sqrt(1+f'(xi)^2)=R=const):
       //
-      Len4 JE0    = TwoPi<double> / 3.0 * m_R * h3;
-      Len4 JE1    = m_R * enclVol;
-      Len3 KE     = Pi<double> * m_R * h2;
+      Len4 JE0 = TwoPi<double> / 3.0 * m_R * h3;
+      Len4 JE1 = m_R * enclVol;
+      Len3 KE  = Pi<double> * m_R * h2;
 
       // Coeffs of "intrtinsic" MoIs with Propellant. Unlike the "empty" ones
       // above, these coeffs do depend on the Segment orientation:
@@ -317,30 +412,45 @@ namespace SpaceBallistics
       assert(!IsNeg(Rmh));
       Len TRmh = m_R + Rmh;
 
-      m_JP05 = -Pi<double>   / 5.0;
-      m_JP04 =  Pi_2<double> * (a_facing_up ? -Rmh : m_R);
-      m_JP03 =  a_facing_up
-                ? Pi<double> / 3.0 * TRmh * a_h
-                : Len2(0.0);
+      m_JP05   = -Pi<double>   / 5.0;
+      m_JP04   =  Pi_2<double> * (a_facing_up ? -Rmh : m_R);
+      m_JP03   =  a_facing_up
+                  ? Pi<double> / 3.0 * TRmh * a_h
+                  : Len2(0.0);
 
-      m_JP15 =  Pi<double>   / 20.0;
-      m_JP14 =  Pi_4<double> * (a_facing_up ? Rmh : -m_R);
-      m_JP13 =  Pi<double> *
-                (a_facing_up
-                 ? R2 / 3.0 - m_R * a_h + h2 / 2.0
-                 : R2 / 3.0);
-      m_JP12 =  a_facing_up
-                ? -Pi_2<double> * Rmh * TRmh * a_h
-                : Len3(0.0);
-      m_JP11 =  a_facing_up
-                ? Pi_4<double>  * Sqr(TRmh)  * h2
-                : Len4(0.0);
+      m_JP15   =  Pi<double>   / 20.0;
+      m_JP14   =  Pi_4<double> * (a_facing_up ? Rmh : -m_R);
+      m_JP13   =  Pi<double> *
+                  (a_facing_up
+                   ? R2 / 3.0 - m_R * a_h + h2 / 2.0
+                   : R2 / 3.0);
+      m_JP12   =  a_facing_up
+                  ? -Pi_2<double> * Rmh * TRmh * a_h
+                  : Len3(0.0);
+      m_JP11   =  a_facing_up
+                  ? Pi_4<double>  * Sqr(TRmh)  * h2
+                  : Len4(0.0);
 
-      m_KP4  = -Pi_4<double>;
-      m_KP3  =  (TwoPi<double> / 3.0) * (a_facing_up  ? -Rmh : m_R);
-      m_KP2  =  a_facing_up
-                ? Pi_2<double>  * TRmh * a_h
-                : Len2(0.0);
+      m_KP4    = -Pi_4<double>;
+      m_KP3    =  (TwoPi<double> / 3.0) * (a_facing_up  ? -Rmh : m_R);
+      m_KP2    =  a_facing_up
+                  ? Pi_2<double>  * TRmh * a_h
+                  : Len2(0.0);
+
+      // Similar Coeffs for JP0, JP1 and KP Rates ("Dots"):
+      m_JP0D4  = 5.0 * m_JP05;
+      m_JP0D3  = 4.0 * m_JP04;
+      m_JP0D2  = 3.0 * m_JP03;
+
+      m_JP1D4  = 5.0 * m_JP15;
+      m_JP1D3  = 4.0 * m_JP14;
+      m_JP1D2  = 3.0 * m_JP13;
+      m_JP1D1  = 2.0 * m_JP12;
+      m_JP1D0  =       m_JP11;
+
+      m_KPD3   = 4.0 * m_KP4;
+      m_KPD2   = 3.0 * m_KP3;
+      m_KPD1   = 2.0 * m_KP2;
 
       // Initialise the Parent Classes' Flds:
       // NB: (xb,yb,zb) is the Base Center, so for it, BaseIsUp = !IsFacingUp:
@@ -387,35 +497,40 @@ namespace SpaceBallistics
     //=======================================================================//
     // Propellant Volume -> Propellant Level:                                //
     //=======================================================================//
-    constexpr Len PropLevelOfVol(Vol a_v) const
+    constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)));
       return
         m_facingUp
-        ? PropLevelOfVolUp (a_v)
-        : PropLevelOfVolLow(a_v);
+        ? PropLevelOfVolUp (a_v, a_v_dot)
+        : PropLevelOfVolLow(a_v, a_v_dot);
     }
 
   private:
     //-----------------------------------------------------------------------//
     // For the Low-Facing "SpherSegm":                                       //
     //-----------------------------------------------------------------------//
-    constexpr Len PropLevelOfVolLow(Vol a_v) const
+    constexpr std::pair<Len,Vel> PropLevelOfVolLow
+      (Vol a_v, VolRate a_v_dot) const
     {
       // Solving the equation
-      //   x^2*(3-x) = v,
+      //   x^2*(3-x) = tv,
       // where
-      //   "x" is the Propellant level relative to "R": x=l/R, 0 <= x <= 1;
-      //   "v" is the Volume/(Pi/3*R^3),                       0 <= v <= 2;
+      //   "x"  is the Propellant level relative to "R": x=l/R, 0 <= x  <= 1;
+      //   "tv" is the Volume/(Pi/3*R^3),                       0 <= tv <= 2;
       // by using Halley's Method (to avoid dealing with complex roots in the
       // Cardano formula):
       // x=1/2 is a reasonble initial approximation (XXX: We may use "h"  for
       // a more accurate initial point, but this is not required yet):
       //
-      double x   = 0.5;
-      double tv  = 3.0 * double(a_v / m_R3) / Pi<double>;
+      assert(!IsNeg(a_v));
+      // However, "a_v_dot" may be of any sign, as this function may be called
+      // either from "PropLevelOfVol" or from "PropLevelOfVolUp"...
 
+      double x   = 0.5;
+      double tv  = double(a_v / m_cR3);
       assert(0.0 <= tv && tv < 2.0*TolFact);
-      tv = std::min(2.0,  tv);       // Enforce the boundary
+      tv = std::min(2.0,  tv);           // Enforce the boundary
 
       // For safety, restrict the number of iterations:
       constexpr int N = 100;
@@ -442,8 +557,20 @@ namespace SpaceBallistics
       // If all is fine: To prevent rounding errors, enforce the boundaries:
       x = std::max(std::min(x, 1.0), 0.0);
 
-      // And finally, the level:
-      return x * m_R;
+      // The level:
+      Len l = x * m_R;
+      assert(!IsNeg(l));
+
+      // And finally, "lDot":
+      // Derive it from the above cubic equation:
+      // 3*x*(2-x) * x_dot = tv_dot ;   the LHS always exists:
+      //
+      auto tvDot = a_v_dot / m_cR3;
+      auto xDot  = tvDot   / (3.0 * x * (2.0 - x));
+      Vel  lDot  = xDot    * m_R;
+      assert(!IsPos(lDot));
+
+      return std::make_pair(l, lDot);
     }
 
     //-----------------------------------------------------------------------//
@@ -452,33 +579,24 @@ namespace SpaceBallistics
     // Using the invariant
     // V_up(l) + V_low(h-l) = EnclVol:
     //
-    constexpr Len PropLevelOfVolUp(Vol a_v) const
+    constexpr std::pair<Len,Vel> PropLevelOfVolUp
+      (Vol a_v, VolRate a_v_dot) const
     {
-      assert(!IsNeg(a_v) && a_v <= GetEnclVol());
-      Len res = GetHeight() - PropLevelOfVolLow(GetEnclVol() - a_v);
-      assert(!IsNeg(res) && res <= GetHeight());
-      return res;
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot))  &&     a_v <= GetEnclVol());
+      auto lowRes = PropLevelOfVolLow(GetEnclVol() - a_v, - a_v_dot);
+      Len l       = GetHeight() - lowRes.first;
+      Vel lDot    = -             lowRes.second;
+      assert(!(IsNeg(l) || IsPos(lDot)));
+      return std::make_pair(l, lDot);
     }
 
   public:
     //=======================================================================//
     // MoI Components for the Propellant of Given Level:                     //
     //=======================================================================//
-    // Same function as for "TrCone":
-    //
-    constexpr std::tuple<Len5, Len5, Len4> PropMoIComps(Len a_l) const
-    {
-      Len2 l2  = Sqr (a_l);
-      Len3 l3  = l2 * a_l;
-
-      Len5 JP0 = (   (m_JP05 * a_l + m_JP04) * a_l + m_JP03) * l3;
-      Len5 JP1 = (((((m_JP15 * a_l + m_JP14) * a_l + m_JP13) * a_l) + m_JP12)
-                             * a_l + m_JP11) * a_l;
-      Len4 KP  = (   (m_KP4  * a_l + m_KP3 ) * a_l + m_KP2 ) * l2;
-
-      assert(!(IsNeg(JP0) || IsNeg(JP1) || IsNeg(KP)));
-      return {JP0, JP1, KP};
-    }
+    // Exacyly same function as for "TrCone", so apply the above macro:
+    MK_PROP_MOI_COMPS
+#   undef MK_PROP_MOI_COMPS
   };
 }
 // End namespace SpaceBallistics

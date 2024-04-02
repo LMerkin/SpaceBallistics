@@ -40,11 +40,19 @@ namespace SpaceBallistics
     constexpr static Mass UnKnownMass = 0.0_kg;
 
     // The following types might be useful for derived classes:
-    using Len2 = decltype(Sqr     (1.0_m));    // Same as "Area"
-    using Len3 = decltype(Cube    (1.0_m));    // Same as "Vol"
-    using Len4 = decltype(Sqr(Sqr (1.0_m)));
-    using Len5 = decltype(Sqr(Sqr (1.0_m)) * 1.0_m);
-    using Len6 = decltype(Sqr(Cube(1.0_m)));
+    using Len2     = decltype(Sqr     (1.0_m));    // Same as "Area"
+    using Len3     = decltype(Cube    (1.0_m));    // Same as "Vol"
+    using Len4     = decltype(Sqr(Sqr (1.0_m)));
+    using Len5     = decltype(Sqr(Sqr (1.0_m)) * 1.0_m);
+    using Len6     = decltype(Sqr(Cube(1.0_m)));
+
+    using Len2Rate = decltype(Len2() / 1.0_sec);
+    using Len3Rate = decltype(Len3() / 1.0_sec);   // Same as "VolRate"
+    using VolRate  = Len3Rate;
+    using Len4Rate = decltype(Len4() / 1.0_sec);
+    using Len5Rate = decltype(Len5() / 1.0_sec);
+
+    static_assert(std::is_same_v<Len2, Area> && std::is_same_v<Len3, Vol>);
 
   private:
     //=======================================================================//
@@ -52,11 +60,13 @@ namespace SpaceBallistics
     //=======================================================================//
     // Over-All Dynamical Params of this "ConstrElement":
     //
-    Len         m_CoM [3];  // (X,Y,Z) co-ords of the Center of Masses
-    Mass        m_mass;     // Mass
-    MoI         m_MoIs[3];  // Moments of Inertia wrt the OX, OY and OZ axes
-    bool        m_isFinal;  // If not set, "m_mass", "m_MoIs" are not valid yet
-                            //   (but the CoM still is!)
+    Len         m_CoM    [3];  // (X,Y,Z) co-ords of the Center of Masses
+    Mass        m_mass;        // Mass
+    MassRate    m_massDot;     // d(Mass)/dt, typically <= 0
+    MoI         m_MoIs   [3];  // Moments of Inertia wrt the OX, OY and OZ axes
+    MoIRate     m_MoIDots[3];  // d(MoIs)/dt
+    bool        m_isFinal;     // False => Mass, MoIs & their Dots not valid
+                               //   yet (but the CoM is valid!)
   protected:
     //=======================================================================//
     // "Init":                                                               //
@@ -64,31 +74,42 @@ namespace SpaceBallistics
     // For use by Derived Classes. It is similar to a Non-Default Ctor, but is
     // intended to be invoked AFTER the Derived flds have been initialised, so
     // implemented as a Static Method, not a Ctor.
-    // XXX: It is Static becaise without that, it could not be called from me-
-    // thods of derived classes on "non-this" objs:
+    // XXX: This method is made "static"; otherwise, it could not be called from
+    // methods of derived classes on OTHER objs, even though it is "protected":
     //
     constexpr static void Init
     (
       ConstrElement*  a_ce,
-      Len  const      a_com [3],
+      Len  const      a_com     [3],
       Mass            a_mass,
-      MoI  const      a_mois[3],
+      MassRate        a_mass_dot,
+      MoI     const   a_mois    [3],
+      MoIRate const   a_moi_dots[3],
       bool            a_is_final
     )
     {
       assert(a_ce != nullptr);
-      a_ce->m_CoM [0]  = a_com [0];
-      a_ce->m_CoM [1]  = a_com [1];
-      a_ce->m_CoM [2]  = a_com [2];
-      a_ce->m_mass     = a_mass;
-      a_ce->m_MoIs[0]  = a_mois[0];
-      a_ce->m_MoIs[1]  = a_mois[1];
-      a_ce->m_MoIs[2]  = a_mois[2];
-      a_ce->m_isFinal  = a_is_final;
+      a_ce->m_CoM    [0]  = a_com     [0];
+      a_ce->m_CoM    [1]  = a_com     [1];
+      a_ce->m_CoM    [2]  = a_com     [2];
+      a_ce->m_mass        = a_mass;
+      a_ce->m_massDot     = a_mass_dot;
+      a_ce->m_MoIs   [0]  = a_mois    [0];
+      a_ce->m_MoIs   [1]  = a_mois    [1];
+      a_ce->m_MoIs   [2]  = a_mois    [2];
+      a_ce->m_MoIDots[0]  = a_moi_dots[0];
+      a_ce->m_MoIDots[1]  = a_moi_dots[1];
+      a_ce->m_MoIDots[2]  = a_moi_dots[2];
+      a_ce->m_isFinal     = a_is_final;
 
-      // NB: Even if "a_mass" is not final, it must be positive:
-      assert( IsPos(a_ce->m_mass)    && !IsNeg(a_ce->m_MoIs[0]) &&
-             !IsNeg(a_ce->m_MoIs[1]) && !IsNeg(a_ce->m_MoIs[2]));
+      // NB: Even if "a_mass" is not final, it must be positive. In the context
+      // under consideration, MassDot and MoIDots cannot be positive, since the
+      // ContrElement's mass is either constant or being exhausted:
+      //
+      assert( IsPos(a_ce->m_mass)       && !IsNeg(a_ce->m_MoIs   [0]) &&
+             !IsNeg(a_ce->m_MoIs   [1]) && !IsNeg(a_ce->m_MoIs   [2]) &&
+             !IsPos(a_ce->m_massDot)    && !IsPos(a_ce->m_MoIDots[0]) &&
+             !IsPos(a_ce->m_MoIDots[1]) && !IsPos(a_ce->m_MoIDots[1]));
     }
 
   public:
@@ -99,14 +120,16 @@ namespace SpaceBallistics
     // (*) All numeric fields are initialised to 0s, not to NaNs, so the "empty"
     //     obj (constructed by the Default Ctor) can be used as an initial value
     //     for summation ("+", "+=", etc);
-    // (*) IsFinal is set to "true", because the empty "ConstrElement" is typi-
-    //     cally used as the base for "+" which requires Final components:
+    // (*) "IsFinal" is set to "true", because the empty "ConstrElement" is typ-
+    //     ically used as the base for "+" which requires Final operands:
     //
     constexpr ConstrElement()
-    : m_CoM       {0.0_m,    0.0_m,    0.0_m},
-      m_mass      (0.0),
-      m_MoIs      {MoI(0.0), MoI(0.0), MoI(0.0)},
-      m_isFinal   (true)     // !!!
+    : m_CoM    {0.0_m, 0.0_m, 0.0_m},
+      m_mass   (0.0),
+      m_massDot(0.0),
+      m_MoIs   {MoI    (0.0), MoI    (0.0), MoI    (0.0)},
+      m_MoIDots{MoIRate(0.0), MoIRate(0.0), MoIRate(0.0)},
+      m_isFinal(true)
     {}
 
     //=======================================================================//
@@ -114,12 +137,14 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr ConstrElement
     (
-      Len         a_com [3],
-      Mass        a_mass,
-      MoI         a_mois[3],
-      bool        a_is_final
+      Len      const a_com     [3],
+      Mass           a_mass,
+      MassRate const a_mass_dot,
+      MoI            a_mois    [3],
+      MoIRate  const a_moi_dots[3],
+      bool           a_is_final
     )
-    { Init(this, a_com, a_mass, a_mois, a_is_final); }
+    { Init(this, a_com, a_mass, a_mass_dot, a_mois, a_moi_dots, a_is_final); }
 
     // Copy Ctor, Assignment and Equality are auto-generated...
 
@@ -158,20 +183,29 @@ namespace SpaceBallistics
     //=======================================================================//
     // Returns a new object (of any type derived from "ConstrElement") which
     // differes from the original one  by the Mass and MoIs being multiplied
-    // by the ScaleFactor. XXX: It is assumed that any other flds of "Derived"
-    // are UNAFFECTED by this scaling:
+    // by the ScaleFactor.
+    // XXX:
+    // (*) it is assumed that any other flds of "Derived" are UNAFFECTED by this
+    //     scaling;
+    // (*) we also assume that this operation is only applicable to Fixed-Mass
+    //     "ConstrElement"s, so all Rates must be 0, and are not affected by the
+    //     scaling:
     //
     template<typename Derived>
     constexpr static  Derived ProRateMass(Derived const& a_der, double a_scale)
     {
+      static_assert(std::is_base_of_v<ConstrElement, Derived>);
       assert(a_scale > 0.0);
 
       // Create a copy of "a_der" using the Copy Ctor of Derived (which must
       // indeed be derived from "ConstrElement"):
       Derived copy(a_der);
 
-      // Cannot adjust the Mass once it has been finalised:
-      assert(!copy.m_isFinal);
+      // Cannot adjust the Mass once it has been finalised, or if any Rates are
+      // non-0:
+      assert(!copy.m_isFinal           && IsZero(copy.m_massDot)    &&
+             IsZero(copy.m_MoIDots[0]) && IsZero(copy.m_MoIDots[1]) &&
+             IsZero(copy.m_MoIDots[2]));
 
       // Set the Mass and adjust the MoIs; but the CoM is unchanged:
       copy.m_mass    *= a_scale;
@@ -187,8 +221,9 @@ namespace SpaceBallistics
     //=======================================================================//
     // Geometrical params are always available, even if the Mass is not final
     // yet:
-    using     Point = decltype(m_CoM);
-    using     MoIs  = decltype(m_MoIs);
+    using     Point    = decltype(m_CoM);
+    using     MoIs     = decltype(m_MoIs);
+    using     MoIRates = decltype(m_MoIDots);
 
     constexpr Point const& GetCoM() const { return m_CoM; }
 
@@ -204,10 +239,22 @@ namespace SpaceBallistics
       return m_mass;
     }
 
-    constexpr MoIs const& GetMoIs() const
+    constexpr MassRate        GetMassDot() const
+    {
+      assert(m_isFinal);
+      return m_massDot;
+    }
+
+    constexpr MoIs     const& GetMoIs()    const
     {
       assert(m_isFinal);
       return m_MoIs;
+    }
+
+    constexpr MoIRates const& GetMoIDots() const
+    {
+      assert(m_isFinal);
+      return m_MoIDots;
     }
 
     //=======================================================================//
@@ -223,11 +270,17 @@ namespace SpaceBallistics
              !(IsZero(m_mass) && IsZero(a_right.m_mass)));
 
       // Masses, SurfAreas, Vols and MoIs are directly-additive:
-      Mass    m0  = m_mass;
-      m_mass     += a_right.m_mass;
-      m_MoIs[0]  += a_right.m_MoIs[0];
-      m_MoIs[1]  += a_right.m_MoIs[1];
-      m_MoIs[2]  += a_right.m_MoIs[2];
+      Mass      m0  = m_mass;
+      m_mass       += a_right.m_mass;
+      m_massDot    += a_right.m_massDot;
+
+      m_MoIs   [0] += a_right.m_MoIs   [0];
+      m_MoIs   [1] += a_right.m_MoIs   [1];
+      m_MoIs   [2] += a_right.m_MoIs   [2];
+
+      m_MoIDots[0] += a_right.m_MoIDots[0];
+      m_MoIDots[1] += a_right.m_MoIDots[1];
+      m_MoIDots[2] += a_right.m_MoIDots[2];
 
       // For the CoM, do the weighted avg (but the total mass must be non-0):
       assert(IsPos(m_mass));
@@ -243,41 +296,6 @@ namespace SpaceBallistics
     {
       ConstrElement res = *this;
       res += a_right;
-      return res;
-    }
-
-    // Subtraction is also possible, but ONLY IF the resulting SurfArea, Vol
-    // and Mass remain valid. USE THIS OP WITH CARE: It is intended for removal
-    // of particular components from "ConstrElement" systems:
-    //
-    constexpr ConstrElement& operator-= (ConstrElement const& a_right)
-    {
-      assert(m_isFinal && a_right.m_isFinal &&
-             !(IsZero(m_mass) && IsZero(a_right.m_mass)));
-
-      // Masses, SurfAreas, Vols and MoIs are directly-additive/subtractable:
-      Mass m0     = m_mass;
-      m_mass     -= a_right.m_mass;
-      m_MoIs[0]  -= a_right.m_MoIs[0];
-      m_MoIs[1]  -= a_right.m_MoIs[1];
-      m_MoIs[2]  -= a_right.m_MoIs[2];
-      // CHECKS:
-      assert(IsPos(m_mass)    && IsPos(m_MoIs[0]) &&
-             IsPos(m_MoIs[1]) && IsPos(m_MoIs[2]));
-
-      // For the CoM, do the weighted avg:
-      double mu0  = double(m0             / m_mass);
-      double mu1  = double(a_right.m_mass / m_mass);
-      m_CoM[0]    = mu0 * m_CoM[0]  - mu1 * a_right.m_CoM[0];
-      m_CoM[1]    = mu0 * m_CoM[1]  - mu1 * a_right.m_CoM[1];
-      m_CoM[2]    = mu0 * m_CoM[2]  - mu1 * a_right.m_CoM[2];
-      return *this;
-    }
-
-    constexpr ConstrElement operator- (ConstrElement const& a_right) const
-    {
-      ConstrElement res = *this;
-      res -= a_right;
       return res;
     }
   };
@@ -312,8 +330,11 @@ namespace SpaceBallistics
       };
 
       // Now the actual Base Class initialisation. NB: The point-mass is consi-
-      // dered to be Final:
-      ConstrElement::Init(this, pt, a_mass, mois, true);
+      // dered to be Final, all Rates are 0:
+      constexpr MoIRate Rates0[3] {MoIRate(0.0), MoIRate(0.0), MoIRate (0.0)};
+
+      ConstrElement::Init
+        (this, pt, a_mass, MassRate(0.0), mois, Rates0, true);
     }
   };
 
@@ -412,7 +433,7 @@ namespace SpaceBallistics
       bool        a_0is_up,   // Is (x0,y0,z0) the Up or Low end?
       Len         a_h,        // Over-all body length  (along the rotation axis)
 
-      // "Empty" MoI Coeffs (wrt the LOW end of the rotation axis):
+      // "Empty" MoI Coeffs (wrt the Low end of the rotation axis):
       Len4        a_je0,
       Len4        a_je1,
       Len3        a_ke,
@@ -525,18 +546,30 @@ namespace SpaceBallistics
         isFinal ?  a_mass : (a_side_surf_area  * surfDens);
 
       // "Empty" CoM and MoIs (2D) for the Base Class:
-      Len emptyCoM [3];
-      MoI emptyMoIs[3];
+      Len       emptyCoM    [3];
+      MoI       emptyMoIs   [3];
+      MoIRate   emptyMoIDots[3];
+      constexpr Len4Rate JDot0 = Len4Rate(0.0);
+      constexpr Len3Rate KDot0 = Len3Rate(0.0);
+      constexpr Len2Rate SDot0 = Len2Rate(0.0);
+      constexpr MassRate MDot0 = MassRate(0.0);
       MoIsCoM
-        (a_je0, a_je1, a_ke, a_side_surf_area, surfDens, emptyCoM, emptyMoIs);
-
+      (
+        a_je0,     a_je1, a_ke,  JDot0,    JDot0,    KDot0,
+        a_side_surf_area, SDot0, surfDens, emptyCoM, emptyMoIs, emptyMoIDots
+      );
       // Check: "m_inXY", "m_inXZ" derived from "a_{xyz}0" must be consistent
       // with "emptyCoM":
       assert(!m_inXY || IsZero(emptyCoM[2]));
       assert(!m_inXZ || IsZero(emptyCoM[1]));
 
+      // MoIDots must all be 0s, of course:
+      assert(IsZero(emptyMoIDots[0]) && IsZero(emptyMoIDots[1]) &&
+             IsZero(emptyMoIDots[2]));
+
       // Finally, invoke the Base Class Initialiser:
-      ConstrElement::Init(this, emptyCoM, emptyMass, emptyMoIs, isFinal);
+      ConstrElement::Init
+        (this, emptyCoM, emptyMass, MDot0, emptyMoIs, emptyMoIDots, isFinal);
     }
 
     //=======================================================================//
@@ -552,19 +585,34 @@ namespace SpaceBallistics
     (
       J                          a_j0,      // Len4 or Len5, wrt Low axis end
       J                          a_j1,      // ditto
-      decltype(J(1.0)/1.0_m)     a_k,       // Len3 or Len4
-      decltype(J(1.0)/Len2(1.0)) a_sv,      // Len2 or Len3 (ie SurfArea or Vol)
+      decltype(a_j0  /1.0_m)     a_k,       // Len3 or Len4
+      decltype(a_j0  /1.0_sec)   a_j0_dot,  // Time derivatives of J0, J1, K
+      decltype(a_j0  /1.0_sec)   a_j1_dot,  //
+      decltype(a_k   /1.0_sec)   a_k_dot,   //
+      decltype(a_j0  /Len2(1.0)) a_sv,      // Len2 or Len3 (ie SurfArea or Vol)
+      decltype(a_sv  /1.0_sec)   a_sv_dot,  // SurfAreaDot: 0; VolDot: <= 0
       decltype(1.0_kg/a_sv)      a_dens,    // SurfDens or Density
       Len                        a_com [3], // Output
-      MoI                        a_mois[3]  // ditto
+      MoI                        a_mois[3], // ditto
+      MoIRate                    a_moi_dots[3]
     )
     const
     {
       // "Intrinsic" MoI components must be > 0 for any finite body size,  as
       // well as "a_k" (because it's a moment relative to the Low (Smallest-X)
-      // point):
-      assert(IsPos(a_j0) && IsPos(a_j1) && IsPos(a_sv) && IsPos(a_k) &&
-             IsPos(a_sv));
+      // point). On the contrary, their time derivatives must be <= 0:
+      assert( IsPos(a_j0) && IsPos(a_j1) && IsPos(a_sv) && IsPos(a_k) &&
+              IsPos(a_sv) &&
+            !(IsPos(a_j0_dot) || IsPos(a_j1_dot) || IsPos(a_k_dot)) );
+
+      // If it's about a Surface,  all Rates must be 0;
+      // otherwise, it's a Volume, and all Rates must be <= 0:
+      assert
+        ((std::is_same_v<J, Len4> &&  IsZero(a_sv_dot)  &&
+          IsZero(a_j0_dot)        &&  IsZero(a_j1_dot)  && IsZero(a_k_dot)) ||
+         (std::is_same_v<J, Len5> && !(IsPos(a_sv_dot)  || IsPos (a_j0_dot) ||
+          IsPos(a_j1_dot)         ||   IsPos (a_k_dot))));
+
       // MoIs:
       J Jx   = m_Jx0  * a_j0 + m_Jx1  * a_j1 + m_JxK   * a_k + m_JxSV   * a_sv;
       J Jin  = m_Jin0 * a_j0 + m_Jin1 * a_j1 + m_JinK  * a_k + m_JinSV  * a_sv;
@@ -572,10 +620,33 @@ namespace SpaceBallistics
       J Jy   = m_inXY ? Jin  : Jort;
       J Jz   = m_inXZ ? Jin  : Jort;
 
-      a_mois[0]  = a_dens * Jx;
-      a_mois[1]  = a_dens * Jy;
-      a_mois[2]  = a_dens * Jz;
+      // MoI Rates: Linear transforms similar to above:
+      using JRate   = decltype(a_j0 / 1.0_sec);
+      JRate JxDot   =
+        m_Jx0   * a_j0_dot   + m_Jx1  * a_j1_dot + m_JxK    * a_k_dot +
+        m_JxSV  * a_sv_dot;
+      JRate JinDot  =
+        m_Jin0  * a_j0_dot   + m_Jin1 * a_j1_dot + m_JinK   * a_k_dot +
+        m_JinSV * a_sv_dot;
+      JRate JortDot =
+        a_j0_dot + a_j1_dot  + m_JortK * a_k_dot + m_JortSV * a_sv_dot;
+
+      JRate JyDot   = m_inXY ? JinDot : JortDot;
+      JRate JzDot   = m_inXZ ? JinDot : JortDot;
+
+      a_mois[0]     = a_dens * Jx;
+      a_mois[1]     = a_dens * Jy;
+      a_mois[2]     = a_dens * Jz;
       assert(!(IsNeg(a_mois[0]) || IsNeg(a_mois[1]) || IsNeg(a_mois[2])));
+
+      a_moi_dots[0] = a_dens * JxDot;
+      a_moi_dots[1] = a_dens * JyDot;
+      a_moi_dots[2] = a_dens * JzDot;
+
+      assert((std::is_same_v<J, Len4> &&  IsZero(a_moi_dots[0])  &&
+              IsZero(a_moi_dots[1])   &&  IsZero(a_moi_dots[2])) ||
+             (std::is_same_v<J, Len5> && !(IsPos(a_moi_dots[0])  ||
+              IsPos(a_moi_dots[1])    ||   IsPos(a_moi_dots[2]))));
 
       // Now the CoM: "xiC" is its co-ord along the rotation axis, relative to
       // the Low (Smallest-X) axis end, hence positive:
@@ -610,8 +681,13 @@ namespace SpaceBallistics
     // Run-Time. For the info, it also returns the PropLevel if the output ptr
     // is non-NULL:
     //
-    constexpr ConstrElement   GetPropCE
-      (Mass a_prop_mass, Len* a_prop_level = nullptr) const
+    constexpr ConstrElement GetPropCE
+    (
+      Mass     a_prop_mass,
+      MassRate a_prop_mass_dot = MassRate(0.0),    // Must be <= 0 in general
+      Len*     a_prop_level    = nullptr
+    )
+    const
     {
       // Check the limits of the Propellant Mass. For the 2nd inequaluty, allow
       // some floating-point tolerance:
@@ -619,15 +695,18 @@ namespace SpaceBallistics
 
       // The Propellant Volume: Make sure it is within the limits to avoid
       // rounding errors:
-      Vol propVol = a_prop_mass / GetPropDens();
-      assert    (!IsNeg (propVol) && propVol <= GetEnclVol() * TolFact);
-      propVol = std::min(propVol, GetEnclVol());
+      Vol     propVol    = a_prop_mass     / GetPropDens();
+      VolRate propVolDot = a_prop_mass_dot / GetPropDens();
+      assert (!IsNeg(propVol) && propVol <= GetEnclVol() * TolFact &&
+              !IsPos(propVolDot));
+      propVol = std::min(propVol, GetEnclVol()); // Enforce it for safety
 
       // The Propellant Level, relative to the Low (Smallest-X) Base.
       // XXX: We assume that the propellant surface is always orthogonal to the
       // rotation axis, due to the tank pressurisation:
-      Len l =
-        static_cast<Derived const*>(this)->Derived::PropLevelOfVol(propVol);
+      auto [l, lDot] =
+        static_cast<Derived const*>(this)->Derived::PropLevelOfVol
+          (propVol, propVolDot);
 
       // Mathematically, we must have 0 <= l <= h, where l=0 corresponds to the
       // empty Element, and l=h to the full one. We enforce this interval expli-
@@ -641,12 +720,21 @@ namespace SpaceBallistics
       // Get the MoIs and the CoM of the Popellant. NB: Needless to say, use the
       // current "propVol" here, NOT the maximum "GetEnclVol()". NB: "Intrinsic"
       // MoI components of the Propellant are computed by "Derived":
-      auto [JP0, JP1, KP] =
-        static_cast<Derived const*>(this)->Derived::PropMoIComps(l);
+      Len5     JP0,    JP1;
+      Len4     KP;
+      Len5Rate JP0Dot, JP1Dot;
+      Len4Rate KPDot;
 
-      Len com [3];
-      MoI mois[3];
-      MoIsCoM(JP0, JP1, KP, propVol, GetPropDens(), com, mois);
+      static_cast<Derived const*>(this)->Derived::PropMoIComps
+        (l, lDot, &JP0, &JP1, &KP, &JP0Dot, &JP1Dot, &KPDot);
+
+      Len     com    [3];
+      MoI     mois   [3];
+      MoIRate moiDots[3];
+
+      MoIsCoM
+        (JP0, JP1,  KP, JP0Dot, JP1Dot, KPDot, propVol, propVolDot,
+         GetPropDens(), com,    mois,   moiDots);
 
       // Construct the result (XXX: this is slightly sub-optimal, as involves
       // copying of "com" and "mois"). NB:
@@ -658,7 +746,8 @@ namespace SpaceBallistics
       //     included in the result;
       // (*) the result is Final:
       //
-      return ConstrElement(com, a_prop_mass, mois, true);
+      return ConstrElement
+        (com, a_prop_mass, a_prop_mass_dot, mois, moiDots, true);
     }
 
     //=======================================================================//
