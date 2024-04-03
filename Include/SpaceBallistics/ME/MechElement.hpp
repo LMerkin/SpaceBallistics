@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
-//                    "SpaceBallistics/CE/ConstrElement.hpp":                //
-//                 Geometrical Objects as Construction Elements              //
+//                     "SpaceBallistics/ME/MechElement.hpp":                 //
+//                 Geometrical Objects as "Mechanical Elements"              //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
@@ -14,21 +14,23 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // "ConstrElement": Base Class for Construction Elements:                  //
+  // "MechElement": Base Class for Mechanical Elements:                      //
   //=========================================================================//
-  // General characteristics of standard construction elements:
-  // Currently, 2D Shells (Truncated Cones and Spherical Segments), 3D Volumes
-  // (of the same shape as Shells) and Point Masses are supported (via the cor-
-  // resp Derived Classes of "ConstrElement").  For each them,  we can compute
-  // Centers of Masses (CoM) and Moments of Inertia (MoI) wrt OX, OY, OZ axes.
+  // General characteristics of standard Mechanical Elements:
+  // Currently, 2D Shells (Truncated Cones and Spherical Segments), 3D Propel-
+  // lant Bulks (of the same shape as Shells)  and Point Masses are supported,
+  // via the corresp Derived Classes of "MechElement".  For each them, we can
+  // compute the Masses, Centers of Masses (CoM) and Moments of Inertia (MoI)
+  // wrt  OX, OY, OZ axes,   as well as time derivatives ("Dots") of CoMs and
+  // MoIs.
   // NB:
   // It is assumed that the co-ords system OXYZ is such that  OX  is  the LV's
   // principal axis of symmetry, with the positive direction pointing UPWARDS
   // (ie from the Tail to the Nose). This is important when it comes to the CoM
   // and MoIs of the contained Propellant:    we assume that the Propellant is
-  // concentrated at the bottom (Lower, Smaller-X) part of the "ConstrElement":
+  // concentrated at the bottom (Lower, Smaller-X) part of the "MechElement":
   //
-  class ConstrElement
+  class MechElement
   {
   public:
     //=======================================================================//
@@ -58,7 +60,7 @@ namespace SpaceBallistics
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
-    // Over-All Dynamical Params of this "ConstrElement":
+    // Over-All Dynamical Params of this "MechElement":
     //
     Len         m_CoM    [3];  // (X,Y,Z) co-ords of the Center of Masses
     Mass        m_mass;        // Mass
@@ -79,7 +81,7 @@ namespace SpaceBallistics
     //
     constexpr static void Init
     (
-      ConstrElement*  a_ce,
+      MechElement*    a_me,
       Len  const      a_com     [3],
       Mass            a_mass,
       MassRate        a_mass_dot,
@@ -88,28 +90,28 @@ namespace SpaceBallistics
       bool            a_is_final
     )
     {
-      assert(a_ce != nullptr);
-      a_ce->m_CoM    [0]  = a_com     [0];
-      a_ce->m_CoM    [1]  = a_com     [1];
-      a_ce->m_CoM    [2]  = a_com     [2];
-      a_ce->m_mass        = a_mass;
-      a_ce->m_massDot     = a_mass_dot;
-      a_ce->m_MoIs   [0]  = a_mois    [0];
-      a_ce->m_MoIs   [1]  = a_mois    [1];
-      a_ce->m_MoIs   [2]  = a_mois    [2];
-      a_ce->m_MoIDots[0]  = a_moi_dots[0];
-      a_ce->m_MoIDots[1]  = a_moi_dots[1];
-      a_ce->m_MoIDots[2]  = a_moi_dots[2];
-      a_ce->m_isFinal     = a_is_final;
+      assert(a_me != nullptr);
+      a_me->m_CoM    [0]  = a_com     [0];
+      a_me->m_CoM    [1]  = a_com     [1];
+      a_me->m_CoM    [2]  = a_com     [2];
+      a_me->m_mass        = a_mass;
+      a_me->m_massDot     = a_mass_dot;
+      a_me->m_MoIs   [0]  = a_mois    [0];
+      a_me->m_MoIs   [1]  = a_mois    [1];
+      a_me->m_MoIs   [2]  = a_mois    [2];
+      a_me->m_MoIDots[0]  = a_moi_dots[0];
+      a_me->m_MoIDots[1]  = a_moi_dots[1];
+      a_me->m_MoIDots[2]  = a_moi_dots[2];
+      a_me->m_isFinal     = a_is_final;
 
       // NB: Even if "a_mass" is not final, it must be positive. In the context
       // under consideration, MassDot and MoIDots cannot be positive, since the
       // ContrElement's mass is either constant or being exhausted:
       //
-      assert( IsPos(a_ce->m_mass)       && !IsNeg(a_ce->m_MoIs   [0]) &&
-             !IsNeg(a_ce->m_MoIs   [1]) && !IsNeg(a_ce->m_MoIs   [2]) &&
-             !IsPos(a_ce->m_massDot)    && !IsPos(a_ce->m_MoIDots[0]) &&
-             !IsPos(a_ce->m_MoIDots[1]) && !IsPos(a_ce->m_MoIDots[1]));
+      assert( IsPos(a_me->m_mass)       && !IsNeg(a_me->m_MoIs   [0]) &&
+             !IsNeg(a_me->m_MoIs   [1]) && !IsNeg(a_me->m_MoIs   [2]) &&
+             !IsPos(a_me->m_massDot)    && !IsPos(a_me->m_MoIDots[0]) &&
+             !IsPos(a_me->m_MoIDots[1]) && !IsPos(a_me->m_MoIDots[1]));
     }
 
   public:
@@ -120,10 +122,10 @@ namespace SpaceBallistics
     // (*) All numeric fields are initialised to 0s, not to NaNs, so the "empty"
     //     obj (constructed by the Default Ctor) can be used as an initial value
     //     for summation ("+", "+=", etc);
-    // (*) "IsFinal" is set to "true", because the empty "ConstrElement" is typ-
-    //     ically used as the base for "+" which requires Final operands:
+    // (*) "IsFinal" is set to "true", because the empty "MechElement" is typic-
+    //     ally used as the base for "+" which requires Final operands:
     //
-    constexpr ConstrElement()
+    constexpr MechElement()
     : m_CoM    {0.0_m, 0.0_m, 0.0_m},
       m_mass   (0.0),
       m_massDot(0.0),
@@ -135,7 +137,7 @@ namespace SpaceBallistics
     //=======================================================================//
     // Non-Default Ctor:                                                     //
     //=======================================================================//
-    constexpr ConstrElement
+    constexpr MechElement
     (
       Len      const a_com     [3],
       Mass           a_mass,
@@ -151,24 +153,24 @@ namespace SpaceBallistics
     //=======================================================================//
     // "GetMassScale":                                                       //
     //=======================================================================//
-    // Given a list of "ConstrElement"s  (all of them must have Non-Final Mass-
-    // es) and the real Total Mass of them,  returns  a  dimension-less  factor
-    // which could be applied (in "ProRateMass") to each "ConstrELement" to set
-    // its correct Final Mass. It assumes that the densities  (surface  or vol)
-    // of all "ConstrElement"s in the list are the same, ie their relative mas-
-    // ses remain unchanged after scaling:
+    // Given a list of "MechElement"s  (all of them must have Non-Final Masses)
+    // and the real Total Mass of them,  returns  a dimension-less factor which
+    // could be applied (in "ProRateMass") to each "MechElement" to set its cor-
+    // rect Final Mass. It assumes that the densities  (surface  or vol) of all
+    // "MechElement"s in the list are the same, ie their relative masses remain
+    // unchanged after scaling:
     //
     constexpr static double GetMassScale
-      (std::initializer_list<ConstrElement const*> a_ces, Mass a_total_mass)
+      (std::initializer_list<MechElement const*> a_mes, Mass a_total_mass)
     {
       assert(IsPos(a_total_mass));
 
-      // All "a_ces" must NOT be Final yet. Calculate their nominal total mass:
+      // All "a_mes" must NOT be Final yet. Calculate their nominal total mass:
       Mass nomTotal = 0.0_kg;
-      for (ConstrElement const* ce: a_ces)
+      for (MechElement const* me: a_mes)
       {
-        assert(ce != nullptr && !(ce->m_isFinal));
-        nomTotal  += ce->m_mass;
+        assert(me != nullptr && !(me->m_isFinal));
+        nomTotal  += me->m_mass;
       }
       // Determine the Scale Factor (exists iff nomTotal > 0):
       assert(IsPos(nomTotal));
@@ -181,24 +183,24 @@ namespace SpaceBallistics
     //=======================================================================//
     // "ProRateMass":                                                        //
     //=======================================================================//
-    // Returns a new object (of any type derived from "ConstrElement") which
-    // differes from the original one  by the Mass and MoIs being multiplied
-    // by the ScaleFactor.
+    // Returns a new object (of any type derived from "MechElement") which diff-
+    // ers from the original one  by the Mass and MoIs being multiplied by the
+    // ScaleFactor.
     // XXX:
     // (*) it is assumed that any other flds of "Derived" are UNAFFECTED by this
     //     scaling;
     // (*) we also assume that this operation is only applicable to Fixed-Mass
-    //     "ConstrElement"s, so all Rates must be 0, and are not affected by the
+    //     "MechElement"s, so all Rates must be 0, and are not affected by the
     //     scaling:
     //
     template<typename Derived>
     constexpr static  Derived ProRateMass(Derived const& a_der, double a_scale)
     {
-      static_assert(std::is_base_of_v<ConstrElement, Derived>);
+      static_assert(std::is_base_of_v<MechElement, Derived>);
       assert(a_scale > 0.0);
 
       // Create a copy of "a_der" using the Copy Ctor of Derived (which must
-      // indeed be derived from "ConstrElement"):
+      // indeed be derived from "MechElement"):
       Derived copy(a_der);
 
       // Cannot adjust the Mass once it has been finalised, or if any Rates are
@@ -264,7 +266,7 @@ namespace SpaceBallistics
     // have zero mass, otherwise we cannot compute the CoM.  WE ASSUME that the
     // summands DO NOT INTERSECT in space:
     //
-    constexpr ConstrElement& operator+= (ConstrElement const& a_right)
+    constexpr MechElement& operator+= (MechElement const& a_right)
     {
       assert(m_isFinal && a_right.m_isFinal &&
              !(IsZero(m_mass) && IsZero(a_right.m_mass)));
@@ -292,9 +294,9 @@ namespace SpaceBallistics
       return *this;
     }
 
-    constexpr ConstrElement operator+ (ConstrElement const& a_right) const
+    constexpr MechElement operator+ (MechElement const& a_right) const
     {
-      ConstrElement res = *this;
+      MechElement res = *this;
       res += a_right;
       return res;
     }
@@ -305,14 +307,14 @@ namespace SpaceBallistics
   //=========================================================================//
   // A positive mass concentrated in the (x0, y0, z0) point:
   //
-  class PointMass final: public ConstrElement
+  class PointMass final: public MechElement
   {
   public:
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
     constexpr PointMass(Len a_x0, Len a_y0, Len a_z0, Mass a_mass)
-    : ConstrElement()  // Slightly sub-optimal...
+    : MechElement()    // Slightly sub-optimal...
     {
       Len  pt[3] { a_x0, a_y0, a_z0 };
 
@@ -333,19 +335,18 @@ namespace SpaceBallistics
       // dered to be Final, all Rates are 0:
       constexpr MoIRate Rates0[3] {MoIRate(0.0), MoIRate(0.0), MoIRate (0.0)};
 
-      ConstrElement::Init
-        (this, pt, a_mass, MassRate(0.0), mois, Rates0, true);
+      MechElement::Init(this, pt, a_mass, MassRate(0.0), mois, Rates0,  true);
     }
   };
 
   //=========================================================================//
   // "RotationBody" Class:                                                   //
   //=========================================================================//
-  // SubClass of "ConstrElement", SuperClass of "TrCone", "SpherSegment" and
+  // SubClass of "MechElement", SuperClass of "TrCone", "SpherSegment" and
   // others. Provides common functionality of  Rotation Surfaces and Bodies:
   //
   template<typename Derived>
-  class RotationBody: public ConstrElement
+  class RotationBody: public MechElement
   {
   protected:
     //=======================================================================//
@@ -415,12 +416,12 @@ namespace SpaceBallistics
     //=======================================================================//
     // "Init":                                                               //
     //=======================================================================//
-    // Similar to "ConstrElement::Init": Initialiser similar to Non-Default Ctor
+    // Similar to "MechElement::Init": Initialiser similar to Non-Default Ctor
     // but used in a slightly different way:
     //
     constexpr void Init
     (
-      // Params for the Base Class ("ConstrElement"):
+      // Params for the Base Class ("MechElement"):
       Area        a_side_surf_area,
       Vol         a_encl_vol,
       Mass        a_mass,     // If 0, then auto-calculated with SurfDens=1
@@ -534,7 +535,7 @@ namespace SpaceBallistics
       assert(!IsNeg(m_rho));
 
       //---------------------------------------------------------------------//
-      // Now the Base Class ("ConstrElement"):                               //
+      // Now the Base Class ("MechElement"):                               //
       //---------------------------------------------------------------------//
       // The mass may or may not be given. If it is given,  calculate the Surf-
       // ace Density; otherwise, assume the SurfDens to be 1.0.   Then set the
@@ -568,7 +569,7 @@ namespace SpaceBallistics
              IsZero(emptyMoIDots[2]));
 
       // Finally, invoke the Base Class Initialiser:
-      ConstrElement::Init
+      MechElement::Init
         (this, emptyCoM, emptyMass, MDot0, emptyMoIs, emptyMoIDots, isFinal);
     }
 
@@ -667,13 +668,12 @@ namespace SpaceBallistics
     constexpr Len  GetHeight ()      const { return m_h;            }
 
     //=======================================================================//
-    // "GetPropCE":                                                          //
+    // "GetPropBulkME":                                                      //
     //=======================================================================//
-    // Constructs a "ConstrElement" which holds the CoM and MoI of the Propel-
-    // lant filling this RotationBody, with the current propellant mass given
-    // by "a_prop_mass".   The resulting "ConstrElement" does NOT include the
-    // Shell!
-    // Returns a ficticious "ConstrElement" obj acting as a container for the
+    // Constructs a "MechElement" which holds the CoM and MoI of the Propellant
+    // Bulk filling this RotationBody, with the current propellant mass given by
+    // "a_prop_mass". The resulting "MechElement" does NOT include the Shell!
+    // Returns a ficticious "MechElement" obj  acting as a container for the
     // results computed, and suitable for the "+" operation. May also return
     // the curr Propellant Level via the 2nd arg (if non-NULL), primarily for
     // debugging purposes.
@@ -681,7 +681,7 @@ namespace SpaceBallistics
     // Run-Time. For the info, it also returns the PropLevel if the output ptr
     // is non-NULL:
     //
-    constexpr ConstrElement GetPropCE
+    constexpr MechElement GetPropBulkME
     (
       Mass     a_prop_mass,
       MassRate a_prop_mass_dot = MassRate(0.0),    // Must be <= 0 in general
@@ -746,7 +746,7 @@ namespace SpaceBallistics
       //     included in the result;
       // (*) the result is Final:
       //
-      return ConstrElement
+      return MechElement
         (com, a_prop_mass, a_prop_mass_dot, mois, moiDots, true);
     }
 

@@ -1,10 +1,10 @@
 // vim:ts=2:et
 //===========================================================================//
-//                     "SpaceBallistics/CE/ToricSegms.hpp":                  //
+//                     "SpaceBallistics/ME/ToricSegms.hpp":                  //
 //                 Geometrical Objects as Construction Elements              //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/CE/ConstrElement.hpp"
+#include "SpaceBallistics/ME/MechElement.hpp"
 #include <type_traits>
 
 namespace SpaceBallistics

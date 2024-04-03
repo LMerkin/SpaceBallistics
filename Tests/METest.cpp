@@ -1,10 +1,10 @@
 // vim:ts=2:et
 //===========================================================================//
-//                            "Tests/CETest.cpp":                            //
-//                   Tests of the "ConstrElement" Class                      //
+//                            "Tests/METest.cpp":                            //
+//                      Tests of the "MechElement" Class                     //
 //===========================================================================//
-#include "SpaceBallistics/CE/TrConeSpherSegm.hpp"
-#include "SpaceBallistics/CE/ToricSegms.hpp"
+#include "SpaceBallistics/ME/TrConeSpherSegm.hpp"
+#include "SpaceBallistics/ME/ToricSegms.hpp"
 #include <iostream>
 
 //===========================================================================//
@@ -39,7 +39,7 @@ int main()
   constexpr TrCone cyl(0.0_m, D, HCyl, rho, surfMassCyl);
 
   // Computed CoM and MoIs for the Solid Cylinder (3D):
-  constexpr   ConstrElement propCyl = cyl.GetPropCE(propMassCyl);
+  constexpr   MechElement propCyl = cyl.GetPropBulkME(propMassCyl);
   auto const& comCyl      = propCyl.GetCoM ();
   auto const& moisCyl     = propCyl.GetMoIs();
 
@@ -68,7 +68,7 @@ int main()
   auto const& comECyl  = cyl.GetCoM ();
   auto const& moisECyl = cyl.GetMoIs();
 
-  Len dCECyl [3]
+  Len dMECyl [3]
     { Abs(comECyl[0] - XCCyl), Abs(comECyl[1]), Abs(comECyl[2]) };
 
   MoI dJECyl [3]
@@ -77,7 +77,7 @@ int main()
       Abs(moisECyl[2] - JyzECyl) };
 
   cout << "HOLLOW CYLINDER (SHELL):"      << endl
-       << "dxC=" << dCECyl[0] << "\ndyC=" << dCECyl[1] << "\ndzC=" << dCECyl[2]
+       << "dxC=" << dMECyl[0] << "\ndyC=" << dMECyl[1] << "\ndzC=" << dMECyl[2]
        << endl
        << "dJx=" << dJECyl[0] << "\ndJy=" << dJECyl[1] << "\ndJz=" << dJECyl[2]
        << endl   << endl;
@@ -96,13 +96,13 @@ int main()
   constexpr SpherSegm upHS (true,  R, D, rho, emptyMassHS);
   constexpr SpherSegm lowHS(false, R, D, rho, emptyMassHS);
 
-  constexpr ConstrElement upPropCE  = upHS .GetPropCE(propMassHS);
-  constexpr ConstrElement lowPropCE = lowHS.GetPropCE(propMassHS);
+  constexpr MechElement upPropME  = upHS .GetPropBulkME(propMassHS);
+  constexpr MechElement lowPropME = lowHS.GetPropBulkME(propMassHS);
 
-  auto const& upCoM   = upPropCE .GetCoM ();
-  auto const& upMoIs  = upPropCE .GetMoIs();
-  auto const& lowCoM  = lowPropCE.GetCoM ();
-  auto const& lowMoIs = lowPropCE.GetMoIs();
+  auto const& upCoM   = upPropME .GetCoM ();
+  auto const& upMoIs  = upPropME .GetMoIs();
+  auto const& lowCoM  = lowPropME.GetCoM ();
+  auto const& lowMoIs = lowPropME.GetMoIs();
 
   // Over-All CoM and MoIs for the Solid Sphere (3D):
   Len comS[3]
@@ -152,7 +152,7 @@ int main()
   };
 
   // Diffs with theoretical vals:
-  Len dCES[3] { Abs(comES[0] - R), Abs(comES[1]), Abs(comES[2]) };
+  Len dMES[3] { Abs(comES[0] - R), Abs(comES[1]), Abs(comES[2]) };
 
   constexpr MoI JxES  = 2.0/3.0 * emptyMassS * R2;
   constexpr MoI JyzES = JxES    + emptyMassS * R2;  // Steiner's Theorem...
@@ -160,7 +160,7 @@ int main()
     { Abs(moisES[0] - JxES), Abs(moisES[1] - JyzES), Abs(moisES[2] - JyzES) };
 
   cout << "HOLLOW SPHERE (SHELL):"        << endl
-       << "dxC="   << dCES[0] << "\ndyC=" << dCES[1] << "\ndzC=" << dCES[2]
+       << "dxC="   << dMES[0] << "\ndyC=" << dMES[1] << "\ndzC=" << dMES[2]
        << endl
        <<   "dJx=" << dJES[0] << "\ndJy=" << dJES[1] << "\ndJz=" << dJES[2]
        << endl     << endl;
@@ -181,13 +181,13 @@ int main()
   constexpr ToricSegm upHT (true,  R, D, TD, rho, emptyMassHT);
   constexpr ToricSegm lowHT(false, R, D, TD, rho, emptyMassHT);
 
-  constexpr ConstrElement upHTPropCE  = upHT .GetPropCE(propMassHT);
-  constexpr ConstrElement lowHTPropCE = lowHT.GetPropCE(propMassHT);
+  constexpr MechElement upHTPropME  = upHT .GetPropBulkME(propMassHT);
+  constexpr MechElement lowHTPropME = lowHT.GetPropBulkME(propMassHT);
 
-  auto const& upHTCoM   = upHTPropCE .GetCoM ();
-  auto const& upHTMoIs  = upHTPropCE .GetMoIs();
-  auto const& lowHTCoM  = lowHTPropCE.GetCoM ();
-  auto const& lowHTMoIs = lowHTPropCE.GetMoIs();
+  auto const& upHTCoM   = upHTPropME .GetCoM ();
+  auto const& upHTMoIs  = upHTPropME .GetMoIs();
+  auto const& lowHTCoM  = lowHTPropME.GetCoM ();
+  auto const& lowHTMoIs = lowHTPropME.GetMoIs();
 
   // Over-All CoM and MoIs for the Solid Torus (3D):
   Len comT[3]
@@ -241,7 +241,7 @@ int main()
   };
 
   // Diffs with theoretical vals:
-  Len dCET[3] { Abs(comET[0] - R), Abs(comET[1]), Abs(comET[2]) };
+  Len dMET[3] { Abs(comET[0] - R), Abs(comET[1]), Abs(comET[2]) };
 
   // Theoretical vals obtained by manual integration:
   constexpr double q2    = Sqr(double(Q / R));
@@ -256,7 +256,7 @@ int main()
     { Abs(moisET[0] - JxET), Abs(moisET[1] - JyzET), Abs(moisET[2] - JyzET) };
 
   cout << "HOLLOW TORUS (SHELL):"         << endl
-       << "dxC="   << dCET[0] << "\ndyC=" << dCET[1] << "\ndzC=" << dCET[2]
+       << "dxC="   << dMET[0] << "\ndyC=" << dMET[1] << "\ndzC=" << dMET[2]
        << endl
        <<   "dJx=" << dJET[0] << "\ndJy=" << dJET[1] << "\ndJz=" << dJET[2]
        << endl     << endl;
@@ -276,9 +276,9 @@ int main()
   constexpr Len            XCDC    = R - HCyl / 2.0;
   constexpr DoubleCylinder dc(R, 2.0*Q, 2.0*R, HCyl, rho, emptyMassDC);
 
-  constexpr ConstrElement  dcPropCE = dc.GetPropCE(propMassDC);
-  auto const&  dcCoM    =  dcPropCE.GetCoM ();
-  auto const&  dcMoIs   =  dcPropCE.GetMoIs();
+  constexpr MechElement  dcPropME  = dc.GetPropBulkME(propMassDC);
+  auto const&  dcCoM   = dcPropME.GetCoM ();
+  auto const&  dcMoIs  = dcPropME.GetMoIs();
 
   // Diffs with theoretical vals:
   Len dcDC [3] { Abs(dcCoM[0] - XCDC), Abs(dcCoM[1]), Abs(dcCoM[2]) };

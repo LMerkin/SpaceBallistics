@@ -1,10 +1,10 @@
 // vim:ts=2:et
 //===========================================================================//
-//                             "Soyuz21b_Stage2.h":                          //
+//                 "SpaceBallistics/LVSC/Soyuz21b_Stage2.h":                 //
 //         Mathematical Model of the "Soyuz-2.1b" Stage2 ("Block A")         //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/ConstrElement.hpp"
+#include "SpaceBallistics/MechElement.hpp"
 #include "SpaceBallistics/Soyuz21b_Consts.h"
 #include "SpaceBallistics/Soyuz21b_Head.h"
 #include "SpaceBallistics/Propellants.h"
@@ -15,7 +15,7 @@ namespace SpaceBallistics
 {
   namespace SC = Soyuz21b_Consts;
   namespace SH = Soyuz21b_Head;
-  using     CE = ConstrElement;
+  using     ME = MechElement;
 
   //=========================================================================//
   // "Soyuz21b_Stage2" Class:                                                //
@@ -206,7 +206,7 @@ namespace SpaceBallistics
   private:
 /*
     //-----------------------------------------------------------------------//
-    // "ConstrElement"s: "Proto"s with Yet-UnKnown Masses:                   //
+    // "MechElement"s: "Proto"s with Yet-UnKnown Masses:                     //
     //-----------------------------------------------------------------------//
     // XXX: Inter-Stage Grid (between Stages 2 and 3) is not modeled. Its mass
     // will be implicitly included into the EmptyMass of Stage2.
@@ -224,7 +224,7 @@ namespace SpaceBallistics
 
   public:
     //-----------------------------------------------------------------------//
-    // "ConstrElement"s with Real Masses:                                    //
+    // "MechElement"s with Real Masses:                                      //
     //-----------------------------------------------------------------------//
     // Aft Section (jettisonable): Cylinder:
     constexpr static TrCone AftSection =
@@ -253,7 +253,7 @@ namespace SpaceBallistics
     // of the "ConstElement"s:
     //
     constexpr static double ScaleFactor =
-      CE::GetMassScale
+      ME::GetMassScale
       (
         // Components for which we provide the TotalMass (below):
         { &ForeSectionProto,
@@ -268,41 +268,41 @@ namespace SpaceBallistics
   public:
     // Real-Mass Fore Section:
     constexpr static TrCone    ForeSection =
-      CE::ProRateMass(ForeSectionProto, ScaleFactor);
+      ME::ProRateMass(ForeSectionProto, ScaleFactor);
 
     // Real-Mass Fuel Tank Components:
     constexpr static SpherSegm FuelTankUp  =
-      CE::ProRateMass(FuelTankUpProto,  ScaleFactor);
+      ME::ProRateMass(FuelTankUpProto,  ScaleFactor);
 
     constexpr static TrCone    FuelTankMid =
-      CE::ProRateMass(FuelTankMidProto, ScaleFactor);
+      ME::ProRateMass(FuelTankMidProto, ScaleFactor);
 
     constexpr static SpherSegm FuelTankLow =
-      CE::ProRateMass(FuelTankLowProto, ScaleFactor);
+      ME::ProRateMass(FuelTankLowProto, ScaleFactor);
 
     // Real-Mass Equipment Bay (XXX: though the mass  of  the Control System
     // itself cannot be exactly accounted for -- it is pro-rated in the same
     // way as the masses of all other components):
     constexpr static TrCone    EquipBay    =
-      CE::ProRateMass(EquipBayProto,    ScaleFactor);
+      ME::ProRateMass(EquipBayProto,    ScaleFactor);
 
     // Real-Mass Oxid Tank Components:
     constexpr static SpherSegm OxidTankUp  =
-      CE::ProRateMass(OxidTankUpProto,  ScaleFactor);
+      ME::ProRateMass(OxidTankUpProto,  ScaleFactor);
 
     constexpr static TrCone    OxidTankMid =
-      CE::ProRateMass(OxidTankMidProto, ScaleFactor);
+      ME::ProRateMass(OxidTankMidProto, ScaleFactor);
 
     constexpr static SpherSegm OxidTankLow =
-      CE::ProRateMass(OxidTankLowProto, ScaleFactor);
+      ME::ProRateMass(OxidTankLowProto, ScaleFactor);
 
-    // "ConstrElement"s for the Empty Stage with Gases ("EG"): Before and After
+    // "MechElement"s for the Empty Stage with Gases ("EG"): Before and After
     // Jettisoning of the AftSection:
-    constexpr static CE EGAfterCE  =
+    constexpr static ME EGAfterME  =
       ForeSection + FuelTankUp  + FuelTankMid  + FuelTankLow +
       EquipBay    + OxidTankUp  + OxidTankMid  + OxidTankLow + Engine;
 
-    constexpr static CE EGBeforeCE = EGAfterCE + AftSection;
+    constexpr static ME EGBeforeME = EGAfterME + AftSection;
  
     //-----------------------------------------------------------------------//
     // Geometry Checks:                                                      //
@@ -327,7 +327,7 @@ namespace SpaceBallistics
 
   private:
     //-----------------------------------------------------------------------//
-    // "ConstrElement"s for Propellant Loads:                                //
+    // "MechElement"s for Propellant Loads:                                  //
     //-----------------------------------------------------------------------//
     // Propallant Mass Capacities (MC) of Fuel and Oxid Tank Sections:
     constexpr static Mass FuelTankUpMC     = FuelTankUp .GetPropMassCap();
@@ -359,15 +359,15 @@ namespace SpaceBallistics
   private:
     // "ConstElement" objs for Maximum Theoretical Propellant Loads in Tank
     // Sections (for optimisation of "GetDynParams"):
-    constexpr static CE   FuelUpCE     = FuelTankUp .GetPropCE(FuelTankUpMC);
-    constexpr static CE   FuelMidCE    = FuelTankMid.GetPropCE(FuelTankMidMC);
-    constexpr static CE   FuelLowCE    = FuelTankLow.GetPropCE(FuelTankLowMC);
-    constexpr static CE   FuelLowMidCE = FuelLowCE + FuelMidCE;
+    constexpr static ME   FuelUpME     = FuelTankUp .GetPropBulkME(FuelTankUpMC);
+    constexpr static ME   FuelMidME    = FuelTankMid.GetPropBulkME(FuelTankMidMC);
+    constexpr static ME   FuelLowME    = FuelTankLow.GetPropBulkME(FuelTankLowMC);
+    constexpr static ME   FuelLowMidME = FuelLowME + FuelMidME;
 
-    constexpr static CE   OxidUpCE      = OxidTankUp .GetPropCE(OxidTankUpMC);
-    constexpr static CE   OxidMidCE     = OxidTankMid.GetPropCE(OxidTankMidMC);
-    constexpr static CE   OxidLowCE     = OxidTankLow.GetPropCE(OxidTankLowMC);
-    constexpr static CE   OxidLowMidCE  = OxidLowCE + OxidMidCE;
+    constexpr static ME   OxidUpME      = OxidTankUp .GetPropBulkME(OxidTankUpMC);
+    constexpr static ME   OxidMidME     = OxidTankMid.GetPropBulkME(OxidTankMidMC);
+    constexpr static ME   OxidLowME     = OxidTankLow.GetPropBulkME(OxidTankLowMC);
+    constexpr static ME   OxidLowMidME  = OxidLowME + OxidMidME;
 
   public:
     // Fuel and Oxid Load Ratios (ActualMass / TheorMassCapacity):
@@ -475,9 +475,9 @@ namespace SpaceBallistics
                   CutOffEGMass .ApproxEquals(EGMassAfter));
 
     // Also, "EGMass{Before,After}" must be equal to the corresp vals in the
-    // "EG{Before,After}CE":
-    static_assert(EGMassBefore.ApproxEquals(EGBeforeCE.GetMass()) &&
-                  EGMassAfter .ApproxEquals(EGAfterCE .GetMass()));
+    // "EG{Before,After}ME":
+    static_assert(EGMassBefore.ApproxEquals(EGBeforeME.GetMass()) &&
+                  EGMassAfter .ApproxEquals(EGAfterME .GetMass()));
 
     // Also, Fuel and Oxid Masses at CutOff must be greater than UnSpendable
     // Remnants:

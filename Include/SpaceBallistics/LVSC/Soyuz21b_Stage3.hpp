@@ -101,52 +101,52 @@ namespace SpaceBallistics
     // Fuel:
     assert(IsPos(fuelMass) && fuelMass <= FuelMass && FuelMass < FuelTankMC);
     Len fuelLevel = 0.0_m;
-    CE fuelCE =
+    ME fuelME =
       (fuelMass > FuelTankLowMidMC)
       ? // Fuel level is within the FuelTankUp:
-        FuelTankUp .GetPropCE
+        FuelTankUp .GetPropBulkME
           (fuelMass - FuelTankLowMidMC, fuelMassDot, &fuelLevel) +
-        FuelLowMidCE
+        FuelLowMidME
       :
       (fuelMass > FuelTankLowMC)
       ? // Fuel level is within the FuelTankMid:
-        FuelTankMid.GetPropCE
+        FuelTankMid.GetPropBulkME
           (fuelMass - FuelTankLowMC,    fuelMassDot, &fuelLevel) +
-        FuelLowCE
+        FuelLowME
       :
         // Fuel level is within the FuelTankLow:
-        FuelTankLow.GetPropCE(fuelMass, fuelMassDot, &fuelLevel);
+        FuelTankLow.GetPropBulkME(fuelMass, fuelMassDot, &fuelLevel);
 
     // Oxid:
     Len oxidLevel = 0.0_m;
     assert(IsPos(oxidMass) && oxidMass <= OxidMass && OxidMass < OxidTankMC);
-    CE oxidCE =
+    ME oxidME =
       (oxidMass > OxidTankLowMidMC)
       ? // Oxid level is within the OxidTankUp:
-        OxidTankUp .GetPropCE
+        OxidTankUp .GetPropBulkME
           (oxidMass - OxidTankLowMidMC, oxidMassDot, &oxidLevel) +
-        OxidLowMidCE
+        OxidLowMidME
       :
       (oxidMass > OxidTankLowMC)
       ? // Oxid level is within the OxidTankMid:
-        OxidTankMid.GetPropCE
+        OxidTankMid.GetPropBulkME
           (oxidMass - OxidTankLowMC,    oxidMassDot, &oxidLevel) +
-        OxidLowCE
+        OxidLowME
       :
         // Oxid level is within the OxidTankLow:
-        OxidTankLow.GetPropCE(oxidMass, oxidMassDot, &oxidLevel);
+        OxidTankLow.GetPropBulkME(oxidMass, oxidMassDot, &oxidLevel);
 
     // Full = (Empty+Gases) + Fuel + Oxid:
-    CE fullCE = (a_t < AftJetTime ? EGBeforeCE : EGAfterCE) + fuelCE + oxidCE;
+    ME fullME = (a_t < AftJetTime ? EGBeforeME : EGAfterME) + fuelME + oxidME;
 
     // Double-check the Masses:
-    assert(fullMass.ApproxEquals(fullCE.GetMass()) &&
-           fuelMass.ApproxEquals(fuelCE.GetMass()) &&
-           oxidMass.ApproxEquals(oxidCE.GetMass()));
+    assert(fullMass.ApproxEquals(fullME.GetMass()) &&
+           fuelMass.ApproxEquals(fuelME.GetMass()) &&
+           oxidMass.ApproxEquals(oxidME.GetMass()));
 
     // Extract the the CoM and the MoIs:
-    CE::Point const& com  = fullCE.GetCoM ();
-    CE::MoIs  const& mois = fullCE.GetMoIs();
+    ME::Point const& com  = fullME.GetCoM ();
+    ME::MoIs  const& mois = fullME.GetMoIs();
 
     res.m_com [0] =  com [0];
     res.m_com [1] =  com [1];

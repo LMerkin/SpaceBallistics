@@ -191,7 +191,7 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
 # Tests:                                                                      #
 #=============================================================================#
 SET(SB_TESTS
-  CETest
+  METest
   Stage3Test
   LocationsTest)
 

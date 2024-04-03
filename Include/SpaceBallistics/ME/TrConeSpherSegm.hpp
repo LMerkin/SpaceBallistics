@@ -1,10 +1,10 @@
 // vim:ts=2:et
 //===========================================================================//
-//                   "SpaceBallistics/CE/TrConeSpherSegm.hpp":               //
+//                   "SpaceBallistics/ME/TrConeSpherSegm.hpp":               //
 //                 Geometrical Objects as Construction Elements              //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/CE/ConstrElement.hpp"
+#include "SpaceBallistics/ME/MechElement.hpp"
 
 namespace SpaceBallistics
 {
@@ -29,7 +29,7 @@ namespace SpaceBallistics
   //           mass which is in this case final. If this param is 0, the mass
   //           is set under the assumtion of SutfDensity=1, and it is NOT fi-
   //           nal yet (needs to be set later via "ProRateMass").
-  // Return value: The resulting "ConstrElement" object.
+  // Return value: The resulting "MechElement" object.
   //
   class TrCone final: public RotationBody<TrCone>
   {
