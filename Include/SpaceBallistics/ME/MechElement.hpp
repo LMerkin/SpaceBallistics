@@ -14,9 +14,9 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // "MechElement": Base Class for Mechanical Elements:                      //
+  // "MechElement": Base for Constant-or-Variable Mass Mechanical Elements:  //
   //=========================================================================//
-  // General characteristics of standard Mechanical Elements:
+  // General characteristics of CONSTANT-or-VARIABLE-MASS MECHANICAL ELEMENTS:
   // Currently, 2D Shells (Truncated Cones and Spherical Segments), 3D Propel-
   // lant Bulks (of the same shape as Shells)  and Point Masses are supported,
   // via the corresp Derived Classes of "MechElement".  For each them, we can
@@ -42,19 +42,17 @@ namespace SpaceBallistics
     constexpr static Mass UnKnownMass = 0.0_kg;
 
     // The following types might be useful for derived classes:
-    using Len2     = decltype(Sqr     (1.0_m));    // Same as "Area"
-    using Len3     = decltype(Cube    (1.0_m));    // Same as "Vol"
+    using Len2     = Area;
+    using Len3     = Vol;
     using Len4     = decltype(Sqr(Sqr (1.0_m)));
     using Len5     = decltype(Sqr(Sqr (1.0_m)) * 1.0_m);
     using Len6     = decltype(Sqr(Cube(1.0_m)));
 
     using Len2Rate = decltype(Len2() / 1.0_sec);
-    using Len3Rate = decltype(Len3() / 1.0_sec);   // Same as "VolRate"
+    using Len3Rate = decltype(Len3() / 1.0_sec);
     using VolRate  = Len3Rate;
     using Len4Rate = decltype(Len4() / 1.0_sec);
     using Len5Rate = decltype(Len5() / 1.0_sec);
-
-    static_assert(std::is_same_v<Len2, Area> && std::is_same_v<Len3, Vol>);
 
   private:
     //=======================================================================//
@@ -63,6 +61,7 @@ namespace SpaceBallistics
     // Over-All Dynamical Params of this "MechElement":
     //
     Len         m_CoM    [3];  // (X,Y,Z) co-ords of the Center of Masses
+    Vel         m_CoMDots[3];  // Velocity of the moving CoM
     Mass        m_mass;        // Mass
     MassRate    m_massDot;     // d(Mass)/dt, typically <= 0
     MoI         m_MoIs   [3];  // Moments of Inertia wrt the OX, OY and OZ axes
@@ -83,6 +82,7 @@ namespace SpaceBallistics
     (
       MechElement*    a_me,
       Len  const      a_com     [3],
+      Vel  const      a_com_dots[3],
       Mass            a_mass,
       MassRate        a_mass_dot,
       MoI     const   a_mois    [3],
@@ -94,14 +94,22 @@ namespace SpaceBallistics
       a_me->m_CoM    [0]  = a_com     [0];
       a_me->m_CoM    [1]  = a_com     [1];
       a_me->m_CoM    [2]  = a_com     [2];
+
+      a_me->m_CoMDots[0]  = a_com_dots[0];
+      a_me->m_CoMDots[1]  = a_com_dots[1];
+      a_me->m_CoMDots[2]  = a_com_dots[2];
+
       a_me->m_mass        = a_mass;
       a_me->m_massDot     = a_mass_dot;
+
       a_me->m_MoIs   [0]  = a_mois    [0];
       a_me->m_MoIs   [1]  = a_mois    [1];
       a_me->m_MoIs   [2]  = a_mois    [2];
+
       a_me->m_MoIDots[0]  = a_moi_dots[0];
       a_me->m_MoIDots[1]  = a_moi_dots[1];
       a_me->m_MoIDots[2]  = a_moi_dots[2];
+
       a_me->m_isFinal     = a_is_final;
 
       // NB: Even if "a_mass" is not final, it must be positive. In the context
@@ -126,7 +134,8 @@ namespace SpaceBallistics
     //     ally used as the base for "+" which requires Final operands:
     //
     constexpr MechElement()
-    : m_CoM    {0.0_m, 0.0_m, 0.0_m},
+    : m_CoM    {0.0_m,  0.0_m,        0.0_m},
+      m_CoMDots{Vel    (0.0), Vel    (0.0), Vel    (0.0)},
       m_mass   (0.0),
       m_massDot(0.0),
       m_MoIs   {MoI    (0.0), MoI    (0.0), MoI    (0.0)},
@@ -140,14 +149,17 @@ namespace SpaceBallistics
     constexpr MechElement
     (
       Len      const a_com     [3],
+      Vel      const a_com_dots[3],
       Mass           a_mass,
       MassRate const a_mass_dot,
       MoI            a_mois    [3],
       MoIRate  const a_moi_dots[3],
       bool           a_is_final
     )
-    { Init(this, a_com, a_mass, a_mass_dot, a_mois, a_moi_dots, a_is_final); }
-
+    {
+      Init(this, a_com, a_com_dots, a_mass, a_mass_dot, a_mois, a_moi_dots,
+           a_is_final);
+    }
     // Copy Ctor, Assignment and Equality are auto-generated...
 
     //=======================================================================//
@@ -334,8 +346,10 @@ namespace SpaceBallistics
       // Now the actual Base Class initialisation. NB: The point-mass is consi-
       // dered to be Final, all Rates are 0:
       constexpr MoIRate Rates0[3] {MoIRate(0.0), MoIRate(0.0), MoIRate (0.0)};
+      constexpr Vel     Vel0  [3] {Vel    (0.0), Vel    (0.0), Vel     (0.0)};
 
-      MechElement::Init(this, pt, a_mass, MassRate(0.0), mois, Rates0,  true);
+      MechElement::Init
+        (this, pt, Vel0, a_mass, MassRate(0.0), mois, Rates0, true);
     }
   };
 
@@ -548,6 +562,7 @@ namespace SpaceBallistics
 
       // "Empty" CoM and MoIs (2D) for the Base Class:
       Len       emptyCoM    [3];
+      Vel       emptyCoMDots[3];
       MoI       emptyMoIs   [3];
       MoIRate   emptyMoIDots[3];
       constexpr Len4Rate JDot0 = Len4Rate(0.0);
@@ -556,21 +571,23 @@ namespace SpaceBallistics
       constexpr MassRate MDot0 = MassRate(0.0);
       MoIsCoM
       (
-        a_je0,     a_je1, a_ke,  JDot0,    JDot0,    KDot0,
-        a_side_surf_area, SDot0, surfDens, emptyCoM, emptyMoIs, emptyMoIDots
+        a_je0, a_je1,    a_ke,     JDot0, JDot0, KDot0,     a_side_surf_area,
+        SDot0, surfDens, emptyCoM, emptyCoMDots, emptyMoIs, emptyMoIDots
       );
       // Check: "m_inXY", "m_inXZ" derived from "a_{xyz}0" must be consistent
       // with "emptyCoM":
       assert(!m_inXY || IsZero(emptyCoM[2]));
       assert(!m_inXZ || IsZero(emptyCoM[1]));
 
-      // MoIDots must all be 0s, of course:
-      assert(IsZero(emptyMoIDots[0]) && IsZero(emptyMoIDots[1]) &&
-             IsZero(emptyMoIDots[2]));
+      // CoMDots and MoIDots must all be 0s, of course:
+      assert(IsZero(emptyCoMDots[0]) && IsZero(emptyCoMDots[1]) &&
+             IsZero(emptyCoMDots[2]) && IsZero(emptyMoIDots[0]) &&
+             IsZero(emptyMoIDots[1]) && IsZero(emptyMoIDots[2]));
 
       // Finally, invoke the Base Class Initialiser:
       MechElement::Init
-        (this, emptyCoM, emptyMass, MDot0, emptyMoIs, emptyMoIDots, isFinal);
+        (this, emptyCoM, emptyCoMDots, emptyMass, MDot0, emptyMoIs,
+         emptyMoIDots,   isFinal);
     }
 
     //=======================================================================//
@@ -593,9 +610,10 @@ namespace SpaceBallistics
       decltype(a_j0  /Len2(1.0)) a_sv,      // Len2 or Len3 (ie SurfArea or Vol)
       decltype(a_sv  /1.0_sec)   a_sv_dot,  // SurfAreaDot: 0; VolDot: <= 0
       decltype(1.0_kg/a_sv)      a_dens,    // SurfDens or Density
-      Len                        a_com [3], // Output
-      MoI                        a_mois[3], // ditto
-      MoIRate                    a_moi_dots[3]
+      Len                        a_com     [3],    // Output
+      Vel                        a_com_dots[3],    //
+      MoI                        a_mois    [3],    //
+      MoIRate                    a_moi_dots[3]     //
     )
     const
     {
@@ -651,12 +669,19 @@ namespace SpaceBallistics
 
       // Now the CoM: "xiC" is its co-ord along the rotation axis, relative to
       // the Low (Smallest-X) axis end, hence positive:
-      Len  xiC   = a_k / a_sv;
+      Len  xiC      = a_k / a_sv;
       assert(IsPos(xiC));
-      a_com[0]   = m_low[0]     + m_cosA * xiC;
-      Len  yzC   = m_yzL        + m_sinA * xiC;
-      a_com[1]   = m_inXY ? yzC : 0.0_m;
-      a_com[2]   = m_inXZ ? yzC : 0.0_m;
+      a_com[0]      = m_low[0]     + m_cosA * xiC;
+      Len  yzC      = m_yzL        + m_sinA * xiC;
+      a_com[1]      = m_inXY ? yzC : 0.0_m;
+      a_com[2]      = m_inXZ ? yzC : 0.0_m;
+
+      // Similar for CoMDots:
+      Vel xiCDot    = a_k_dot / a_sv - a_k * a_sv_dot / Sqr(a_sv);
+      a_com_dots[0] = m_cosA * xiCDot;
+      Vel yzCDot    = m_sinA * xiCDot;
+      a_com_dots[1] = m_inXY ? yzCDot : Vel(0.0);
+      a_com_dots[2] = m_inXZ ? yzCDot : Vel(0.0);
     }
 
   public:
@@ -729,15 +754,17 @@ namespace SpaceBallistics
         (l, lDot, &JP0, &JP1, &KP, &JP0Dot, &JP1Dot, &KPDot);
 
       Len     com    [3];
+      Vel     comDots[3];
       MoI     mois   [3];
       MoIRate moiDots[3];
 
       MoIsCoM
-        (JP0, JP1,  KP, JP0Dot, JP1Dot, KPDot, propVol, propVolDot,
-         GetPropDens(), com,    mois,   moiDots);
+        (JP0, JP1,  KP, JP0Dot, JP1Dot,  KPDot, propVol, propVolDot,
+         GetPropDens(), com,    comDots, mois,  moiDots);
 
       // Construct the result (XXX: this is slightly sub-optimal, as involves
-      // copying of "com" and "mois"). NB:
+      // copying of "com", "mois" and their "Dots").
+      // NB:
       // (*) We must  install the correct Mass of the Propellant in the "res",
       //     so that  it can then participate in "operator+";
       // (*) SurfArea is not computed and remains 0;, we do not compute it;
@@ -747,7 +774,7 @@ namespace SpaceBallistics
       // (*) the result is Final:
       //
       return MechElement
-        (com, a_prop_mass, a_prop_mass_dot, mois, moiDots, true);
+        (com, comDots, a_prop_mass, a_prop_mass_dot, mois, moiDots, true);
     }
 
     //=======================================================================//
