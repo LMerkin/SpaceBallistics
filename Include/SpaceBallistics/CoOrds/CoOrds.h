@@ -8,20 +8,6 @@
 
 namespace SpaceBallistics
 {
-/*
-  //=========================================================================//
-  // Co-Ord System Kinds:                                                    //
-  //=========================================================================//
-  enum class CoOrdSystemK: int
-  {
-    Embedded,     // Origin: Fixed Body Pt; Axes: Symmetry Axes
-    TopoC,        // Origin: Earth Site;    Axes: (X=East, Y=North, Z=Zenith)
-    GeoCRotating, // Origin: Earth Center;  Axes: Geographically-Fixed
-    GeoCFixed,    // Origin: Earth Center;  Axes: ICRF 2000.0
-    BaryC         // Origin: Solar System BaryCenter; Axes: ICRF 2000.0
-  };
-*/
-
   //=========================================================================//
   // Co-Ord Systems:                                                         //
   //=========================================================================//
@@ -39,7 +25,7 @@ namespace SpaceBallistics
     // Others TBD...
   };
 
-  template<LVCS Type>
+  template<LVCS ObjType>
   class EmbeddedCOS
   {
     EmbeddedCOS() = delete;
@@ -73,22 +59,20 @@ namespace SpaceBallistics
   template<typename COS>
 	struct StateVector
 	{
-    // Mandatory: For the Steady Motion of the CoM:
-    Time    m_t;            // TODO: TBD: May depend on COS
-		Len     m_pos   [3];    // (x,y,z) co-ords or the CoM
-    Vel     m_vel   [3];    // (x_dot, y_dot, z_dot)  CoM velocity components
+    // Mandatory: For the Steady Motion of the CoM (in the specified COS):
+    Time    m_t;          // TODO: TBD: May depend on COS
+		Len     m_pos   [3];  // (x,y,z) co-ords or the CoM
+    Vel     m_vel   [3];  // (x_dot, y_dot, z_dot)  CoM velocity components
 
-    // Mandatory: For the Rotational Motion around the CoM:
-    double  m_angles[3];    // Euler's Angles: (Pitch, Yaw, Roll)
-    AngVel  m_angVel[3];    // Euler's Angular Velocities
+    // Mandatory: For the Rotational Motion around the CoM (in that COS):
+    double  m_angles[3];  // Euler's Angles:     (Pitch,    Yaw,     Roll)
+    AngVel  m_angVel[3];  // Angular Velocities: (Pith_dot, Yaw_dot, Roll_dot)
 
-    // Auxiliary state components (for convenience):
-    Acc     m_acc   [3];   // Accelertations wrt           (x,y,z)
-    Force   m_force [3];   // Equiv.Force's components wrt (x,y,z)
-    Mass    m_mass;        // Curr object's (LV/SpaceCraft) Mass
+    // Accelerations (for convenience) (in that COS):
+    Acc     m_acc   [3];  // LinearAccels: (x_ddot,     y_ddot,   z_ddot)
+    AngAcc  m_angAcc[3];  // AngAccels   : (Pitch_ddot, Yaw_ddot, Roll_ddot)
 
-    AngAcc  m_angAcc[3];   // Angular Accelerations
-    MoI     m_mois  [3];   // Moments of Inertia wrt       (x,y,z)
-    // TODO: Add Moments of Forces wrt CoM (???)
+    // For convenience, we include the "MechElement" characterising this body;
+    // Here CoM, MoIs and their "Dots" are converted from the
 	};
 }

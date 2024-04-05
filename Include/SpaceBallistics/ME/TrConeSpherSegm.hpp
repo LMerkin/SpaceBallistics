@@ -31,9 +31,13 @@ namespace SpaceBallistics
   //           nal yet (needs to be set later via "ProRateMass").
   // Return value: The resulting "MechElement" object.
   //
-  class TrCone final: public RotationBody<TrCone>
+  template<LVSC Object>
+  class TrCone final: public RotationShell<Object, TrCone<Object>>
   {
   private:
+    using ME = MechElement  <Object>;
+    using RS = RotationShell<Object, TrCone<Object>>;
+
     //=======================================================================//
     // Data Flds: Truncated Cone's Geometry:                                 //
     //=======================================================================//
@@ -46,7 +50,7 @@ namespace SpaceBallistics
 
     // Coeffs for computation of "intrinsic" MoI params (J0, J1, K) as polynom-
     // ial functions (of degress 5 for JP0, JP1, and of degree 4 for KP) of the
-    // Propellant Level:
+    // Propellant Level, used in "PropMoIComps":
     double    m_JP05;     // coeff(JP0, l^5)
     Len       m_JP04;     // coeff(JP0, l^4)
     Len2      m_JP03;     // coeff(JP0, l^3)
@@ -89,7 +93,7 @@ namespace SpaceBallistics
       Len       a_dl,       // Lower (Smaller-X) Base Diameter
       Len       a_h,        // Height
       Density   a_rho,      // Propellant Density (0 if no Propellant)
-      Mass      a_empty_mass = UnKnownMass
+      Mass      a_empty_mass = ME::UnKnownMass
     )
     {
       //---------------------------------------------------------------------//
@@ -165,7 +169,7 @@ namespace SpaceBallistics
       m_KPD1  = 2.0 * m_KP2;
 
       // Initialise the Parent Classes' Flds: NB: For (xu,yu,zu), IsUp=true:
-      RotationBody<TrCone>::Init
+      RotationShell<Object, TrCone>::Init
       (
         sideSurfArea,  enclVol, a_empty_mass,
         a_alpha, a_xu, a_yu,    a_zu,   true, a_h,
@@ -185,7 +189,7 @@ namespace SpaceBallistics
       Len         a_dl,       // Lower (Smaller-X) Base Diameter
       Len         a_h,        // Height
       Density     a_rho,      // 0 may be OK
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     : TrCone(a_xu, 0.0_m, 0.0_m, 0.0, a_du, a_dl, a_h, a_rho, a_empty_mass)
     {}
@@ -197,7 +201,7 @@ namespace SpaceBallistics
       Len         a_d,        // Diameter of both  Bases
       Len         a_h,        // Height
       Density     a_rho,      // 0 may be OK
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     : TrCone(a_xu, 0.0_m, 0.0_m, 0.0, a_d, a_d, a_h, a_rho, a_empty_mass)
     {}
@@ -208,12 +212,12 @@ namespace SpaceBallistics
     // Returns (Level, LevelDot):
     constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
-      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= GetEnclVol());
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
 
       if (IsZero(m_deltaR))
       {
         // R==r: The simplest and the most common case: A Cylinder:
-        auto x    = GetHeight() / GetEnclVol();
+        auto x    = RS::GetHeight() / RS::GetEnclVol();
         Len  l    = a_v     * x;
         Vel  lDot = a_v_dot * x;
 
@@ -257,7 +261,7 @@ namespace SpaceBallistics
     const \
     { \
       assert(!(IsNeg(a_l)         || IsPos(a_l_dot))      && \
-             a_l       <= GetHeight()                     && \
+             a_l       <= RS::GetHeight()                 && \
              a_jp0     != nullptr && a_jp1     != nullptr && \
              a_kp      != nullptr && a_jp0_dot != nullptr && \
              a_jp1_dot != nullptr && a_kp_dot  != nullptr);  \
@@ -306,11 +310,12 @@ namespace SpaceBallistics
   // When alpha=0, the axis of the Spherical Segment coincides with OX, which
   // is the most common case:
   //
-  class SpherSegm final: public RotationBody<SpherSegm>
+  template<LVSC Object>
+  class SpherSegm final: public RotationShell<Object, SpherSegm<Object>>
   {
   private:
-    using RotationBody<SpherSegm>::Tol;
-    using RotationBody<SpherSegm>::TolFact;
+    using ME = MechElement  <Object>;
+    using RS = RotationShell<Object, SpherSegm<Object>>;
 
     //=======================================================================//
     // Data Flds: Spherical Segment's Geometry:                              //
@@ -367,7 +372,7 @@ namespace SpaceBallistics
       Len         a_d,           // Base diameter
       Len         a_h,           // Height
       Density     a_rho,         // Propellant Density (may be 0)
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     {
       //---------------------------------------------------------------------//
@@ -377,7 +382,7 @@ namespace SpaceBallistics
             !IsNeg(a_rho) && !IsNeg(a_empty_mass));
 
       Len  r        = a_d / 2.0;                    // Base   radius
-      assert(a_h   <= r * TolFact);                 // Important!
+      assert(a_h   <= r * RS::TolFact);             // Important!
       a_h           = std::min(a_h, r);
       m_R           = (Sqr(r) / a_h + a_h) / 2.0;   // Sphere radius
       m_R3          = Cube(m_R);
@@ -454,7 +459,7 @@ namespace SpaceBallistics
 
       // Initialise the Parent Classes' Flds:
       // NB: (xb,yb,zb) is the Base Center, so for it, BaseIsUp = !IsFacingUp:
-      RotationBody<SpherSegm>::Init
+      RotationShell<Object, SpherSegm>::Init
       (
         sideSurfArea,   enclVol,    a_empty_mass,
         a_alpha,  a_xb, a_yb, a_zb, !a_facing_up, a_h,
@@ -474,7 +479,7 @@ namespace SpaceBallistics
       Len         a_d,        // Base diameter
       Len         a_h,        // Height
       Density     a_rho,      // 0 may be OK
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     : SpherSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_h, a_rho,
                 a_empty_mass)
@@ -488,7 +493,7 @@ namespace SpaceBallistics
       Len         a_xb,       // Base center X co-ord
       Len         a_d,        // Base diameter
       Density     a_rho,      // 0 may be OK
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     : SpherSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_d / 2.0, a_rho,
                 a_empty_mass)
@@ -529,7 +534,7 @@ namespace SpaceBallistics
 
       double x   = 0.5;
       double tv  = double(a_v / m_cR3);
-      assert(0.0 <= tv && tv < 2.0*TolFact);
+      assert(0.0 <= tv && tv < 2.0 * RS::TolFact);
       tv = std::min(2.0,  tv);           // Enforce the boundary
 
       // For safety, restrict the number of iterations:
@@ -548,7 +553,7 @@ namespace SpaceBallistics
         x -= dx;
 
         // Exit condition:
-        if (UNLIKELY(Abs(dx) < Tol))
+        if (UNLIKELY(Abs(dx) < RS::Tol))
           break;
       }
       // If we got here w/o achieving the required precision, it's an error:
@@ -582,10 +587,10 @@ namespace SpaceBallistics
     constexpr std::pair<Len,Vel> PropLevelOfVolUp
       (Vol a_v, VolRate a_v_dot) const
     {
-      assert(!(IsNeg(a_v) || IsPos(a_v_dot))  &&     a_v <= GetEnclVol());
-      auto lowRes = PropLevelOfVolLow(GetEnclVol() - a_v, - a_v_dot);
-      Len l       = GetHeight() - lowRes.first;
-      Vel lDot    = -             lowRes.second;
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
+      auto lowRes = PropLevelOfVolLow(RS::GetEnclVol() - a_v, - a_v_dot);
+      Len l       = RS::GetHeight() - lowRes.first;
+      Vel lDot    =                 - lowRes.second;
       assert(!(IsNeg(l) || IsPos(lDot)));
       return std::make_pair(l, lDot);
     }

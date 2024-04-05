@@ -14,6 +14,11 @@ int main()
 {
   using namespace SpaceBallistics;
   using namespace std;
+  using ME  = MechElement   <LVSC::BoilerPlate0>;
+  using TC  = TrCone        <LVSC::BoilerPlate0>;
+  using SpS = SpherSegm     <LVSC::BoilerPlate0>;
+  using TS  = ToricSegm     <LVSC::BoilerPlate0>;
+  using DC  = DoubleCylinder<LVSC::BoilerPlate0>;
 
   // Used for both Cylinder and Spehere:
   constexpr Len       D   = 2.0_m;
@@ -36,12 +41,12 @@ int main()
 
   // Upper Base is @ X=0; therefore, the center is @ (-HCyl/2):
   constexpr Len       XCCyl       = -HCyl / 2.0;
-  constexpr TrCone cyl(0.0_m, D, HCyl, rho, surfMassCyl);
+  constexpr TC        cyl(0.0_m, D,  HCyl, rho, surfMassCyl);
 
   // Computed CoM and MoIs for the Solid Cylinder (3D):
-  constexpr   MechElement propCyl = cyl.GetPropBulkME(propMassCyl);
-  auto const& comCyl      = propCyl.GetCoM ();
-  auto const& moisCyl     = propCyl.GetMoIs();
+  constexpr   ME propCyl = cyl.GetPropBulkME(propMassCyl);
+  auto const& comCyl     = propCyl.GetCoM ();
+  auto const& moisCyl    = propCyl.GetMoIs();
 
   // Diffs with Expected CoM:
   Len dCCyl  [3] {Abs(comCyl[0] - XCCyl), Abs(comCyl[1]), Abs(comCyl[2])};
@@ -87,22 +92,22 @@ int main()
   //=========================================================================//
   // It is made of 2 HemiSpeheres: Facing Up and Low: Center at x=R:
   //
-  constexpr Vol       vHS         = (2.0/3.0) * Pi<double> * R2 * R;
-  constexpr Mass      propMassHS  = vHS * rho;               // HemiSphere
-  constexpr Mass      propMassS   = 2.0 * propMassHS;        // FullSphere
-  constexpr Mass      emptyMassHS = TwoPi<double> * R2 * sigma;
-  constexpr Mass      emptyMassS  = 2.0 * emptyMassHS;
+  constexpr Vol  vHS         = (2.0/3.0) * Pi<double> * R2 * R;
+  constexpr Mass propMassHS  = vHS * rho;               // HemiSphere
+  constexpr Mass propMassS   = 2.0 * propMassHS;        // FullSphere
+  constexpr Mass emptyMassHS = TwoPi<double> * R2 * sigma;
+  constexpr Mass emptyMassS  = 2.0 * emptyMassHS;
 
-  constexpr SpherSegm upHS (true,  R, D, rho, emptyMassHS);
-  constexpr SpherSegm lowHS(false, R, D, rho, emptyMassHS);
+  constexpr SpS  upHS (true,  R, D, rho, emptyMassHS);
+  constexpr SpS  lowHS(false, R, D, rho, emptyMassHS);
 
-  constexpr MechElement upPropME  = upHS .GetPropBulkME(propMassHS);
-  constexpr MechElement lowPropME = lowHS.GetPropBulkME(propMassHS);
+  constexpr ME   upPropME    = upHS .GetPropBulkME(propMassHS);
+  constexpr ME   lowPropME   = lowHS.GetPropBulkME(propMassHS);
 
-  auto const& upCoM   = upPropME .GetCoM ();
-  auto const& upMoIs  = upPropME .GetMoIs();
-  auto const& lowCoM  = lowPropME.GetCoM ();
-  auto const& lowMoIs = lowPropME.GetMoIs();
+  auto const&    upCoM       = upPropME .GetCoM ();
+  auto const&    upMoIs      = upPropME .GetMoIs();
+  auto const&    lowCoM      = lowPropME.GetCoM ();
+  auto const&    lowMoIs     = lowPropME.GetMoIs();
 
   // Over-All CoM and MoIs for the Solid Sphere (3D):
   Len comS[3]
@@ -170,24 +175,24 @@ int main()
   //=========================================================================//
   // It is made of 2 ToricSegments: Facing Up and Low: Center at x=R:
   //
-  constexpr Len       Q           = (TD - D)  / 2.0;
-  constexpr Vol       vHT         = Sqr(      Pi<double>  * R) * Q;
-  constexpr Area      sHT         = 2.0 * Sqr(Pi<double>) * R  * Q;
-  constexpr Mass      propMassHT  = vHT * rho;               // ToricSegm
-  constexpr Mass      propMassT   = 2.0 * propMassHT;        // FullTorus
-  constexpr Mass      emptyMassHT = sHT * sigma;
-  constexpr Mass      emptyMassT  = 2.0 * emptyMassHT;
+  constexpr Len   Q           = (TD - D)  / 2.0;
+  constexpr Vol   vHT         = Sqr(      Pi<double>  * R) * Q;
+  constexpr Area  sHT         = 2.0 * Sqr(Pi<double>) * R  * Q;
+  constexpr Mass  propMassHT  = vHT * rho;               // ToricSegm
+  constexpr Mass  propMassT   = 2.0 * propMassHT;        // FullTorus
+  constexpr Mass  emptyMassHT = sHT * sigma;
+  constexpr Mass  emptyMassT  = 2.0 * emptyMassHT;
 
-  constexpr ToricSegm upHT (true,  R, D, TD, rho, emptyMassHT);
-  constexpr ToricSegm lowHT(false, R, D, TD, rho, emptyMassHT);
+  constexpr TS upHT (true,  R, D, TD, rho, emptyMassHT);
+  constexpr TS lowHT(false, R, D, TD, rho, emptyMassHT);
 
-  constexpr MechElement upHTPropME  = upHT .GetPropBulkME(propMassHT);
-  constexpr MechElement lowHTPropME = lowHT.GetPropBulkME(propMassHT);
+  constexpr ME upHTPropME  = upHT .GetPropBulkME(propMassHT);
+  constexpr ME lowHTPropME = lowHT.GetPropBulkME(propMassHT);
 
-  auto const& upHTCoM   = upHTPropME .GetCoM ();
-  auto const& upHTMoIs  = upHTPropME .GetMoIs();
-  auto const& lowHTCoM  = lowHTPropME.GetCoM ();
-  auto const& lowHTMoIs = lowHTPropME.GetMoIs();
+  auto const&  upHTCoM     = upHTPropME .GetCoM ();
+  auto const&  upHTMoIs    = upHTPropME .GetMoIs();
+  auto const&  lowHTCoM    = lowHTPropME.GetCoM ();
+  auto const&  lowHTMoIs   = lowHTPropME.GetMoIs();
 
   // Over-All CoM and MoIs for the Solid Torus (3D):
   Len comT[3]
@@ -267,18 +272,18 @@ int main()
   // We will use "R" for the Inner Radius and the above-defined "Q" for the
   // outer one, with UpperBase @ x=R:
   //
-  constexpr Vol       vDC          = Pi<double> * (Sqr(Q) - Sqr(R)) * HCyl;
-  constexpr Area      sDC          = (2.0 * Pi<double>)   * (Q + R) * HCyl;
-  constexpr Mass      propMassDC   = vDC  * rho;
-  constexpr Mass      emptyMassDC  = sDC  * sigma;
+  constexpr Vol   vDC          = Pi<double> * (Sqr(Q) - Sqr(R)) * HCyl;
+  constexpr Area  sDC          = (2.0 * Pi<double>)   * (Q + R) * HCyl;
+  constexpr Mass  propMassDC   = vDC  * rho;
+  constexpr Mass  emptyMassDC  = sDC  * sigma;
 
   // Upper Base is @ X=R; therefore, the center is @ (R-HCyl/2):
-  constexpr Len            XCDC    = R - HCyl / 2.0;
-  constexpr DoubleCylinder dc(R, 2.0*Q, 2.0*R, HCyl, rho, emptyMassDC);
+  constexpr Len   XCDC         = R - HCyl / 2.0;
+  constexpr DC    dc(R, 2.0*Q, 2.0*R, HCyl, rho, emptyMassDC);
 
-  constexpr MechElement  dcPropME  = dc.GetPropBulkME(propMassDC);
-  auto const&  dcCoM   = dcPropME.GetCoM ();
-  auto const&  dcMoIs  = dcPropME.GetMoIs();
+  constexpr ME    dcPropME     = dc.GetPropBulkME(propMassDC);
+  auto const&     dcCoM        = dcPropME.GetCoM ();
+  auto const&     dcMoIs       = dcPropME.GetMoIs();
 
   // Diffs with theoretical vals:
   Len dcDC [3] { Abs(dcCoM[0] - XCDC), Abs(dcCoM[1]), Abs(dcCoM[2]) };

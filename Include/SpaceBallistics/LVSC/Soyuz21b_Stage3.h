@@ -5,6 +5,7 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/ME/TrConeSpherSegm.hpp"
+#include "SpaceBallistics/LVSC/LVSC.h"
 #include "SpaceBallistics/LVSC/Soyuz21b_Consts.h"
 #include "SpaceBallistics/LVSC/Soyuz21b_Head.h"
 #include "SpaceBallistics/LVSC/Propellants.h"
@@ -13,9 +14,14 @@
 
 namespace SpaceBallistics
 {
-  namespace SC = Soyuz21b_Consts;
-  namespace SH = Soyuz21b_Head;
-  using     ME = MechElement;
+  namespace SC  = Soyuz21b_Consts;
+  namespace SH  = Soyuz21b_Head;
+
+  // All "MechElements" are instantiated with "LVSC::Soyuz21b":
+  using     ME  = MechElement<LVSC::Soyuz21b>;
+  using     PM  = PointMass  <LVSC::Soyuz21b>;
+  using     TC  = TrCone     <LVSC::Soyuz21b>;
+  using     SpS = SpherSegm  <LVSC::Soyuz21b>;
 
   //=========================================================================//
   // "Soyuz21b_Stage3" Class:                                                //
@@ -146,8 +152,8 @@ namespace SpaceBallistics
     // "MechElement"s: "Proto"s with Yet-UnKnown Masses:                     //
     //-----------------------------------------------------------------------//
     // Fore Section:
-    constexpr static TrCone ForeSectionProto =
-      TrCone
+    constexpr static TC ForeSectionProto =
+      TC
       (
         ForeX0,                         // Up @ X=0
         D,
@@ -156,24 +162,24 @@ namespace SpaceBallistics
       );
 
     // Fuel Tank "Proto" components (with yet-unknown masses):
-    constexpr static SpherSegm FuelTankUpProto  =
-      SpherSegm
+    constexpr static SpS FuelTankUpProto  =
+      SpS
       (
         true,                           // Facing Up
         ForeSectionProto.GetLow()[0],   // Base @ Low (Bottom) of ForeSection
         D,
         Propellants::RG1Dens            // Naftil
       );
-    constexpr static TrCone    FuelTankMidProto =
-      TrCone
+    constexpr static TC  FuelTankMidProto =
+      TC
       (
         ForeSectionProto.GetLow()[0],   // Up   @ Low (Bottom) of ForeSection
         D,
         FuelTankMidH,
         Propellants::RG1Dens            // Naftil
       );
-    constexpr static SpherSegm FuelTankLowProto =
-      SpherSegm
+    constexpr static SpS FuelTankLowProto =
+      SpS
       (
         false,                          // Facing Low
         FuelTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of FuelTankMid
@@ -184,8 +190,8 @@ namespace SpaceBallistics
 
     // Equipment Bay (containing the Control System):
     // "Proto" with yet-unknown mass:
-    constexpr static TrCone    EquipBayProto =
-      TrCone
+    constexpr static TC  EquipBayProto =
+      TC
       (
         FuelTankMidProto.GetLow()[0],   // Up @ Low (Bottom) of FuelTankMid
         D,
@@ -194,24 +200,24 @@ namespace SpaceBallistics
       );
 
     // Oxidiser Tank "Proto" components (with yet-unknown masses):
-    constexpr static SpherSegm OxidTankUpProto =
-      SpherSegm
+    constexpr static SpS OxidTankUpProto =
+      SpS
       (
         true,                           // Facing Up
         EquipBayProto.GetLow()[0],      // Base @ Low (Bottom) of EquipBay
         D,
         Propellants::LOxDens
       );
-    constexpr static TrCone    OxidTankMidProto =
-      TrCone
+    constexpr static TC  OxidTankMidProto =
+      TC
       (
         EquipBayProto.GetLow()[0],      // Up @   Low (Bottom) of EquipBay
         D,
         OxidTankMidH,
         Propellants::LOxDens
       );
-    constexpr static SpherSegm OxidTankLowProto =
-      SpherSegm
+    constexpr static SpS OxidTankLowProto =
+      SpS
       (
         false,                          // Facing Low
         OxidTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of OxidTankMid
@@ -224,8 +230,8 @@ namespace SpaceBallistics
     // "MechElement"s with Real Masses:                                      //
     //-----------------------------------------------------------------------//
     // Aft Section (jettisonable): Cylinder:
-    constexpr static TrCone AftSection =
-      TrCone
+    constexpr static TC  AftSection =
+      TC
       (
         OxidTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of OxidTankMid
         D,
@@ -235,8 +241,8 @@ namespace SpaceBallistics
       );
 
     // RD-0124 Engine, modeled as a PointMass:
-    constexpr static PointMass Engine =
-      PointMass
+    constexpr static PM  Engine =
+      PM
       (
         OxidTankMidProto.GetLow()[0] - EngCoMdX,
         0.0_m,
@@ -264,33 +270,33 @@ namespace SpaceBallistics
 
   public:
     // Real-Mass Fore Section:
-    constexpr static TrCone    ForeSection =
+    constexpr static TC  ForeSection =
       ME::ProRateMass(ForeSectionProto, ScaleFactor);
 
     // Real-Mass Fuel Tank Components:
-    constexpr static SpherSegm FuelTankUp  =
+    constexpr static SpS FuelTankUp  =
       ME::ProRateMass(FuelTankUpProto,  ScaleFactor);
 
-    constexpr static TrCone    FuelTankMid =
+    constexpr static TC  FuelTankMid =
       ME::ProRateMass(FuelTankMidProto, ScaleFactor);
 
-    constexpr static SpherSegm FuelTankLow =
+    constexpr static SpS FuelTankLow =
       ME::ProRateMass(FuelTankLowProto, ScaleFactor);
 
     // Real-Mass Equipment Bay (XXX: though the mass  of  the Control System
     // itself cannot be exactly accounted for -- it is pro-rated in the same
     // way as the masses of all other components):
-    constexpr static TrCone    EquipBay    =
+    constexpr static TC  EquipBay    =
       ME::ProRateMass(EquipBayProto,    ScaleFactor);
 
     // Real-Mass Oxid Tank Components:
-    constexpr static SpherSegm OxidTankUp  =
+    constexpr static SpS OxidTankUp  =
       ME::ProRateMass(OxidTankUpProto,  ScaleFactor);
 
-    constexpr static TrCone    OxidTankMid =
+    constexpr static TC  OxidTankMid =
       ME::ProRateMass(OxidTankMidProto, ScaleFactor);
 
-    constexpr static SpherSegm OxidTankLow =
+    constexpr static SpS OxidTankLow =
       ME::ProRateMass(OxidTankLowProto, ScaleFactor);
 
     // "MechElement"s for the Empty Stage with Gases ("EG"): Before and After

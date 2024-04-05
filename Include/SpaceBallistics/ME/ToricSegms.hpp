@@ -22,11 +22,12 @@ namespace SpaceBallistics
   // tation axis; we may assume r <= R <= Q.  Up-/Low-Facing orientation is si-
   // milar to that of a "SpherSegm":
   //
-  class ToricSegm final: public RotationBody<ToricSegm>
+  template<LVSC Object>
+  class ToricSegm final: public RotationShell<Object, ToricSegm<Object>>
   {
   private:
-    using RotationBody<ToricSegm>::Tol;
-    using RotationBody<ToricSegm>::TolFact;
+    using ME = MechElement  <Object>;
+    using RS = RotationShell<Object, ToricSegm<Object>>;
 
     //=======================================================================//
     // Data Flds: Toric Segment's Geometry:                                  //
@@ -63,7 +64,7 @@ namespace SpaceBallistics
       Len         a_h,           // Cross-Section Height
       Len         a_D,           // Over-All   Segment Diameter
       Density     a_rho,         // Propellant Density (may be 0 if no Propelt)
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     {
       //---------------------------------------------------------------------//
@@ -74,7 +75,7 @@ namespace SpaceBallistics
 
       Len r       =  a_d / 2.0;                   // Cross-Section Base Radius
       m_Q         =  a_D / 2.0 - r;               // Major Segment      Radius
-      assert(a_h  <= r * TolFact && m_Q > r);
+      assert(a_h  <= r * RS::TolFact && m_Q > r);
       a_h         = std::min (a_h,  r);
       m_R         = (Sqr(r) / a_h + a_h) / 2.0;   // Torus Minor Radius
       m_facingUp  = a_facing_up;
@@ -135,7 +136,7 @@ namespace SpaceBallistics
 
       // Initialise the Parent Classes' Flds:
       // NB: (xb,yb,zb) is the Base Center, so BaseIsUp = !IsFacingUp:
-      RotationBody<ToricSegm>::Init
+      RotationShell<Object, ToricSegm>::Init
       (
         sideSurfArea,  enclVol,    a_empty_mass,
         a_alpha, a_xb, a_yb, a_zb, !a_facing_up, a_h,
@@ -156,7 +157,7 @@ namespace SpaceBallistics
       Len         a_h,        // Cross-Section Height
       Len         a_D,        // Over-All Segment Diameter
       Density     a_rho,      // 0 may be OK (if holds no Propellant)
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     : ToricSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_h, a_D,
                 a_rho,       a_empty_mass)
@@ -171,7 +172,7 @@ namespace SpaceBallistics
       Len         a_d,        // Cross-Section Base Diameter
       Len         a_D,        // Over-All Segment Diameter
       Density     a_rho,      // 0 may be OK (if holds no Propellant)
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     : ToricSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_d / 2.0, a_D,
                 a_rho,       a_empty_mass)
@@ -210,7 +211,7 @@ namespace SpaceBallistics
       //
       double z  = 0.5;
       double y  = double(a_v / m_NV);
-      assert(0.0 <= y && y < Pi_2<double> * TolFact);
+      assert(0.0 <= y && y < Pi_2<double> * RS::TolFact);
       y = std::min (y, Pi_2<double>);       // Enforce the upper boundary
 
       // For safety, restrict the number of iterations:
@@ -218,7 +219,7 @@ namespace SpaceBallistics
       int           i = 0;
       for (; i < N; ++i)
       {
-        assert(-Tol < z && z < TolFact);
+        assert(- RS::Tol < z && z < RS::TolFact);
         z = std::min(std::max(z, 0.0), 1.0);
 
         double z2   = Sqr(z);
@@ -233,7 +234,7 @@ namespace SpaceBallistics
         z -= dz;
 
         // Exit condition:
-        if (UNLIKELY(Abs(dz) < Tol))
+        if (UNLIKELY(Abs(dz) < RS::Tol))
           break;
       }
       // If we got here w/o achieving the required precision, it's an error:
@@ -266,11 +267,11 @@ namespace SpaceBallistics
     constexpr std::pair<Len,Vel> PropLevelOfVolUp
       (Vol a_v, VolRate a_v_dot) const
     {
-      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= GetEnclVol());
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
 
-      auto lowRes = PropLevelOfVolLow(GetEnclVol() - a_v, - a_v_dot);
-      Len l       = GetHeight() - lowRes.first;
-      Vel lDot    = -             lowRes.second;
+      auto lowRes = PropLevelOfVolLow(RS::GetEnclVol() - a_v, - a_v_dot);
+      Len l       = RS::GetHeight() - lowRes.first;
+      Vel lDot    =                 - lowRes.second;
       assert(!IsNeg(l) || IsPos(lDot));
       return std::make_pair (l, lDot);
     }
@@ -292,7 +293,7 @@ namespace SpaceBallistics
     )
     const
     {
-      assert(!(IsNeg(a_l) || IsPos(a_l_dot)) && a_l <= GetHeight());
+      assert(!(IsNeg(a_l) || IsPos(a_l_dot)) && a_l <= RS::GetHeight());
       if (m_facingUp)
         PropMoICompsUp
           (a_l, a_l_dot, a_jp0, a_jp1, a_kp, a_jp0_dot, a_jp1_dot, a_kp_dot);
@@ -307,7 +308,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // XXX: This method is also called from the "ToricSegm" Ctor, when the par-
     // ent classes are not yet initialised, so it MUST NOT call any methods of
-    // "RotationBody":
+    // "RotationShell":
     //
     constexpr void PropMoICompsLow
     (
@@ -333,7 +334,7 @@ namespace SpaceBallistics
       // In this case, the formulas are relatively simple, so use the direct
       // computations:
       double x   = double(a_l / m_R);
-      assert(-Tol < x &&  x <= TolFact);
+      assert(- RS::Tol < x &&  x <= RS::TolFact);
       x = std::min(std::max(x, 0.0), 1.0);
 
       double cx  = 1.0 - x;
@@ -403,7 +404,8 @@ namespace SpaceBallistics
 
       PropMoICompsLow
       (
-        GetHeight() - a_l, -a_l_dot,
+        RS::GetHeight() - a_l,
+        -a_l_dot,
         &JC0,    &JC1,     &KC,
         &JC0Dot, &JC1Dot,  &KCDot,
         &VC,     &VCDot
@@ -413,7 +415,7 @@ namespace SpaceBallistics
       Len5 JP0 = m_JPL0 - JC0;
       Len5 JP1 = m_JPL1 - JC1;
       Len4 KP  = m_KPL  - KC;
-      Vol  VP  = GetEnclVol() - VC;
+      Vol  VP  = RS::GetEnclVol() - VC;
       assert(IsPos(JP0) && IsPos(JP1) && IsPos(KP) && IsPos(VP));
 
       // "JP0" is now almost what we need:
@@ -433,8 +435,8 @@ namespace SpaceBallistics
 
       // "KP" is subject to a similar shift and sign inversion (due to mirror
       // symmetry wrt OEta axis):
-      *a_kp      =   GetHeight() * VP    - KP;
-      *a_kp_dot  = -(GetHeight() * VCDot - KCDot);
+      *a_kp      =   RS::GetHeight() * VP    - KP;
+      *a_kp_dot  = -(RS::GetHeight() * VCDot - KCDot);
       assert(IsPos(*a_kp)  && !IsPos(*a_kp_dot));
 
       // All Done!
@@ -447,9 +449,13 @@ namespace SpaceBallistics
   // Provides a "cylindrical torus" (a body obtained by rotating a rectangle
   // around an outside axis parallel to the cylinder's main axis):
   //
-  class DoubleCylinder: public RotationBody<DoubleCylinder>
+  template<LVSC Object>
+  class DoubleCylinder: public RotationShell<Object, DoubleCylinder<Object>>
   {
   private:
+    using ME = MechElement  <Object>;
+    using RS = RotationShell<Object, DoubleCylinder<Object>>;
+
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
@@ -478,7 +484,7 @@ namespace SpaceBallistics
       Len         a_d,           // Inner Diameter
       Len         a_h,           // Height
       Density     a_rho,         // Propellant Density (may be 0 if no Propelt)
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     {
       assert(IsPos(a_D)  && IsPos(a_d)   && a_D > a_d     && IsPos(a_h) &&
@@ -515,7 +521,7 @@ namespace SpaceBallistics
 
       // Initialise the Parent Classes' Flds:
       // NB: (xu,yu,zu) is the Upper Base Center, so BaseIsUp = true here:
-      RotationBody<DoubleCylinder>::Init
+      RotationShell<Object, DoubleCylinder>::Init
       (
         sideSurfArea,  enclVol,    a_empty_mass,
         a_alpha, a_xu, a_yu, a_zu, true,   a_h,
@@ -533,7 +539,7 @@ namespace SpaceBallistics
       Len         a_d,           // Inner Diameter
       Len         a_h,           // Height
       Density     a_rho,         // Propellant Density (may be 0 if no Propelt)
-      Mass        a_empty_mass = UnKnownMass
+      Mass        a_empty_mass = ME::UnKnownMass
     )
     : DoubleCylinder
         (a_xu, 0.0_m, 0.0_m, 0.0, a_D, a_d, a_h, a_rho, a_empty_mass)
@@ -544,7 +550,7 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
-      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= GetEnclVol());
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
       Len l    = a_v     /  m_S;
       Vel lDot = a_v_dot /  m_S;
       return std::make_pair(l, lDot);
@@ -566,7 +572,7 @@ namespace SpaceBallistics
     )
     const
     {
-      assert(!(IsNeg(a_l) || IsPos(a_l_dot))   && a_l <= GetHeight() &&
+      assert(!(IsNeg(a_l) || IsPos(a_l_dot))   && a_l <= RS::GetHeight() &&
              a_jp0     != nullptr && a_jp1     != nullptr  &&
              a_kp      != nullptr && a_jp0_dot != nullptr  &&
              a_jp1_dot != nullptr && a_kp_dot  != nullptr);

@@ -33,19 +33,19 @@ namespace SpaceBallistics
   // Derived Dimension Types and Values:                                     //
   //=========================================================================//
   // Area (m^2) and Volume (m^3):
-  using Area       = decltype(Sqr (1.0_m));
-  using Vol        = decltype(Cube(1.0_m));
+  using Area       = decltype(Sqr (Len()));
+  using Vol        = decltype(Cube(Len()));
 
   // Density (ie Volume Density, kg/m^3) and Surface (Area) Density (kg/m^2):
-  using Density    = decltype(1.0_kg / Vol (1.0));
-  using SurfDens   = decltype(1.0_kg / Area(1.0));
+  using Density    = decltype(Mass() / Vol (1.0));
+  using SurfDens   = decltype(Mass() / Area(1.0));
 
   // Moment of Inertia (kg*m^2):
-  using MoI        = decltype(1.0_kg * Area(1.0));
+  using MoI        = decltype(Mass() * Area(1.0));
 
   // Velocity (m/sec) and Acceleration (m/sec^2):
-  using Vel        = decltype(1.0_m  / 1.0_sec);
-  using Acc        = decltype(1.0_m  / Sqr(1.0_sec));
+  using Vel        = decltype(Len()  / 1.0_sec);
+  using Acc        = decltype(Len()  / Sqr(1.0_sec));
 
   // Angular Velocity and Angular Acceleration:
   using AngVel     = decltype(1.0    / 1.0_sec);
@@ -55,20 +55,39 @@ namespace SpaceBallistics
   constexpr inline Acc g0 = Acc(9.80665);
 
   // Force (N = kg*m/sec^2):
-  using Force      = decltype(1.0_kg * Acc(1.0));
+  using Force      = decltype(Mass() * Acc());
 
   // Mass Rate (kg/sec):
-  using MassRate   = decltype(1.0_kg   / 1.0_sec);
+  using MassRate   = decltype(Mass() / 1.0_sec);
 
   // MoI Change Rate (kg*m^2 / sec):
-  using MoIRate    = decltype(MoI(1.0) / 1.0_sec);
+  using MoIRate    = decltype(MoI()  / 1.0_sec);
+
+  //-------------------------------------------------------------------------//
+  // Powers of "Len" and their Time Derivatives: Widely used:                //
+  //-------------------------------------------------------------------------//
+  using Len2       = Area;
+  using Len3       = Vol;
+  using Len4       = decltype(Sqr(Area()));
+  using Len5       = decltype(Len4() * Len());
+  using Len6       = decltype(Sqr(Vol ()));
+
+  using Len2Rate   = decltype(Len2() / 1.0_sec);
+  using Len3Rate   = decltype(Len3() / 1.0_sec);
+  using VolRate    = Len3Rate;
+  using Len4Rate   = decltype(Len4() / 1.0_sec);
+  using Len5Rate   = decltype(Len5() / 1.0_sec);
+
+  //=========================================================================//
+  // 3D Vectors, Parameterised by the CoOrd System (COS):                    //
+  //=========================================================================//
 }
 // End namespace SpaceBallistics
 
 
 namespace DimTypes
 {
-  using namespace SpaceBallistics;
+  namespace SB = SpaceBallistics;
 
   //=========================================================================//
   // Conversion of Angles:                                                   //
@@ -78,11 +97,32 @@ namespace DimTypes
   constexpr inline
   DimQ
   <
-    Bits::DimExp(unsigned(DimsE::Angle)),
-    Bits::MkUnit(unsigned(DimsE::Angle), 0),   // 0=rad: the main unit
+    Bits::DimExp(unsigned(SB::DimsE::Angle)),
+    Bits::MkUnit(unsigned(SB::DimsE::Angle), 0),   // 0=rad: the main unit
     double
   >
   ::operator double() const
-    { return Magnitude(); }
+  {
+    using ThisDimQ = std::remove_cv_t<std::remove_reference_t<decltype(*this)>>;
+    static_assert(std::is_same_v<ThisDimQ, SB::Angle>   &&
+                  std::is_same_v<ThisDimQ, SB::Angle_rad>);
+    return Magnitude();
+  }
+
+  // Similarly, converting "Angle_deg" into "double", via "Angle_rad":
+  template<>
+  constexpr inline
+  DimQ
+  <
+    Bits::DimExp(unsigned(SB::DimsE::Angle)),
+    Bits::MkUnit(unsigned(SB::DimsE::Angle), 1),   // 1=deg
+    double
+  >
+  ::operator double() const
+  {
+    using ThisDimQ = std::remove_cv_t<std::remove_reference_t<decltype(*this)>>;
+    static_assert(std::is_same_v<ThisDimQ, SB::Angle_deg>);
+    return double(SB::To_Angle_rad(*this));
+  }
 }
 // End namespace DimTypes

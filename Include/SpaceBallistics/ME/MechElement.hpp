@@ -5,6 +5,7 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
+#include "SpaceBallistics/LVSC/LVSC.h"
 #include <boost/container/static_vector.hpp>
 #include <cmath>
 #include <cassert>
@@ -30,29 +31,17 @@ namespace SpaceBallistics
   // and MoIs of the contained Propellant:    we assume that the Propellant is
   // concentrated at the bottom (Lower, Smaller-X) part of the "MechElement":
   //
+  template<LVSC Object>
   class MechElement
   {
   public:
     //=======================================================================//
-    // Consts and Types:                                                     //
+    // Consts:                                                               //
     //=======================================================================//
-    // "UnKnownMass": Param to be used for "ConstElement"s when their mass is
+    // "UnKnownMass": Param to be used for "MechElement"s when their mass is
     // not yet known (all real Masses are of course strictly positive):
     //
     constexpr static Mass UnKnownMass = 0.0_kg;
-
-    // The following types might be useful for derived classes:
-    using Len2     = Area;
-    using Len3     = Vol;
-    using Len4     = decltype(Sqr(Sqr (1.0_m)));
-    using Len5     = decltype(Sqr(Sqr (1.0_m)) * 1.0_m);
-    using Len6     = decltype(Sqr(Cube(1.0_m)));
-
-    using Len2Rate = decltype(Len2() / 1.0_sec);
-    using Len3Rate = decltype(Len3() / 1.0_sec);
-    using VolRate  = Len3Rate;
-    using Len4Rate = decltype(Len4() / 1.0_sec);
-    using Len5Rate = decltype(Len5() / 1.0_sec);
 
   private:
     //=======================================================================//
@@ -319,14 +308,15 @@ namespace SpaceBallistics
   //=========================================================================//
   // A positive mass concentrated in the (x0, y0, z0) point:
   //
-  class PointMass final: public MechElement
+  template<LVSC Object>
+  class PointMass final: public MechElement<Object>
   {
   public:
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
     constexpr PointMass(Len a_x0, Len a_y0, Len a_z0, Mass a_mass)
-    : MechElement()    // Slightly sub-optimal...
+    : MechElement<Object>()       // Slightly sub-optimal...
     {
       Len  pt[3] { a_x0, a_y0, a_z0 };
 
@@ -348,24 +338,26 @@ namespace SpaceBallistics
       constexpr MoIRate Rates0[3] {MoIRate(0.0), MoIRate(0.0), MoIRate (0.0)};
       constexpr Vel     Vel0  [3] {Vel    (0.0), Vel    (0.0), Vel     (0.0)};
 
-      MechElement::Init
+      MechElement<Object>::Init
         (this, pt, Vel0, a_mass, MassRate(0.0), mois, Rates0, true);
     }
   };
 
   //=========================================================================//
-  // "RotationBody" Class:                                                   //
+  // "RotationShell" Class:                                                  //
   //=========================================================================//
   // SubClass of "MechElement", SuperClass of "TrCone", "SpherSegment" and
-  // others. Provides common functionality of  Rotation Surfaces and Bodies:
+  // others. Provides common functionality of  Rotation Surfaces:
   //
-  template<typename Derived>
-  class RotationBody: public MechElement
+  template<LVSC Object, typename Derived>
+  class RotationShell: public MechElement<Object>
   {
   protected:
     //=======================================================================//
-    // Consts:                                                               //
+    // Types and Consts:                                                     //
     //=======================================================================//
+    using ME = MechElement<Object>;
+
     // Computation Tolerances:
     constexpr static double Tol     = 100.0 * Eps<double>;
     constexpr static double TolFact = 1.0   + Tol;
@@ -421,11 +413,11 @@ namespace SpaceBallistics
   protected:
     // Default and Copy Ctors, Assignment and Equality are auto-generated, and
     // they are Protected:
-    constexpr RotationBody()                                      = default;
-    constexpr RotationBody            (RotationBody const&)       = default;
-    constexpr RotationBody& operator= (RotationBody const&)       = default;
-    constexpr bool          operator==(RotationBody const&) const = default;
-    constexpr bool          operator!=(RotationBody const&) const = default;
+    constexpr RotationShell()                                       = default;
+    constexpr RotationShell            (RotationShell const&)       = default;
+    constexpr RotationShell& operator= (RotationShell const&)       = default;
+    constexpr bool           operator==(RotationShell const&) const = default;
+    constexpr bool           operator!=(RotationShell const&) const = default;
 
     //=======================================================================//
     // "Init":                                                               //
@@ -440,7 +432,7 @@ namespace SpaceBallistics
       Vol         a_encl_vol,
       Mass        a_mass,     // If 0, then auto-calculated with SurfDens=1
 
-      // Params for "RotationBody" itself:
+      // Params for "RotationShell" itself:
       double      a_alpha,    // Rotation axis orientation
       Len         a_x0,       // The Up or Low rotation axis end
       Len         a_y0,       //
@@ -458,7 +450,7 @@ namespace SpaceBallistics
     )
     {
       //---------------------------------------------------------------------//
-      // Initialise the "RotationBody" flds FIRST:                           //
+      // Initialise the "RotationShell" flds FIRST:                          //
       //---------------------------------------------------------------------//
       // Rotation axis orientation angle, and the over-all length:
       m_inXY = IsZero(a_z0);
@@ -585,7 +577,7 @@ namespace SpaceBallistics
              IsZero(emptyMoIDots[1]) && IsZero(emptyMoIDots[2]));
 
       // Finally, invoke the Base Class Initialiser:
-      MechElement::Init
+      MechElement<Object>::Init
         (this, emptyCoM, emptyCoMDots, emptyMass, MDot0, emptyMoIs,
          emptyMoIDots,   isFinal);
     }
@@ -696,8 +688,8 @@ namespace SpaceBallistics
     // "GetPropBulkME":                                                      //
     //=======================================================================//
     // Constructs a "MechElement" which holds the CoM and MoI of the Propellant
-    // Bulk filling this RotationBody, with the current propellant mass given by
-    // "a_prop_mass". The resulting "MechElement" does NOT include the Shell!
+    // Bulk filling this RotationShell, with the current propellant mass given
+    // by "a_prop_mass". The resulting "MechElement" does NOT include the Shell!
     // Returns a ficticious "MechElement" obj  acting as a container for the
     // results computed, and suitable for the "+" operation. May also return
     // the curr Propellant Level via the 2nd arg (if non-NULL), primarily for
@@ -706,7 +698,7 @@ namespace SpaceBallistics
     // Run-Time. For the info, it also returns the PropLevel if the output ptr
     // is non-NULL:
     //
-    constexpr MechElement GetPropBulkME
+    constexpr MechElement<Object> GetPropBulkME
     (
       Mass     a_prop_mass,
       MassRate a_prop_mass_dot = MassRate(0.0),    // Must be <= 0 in general
@@ -773,21 +765,21 @@ namespace SpaceBallistics
       //     included in the result;
       // (*) the result is Final:
       //
-      return MechElement
+      return MechElement<Object>
         (com, comDots, a_prop_mass, a_prop_mass_dot, mois, moiDots, true);
     }
 
     //=======================================================================//
     // Accessors (for use by Derived Classes):                               //
     //=======================================================================//
-    constexpr Point const& GetLow()          const { return m_low; }
-    constexpr Point const& GetUp ()          const { return m_up;  }
+    constexpr typename ME::Point const& GetLow() const { return m_low; }
+    constexpr typename ME::Point const& GetUp () const { return m_up;  }
 
     // The Maximum Propellant Mass (Capacity):
-    constexpr Mass         GetPropMassCap()  const { return m_propMassCap; }
+    constexpr Mass     GetPropMassCap()   const { return m_propMassCap; }
 
     // The Propellant Density:
-    constexpr Density      GetPropDens()     const { return m_rho; }
+    constexpr Density  GetPropDens()      const { return m_rho; }
   };
 }
 // End namespace SpaceBallistics
