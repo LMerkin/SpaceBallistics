@@ -16,16 +16,16 @@ namespace SpaceBallistics
   DECLARE_DIMS
   (
     double,
-    (Mass,  kg),
-    (Len,   m,   (km, 1000.0)),
-    (Time,  sec),
+    (Mass,     kg),
+    (Len,      m,   (km, 1000.0)),
+    (Time,     sec),
 
     // Angles: When expressed in "rad", angles are directly convertible to a
     // dimension-less "double";  other units must first be converted into "rad":
-    (Angle,  rad,                       // Radians
-      (deg,  Pi<double> / 180.0   ),    // Degrees
-      (amin, Pi<double> / 10800.0 ),    // Arc-Minutes
-      (asec, Pi<double> / 648000.0)     // Arc-Seconds
+    (Angle,    rad,                       // Radians
+      (deg,    Pi<double> / 180.0   ),    // Degrees
+      (arcMin, Pi<double> / 10800.0 ),    // Arc-Minutes
+      (arcSec, Pi<double> / 648000.0)     // Arc-Seconds
     )
   )
 
@@ -47,15 +47,21 @@ namespace SpaceBallistics
   using Vel        = decltype(Len()  / 1.0_sec);
   using Acc        = decltype(Len()  / Sqr(1.0_sec));
 
+  // Force (N = kg*m/sec^2):
+  using Force      = decltype(Mass() * Acc());
+
   // Angular Velocity and Angular Acceleration:
   using AngVel     = decltype(1.0    / 1.0_sec);
   using AngAcc     = decltype(1.0    / Sqr(1.0_sec));
 
+  // Angular ("Kinetic") Momentum:
+  using AngMom     = decltype(MoI()  * AngVel());
+
+  // Rotational Moment of Force ("Torque"):
+  using Torq       = decltype(Len()  * Force());
+
   // Standard Gravity (m/sec^2):
   constexpr inline Acc g0 = Acc(9.80665);
-
-  // Force (N = kg*m/sec^2):
-  using Force      = decltype(Mass() * Acc());
 
   // Mass Rate (kg/sec):
   using MassRate   = decltype(Mass() / 1.0_sec);
@@ -81,48 +87,62 @@ namespace SpaceBallistics
   //=========================================================================//
   // 3D Vectors, Parameterised by the CoOrd System (COS):                    //
   //=========================================================================//
+  // XXX: For the moment, they are just Structs with Non-Const flds, which is
+  // not very safe.  Encapsulation may be strengthened later on  when the use
+  // patterns become more formalised.
+  // All components are initialised to 0 by default:
+  //
+/*
+  template<typename COS, typename T>
+  struct Vec3
+  {
+    // Similar to "std::array", but allows refs to the vector elements:
+    T  m_e[3];
+
+    // Default and Non-Default Ctors:
+    constexpr Vec3() = default;   // Invokes T(), sets all elements to 0
+    constexpr Vec3(T a_e0, T a_e1, T a_e2): m_e{a_e0,   a_e1,   a_e2}   {}
+    constexpr Vec3(T const (&a_v)[3])     : m_e{a_v[0], a_v[1], a_v[2]} {}
+
+    // Access to the elements:
+    constexpr T& operator[](int a_i)
+    {
+      assert(0 <= a_i && a_i < 3);
+      return m_e[a_i];
+    }
+  };
+*/
+
+// Macro for declaring a Vector (or a diagonal Tensor):
+# ifdef DCL_VEC
+# undef DCL_VEC
+# endif
+  // The following macro creates the {T}{V} Vec3 templated by COS, for the type
+  // "T":
+# define DCL_VEC(T, Sfx) \
+  template<typename COS> \
+  using T##Sfx = std::array<T, 3>;
+
+  DCL_VEC(Len,     V)  // Position Vector ("Radius-Vector")
+  DCL_VEC(Vel,     V)  // Velocity Vector
+  DCL_VEC(Acc,     V)  // Acceleration Vector
+  DCL_VEC(Force,   V)  // Force Vector
+  DCL_VEC(AngVel,  V)  // Angular Velocity Vector
+  DCL_VEC(AngAcc,  V)  // Angular Acceleration Vector
+  DCL_VEC(AngMom,  V)  // Angular ("Kinetic") Momentum Vector
+  DCL_VEC(Torq,    V)  // Rotational Moment of Force (Torque) Vector
+
+  // Alias for the Position vector: "LenV" -> "PosV":
+  template<typename COS>
+  using PosV = LenV<COS>;
+
+  // NB:  The MoI and its Rate of Change are in general not Vectors, but rather,
+  // 3*3 Tensors. XXX: For the moment, we only consider those tensors in their
+  // principal axes, so they have a diagonal form. Hence the suffix is "T", not
+  // "V", although the internal rep is still "Vec3":
+  //
+  DCL_VEC(MoI,     T)   // Moments of Inertia
+  DCL_VEC(MoIRate, T)   // MoI Change Rates
+# undef DCL_VEC
 }
 // End namespace SpaceBallistics
-
-
-namespace DimTypes
-{
-  namespace SB = SpaceBallistics;
-
-  //=========================================================================//
-  // Conversion of Angles:                                                   //
-  //=========================================================================//
-  // Explicily allow conversion of "Angle[_rad]" into "double":
-  template<>
-  constexpr inline
-  DimQ
-  <
-    Bits::DimExp(unsigned(SB::DimsE::Angle)),
-    Bits::MkUnit(unsigned(SB::DimsE::Angle), 0),   // 0=rad: the main unit
-    double
-  >
-  ::operator double() const
-  {
-    using ThisDimQ = std::remove_cv_t<std::remove_reference_t<decltype(*this)>>;
-    static_assert(std::is_same_v<ThisDimQ, SB::Angle>   &&
-                  std::is_same_v<ThisDimQ, SB::Angle_rad>);
-    return Magnitude();
-  }
-
-  // Similarly, converting "Angle_deg" into "double", via "Angle_rad":
-  template<>
-  constexpr inline
-  DimQ
-  <
-    Bits::DimExp(unsigned(SB::DimsE::Angle)),
-    Bits::MkUnit(unsigned(SB::DimsE::Angle), 1),   // 1=deg
-    double
-  >
-  ::operator double() const
-  {
-    using ThisDimQ = std::remove_cv_t<std::remove_reference_t<decltype(*this)>>;
-    static_assert(std::is_same_v<ThisDimQ, SB::Angle_deg>);
-    return double(SB::To_Angle_rad(*this));
-  }
-}
-// End namespace DimTypes

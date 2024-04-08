@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
 //                     "SpaceBallistics/ME/ToricSegms.hpp":                  //
-//                 Geometrical Objects as Construction Elements              //
+//                  Geometric Objects as "Mechanical Elements"               //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/ME/MechElement.hpp"
@@ -22,12 +22,12 @@ namespace SpaceBallistics
   // tation axis; we may assume r <= R <= Q.  Up-/Low-Facing orientation is si-
   // milar to that of a "SpherSegm":
   //
-  template<LVSC Object>
-  class ToricSegm final: public RotationShell<Object, ToricSegm<Object>>
+  template<LVSC LVSCKind>
+  class ToricSegm final: public RotationShell<LVSCKind, ToricSegm<LVSCKind>>
   {
   private:
-    using ME = MechElement  <Object>;
-    using RS = RotationShell<Object, ToricSegm<Object>>;
+    using ME = MechElement  <LVSCKind>;
+    using RS = RotationShell<LVSCKind, ToricSegm<LVSCKind>>;
 
     //=======================================================================//
     // Data Flds: Toric Segment's Geometry:                                  //
@@ -136,7 +136,7 @@ namespace SpaceBallistics
 
       // Initialise the Parent Classes' Flds:
       // NB: (xb,yb,zb) is the Base Center, so BaseIsUp = !IsFacingUp:
-      RotationShell<Object, ToricSegm>::Init
+      RS::Init
       (
         sideSurfArea,  enclVol,    a_empty_mass,
         a_alpha, a_xb, a_yb, a_zb, !a_facing_up, a_h,
@@ -449,12 +449,13 @@ namespace SpaceBallistics
   // Provides a "cylindrical torus" (a body obtained by rotating a rectangle
   // around an outside axis parallel to the cylinder's main axis):
   //
-  template<LVSC Object>
-  class DoubleCylinder: public RotationShell<Object, DoubleCylinder<Object>>
+  template<LVSC LVSCKind>
+  class DoubleCylinder:
+    public RotationShell<LVSCKind, DoubleCylinder<LVSCKind>>
   {
   private:
-    using ME = MechElement  <Object>;
-    using RS = RotationShell<Object, DoubleCylinder<Object>>;
+    using ME = MechElement  <LVSCKind>;
+    using RS = RotationShell<LVSCKind, DoubleCylinder<LVSCKind>>;
 
     //=======================================================================//
     // Data Flds:                                                            //
@@ -521,7 +522,7 @@ namespace SpaceBallistics
 
       // Initialise the Parent Classes' Flds:
       // NB: (xu,yu,zu) is the Upper Base Center, so BaseIsUp = true here:
-      RotationShell<Object, DoubleCylinder>::Init
+      RS::Init
       (
         sideSurfArea,  enclVol,    a_empty_mass,
         a_alpha, a_xu, a_yu, a_zu, true,   a_h,

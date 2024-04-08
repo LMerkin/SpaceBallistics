@@ -145,8 +145,8 @@ namespace SpaceBallistics
            oxidMass.ApproxEquals(oxidME.GetMass()));
 
     // Extract the the CoM and the MoIs:
-    ME::Point const& com  = fullME.GetCoM ();
-    ME::MoIs  const& mois = fullME.GetMoIs();
+    ME::PosVE const& com  = fullME.GetCoM ();
+    ME::MoITE const& mois = fullME.GetMoIs();
 
     res.m_com [0] =  com [0];
     res.m_com [1] =  com [1];

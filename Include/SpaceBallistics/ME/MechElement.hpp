@@ -1,11 +1,12 @@
 // vim:ts=2:et
 //===========================================================================//
 //                     "SpaceBallistics/ME/MechElement.hpp":                 //
-//                 Geometrical Objects as "Mechanical Elements"              //
+//                   Geometric Objects as "Mechanical Elements"              //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/LVSC/LVSC.h"
+#include "SpaceBallistics/CoOrds/EmbeddedCOS.h"
 #include <boost/container/static_vector.hpp>
 #include <cmath>
 #include <cassert>
@@ -31,13 +32,29 @@ namespace SpaceBallistics
   // and MoIs of the contained Propellant:    we assume that the Propellant is
   // concentrated at the bottom (Lower, Smaller-X) part of the "MechElement":
   //
-  template<LVSC Object>
+  template<LVSC LVSCKind>
   class MechElement
   {
   public:
     //=======================================================================//
-    // Consts:                                                               //
+    // Types and Consts:                                                     //
     //=======================================================================//
+    // The Embedded CoOrds System for this "LVSCKind":
+    using ECOS      = EmbeddedCOS<LVSCKind>;
+
+    // Position Vector in the Embedded COS:
+    using PosVE     = PosV    <ECOS>;
+
+    // Velocity in the Embedded COS (XXX: here it is only used for the motion
+    // of the CoM, so not very important):
+    using VelVE     = VelV    <ECOS>;
+
+    // The MoI Tensor (XXX: currently the main diagonal only), also in the ECOS:
+    using MoITE     = MoIT    <ECOS>;
+
+    // The Time Rate of the MoI Tensor:
+    using MoIRateTE = MoIRateT<ECOS>;
+
     // "UnKnownMass": Param to be used for "MechElement"s when their mass is
     // not yet known (all real Masses are of course strictly positive):
     //
@@ -49,12 +66,12 @@ namespace SpaceBallistics
     //=======================================================================//
     // Over-All Dynamical Params of this "MechElement":
     //
-    Len         m_CoM    [3];  // (X,Y,Z) co-ords of the Center of Masses
-    Vel         m_CoMDots[3];  // Velocity of the moving CoM
+    PosVE       m_CoM;         // (X,Y,Z) co-ords of the Center of Masses
+    VelVE       m_CoMDots;     // Velocity of the moving CoM
     Mass        m_mass;        // Mass
     MassRate    m_massDot;     // d(Mass)/dt, typically <= 0
-    MoI         m_MoIs   [3];  // Moments of Inertia wrt the OX, OY and OZ axes
-    MoIRate     m_MoIDots[3];  // d(MoIs)/dt
+    MoITE       m_MoIs;        // Moments of Inertia wrt the OX, OY and OZ axes
+    MoIRateTE   m_MoIDots;     // d(MoIs)/dt
     bool        m_isFinal;     // False => Mass, MoIs & their Dots not valid
                                //   yet (but the CoM is valid!)
   protected:
@@ -66,6 +83,8 @@ namespace SpaceBallistics
     // implemented as a Static Method, not a Ctor.
     // XXX: This method is made "static"; otherwise, it could not be called from
     // methods of derived classes on OTHER objs, even though it is "protected":
+    // XXX: The params are just arrays, not ECOS-parameterised vectors/tensors:
+    // since this function is internal, that is OK:
     //
     constexpr static void Init
     (
@@ -79,36 +98,36 @@ namespace SpaceBallistics
       bool            a_is_final
     )
     {
-      assert(a_me != nullptr);
-      a_me->m_CoM    [0]  = a_com     [0];
-      a_me->m_CoM    [1]  = a_com     [1];
-      a_me->m_CoM    [2]  = a_com     [2];
-
-      a_me->m_CoMDots[0]  = a_com_dots[0];
-      a_me->m_CoMDots[1]  = a_com_dots[1];
-      a_me->m_CoMDots[2]  = a_com_dots[2];
-
-      a_me->m_mass        = a_mass;
-      a_me->m_massDot     = a_mass_dot;
-
-      a_me->m_MoIs   [0]  = a_mois    [0];
-      a_me->m_MoIs   [1]  = a_mois    [1];
-      a_me->m_MoIs   [2]  = a_mois    [2];
-
-      a_me->m_MoIDots[0]  = a_moi_dots[0];
-      a_me->m_MoIDots[1]  = a_moi_dots[1];
-      a_me->m_MoIDots[2]  = a_moi_dots[2];
-
-      a_me->m_isFinal     = a_is_final;
-
       // NB: Even if "a_mass" is not final, it must be positive. In the context
       // under consideration, MassDot and MoIDots cannot be positive, since the
       // ContrElement's mass is either constant or being exhausted:
       //
-      assert( IsPos(a_me->m_mass)       && !IsNeg(a_me->m_MoIs   [0]) &&
-             !IsNeg(a_me->m_MoIs   [1]) && !IsNeg(a_me->m_MoIs   [2]) &&
-             !IsPos(a_me->m_massDot)    && !IsPos(a_me->m_MoIDots[0]) &&
-             !IsPos(a_me->m_MoIDots[1]) && !IsPos(a_me->m_MoIDots[1]));
+      assert(a_me != nullptr      &&
+             IsPos(a_mass)        && !IsNeg(a_mois    [0]) &&
+            !IsNeg(a_mois    [1]) && !IsNeg(a_mois    [2]) &&
+            !IsPos(a_mass_dot)    && !IsPos(a_moi_dots[0]) &&
+            !IsPos(a_moi_dots[1]) && !IsPos(a_moi_dots[1]));
+
+      a_me->m_CoM[0]     = a_com     [0];
+      a_me->m_CoM[1]     = a_com     [1];
+      a_me->m_CoM[2]     = a_com     [2];
+
+      a_me->m_CoMDots[0] = a_com_dots[0];
+      a_me->m_CoMDots[1] = a_com_dots[1];
+      a_me->m_CoMDots[2] = a_com_dots[2];
+
+      a_me->m_mass       = a_mass;
+      a_me->m_massDot    = a_mass_dot;
+
+      a_me->m_MoIs[0]    = a_mois    [0];
+      a_me->m_MoIs[1]    = a_mois    [1];
+      a_me->m_MoIs[2]    = a_mois    [2];
+
+      a_me->m_MoIDots[0] = a_moi_dots[0];
+      a_me->m_MoIDots[1] = a_moi_dots[1];
+      a_me->m_MoIDots[2] = a_moi_dots[2];
+
+      a_me->m_isFinal    = a_is_final;
     }
 
   public:
@@ -123,12 +142,12 @@ namespace SpaceBallistics
     //     ally used as the base for "+" which requires Final operands:
     //
     constexpr MechElement()
-    : m_CoM    {0.0_m,  0.0_m,        0.0_m},
-      m_CoMDots{Vel    (0.0), Vel    (0.0), Vel    (0.0)},
+    : m_CoM    {{0.0_m,  0.0_m,        0.0_m}},
+      m_CoMDots{{Vel    (0.0), Vel    (0.0), Vel    (0.0)}},
       m_mass   (0.0),
       m_massDot(0.0),
-      m_MoIs   {MoI    (0.0), MoI    (0.0), MoI    (0.0)},
-      m_MoIDots{MoIRate(0.0), MoIRate(0.0), MoIRate(0.0)},
+      m_MoIs   {{MoI    (0.0), MoI    (0.0), MoI    (0.0)}},
+      m_MoIDots{{MoIRate(0.0), MoIRate(0.0), MoIRate(0.0)}},
       m_isFinal(true)
     {}
 
@@ -224,11 +243,7 @@ namespace SpaceBallistics
     //=======================================================================//
     // Geometrical params are always available, even if the Mass is not final
     // yet:
-    using     Point    = decltype(m_CoM);
-    using     MoIs     = decltype(m_MoIs);
-    using     MoIRates = decltype(m_MoIDots);
-
-    constexpr Point const& GetCoM() const { return m_CoM; }
+    constexpr PosVE const& GetCoM() const { return m_CoM; }
 
     // But the Mass and MoIs  may or may not be available.
     // If not, assert failure will be signaled (NB: in C++ >= 14, "assert" is
@@ -242,19 +257,19 @@ namespace SpaceBallistics
       return m_mass;
     }
 
-    constexpr MassRate        GetMassDot() const
+    constexpr MassRate         GetMassDot() const
     {
       assert(m_isFinal);
       return m_massDot;
     }
 
-    constexpr MoIs     const& GetMoIs()    const
+    constexpr MoITE     const& GetMoIs()    const
     {
       assert(m_isFinal);
       return m_MoIs;
     }
 
-    constexpr MoIRates const& GetMoIDots() const
+    constexpr MoIRateTE const& GetMoIDots() const
     {
       assert(m_isFinal);
       return m_MoIDots;
@@ -308,15 +323,15 @@ namespace SpaceBallistics
   //=========================================================================//
   // A positive mass concentrated in the (x0, y0, z0) point:
   //
-  template<LVSC Object>
-  class PointMass final: public MechElement<Object>
+  template<LVSC LVSCKind>
+  class PointMass final: public MechElement<LVSCKind>
   {
   public:
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
     constexpr PointMass(Len a_x0, Len a_y0, Len a_z0, Mass a_mass)
-    : MechElement<Object>()       // Slightly sub-optimal...
+    : MechElement<LVSCKind>()     // Slightly sub-optimal...
     {
       Len  pt[3] { a_x0, a_y0, a_z0 };
 
@@ -338,7 +353,7 @@ namespace SpaceBallistics
       constexpr MoIRate Rates0[3] {MoIRate(0.0), MoIRate(0.0), MoIRate (0.0)};
       constexpr Vel     Vel0  [3] {Vel    (0.0), Vel    (0.0), Vel     (0.0)};
 
-      MechElement<Object>::Init
+      MechElement<LVSCKind>::Init
         (this, pt, Vel0, a_mass, MassRate(0.0), mois, Rates0, true);
     }
   };
@@ -349,14 +364,14 @@ namespace SpaceBallistics
   // SubClass of "MechElement", SuperClass of "TrCone", "SpherSegment" and
   // others. Provides common functionality of  Rotation Surfaces:
   //
-  template<LVSC Object, typename Derived>
-  class RotationShell: public MechElement<Object>
+  template<LVSC LVSCKind, typename Derived>
+  class RotationShell: public MechElement<LVSCKind>
   {
   protected:
     //=======================================================================//
     // Types and Consts:                                                     //
     //=======================================================================//
-    using ME = MechElement<Object>;
+    using ME = MechElement<LVSCKind>;
 
     // Computation Tolerances:
     constexpr static double Tol     = 100.0 * Eps<double>;
@@ -379,9 +394,9 @@ namespace SpaceBallistics
     bool        m_inXZ;         //
     double      m_cosA;         // cos(alpha)
     double      m_sinA;         // sin(alpha)
-    Len         m_up [3];       // Upper (Smaller-X) axis end
+    ME::PosVE   m_up;           // Upper (Smaller-X) axis end
     Len         m_h;            // Over-all body length along the rotation axis
-    Len         m_low[3];       // Lower (Larger-X)  axis end: MoI ORIGIN
+    ME::PosVE   m_low;          // Lower (Larger-X)  axis end: MoI ORIGIN
     Len         m_yzL;          // Low[1] or Low[2]
 
     // Geometric Properties:
@@ -577,7 +592,7 @@ namespace SpaceBallistics
              IsZero(emptyMoIDots[1]) && IsZero(emptyMoIDots[2]));
 
       // Finally, invoke the Base Class Initialiser:
-      MechElement<Object>::Init
+      MechElement<LVSCKind>::Init
         (this, emptyCoM, emptyCoMDots, emptyMass, MDot0, emptyMoIs,
          emptyMoIDots,   isFinal);
     }
@@ -698,7 +713,7 @@ namespace SpaceBallistics
     // Run-Time. For the info, it also returns the PropLevel if the output ptr
     // is non-NULL:
     //
-    constexpr MechElement<Object> GetPropBulkME
+    constexpr MechElement<LVSCKind> GetPropBulkME
     (
       Mass     a_prop_mass,
       MassRate a_prop_mass_dot = MassRate(0.0),    // Must be <= 0 in general
@@ -765,15 +780,15 @@ namespace SpaceBallistics
       //     included in the result;
       // (*) the result is Final:
       //
-      return MechElement<Object>
+      return MechElement<LVSCKind>
         (com, comDots, a_prop_mass, a_prop_mass_dot, mois, moiDots, true);
     }
 
     //=======================================================================//
     // Accessors (for use by Derived Classes):                               //
     //=======================================================================//
-    constexpr typename ME::Point const& GetLow() const { return m_low; }
-    constexpr typename ME::Point const& GetUp () const { return m_up;  }
+    constexpr typename ME::PosVE const& GetLow() const { return m_low; }
+    constexpr typename ME::PosVE const& GetUp () const { return m_up;  }
 
     // The Maximum Propellant Mass (Capacity):
     constexpr Mass     GetPropMassCap()   const { return m_propMassCap; }

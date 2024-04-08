@@ -19,13 +19,13 @@ namespace SpaceBallistics
   // NB    : This type is templatised by the LV/SC Type. It is intended to just
   //         stand for itself (no objs of this class are to be created):
   //
-  enum class LVCS: int
+  enum class LVSC: int
   {
     Soyuz21b
     // Others TBD...
   };
 
-  template<LVCS ObjType>
+  template<LVSC LVSCKind>
   class EmbeddedCOS
   {
     EmbeddedCOS() = delete;

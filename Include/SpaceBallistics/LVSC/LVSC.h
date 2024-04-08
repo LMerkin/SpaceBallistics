@@ -14,6 +14,6 @@ namespace SpaceBallistics
 	{
 		Soyuz21b,		 	// Soyuz-2.1b LV (w/o the PayLoad)
 		BoilerPlate0	// Dummy PayLoad
-		// Other Objects to come...
+		// Other LVSC Kinds to come...
 	};
 }

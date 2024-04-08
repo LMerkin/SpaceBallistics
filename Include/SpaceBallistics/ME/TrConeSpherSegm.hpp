@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
 //                   "SpaceBallistics/ME/TrConeSpherSegm.hpp":               //
-//                 Geometrical Objects as Construction Elements              //
+//                  Geometric Objects as "Mechanical Elements"               //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/ME/MechElement.hpp"
@@ -29,14 +29,14 @@ namespace SpaceBallistics
   //           mass which is in this case final. If this param is 0, the mass
   //           is set under the assumtion of SutfDensity=1, and it is NOT fi-
   //           nal yet (needs to be set later via "ProRateMass").
-  // Return value: The resulting "MechElement" object.
+  // Return value: The resulting "MechElement" object:
   //
-  template<LVSC Object>
-  class TrCone final: public RotationShell<Object, TrCone<Object>>
+  template<LVSC LVSCKind>
+  class TrCone final: public RotationShell<LVSCKind, TrCone<LVSCKind>>
   {
   private:
-    using ME = MechElement  <Object>;
-    using RS = RotationShell<Object, TrCone<Object>>;
+    using ME = MechElement  <LVSCKind>;
+    using RS = RotationShell<LVSCKind, TrCone<LVSCKind>>;
 
     //=======================================================================//
     // Data Flds: Truncated Cone's Geometry:                                 //
@@ -169,7 +169,7 @@ namespace SpaceBallistics
       m_KPD1  = 2.0 * m_KP2;
 
       // Initialise the Parent Classes' Flds: NB: For (xu,yu,zu), IsUp=true:
-      RotationShell<Object, TrCone>::Init
+      RS::Init
       (
         sideSurfArea,  enclVol, a_empty_mass,
         a_alpha, a_xu, a_yu,    a_zu,   true, a_h,
@@ -310,12 +310,12 @@ namespace SpaceBallistics
   // When alpha=0, the axis of the Spherical Segment coincides with OX, which
   // is the most common case:
   //
-  template<LVSC Object>
-  class SpherSegm final: public RotationShell<Object, SpherSegm<Object>>
+  template<LVSC LVSCKind>
+  class SpherSegm final: public RotationShell<LVSCKind, SpherSegm<LVSCKind>>
   {
   private:
-    using ME = MechElement  <Object>;
-    using RS = RotationShell<Object, SpherSegm<Object>>;
+    using ME = MechElement  <LVSCKind>;
+    using RS = RotationShell<LVSCKind, SpherSegm<LVSCKind>>;
 
     //=======================================================================//
     // Data Flds: Spherical Segment's Geometry:                              //
@@ -459,7 +459,7 @@ namespace SpaceBallistics
 
       // Initialise the Parent Classes' Flds:
       // NB: (xb,yb,zb) is the Base Center, so for it, BaseIsUp = !IsFacingUp:
-      RotationShell<Object, SpherSegm>::Init
+      RS::Init
       (
         sideSurfArea,   enclVol,    a_empty_mass,
         a_alpha,  a_xb, a_yb, a_zb, !a_facing_up, a_h,
