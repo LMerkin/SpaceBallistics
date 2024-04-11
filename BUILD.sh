@@ -24,7 +24,7 @@ function usage
 {
   echo "ERROR: Invalid option: $1"
   echo "Available options:"
-  echo "-t ToolChain, currently supported: GCC (default), CLang, NVHPC"
+  echo "-t ToolChain, currently supported: GCC (default), CLang"
   echo "-c       : Configure"
   echo "-C       : as above, but with full clean-up"
   echo "-b       : Build"
@@ -97,10 +97,7 @@ case "$ToolChain" in
   "CLang")
     CXX=$(which clang++)
     ;;
-  "NVHPC")
-    CXX=$(which nvc++)
-    ;;
-  *) echo "ERROR: Invalid ToolChain=$ToolChain (must be: GCC|CLang|NVHPC)";
+  *) echo "ERROR: Invalid ToolChain=$ToolChain (must be: GCC|CLang)";
      exit 1
 esac
 

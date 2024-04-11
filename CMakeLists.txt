@@ -86,7 +86,7 @@ IF("${TOOL_CHAIN}" STREQUAL "GCC")
                 -Wmissing-braces          -Wdisabled-optimization  \
                 -Wconversion              -Wno-stringop-truncation \
                 -Wno-class-memaccess      -Wno-double-promotion    \
-                -Wno-c++20-compat")
+                -Wno-c++20-compat         -Wno-ctor-dtor-privacy")
 
 #-----------------------------------------------------------------------------#
 ELSEIF("${TOOL_CHAIN}" STREQUAL "CLang")
@@ -110,32 +110,13 @@ ELSEIF("${TOOL_CHAIN}" STREQUAL "CLang")
                 -Wno-switch-enum              -Wno-exit-time-destructors    \
                 -Wno-global-constructors      -Wno-reserved-id-macro        \
                 -Wno-padded                   -Wno-unused-macros            \
-                -Wno-gnu-zero-variadic-macro-arguments \
-                -Wno-disabled-macro-expansion          \
+                -Wno-gnu-zero-variadic-macro-arguments                      \
+                -Wno-disabled-macro-expansion                               \
                 -Wno-float-equal              -Wno-missing-prototypes       \
                 -Wno-vla                      -Wno-vla-extension            \
                 -Wno-c99-extensions           -Wno-zero-length-array        \
                 -Wno-packed                   -Wno-undefined-func-template  \
-                -Wno-gnu-statement-expression")
-
-#-----------------------------------------------------------------------------#
-ELSEIF("${TOOL_CHAIN}" STREQUAL "NVHPC")
-#-----------------------------------------------------------------------------#
-  # Optimisation and debugging flags:
-  IF ("${CMAKE_BUILD_TYPE}"     STREQUAL "Release")
-    SET(CXXFLAGS "-O3 -mavx2")
-  ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-    SET(CXXFLAGS "-O2 -g")
-  ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug"  )
-    SET(CXXFLAGS "-O0 -g")
-  ELSE()
-    MESSAGE(FATAL_ERROR "UnSupported BuildType: ${CMAKE_BUILD_TYPE}")
-  ENDIF()
-
-  # Other flags:
-  SET(CXXFLAGS  "${CXXFLAGS} -march=native -mtune=native    -std=c++23 \
-                -Wno-switch-enum           -Wno-float-equal \
-                -Wno-missing-prototypes    -Wno-vla")
+                -Wno-gnu-statement-expression -Wctor-dtor-privacy")
 
 #-----------------------------------------------------------------------------#
 ELSE()

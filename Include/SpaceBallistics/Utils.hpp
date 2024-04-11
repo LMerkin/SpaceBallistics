@@ -55,7 +55,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // Conversion of an angle given as ('+'|'-', Degs, Mins, Secs) into Radians:
   //
-  constexpr inline double ToRads(std::tuple<char,int,int,double> const& a_angle)
+  constexpr inline Angle ToRads(std::tuple<char,int,int,double> const& a_angle)
   {
     char   sign = std::get<0>(a_angle);
     assert(sign == '+' || sign == ' ' || sign == '-');
@@ -69,10 +69,11 @@ namespace SpaceBallistics
     double secs = std::get<3> (a_angle);          // Must be  0..60-
     assert(0.0 <= secs && secs <  60.0);
 
-    double rads =
-      double(To_Angle_rad(Angle_deg   (double(degs))) +
-             To_Angle_rad(Angle_arcMin(double(mins))) +
-             To_Angle_rad(Angle_arcSec(secs)));
+    // "Angle" is the same as "Angle_rad":
+    Angle rads =
+      To_Angle_rad(Angle_deg   (double(degs))) +
+      To_Angle_rad(Angle_arcMin(double(mins))) +
+      To_Angle_rad(Angle_arcSec(secs));
 
     return (sign == '-') ? (-rads) : rads;
   }

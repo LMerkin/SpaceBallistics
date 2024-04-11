@@ -92,33 +92,13 @@ namespace SpaceBallistics
   // patterns become more formalised.
   // All components are initialised to 0 by default:
   //
-/*
-  template<typename COS, typename T>
-  struct Vec3
-  {
-    // Similar to "std::array", but allows refs to the vector elements:
-    T  m_e[3];
-
-    // Default and Non-Default Ctors:
-    constexpr Vec3() = default;   // Invokes T(), sets all elements to 0
-    constexpr Vec3(T a_e0, T a_e1, T a_e2): m_e{a_e0,   a_e1,   a_e2}   {}
-    constexpr Vec3(T const (&a_v)[3])     : m_e{a_v[0], a_v[1], a_v[2]} {}
-
-    // Access to the elements:
-    constexpr T& operator[](int a_i)
-    {
-      assert(0 <= a_i && a_i < 3);
-      return m_e[a_i];
-    }
-  };
-*/
-
-// Macro for declaring a Vector (or a diagonal Tensor):
+  // Macro for declaring a Vector (or a diagonal Tensor):
 # ifdef DCL_VEC
 # undef DCL_VEC
 # endif
-  // The following macro creates the {T}{V} Vec3 templated by COS, for the type
-  // "T":
+  // The following macro creates the {T}{Sfx} Vec3 templated by COS, for the
+  // type "T"; the "Sfx" is "V" for a Vector and "T" for a Tensor:
+  //
 # define DCL_VEC(T, Sfx) \
   template<typename COS> \
   using T##Sfx = std::array<T, 3>;

@@ -6,6 +6,7 @@
 #pragma once
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/Utils.hpp"
+#include "SpaceBallistics/CoOrds/GeoCentricRotatingCOS.h"
 #include <tuple>
 
 namespace SpaceBallistics
@@ -32,42 +33,51 @@ namespace SpaceBallistics
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
     // Primary Geodetic Co-Ords:
-    double m_lambda;     // Longitide (rad)
-    double m_phi;        // Latitude  (rad)
-    Len    m_h;          // Elevation (m)
+    Angle   m_lambda;   // Longitide (rad)
+    Angle   m_phi;      // Latitude  (rad)
+    Len     m_h;        // Elevation (m)
 
-    // Derived Geocentric Rectangular Co-Ords (in GeoCRotatingCOS):
-    Len    m_r[3];       // (x, y, z)
-    Len    m_rho;        // Radius-vector from Earth center
+    // Derived Geocentric Rectangular Co-Ords (in the GeoCentricRotatingCOS):
+    PosVGR  m_r;        // (x, y, z)
+    Len     m_rho;      // Radius-vector from Earth center
 
   public:
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
-    // Longitude and Latitude are in ('+'|' '|'-', Deg, Min, Sec):
+    // Longitude and Latitude are in Degs (fractional):
     //
+    constexpr Location_WGS84(Angle_deg a_lambda,  Angle_deg    a_phi, Len a_h)
+    : Location_WGS84     (To_Angle_rad(a_lambda), To_Angle_rad(a_phi),    a_h)
+    {}
+
+    // Longitude and Latitude are in ('+'|' '|'-', Deg, Min, Sec):
     constexpr Location_WGS84
     (
       std::tuple<char,int,int,double>  a_lambda,
       std::tuple<char,int,int,double>  a_phi,
       Len                              a_h
     )
-    : // Primary Geodetic Co-Ords:
-      m_lambda(ToRads(a_lambda)),
-      m_phi   (ToRads(a_phi)),
+    : Location_WGS84(ToRads(a_lambda), ToRads(a_phi), a_h)
+    {}
+
+    // Longitude and Latitude are in Rads:
+    constexpr Location_WGS84(Angle a_lambda,  Angle a_phi,  Len a_h)
+    : m_lambda(a_lambda),
+      m_phi   (a_phi),
       m_h     (a_h)
     {
       // Derived Geocentric Rectangular Co-Ords:
       Area   a2  = Sqr(a);
-      Len    bt  = b * Tan(m_phi);
+      Len    bt  = b * Tan(double(m_phi));
       Area   bt2 = Sqr(bt);
       Area   bbt = b * bt;
       Len    d   = SqRt(a2 + bt2);
       // (x,z) in the cross-section through the axis and the given point:
       Len    x   = a2  / d;
       Len    z   = bbt / d;
-      m_r[0]     = x * Cos(m_lambda);            // GeoCentric x
-      m_r[1]     = x * Sin(m_lambda);            // GeoCentric y
+      m_r[0]     = x * Cos(double(m_lambda));    // GeoCentric x
+      m_r[1]     = x * Sin(double(m_lambda));    // GeoCentric y
       m_r[2]     = z;                            // GeoCentric z
       m_rho      = SqRt(Sqr(a2) + Sqr(bbt)) / d; // GeoCentric Radius-Vector
     }
@@ -85,14 +95,12 @@ namespace SpaceBallistics
     // Accessors:                                                            //
     //-----------------------------------------------------------------------//
     // Geodetic Co-Ords:
-    constexpr double Longitude() const { return m_lambda; }
-    constexpr double Latitude () const { return m_phi;    }
-    constexpr Len    Elevation() const { return m_h;      }
+    constexpr Angle         Longitude()     const { return m_lambda; }
+    constexpr Angle         Latitude ()     const { return m_phi;    }
+    constexpr Len           Elevation()     const { return m_h;      }
 
-    // GeoCentric Rectangualar Co-Ords:
-    constexpr Len    GeoCX    () const { return m_r[0];   }
-    constexpr Len    GeoCY    () const { return m_r[1];   }
-    constexpr Len    GeoCZ    () const { return m_r[2];   }
-    constexpr Len    GeoCRho  () const { return m_rho;    }
+    // GeoCentric Rectangualar Co-Ords (in the GeoCentricRotatingCOS):
+    constexpr PosVGR const& GeoCentricPos() const { return m_r;      }
+    constexpr Len           GeoCentricR  () const { return m_rho;    }
   };
 }

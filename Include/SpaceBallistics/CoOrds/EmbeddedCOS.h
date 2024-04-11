@@ -21,5 +21,5 @@ namespace SpaceBallistics
   {
     EmbeddedCOS() = delete;	  // No objects construction at all!
   };
-
-} //End namespace SpaceBallistics
+}
+//End namespace SpaceBallistics
