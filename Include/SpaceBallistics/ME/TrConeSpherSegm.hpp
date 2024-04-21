@@ -382,7 +382,7 @@ namespace SpaceBallistics
             !IsNeg(a_rho) && !IsNeg(a_empty_mass));
 
       Len  r        = a_d / 2.0;                    // Base   radius
-      assert(a_h   <= r * RS::TolFact);             // Important!
+      assert(a_h   <= r * TolFact);                 // Important!
       a_h           = std::min(a_h, r);
       m_R           = (Sqr(r) / a_h + a_h) / 2.0;   // Sphere radius
       m_R3          = Cube(m_R);
@@ -534,7 +534,7 @@ namespace SpaceBallistics
 
       double x   = 0.5;
       double tv  = double(a_v / m_cR3);
-      assert(0.0 <= tv && tv < 2.0 * RS::TolFact);
+      assert(0.0 <= tv && tv < 2.0 * TolFact);
       tv = std::min(2.0,  tv);           // Enforce the boundary
 
       // For safety, restrict the number of iterations:
@@ -553,7 +553,7 @@ namespace SpaceBallistics
         x -= dx;
 
         // Exit condition:
-        if (UNLIKELY(Abs(dx) < RS::Tol))
+        if (UNLIKELY(Abs(dx) < Tol))
           break;
       }
       // If we got here w/o achieving the required precision, it's an error:

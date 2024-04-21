@@ -373,10 +373,6 @@ namespace SpaceBallistics
     //=======================================================================//
     using ME = MechElement<LVSCKind>;
 
-    // Computation Tolerances:
-    constexpr static double Tol     = 100.0 * Eps<double>;
-    constexpr static double TolFact = 1.0   + Tol;
-
   private:
     //=======================================================================//
     // Data Flds:                                                            //

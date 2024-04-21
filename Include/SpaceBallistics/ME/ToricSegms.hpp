@@ -75,7 +75,7 @@ namespace SpaceBallistics
 
       Len r       =  a_d / 2.0;                   // Cross-Section Base Radius
       m_Q         =  a_D / 2.0 - r;               // Major Segment      Radius
-      assert(a_h  <= r * RS::TolFact && m_Q > r);
+      assert(a_h  <= r * TolFact && m_Q > r);
       a_h         = std::min (a_h,  r);
       m_R         = (Sqr(r) / a_h + a_h) / 2.0;   // Torus Minor Radius
       m_facingUp  = a_facing_up;
@@ -211,7 +211,7 @@ namespace SpaceBallistics
       //
       double z  = 0.5;
       double y  = double(a_v / m_NV);
-      assert(0.0 <= y && y < Pi_2<double> * RS::TolFact);
+      assert(0.0 <= y && y < Pi_2<double> * TolFact);
       y = std::min (y, Pi_2<double>);       // Enforce the upper boundary
 
       // For safety, restrict the number of iterations:
@@ -219,7 +219,7 @@ namespace SpaceBallistics
       int           i = 0;
       for (; i < N; ++i)
       {
-        assert(- RS::Tol < z && z < RS::TolFact);
+        assert(- Tol < z  && z < TolFact);
         z = std::min(std::max(z, 0.0), 1.0);
 
         double z2   = Sqr(z);
@@ -234,7 +234,7 @@ namespace SpaceBallistics
         z -= dz;
 
         // Exit condition:
-        if (UNLIKELY(Abs(dz) < RS::Tol))
+        if (UNLIKELY(Abs(dz) < Tol))
           break;
       }
       // If we got here w/o achieving the required precision, it's an error:
@@ -334,7 +334,7 @@ namespace SpaceBallistics
       // In this case, the formulas are relatively simple, so use the direct
       // computations:
       double x   = double(a_l / m_R);
-      assert(- RS::Tol < x &&  x <= RS::TolFact);
+      assert(- Tol < x &&  x <= TolFact);
       x = std::min(std::max(x, 0.0), 1.0);
 
       double cx  = 1.0 - x;
