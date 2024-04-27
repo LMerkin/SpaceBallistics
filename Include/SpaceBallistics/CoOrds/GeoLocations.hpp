@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                  "SpaceBallistics/CoOrds/Locations.hpp":                  //
+//                "SpaceBallistics/CoOrds/GeoLocations.hpp":                 //
 //                      Constants: Geodetic Locations                        //
 //===========================================================================//
 #pragma once

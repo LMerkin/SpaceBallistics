@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                    "SpaceBallistics/CoOrds/Locations.h":                  //
+//                   "SpaceBallistics/CoOrds/GeoLocations.h":                //
 //                              Geodetic Locations                           //
 //===========================================================================//
 #pragma once
@@ -23,10 +23,14 @@ namespace SpaceBallistics
     // Consts:                                                               //
     //-----------------------------------------------------------------------//
     // Semi-Major Axis of the Earth Ellipsoid ("Equatorial Radius"):
-    constexpr static Len a = 6'378'137.0_m;
+    constexpr static Len    a   = 6'378'137.0_m;
 
     // Semi-Minor Axis of the Earth Ellipsoid ("Polar Radius"):
-    constexpr static Len b = 6'356'752.314245_m;
+    constexpr static Len    b   = 6'356'752.314245_m;
+
+    // Flattening of the Earth:
+    constexpr static double fc  = double(b / a);
+    constexpr static double f   = 1.0 - fc;
 
   private:
     //-----------------------------------------------------------------------//
@@ -102,5 +106,35 @@ namespace SpaceBallistics
     // GeoCentric Rectangualar Co-Ords (in the GeoCentricRotatingCOS):
     constexpr PosVGR const& GeoCentricPos() const { return m_r;      }
     constexpr Len           GeoCentricR  () const { return m_rho;    }
+
+    //-----------------------------------------------------------------------//
+    // Util: Azimuth(degs) computation from a Terrestrial Vector:            //
+    //-----------------------------------------------------------------------//
+    constexpr inline Angle_deg GetAzimuthDegs
+    (
+      Angle_deg a_from_lambda,  // From: (Longitude, Latitude)
+      Angle_deg a_from_phi,     //
+      Angle_deg a_to_lambda,    // To  : (Longitude, Latitude)
+      Angle_deg a_to_phi
+    )
+    {
+      // The vector should be sufficiently short, otherwise the approximations
+      // used below may not be valid:
+      double dLambda = double(To_Angle_rad(a_to_lambda - a_from_lambda));
+      double dPhi    = double(To_Angle_rad(a_to_phi    - a_from_phi));
+      assert(Abs(dLambda) < 1e-3 && Abs(dPhi) < 1e-3);
+
+      if (Abs(dPhi) > Tol)
+      {
+        // dPhi != 0, ie the Azimuth is not (+-Pi/2):
+        double avgPhi = double (To_Angle_rad(a_to_phi + a_from_phi)) / 2.0;
+        double tgA    = dLambda / (dPhi * fc * SqRt(1 + Sqr(fc * Tan(avgPhi))));
+
+        // XXX: std::atan() might not be "constexpr" in CLang yet; may need to
+        // implement our own "constexpr" ATan function:
+        Angle_deg A   = To_Angle_deg(Angle_rad(std::atan(tgA)));
+
+        // "A" is in (-90 .. +90), modify it to [0..360):
+    }
   };
 }
