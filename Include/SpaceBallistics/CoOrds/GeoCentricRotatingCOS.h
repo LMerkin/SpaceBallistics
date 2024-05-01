@@ -5,7 +5,7 @@
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/Types.hpp"
-#include "SpaceBallistics/CoOrds/Locations.h"
+#include "SpaceBallistics/CoOrds/GeoLocations.h"
 
 namespace SpaceBallistics
 {

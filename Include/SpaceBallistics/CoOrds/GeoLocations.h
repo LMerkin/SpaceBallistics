@@ -51,8 +51,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Longitude and Latitude are in Degs (fractional):
     //
-    constexpr Location_WGS84(Angle_deg a_lambda,  Angle_deg    a_phi, Len a_h)
-    : Location_WGS84     (To_Angle_rad(a_lambda), To_Angle_rad(a_phi),    a_h)
+    constexpr Location_WGS84(Angle_deg a_lambda,  Angle_deg a_phi, Len a_h)
+    : Location_WGS84        (To_Angle (a_lambda), To_Angle (a_phi),    a_h)
     {}
 
     // Longitude and Latitude are in ('+'|' '|'-', Deg, Min, Sec):
@@ -110,7 +110,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Util: Azimuth(degs) computation from a Terrestrial Vector:            //
     //-----------------------------------------------------------------------//
-    constexpr inline Angle_deg GetAzimuthDegs
+    constexpr static Angle_deg GetAzimuth
     (
       Angle_deg a_from_lambda,  // From: (Longitude, Latitude)
       Angle_deg a_from_phi,     //
@@ -120,21 +120,47 @@ namespace SpaceBallistics
     {
       // The vector should be sufficiently short, otherwise the approximations
       // used below may not be valid:
-      double dLambda = double(To_Angle_rad(a_to_lambda - a_from_lambda));
-      double dPhi    = double(To_Angle_rad(a_to_phi    - a_from_phi));
+      double dLambda = double(To_Angle(a_to_lambda - a_from_lambda));
+      double dPhi    = double(To_Angle(a_to_phi    - a_from_phi));
       assert(Abs(dLambda) < 1e-3 && Abs(dPhi) < 1e-3);
 
       if (Abs(dPhi) > Tol)
       {
         // dPhi != 0, ie the Azimuth is not (+-Pi/2):
-        double avgPhi = double (To_Angle_rad(a_to_phi + a_from_phi)) / 2.0;
+        double avgPhi = double (To_Angle (a_to_phi    + a_from_phi)) / 2.0;
         double tgA    = dLambda / (dPhi * fc * SqRt(1 + Sqr(fc * Tan(avgPhi))));
 
         // XXX: std::atan() might not be "constexpr" in CLang yet; may need to
         // implement our own "constexpr" ATan function:
-        Angle_deg A   = To_Angle_deg(Angle_rad(std::atan(tgA)));
+        double A      = std::atan(tgA);
 
-        // "A" is in (-90 .. +90), modify it to [0..360):
+        // "A" is in (-Pi/2 .. +Pi/2), modify it to [0..2*Pi):
+        if (dPhi < 0.0)
+        {
+          assert(A  < 0.0);
+          A += Pi<double>;
+        }
+        else
+        if (dLambda < 0.0)
+        {
+          assert(A  < 0.0);
+          A += TwoPi<double>;
+        }
+        // We should get 0 <= A < 2*Pi, but cannot formally assert that due to
+        // possible rounding errors:
+        return To_Angle_deg(Angle(A));
+      }
+      else
+      if (dLambda > Tol)
+        // Due East:
+        return 90.0_deg;
+      else
+      if (dLambda < -Tol)
+        // Due West:
+        return 270.0_deg;
+      else
+        // Both dLambda and dPhi are ~0, so the Azimuth is undefined:
+        return Angle_deg(NaN<double>);
     }
   };
 }

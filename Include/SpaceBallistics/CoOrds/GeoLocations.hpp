@@ -4,7 +4,7 @@
 //                      Constants: Geodetic Locations                        //
 //===========================================================================//
 #pragma once
-#include "SpaceBallistics/CoOrds/Locations.h"
+#include "SpaceBallistics/CoOrds/GeoLocations.h"
 
 namespace SpaceBallistics
 {

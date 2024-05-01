@@ -31,7 +31,7 @@ namespace DimTypes
     return Magnitude();
   }
 
-  // Similarly, converting "Angle_deg" into "double", via "Angle_rad":
+  // Similarly, converting "Angle_deg" into "double", via "Angle" (rad):
   template<>
   constexpr inline
   DimQ
@@ -44,7 +44,7 @@ namespace DimTypes
   {
     using ThisDimQ = std::remove_cv_t<std::remove_reference_t<decltype(*this)>>;
     static_assert(std::is_same_v<ThisDimQ, SB::Angle_deg>);
-    return double(SB::To_Angle_rad(*this));
+    return double(SB::To_Angle(*this));
   }
 }
 
@@ -71,9 +71,9 @@ namespace SpaceBallistics
 
     // "Angle" is the same as "Angle_rad":
     Angle rads =
-      To_Angle_rad(Angle_deg   (double(degs))) +
-      To_Angle_rad(Angle_arcMin(double(mins))) +
-      To_Angle_rad(Angle_arcSec(secs));
+      To_Angle(Angle_deg   (double(degs))) +
+      To_Angle(Angle_arcMin(double(mins))) +
+      To_Angle(Angle_arcSec(secs));
 
     return (sign == '-') ? (-rads) : rads;
   }

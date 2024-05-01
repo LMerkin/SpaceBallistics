@@ -4,7 +4,7 @@
 //                         Locations with Azimuths                           //
 //===========================================================================//
 #pragma once
-#include "SpaceBallistics/CoOrds/Locations.hpp"
+#include "SpaceBallistics/CoOrds/GeoLocations.hpp"
 
 namespace SpaceBallistics
 {
@@ -22,6 +22,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
   private:
     Angle   m_azimuth;
+    Angle   m_yaw0;
 
   public:
     //-----------------------------------------------------------------------//
@@ -35,28 +36,49 @@ namespace SpaceBallistics
       Angle_deg      a_azimuth   // Azimuth of the Main Pad Axis
     )
     : Location_WGS84(a_location),
-      m_azimuth     (To_Angle_rad(a_azimuth))
+      m_azimuth     (To_Angle             (a_azimuth)),
+      m_yaw0        (Angle(Pi_4<double>) - m_azimuth)
     {}
 
     //-----------------------------------------------------------------------//
     // Accessors:                                                            //
     //-----------------------------------------------------------------------//
     constexpr Angle Azimuth() const { return m_azimuth; }
-    constexpr Angle Yaw0   () const { return Pi_4<double> - m_azimuth; }
+    constexpr Angle Yaw0   () const { return m_yaw0;    }
   };
 
   //=========================================================================//
   // Actual Pads:                                                            //
   //=========================================================================//
   constexpr static Soyuz2_LaunchPad Pad_Vostochny_1S  =
-    Soyuz2_LaunchPad(Vostochny_1S, );
+    Soyuz2_LaunchPad
+    (
+      Vostochny_1S,
+      Location_WGS84::GetAzimuth
+        (128.33181_deg, 51.88161_deg, 128.33475_deg, 51.88435_deg)
+    );
 
   constexpr static Soyuz2_LaunchPad Pad_Baykonur_31_6 =
-    Soyuz2_LaunchPad(Baykonur_31_6, );
+    Soyuz2_LaunchPad
+    (
+      Baykonur_31_6,
+      Location_WGS84::GetAzimuth
+        ( 63.5672_deg,  45.99428_deg,  63.56448_deg, 45.9959_deg)
+    );
 
   constexpr static Soyuz2_LaunchPad Pad_Plesetsk_43_3 =
-    Soyuz2_LaunchPad(Plesetsk_43_3, );
+    Soyuz2_LaunchPad
+    (
+      Plesetsk_43_3,
+      Location_WGS84::GetAzimuth
+        ( 40.45275_deg, 62.92641_deg,  40.45097_deg, 62.92689_deg)
+    );
 
   constexpr static Soyuz2_LaunchPad Pad_Plesetsk_43_4 =
-    Soyuz2_LaunchPad(Plesetsk_43_4, )
+    Soyuz2_LaunchPad
+    (
+      Plesetsk_43_4,
+      Location_WGS84::GetAzimuth
+        ( 40.4569_deg,  62.92725_deg,  40.45686_deg, 62.92803_deg)
+    );
 }
