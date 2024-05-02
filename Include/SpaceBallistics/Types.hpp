@@ -69,6 +69,9 @@ namespace SpaceBallistics
   // MoI Change Rate (kg*m^2 / sec):
   using MoIRate  = decltype(MoI()  / 1.0_sec);
 
+  // Gravitational Field Constant:
+  using GM       = decltype(Cube(1.0_m) / Sqr(1.0_sec));
+
   //-------------------------------------------------------------------------//
   // Powers of "Len" and their Time Derivatives: Widely used:                //
   //-------------------------------------------------------------------------//

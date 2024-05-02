@@ -5,7 +5,6 @@
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/Types.hpp"
-#include "SpaceBallistics/CoOrds/GeoLocations.h"
 
 namespace SpaceBallistics
 {
@@ -14,7 +13,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // Origin: Center of the Earth ellipsoid
   // Axes  : (X=(0 deg, 0 deg), Y=(90 deg, 0 deg), Z=(*, 90 deg) = NorthPole)
-  // NB    : This class stands for itself; no objects of it cane be created :
+  // NB    : This class stands for itself; no objects of it can be created :
   //
   class GeoCentricRotatingCOS
   {
@@ -24,8 +23,6 @@ namespace SpaceBallistics
   //=========================================================================//
   // Position, Velocity and other Vectors in this COS:                       //
   //=========================================================================//
-  // We can declare them here because the "GeoCentricROtatingCOS" is a monomor-
-  // phic type:
   using PosVGR    = PosV   <GeoCentricRotatingCOS>;
   using VelVGR    = VelV   <GeoCentricRotatingCOS>;
   using AccVGR    = AccV   <GeoCentricRotatingCOS>;

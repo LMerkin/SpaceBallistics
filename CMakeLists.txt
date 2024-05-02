@@ -166,7 +166,8 @@ LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
 # The Target Library:                                                         #
 #=============================================================================#
 ADD_LIBRARY(${PROJECT_NAME} STATIC
-  Src/Soyuz21b_Stage3.cpp)
+  Src/Soyuz21b_Stage3.cpp
+  Src/LunarGravityPotential.cpp)
 
 #=============================================================================#
 # Tests:                                                                      #
@@ -175,7 +176,8 @@ SET(SB_TESTS
   METest
   Stage3Test
   LocationsTest
-  AzimuthTest)
+  AzimuthTest
+  LunarOrbiterTest)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)

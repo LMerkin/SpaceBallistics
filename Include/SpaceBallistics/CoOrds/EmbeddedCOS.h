@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
-//                              "EmbeddedCOS.h":                             //
-//                        Embedded Co-Ords System Type                       //
+//                   "SpaceBallistics/CoOrds/EmbeddedCOS.h":                 //
+//       Embedded Co-Ords System (Bound to the Physical Axes of LV/SC)       //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/LVSC/LVSC.h"
