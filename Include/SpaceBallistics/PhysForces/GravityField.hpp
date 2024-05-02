@@ -9,7 +9,6 @@
 #include <type_traits>
 #include <cmath>
 #include <stdexcept>
-#include <format>
 #include <gsl/gsl_sf_legendre.h>
 
 namespace SpaceBallistics
@@ -66,8 +65,13 @@ namespace SpaceBallistics
     Len2 r2xy    = Sqr(x) + Sqr(y);
     Len2 r2      = r2xy   + Sqr(z);
     Len  r       = SqRt(r2);
-    assert(r > a_Re);         // Otherwise, divergence may occurs...
-    Acc  mainAcc = a_K / r2;  // Main part of the Gravitational Acceleration
+
+    if (UNLIKELY(r <= a_Re))
+      // Inner points are not allowed: Divergence may occur:
+      throw std::runtime_error("GravAcc: Under the surface");
+
+    // Main part of the Gravitational Acceleration:
+    Acc  mainAcc = a_K / r2;
 
     // Re / r:
     double ir = double(a_Re / r);
@@ -99,7 +103,7 @@ namespace SpaceBallistics
 
     // Pre-Compute the Legendre Polynomials and their Derivatives up to order
     // l_max = N:
-    int rc =
+    DEBUG_ONLY(int rc =)
       gsl_sf_legendre_deriv_array
         (GSL_SF_LEGENDRE_SPHARM, size_t(N), sinPhi, Ps, DerPs);
     assert(rc == 0);
@@ -158,7 +162,7 @@ namespace SpaceBallistics
       F *= SqRt4Pi;
 
       // And the Main Term:
-      a_acc[i] += mainAcc * (F - A);
+      (*a_acc)[i] += mainAcc * (F - A);
     }
   }
 }

@@ -17,8 +17,8 @@ namespace SpaceBallistics
   (
     double,
     (Mass,     kg),
-    (Len,      m,   (km, 1000.0)),
-    (Time,     sec),
+    (Len,      m,   (km,     1000.0)),
+    (Time,     sec, (day,   86400.0)),
 
     // Angles: When expressed in "rad", angles are directly convertible to a
     // dimension-less "double";  other units must first be converted into "rad":

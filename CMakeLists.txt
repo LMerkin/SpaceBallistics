@@ -55,6 +55,10 @@ SET(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${ENV_PREFIX}/lib/pkgconfig")
 # Boost (no specific version checks); here used as a Headers-Only library:
 FIND_PACKAGE(Boost  REQUIRED)
 
+# GSL:
+FIND_PACKAGE(GSL REQUIRED)
+SET(GSL_LIBS "gsl" "openblas")
+
 #=============================================================================#
 # Compiler Settings:                                                          #
 #=============================================================================#
@@ -181,5 +185,5 @@ SET(SB_TESTS
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)
-  TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME})
+  TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME} ${GSL_LIBS})
 ENDFOREACH(SB_TEST)
