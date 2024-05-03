@@ -4,7 +4,8 @@
 //                      Constants: Geodetic Locations                        //
 //===========================================================================//
 #pragma once
-#include "SpaceBallistics/CoOrds/GeoLocations.h"
+#include "SpaceBallistics/CoOrds/Bodies.h"
+#include "SpaceBallistics/CoOrds/Locations.h"
 
 namespace SpaceBallistics
 {
@@ -13,8 +14,8 @@ namespace SpaceBallistics
   //=========================================================================//
   // 1 Launch Pad at Vostochny:
   //
-  constexpr static Location_WGS84 Vostochny_1S =
-    Location_WGS84
+  constexpr static Location<Body::Earth> Vostochny_1S =
+    Location<Body::Earth>
     (
       { '+', 128, 20, 05.0 },
       { '+',  51, 53, 03.0 },
@@ -25,8 +26,8 @@ namespace SpaceBallistics
   // "Gagarin's Start", is currently on conservation and is not suitable
   // for "Soyuz-2*" launches):
   //
-  constexpr static Location_WGS84 Baykonur_31_6 =
-    Location_WGS84
+  constexpr static Location<Body::Earth> Baykonur_31_6 =
+    Location<Body::Earth>
     (
       { '+',  63, 33, 50.0 },
       { '+',  45, 59, 46.0 },
@@ -36,15 +37,15 @@ namespace SpaceBallistics
   // 2 active launch Pads as Plesetsk (#3 and #4); #2 was for Molniya-M and has
   // been unused since 2012 and #1 has been demolished in 1999:
   //
-  constexpr static Location_WGS84 Plesetsk_43_3 =
-    Location_WGS84
+  constexpr static Location<Body::Earth> Plesetsk_43_3 =
+    Location<Body::Earth>
     (
       { '+',  40, 26, 59.0 },
       { '+',  62, 55, 37.0 },
       100.0_m     // Approx
     );
-  constexpr static Location_WGS84 Plesetsk_43_4 =
-    Location_WGS84
+  constexpr static Location<Body::Earth> Plesetsk_43_4 =
+    Location<Body::Earth>
     (
       { '+',  40, 27, 24.0 },
       { '+',  62, 55, 42.0 },

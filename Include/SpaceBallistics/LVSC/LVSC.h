@@ -7,13 +7,13 @@
 
 namespace SpaceBallistics
 {
-	//=========================================================================//
-	// "LVSC" Enum Class:                                                      //
-	//=========================================================================//
-	enum class LVSC
-	{
-		Soyuz21b,		 	// Soyuz-2.1b LV (w/o the PayLoad)
-		BoilerPlate0	// Dummy PayLoad
-		// Other LVSC Kinds to come...
-	};
+  //=========================================================================//
+  // "LVSC" Enum Class:                                                      //
+  //=========================================================================//
+  enum class LVSC: int
+  {
+    BoilerPlate0,  // Dummy PayLoad
+    Soyuz21b       // Soyuz-2.1b LV (w/o the PayLoad)
+    // Other LVSC Kinds to come...
+  };
 }

@@ -5,9 +5,9 @@
 //                    in an Irregualr Gravitational Field                    //
 //===========================================================================//
 #include "SpaceBallistics/PhysForces/GravityField.hpp"
-#include "SpaceBallistics/PhysForces/LunarGravityPotential.h"
-#include "SpaceBallistics/CoOrds/SelenoCentricFixedCOS.h"
-#include "SpaceBallistics/CoOrds/SelenoCentricRotatingCOS.h"
+#include "SpaceBallistics/CoOrds/Bodies.h"
+#include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
+#include "SpaceBallistics/CoOrds/Locations.h"
 #include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_errno.h>
 #include <iostream>
@@ -41,8 +41,8 @@ namespace
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
     // Fixed COS:
-    PosVSF posF{{Len(a_y[0]), Len(a_y[1]), Len(a_y[2])}}; // m
-    Time   t   (a_t);                                     // sec
+    PosVBF<Body::Moon> posF{{Len(a_y[0]), Len(a_y[1]), Len(a_y[2])}}; // m
+    Time   t   (a_t);                                                 // sec
 
     // ("UnTyped") derivatives of those Co-Ords are the corresp Velocities:
     a_y_dot[0] = a_y[3];
@@ -64,22 +64,22 @@ namespace
     double         sinMRA = Sin(MRA);
 
     // Co-Ords in the Rotating system via those in the Fixed one:
-    PosVSR posR
+    PosVBR<Body::Moon> posR
     {{
       cosMRA * posF[0] + sinMRA * posF[1],
       cosMRA * posF[1] - sinMRA * posF[0],
       posF[2]
     }};
     // Acceleration in the Rotating System: Must be cleared first:
-    AccVSR accR {{Acc(0.0), Acc(0.0), Acc(0.0)}};
+    AccVBR<Body::Moon> accR {{Acc(0.0), Acc(0.0), Acc(0.0)}};
 
     // Now try to compute the actual acceleration:
     // collision with the Lunar surface; 
     try
     {
-      GravAcc<GPOrderMoon>(KMoon, ReMoon, GPCoeffsMoon, Time(a_t), posR, &accR);
+      GravityField<Body::Moon>::GravAcc(Time(a_t), posR, &accR);
     }
-    catch (ImpactExn<SelenoCentricRotatingCOS> const& exn)
+    catch (GravityField<Body::Moon>::ImpactExn const& exn)
     {
       // An exception would mean a likely collison with Lunar surface; stop the
       // integration immediately:
@@ -90,7 +90,7 @@ namespace
       return GSL_EBADFUNC;
     }
     // If OK: Convert "accR"  back into the Fixed COS:
-    AccVSF accF
+    AccVBF<Body::Moon> accF
     {{
       cosMRA * accR[0] - sinMRA * accR[1],
       sinMRA * accR[0] + cosMRA * accR[1],
@@ -120,10 +120,12 @@ int main()
   // is in the circular polar orbit around the Moon, over the point (lambda=0,
   // phi=0), at the altitude "h", moving North:
   //
-  constexpr Time t0 = 0.0_sec;
-  constexpr Len  h0 = To_Len(20.0_km);
-  constexpr Len  r0 = ReMoon + h0;
-  constexpr Vel  V0 = SqRt(KMoon / r0);
+  constexpr Time t0     = 0.0_sec;
+  constexpr Len  h0     = To_Len(20.0_km);
+  constexpr Len  ReMoon = Location    <Body::Moon>::Re;
+  constexpr GM   KMoon  = GravityField<Body::Moon>::K;
+  constexpr Len  r0     = ReMoon     + h0;
+  constexpr Vel  V0     = SqRt(KMoon / r0);
 
   // "UnTyped" initial state vector for GSL:
   double y[ODEDim]

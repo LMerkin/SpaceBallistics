@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
 //                         "Soyuz2_LaunchPads.hpp":                          //
-//                         Locations with Azimuths                           //
+//                        Pad Locations with Azimuths                        //
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/CoOrds/GeoLocations.hpp"
@@ -15,7 +15,7 @@ namespace SpaceBallistics
   // Main Axis of the Pad (ie pointing towards the Far Edge of the Pad).  Then
   // the initial Yaw (at the Launch Pad) can be taken as (Pi/4 - Azimuth):
   //
-  class Soyuz2_LaunchPad: public Location_WGS84
+  class Soyuz2_LaunchPad: public Location<Body::Earth>
   {
     //-----------------------------------------------------------------------//
     // Data Fld(s):                                                          //
@@ -32,12 +32,12 @@ namespace SpaceBallistics
     //
     constexpr Soyuz2_LaunchPad
     (
-      Location_WGS84 a_location,
-      Angle_deg      a_azimuth   // Azimuth of the Main Pad Axis
+      Location<Body::Earth> const& a_location,
+      Angle_deg                    a_azimuth  // Azimuth of the Main Pad Axis
     )
-    : Location_WGS84(a_location),
-      m_azimuth     (To_Angle             (a_azimuth)),
-      m_yaw0        (Angle(Pi_4<double>) - m_azimuth)
+    : Location<Body::Earth>(a_location),
+      m_azimuth            (To_Angle             (a_azimuth)),
+      m_yaw0               (Angle(Pi_4<double>) - m_azimuth)
     {}
 
     //-----------------------------------------------------------------------//
@@ -54,7 +54,7 @@ namespace SpaceBallistics
     Soyuz2_LaunchPad
     (
       Vostochny_1S,
-      Location_WGS84::GetAzimuth
+      Location<Body::Earth>::GetAzimuth
         (128.33181_deg, 51.88161_deg, 128.33475_deg, 51.88435_deg)
     );
 
@@ -62,7 +62,7 @@ namespace SpaceBallistics
     Soyuz2_LaunchPad
     (
       Baykonur_31_6,
-      Location_WGS84::GetAzimuth
+      Location<Body::Earth>::GetAzimuth
         ( 63.5672_deg,  45.99428_deg,  63.56448_deg, 45.9959_deg)
     );
 
@@ -70,7 +70,7 @@ namespace SpaceBallistics
     Soyuz2_LaunchPad
     (
       Plesetsk_43_3,
-      Location_WGS84::GetAzimuth
+      Location<Body::Earth>::GetAzimuth
         ( 40.45275_deg, 62.92641_deg,  40.45097_deg, 62.92689_deg)
     );
 
@@ -78,7 +78,7 @@ namespace SpaceBallistics
     Soyuz2_LaunchPad
     (
       Plesetsk_43_4,
-      Location_WGS84::GetAzimuth
+      Location<Body::Earth>::GetAzimuth
         ( 40.4569_deg,  62.92725_deg,  40.45686_deg, 62.92803_deg)
     );
 }

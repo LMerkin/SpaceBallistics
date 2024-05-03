@@ -171,7 +171,7 @@ LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
 #=============================================================================#
 ADD_LIBRARY(${PROJECT_NAME} STATIC
   Src/Soyuz21b_Stage3.cpp
-  Src/LunarGravityPotential.cpp)
+  Src/GravityPotential-Moon.cpp)
 
 #=============================================================================#
 # Tests:                                                                      #
