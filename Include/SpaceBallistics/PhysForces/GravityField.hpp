@@ -105,11 +105,11 @@ namespace SpaceBallistics
     //
     static void GravAcc
     (
-      Time                    a_t,                  // For info only
-      PosVBR<BodyName> const& a_pos,
-      AccVBR<BodyName>*       a_acc,
-      int                     a_n          = N,     // Max order used
-      bool                    a_zonal_only = false  // Zonal Harmonics only?
+      Time                     a_t,                  // For info only
+      PosVRot<BodyName> const& a_pos,
+      AccVRot<BodyName>*       a_acc,
+      int                      a_n          = N,     // Max order used
+      bool                     a_zonal_only = false  // Zonal Harmonics only?
     )
     {
       //---------------------------------------------------------------------//

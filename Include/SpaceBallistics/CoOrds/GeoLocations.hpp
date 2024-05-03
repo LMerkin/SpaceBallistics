@@ -52,3 +52,4 @@ namespace SpaceBallistics
       100.0_m     // Approx
     );
 }
+// End namespace SpaceBallistics

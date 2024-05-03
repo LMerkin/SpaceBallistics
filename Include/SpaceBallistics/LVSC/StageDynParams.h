@@ -24,3 +24,4 @@ namespace SpaceBallistics
     Force m_thrust[3];  // Curr engine thrust    (Fx, Fy, Fz)
   };
 }
+// End namespace SpaceBallistics

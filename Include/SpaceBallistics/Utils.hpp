@@ -78,3 +78,4 @@ namespace SpaceBallistics
     return (sign == '-') ? (-rads) : rads;
   }
 }
+// End namespace SpaceBallistics

@@ -456,3 +456,4 @@ namespace SpaceBallistics
     static StageDynParams GetDynParams(Time a_t);
   };
 }
+// End namespace SpaceBallistics

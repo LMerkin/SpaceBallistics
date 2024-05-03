@@ -52,3 +52,4 @@ namespace SpaceBallistics::Soyuz21b_Head
   constexpr inline Mass InterStageLargeMass  = 450.0_kg;
   constexpr inline Mass InterStageSmallMass  = 220.0_kg;
 }
+// End namespace SpaceBallistics

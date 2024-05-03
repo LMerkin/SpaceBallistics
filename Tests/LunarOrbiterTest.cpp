@@ -41,8 +41,8 @@ namespace
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
     // Fixed COS:
-    PosVBF<Body::Moon> posF{{Len(a_y[0]), Len(a_y[1]), Len(a_y[2])}}; // m
-    Time   t   (a_t);                                                 // sec
+    PosVFix<Body::Moon> posF{{Len(a_y[0]), Len(a_y[1]), Len(a_y[2])}}; // m
+    Time    t   (a_t);                                                 // sec
 
     // ("UnTyped") derivatives of those Co-Ords are the corresp Velocities:
     a_y_dot[0] = a_y[3];
@@ -64,14 +64,14 @@ namespace
     double         sinMRA = Sin(MRA);
 
     // Co-Ords in the Rotating system via those in the Fixed one:
-    PosVBR<Body::Moon> posR
+    PosVRot<Body::Moon> posR
     {{
       cosMRA * posF[0] + sinMRA * posF[1],
       cosMRA * posF[1] - sinMRA * posF[0],
       posF[2]
     }};
     // Acceleration in the Rotating System: Must be cleared first:
-    AccVBR<Body::Moon> accR {{Acc(0.0), Acc(0.0), Acc(0.0)}};
+    AccVRot<Body::Moon> accR {{Acc(0.0), Acc(0.0), Acc(0.0)}};
 
     // Now try to compute the actual acceleration:
     // collision with the Lunar surface; 
@@ -90,7 +90,7 @@ namespace
       return GSL_EBADFUNC;
     }
     // If OK: Convert "accR"  back into the Fixed COS:
-    AccVBF<Body::Moon> accF
+    AccVFix<Body::Moon> accF
     {{
       cosMRA * accR[0] - sinMRA * accR[1],
       sinMRA * accR[0] + cosMRA * accR[1],

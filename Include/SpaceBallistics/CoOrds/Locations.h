@@ -74,7 +74,7 @@ namespace SpaceBallistics
     Len               m_h;        // Elevation (m)
 
     // Derived Rectangular Co-Ords (in the BodyCentricRotatingCOS):
-    PosVBR<BodyName>  m_r;        // (x, y, z)
+    PosVRot<BodyName> m_r;        // (x, y, z)
     Len               m_rho;      // Radius-vector from Body center
 
   public:
@@ -136,13 +136,13 @@ namespace SpaceBallistics
     // Accessors:                                                            //
     //-----------------------------------------------------------------------//
     // Body-detic Co-Ords:
-    constexpr Angle                   Longitude() const { return m_lambda; }
-    constexpr Angle                   Latitude () const { return m_phi;    }
-    constexpr Len                     Elevation() const { return m_h;      }
+    constexpr Angle                    Longitude() const { return m_lambda; }
+    constexpr Angle                    Latitude () const { return m_phi;    }
+    constexpr Len                      Elevation() const { return m_h;      }
 
     // BodyCentric Rectangualar Co-Ords (in the BodyCentricRotatingCOS):
-    constexpr PosVBR<BodyName> const& PosV     () const { return m_r;      }
-    constexpr Len                     Rho      () const { return m_rho;    }
+    constexpr PosVRot<BodyName> const& PosV     () const { return m_r;      }
+    constexpr Len                      Rho      () const { return m_rho;    }
 
     //-----------------------------------------------------------------------//
     // Util: Azimuth(degs) computation from a Tangential Vector:             //

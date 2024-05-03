@@ -17,3 +17,4 @@ namespace SpaceBallistics
     // Other LVSC Kinds to come...
   };
 }
+// End namespace SpaceBallistics

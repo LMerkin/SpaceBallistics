@@ -41,28 +41,28 @@ namespace SpaceBallistics
   // Position, Velocity and other Vectors in a "BodyCentricFixedCOS":        //
   //-------------------------------------------------------------------------//
   template<Body BodyName>
-  using PosVBF    = PosV   <BodyCentricFixedCOS<BodyName>>;
+  using PosVFix    = PosV   <BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using VelVBF    = VelV   <BodyCentricFixedCOS<BodyName>>;
+  using VelVFix    = VelV   <BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using AccVBF    = AccV   <BodyCentricFixedCOS<BodyName>>;
+  using AccVFix    = AccV   <BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using ForceVBF  = ForceV <BodyCentricFixedCOS<BodyName>>;
+  using ForceVFix  = ForceV <BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using AngVelVBF = AngVelV<BodyCentricFixedCOS<BodyName>>;
+  using AngVelVFix = AngVelV<BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using AngAccVBF = AngAccV<BodyCentricFixedCOS<BodyName>>;
+  using AngAccVFix = AngAccV<BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using AngMomVBF = AngMomV<BodyCentricFixedCOS<BodyName>>;
+  using AngMomVFix = AngMomV<BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using TorqVBF   = TorqV  <BodyCentricFixedCOS<BodyName>>;
+  using TorqVFix   = TorqV  <BodyCentricFixedCOS<BodyName>>;
 
   //=========================================================================//
   // "BodyCentricRotatingCOS" Class:                                         //
@@ -98,27 +98,27 @@ namespace SpaceBallistics
   // Position, Velocity and other Vectors in a "BodyCentricRotatingCOS":     //
   //-------------------------------------------------------------------------//
   template<Body BodyName>
-  using PosVBR    = PosV   <BodyCentricRotatingCOS<BodyName>>;
+  using PosVRot    = PosV   <BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using VelVBR    = VelV   <BodyCentricRotatingCOS<BodyName>>;
+  using VelVRot    = VelV   <BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using AccVBR    = AccV   <BodyCentricRotatingCOS<BodyName>>;
+  using AccVRot    = AccV   <BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using ForceVBR  = ForceV <BodyCentricRotatingCOS<BodyName>>;
+  using ForceVRot  = ForceV <BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using AngVelVBR = AngVelV<BodyCentricRotatingCOS<BodyName>>;
+  using AngVelVRot = AngVelV<BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using AngAccVBR = AngAccV<BodyCentricRotatingCOS<BodyName>>;
+  using AngAccVRot = AngAccV<BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using AngMomVBR = AngMomV<BodyCentricRotatingCOS<BodyName>>;
+  using AngMomVRot = AngMomV<BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using TorqVBR   = TorqV  <BodyCentricRotatingCOS<BodyName>>;
+  using TorqVRot   = TorqV  <BodyCentricRotatingCOS<BodyName>>;
 }
 // End namespace SpaceBallistics

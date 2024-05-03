@@ -13,3 +13,4 @@ namespace SpaceBallistics::Propellants
   constexpr auto T1Dens  = Density( 820.0);  // Another src: >= 800
   constexpr auto LOxDens = Density(1141.0);
 }
+// End namespace SpaceBallistics

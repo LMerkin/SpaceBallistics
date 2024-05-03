@@ -65,3 +65,4 @@ namespace SpaceBallistics::Soyuz21b_Consts
   constexpr inline Len    X0                     = 0.0_m; // Top of Stage3
   constexpr inline Len    Stage3Len              = 6.745_m;
 }
+// End namespace SpaceBallistics

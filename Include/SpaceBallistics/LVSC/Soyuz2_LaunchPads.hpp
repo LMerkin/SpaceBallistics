@@ -82,3 +82,4 @@ namespace SpaceBallistics
         ( 40.4569_deg,  62.92725_deg,  40.45686_deg, 62.92803_deg)
     );
 }
+// End namespace SpaceBallistics

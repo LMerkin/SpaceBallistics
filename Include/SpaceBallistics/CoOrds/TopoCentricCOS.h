@@ -26,28 +26,28 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in this COS:                       //
   //-------------------------------------------------------------------------//
-  template<Body BodyName, Location<BodyName const* L>
-  using PosVT     = PosV   <TopoCentricCOS<BodyName, L>>;
+  template<Body BodyName, Location<BodyName> const* L>
+  using PosVTop    = PosV   <TopoCentricCOS<BodyName, L>>;
 
-  template<Body BodyName, Location<BodyName const* L>
-  using VelVT     = VelV   <TopoCentricCOS<BodyName, L>>;
+  template<Body BodyName, Location<BodyName> const* L>
+  using VelVTop    = VelV   <TopoCentricCOS<BodyName, L>>;
 
-  template<Body BodyName, Location<BodyName const* L>
-  using AccVT     = AccV   <TopoCentricCOS<BodyName, L>>;
+  template<Body BodyName, Location<BodyName> const* L>
+  using AccVTop    = AccV   <TopoCentricCOS<BodyName, L>>;
 
-  template<Body BodyName, Location<BodyName const* L>
-  using ForceVT   = ForceV <TopoCentricCOS<BodyName, L>>;
+  template<Body BodyName, Location<BodyName> const* L>
+  using ForceVTop  = ForceV <TopoCentricCOS<BodyName, L>>;
 
-  template<Body BodyName, Location<BodyName const* L>
-  using AngVelVT  = AngVelV<TopoCentricCOS<BodyName, L>>;
+  template<Body BodyName, Location<BodyName> const* L>
+  using AngVelVTop = AngVelV<TopoCentricCOS<BodyName, L>>;
 
-  template<Body BodyName, Location<BodyName const* L>
-  using AngAccVT  = AngAccV<TopoCentricCOS<BodyName, L>>;
+  template<Body BodyName, Location<BodyName> const* L>
+  using AngAccVTop = AngAccV<TopoCentricCOS<BodyName, L>>;
 
-  template<Body BodyName, Location<BodyName const* L>
-  using AngMomVT  = AngMomV<TopoCentricCOS<BodyName, L>>;
+  template<Body BodyName, Location<BodyName> const* L>
+  using AngMomVTop = AngMomV<TopoCentricCOS<BodyName, L>>;
 
-  template<Body BodyName, Location<BodyName const* L>
-  using TorqVT    = TorqV  <TopoCentricCOS<BodyName, L>>;
+  template<Body BodyName, Location<BodyName> const* L>
+  using TorqVTop   = TorqV  <TopoCentricCOS<BodyName, L>>;
 }
 // End namespave SpaceBallistics

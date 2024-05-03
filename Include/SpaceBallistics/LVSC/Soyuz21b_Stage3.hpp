@@ -160,3 +160,4 @@ namespace SpaceBallistics
     return res;
   }
 }
+// End namespace SpaceBallistics
