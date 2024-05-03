@@ -77,12 +77,16 @@ namespace
     // collision with the Lunar surface; 
     try
     {
-      GravAcc<GPOrderMoon>(KMoon, ReMoon, GPCoeffsMoon, posR, &accR);
+      GravAcc<GPOrderMoon>(KMoon, ReMoon, GPCoeffsMoon, Time(a_t), posR, &accR);
     }
-    catch (runtime_error const&)
+    catch (ImpactExn<SelenoCentricRotatingCOS> const& exn)
     {
-      // An exception would mean a likely collison with Lunar surface; stop
+      // An exception would mean a likely collison with Lunar surface; stop the
       // integration immediately:
+      cout << exn.m_t.Magnitude() << "  " << To_Len_km(exn.m_h) << endl;
+      cout << "# LUNAR SURFACE IMPACT NEAR lambda = "
+           << To_Angle_deg(exn.m_lambda) << ", phi = "
+           << To_Angle_deg(exn.m_phi)    << endl;
       return GSL_EBADFUNC;
     }
     // If OK: Convert "accR"  back into the Fixed COS:
@@ -151,17 +155,17 @@ int main()
     double t1 =  t + tauObs.Magnitude();
     int    rc =  gsl_odeiv2_driver_apply(ODEDriver, &t, t1, y);
 
-    // Output the current Altitude:
-    Len_km  h =
-      To_Len_km(Len(SqRt(Sqr(y[0]) + Sqr(y[1]) + Sqr(y[2]))) - ReMoon);
-    cout << t << "  " << h << endl;
-
-    if (rc != 0)
+    if (UNLIKELY(rc != 0))
     {
       cout << "# ERROR, exiting..." << endl;
       break;
     }
+    // Output the current Altitude:
+    Len_km  h =
+      To_Len_km(Len(SqRt(Sqr(y[0]) + Sqr(y[1]) + Sqr(y[2]))) - ReMoon);
+    cout << t << "  " << h << endl;
   }
+
   // De-Allocate the Driver:
   (void) gsl_odeiv2_driver_free(ODEDriver);
   return 0;

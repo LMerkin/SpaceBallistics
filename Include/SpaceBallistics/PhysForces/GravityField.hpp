@@ -13,9 +13,9 @@
 
 namespace SpaceBallistics
 {
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // Model Data:                                                             //
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // The struct for Dimension-Less Spherical Harmonics Coeffs  representing  a
   // Gravitational Potential. Geodesy-style normalisation (to 4*Pi) is assumed.
   // Obviously, they depend on the Gravitating Body specified via its Rotating
@@ -35,9 +35,22 @@ namespace SpaceBallistics
     double const m_Slm;   // Coeff at Sin
   };
 
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
+  // Exception thrown on "impact" (actually when r <= Re):                   //
+  //=========================================================================//
+  // Contains the info on the "impact" site co-ords in the specified "RCOS":
+  template<typename RCOS>
+  struct ImpactExn
+  {
+    Time  const m_t;      // Time
+    Len   const m_h;      // Elevation over the Equatorial Radius
+    Angle const m_lambda; // Impact Site Longitude
+    Angle const m_phi;    // Impact Site Latitude
+  };
+
+  //=========================================================================//
   // Gravitational Acceleration Computation:                                 //
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // The function ADDS the components of the gravitational acceleration vector
   // (which is due to the gravitation field of the Moon)  to the output vector
   // "acc", so the latter must be properly initialised (eg zeroed-out)  before
@@ -49,16 +62,18 @@ namespace SpaceBallistics
     GM                              a_K,       // Grav Fld Const
     Len                             a_Re,      // Equator. Radius
     SpherHarmonicCoeffs<RCOS> const (&a_coeffs)[((N+1)*(N+2))/2],
+    Time                            a_t,       // For info only
     PosV<RCOS> const&               a_pos,
     AccV<RCOS>*                     a_acc
   )
   {
+    //-----------------------------------------------------------------------//
+    // Checks:                                                               //
+    //-----------------------------------------------------------------------//
     static_assert(N == 0 || N >= 2);           // No models of order 1...
     assert(IsPos(a_K) && IsPos(a_Re) && a_acc != nullptr);
 
-    constexpr double SqRt4Pi = 2.0 * SqRt(Pi<double>);
-
-    // The the CoOrds:
+    // The CoOrds:
     Len  x       = a_pos[0];
     Len  y       = a_pos[1];
     Len  z       = a_pos[2];
@@ -67,21 +82,41 @@ namespace SpaceBallistics
     Len  r       = SqRt(r2);
 
     if (UNLIKELY(r <= a_Re))
-      // Inner points are not allowed: Divergence may occur:
-      throw std::runtime_error("GravAcc: Under the surface");
+    {
+      // Inner points are not allowed: Divergence may occur. We treat this as
+      // a "surface impact" event,   though it might not be a physical impact
+      // yet (we are under the Equatorial Radius, possibly not the local one):
+      double const phi     = std::asin(double(z/r));
+      double const lambda  =
+        IsZero(r2xy) ? 0.0 : std::atan2(x.Magnitude(), y.Magnitude());
 
-    // Main part of the Gravitational Acceleration:
+      throw ImpactExn<RCOS>{ a_t, r - a_Re, Angle(lambda), Angle(phi) };
+    }
+
+    // If OK: Main part of the Gravitational Acceleration:
     Acc  mainAcc = a_K / r2;
 
+    if constexpr(N == 0)
+    {
+      // Trivial Case: Spherically-Symmetric Gravitational Field:
+      for (int i = 0; i < 3; ++i)
+        (*a_acc)[i] = - mainAcc * a_pos[i] / r;
+      return;
+    }
+    //-----------------------------------------------------------------------//
+    // GENERAL CASE: Will sum up the Spherical Harmonics:                    //
+    //-----------------------------------------------------------------------//
+    constexpr double SqRt4Pi = 2.0 * SqRt(Pi<double>);
+
     // Re / r:
-    double ir = double(a_Re / r);
+    double const ir = double(a_Re / r);
     assert(ir < 1.0);
 
     // The Latitude (via its Sin):
-    double sinPhi  = double(z / r);
+    double const sinPhi  = double(z / r);
 
     // The Longitude: Undefined if rXY=0, assume Lambda=0 in that case:
-    double lambda  =
+    double const lambda  =
       IsZero(r2xy) ? 0.0 : std::atan2(x.Magnitude(), y.Magnitude());
 
     // Pre-compute Cos(m*lambda), Sin(m*lambda) for m = 0..N:
@@ -118,7 +153,9 @@ namespace SpaceBallistics
     double const C[3]
       { double(- r*y / r2xy), double(  r*x / r2xy), 0.0 };
 
-    // Sum over all Spherical Harmonics:
+    //-----------------------------------------------------------------------//
+    // Sum over the Spherical Harmonics (l,m):                               //
+    //-----------------------------------------------------------------------//
     double F[3]  {0.0, 0.0, 0.0};
     double irl = Sqr(ir);
 
