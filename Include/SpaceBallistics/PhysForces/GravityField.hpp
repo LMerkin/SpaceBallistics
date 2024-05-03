@@ -95,74 +95,73 @@ namespace SpaceBallistics
     }
     // Buffers for Legendre Polynomials and Derivatives computation, as per
     // GSL requirements. XXX: Is stack overflow possible here?
-    constexpr int B = ((N+6)*(N+1))/2;
-    assert(gsl_sf_legendre_array_n(size_t(N)) == size_t(B));
-
-    double Ps   [B];
-    double DerPs[B];
+    constexpr int NP = ((N+6)*(N+1))/2;
+    assert(gsl_sf_legendre_array_n(size_t(N)) == size_t(NP));
+    double Ps    [NP];
+    double DerPs [NP];
 
     // Pre-Compute the Legendre Polynomials and their Derivatives up to order
     // l_max = N:
     DEBUG_ONLY(int rc =)
       gsl_sf_legendre_deriv_array
-        (GSL_SF_LEGENDRE_SPHARM, size_t(N), sinPhi, Ps, DerPs);
+        (GSL_SF_LEGENDRE_SPHARM, size_t(N), sinPhi, Ps, DerPs) ;
     assert(rc == 0);
 
-    // Partial Derivatives of the Gravitational Potential wrt x, y, z:
+    // dr/d{x,y,z}:
+    double const A[3]       { double(x/r),   double(y/r),     double(z/r)  };
+
+    // r * d(phi)/d{x,y,z}:
+    double const B[3]
+      { double(- x*z / r2),   double(- y*z / r2),   1.0 - Sqr(double(z/r)) };
+
+    // r * d(lambda)/d{x,y,z}:
+    double const C[3]
+      { double(- r*y / r2xy), double(  r*x / r2xy), 0.0 };
+
+    // Sum over all Spherical Harmonics:
+    double F[3]  {0.0, 0.0, 0.0};
+    double irl = Sqr(ir);
+
+    for (int l = 2; l <= N; ++l)
+    {
+      double mSum[3] {0.0, 0.0, 0.0};
+      double l1   =  double(l+1);
+      double Al1 [3] {A[0]*l1, A[1]*l1, A[2]*l1};
+      int    j    =  (l*(l+1))/2;
+
+      for (int  m = 0; m <= l; ++m)
+      {
+        assert(m <= N);
+        double c  = cosMLambda[m];
+        double s  = sinMLambda[m];
+
+        // Index for accessing Legendre Polys and Model Coeffs:
+        int    jm = j + m;
+        assert(jm < ((N+1)*(N+2))/2);
+
+        SpherHarmonicCoeffs SHC = a_coeffs[jm];
+        assert(SHC.m_l == l && SHC.m_m == m);
+        double P  = Ps   [jm];
+        double P1 = DerPs[jm];
+
+        for (int i = 0; i < 3; ++i)
+          mSum[i] +=
+            (B[i] * P1 - Al1[i] * P) * (SHC.m_Clm * c + SHC.m_Slm * s) +
+            double(m)  * C[i]   * P  * (SHC.m_Slm * c - SHC.m_Clm * s);
+      }
+      for (int i = 0; i < 3; ++i)
+        F[i] += mSum[i] * irl;
+      irl *= ir;
+    }
+    // Finally:
     for (int i = 0; i < 3; ++i)
     {
-      double A = double(a_pos[i] / r);
-      double B =
-        (i == 0)
-        ? double(- x * z / r2) :
-        (i == 1)
-        ? double(- y * z / r2)
-        : 1.0 - Sqr(double(z / r));
-
-      double C =
-        (i == 0)
-        ? double(- r * y / r2xy)  :
-        (i == 1)
-        ? double(  r * x / r2xy)
-        : 0.0;
-
-      // Sum over all Spherical Harmonics:
-      double F   = 0.0;
-      double irl = Sqr(ir);
-
-      for (int l = 2; l <= N; ++l)
-      {
-        double mSum = 0.0;
-        int    j    = (l*(l+1))/2;
-        double Al1  = A * double(l+1);
-
-        for (int  m = 0; m <= l; ++m)
-        {
-          assert(m <= N);
-          double c  = cosMLambda[m];
-          double s  = sinMLambda[m];
-
-          // Index for accessing Legendre Polys and Model Coeffs:
-          int    jm = j + m;
-          assert(jm < ((N+1)*(N+2))/2);
-
-          SpherHarmonicCoeffs SHC = a_coeffs[jm];
-          assert(SHC.m_l == l && SHC.m_m == m);
-          double P  = Ps   [jm];
-          double P1 = DerPs[jm];
-          mSum +=
-            (B * P1 - Al1 * P) * (SHC.m_Clm * c + SHC.m_Slm * s) +
-            double(m) * C * P  * (SHC.m_Slm * c - SHC.m_Clm * s);
-        }
-        F   += mSum * irl;
-        irl *= ir;
-      }
       // NB: In GSL, the Spherical Harmonics are normalised to 1, not to 4*Pi
       // as assumed in the "a_coeffs", so compensate for that:
-      F *= SqRt4Pi;
+      F[i] *= SqRt4Pi;
 
       // And the Main Term:
-      (*a_acc)[i] += mainAcc * (F - A);
+      (*a_acc)[i] += mainAcc * (F[i] - A[i]);
     }
   }
 }
