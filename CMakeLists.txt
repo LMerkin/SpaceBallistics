@@ -181,6 +181,7 @@ SET(SB_TESTS
   Stage3Test
   LocationsTest
   AzimuthTest
+  LagrangeNormTest
   LunarOrbiterTest)
 
 FOREACH(SB_TEST ${SB_TESTS})

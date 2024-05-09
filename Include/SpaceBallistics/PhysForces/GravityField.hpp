@@ -39,7 +39,7 @@ namespace SpaceBallistics
         GM(398600.435507       * 1e9)
       :
       (BodyName == Body::Moon)
-      ? // XXX: This is from the GGGRX Lunar Gravity Field model (2013),
+      ? // XXX: This is from the GRGM1200A Lunar Gravity Field model (2016),
         // NOT from DE440; the latter says GM(4902.800118 * 1e9):
         GM(4902.8001224453001  * 1e9)
       :
@@ -74,7 +74,7 @@ namespace SpaceBallistics
     // The Max Degree and Order of Spherical Harmonics available:
     constexpr static int N =
       (BodyName == Body::Moon)
-      ? 600    // Truncated from 1200 asctually available  in GGGRX
+      ? 600    // Truncated from 1200 asctually available  in GRGM1200A
       : 0;     // TODO: All other models currently contain the Main Term only
 
   private:
