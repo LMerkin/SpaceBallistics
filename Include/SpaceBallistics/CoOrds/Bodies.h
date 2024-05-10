@@ -12,12 +12,16 @@ namespace SpaceBallistics
   //=========================================================================//
   enum class Body: int
   {
-    Sun,
     Earth,
     Moon,
+    Sun,
+    Mercury,
     Venus,
     Mars,
-    Jupiter
+    Jupiter,
+    Saturn,
+    Uranus,
+    Neptune
     // Other Solar System Bodies to come...
   };
 }

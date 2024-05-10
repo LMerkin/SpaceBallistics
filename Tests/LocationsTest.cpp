@@ -3,7 +3,6 @@
 //                      "Tests/LocationsTest.cpp":                           //
 //===========================================================================//
 #include "SpaceBallistics/CoOrds/GeoLocations.hpp"
-#include "SpaceBallistics/CoOrds/EmbeddedCOS.h"
 #include <iostream>
 
 int main()

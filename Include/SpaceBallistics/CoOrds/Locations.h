@@ -8,6 +8,7 @@
 #include "SpaceBallistics/Utils.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
+#include "SpaceBallistics/PhysForces/BodyData.hpp"
 #include <utility>
 #include <tuple>
 
@@ -24,41 +25,13 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Consts: Parameters of the Ellipsoidal Body:
     //-----------------------------------------------------------------------//
-  private:
-    // Semi-Major and Semi-Minor Axes of the Ellipsoid (Equatorial and Polar
-    // Radii, resp):
-    constexpr static std::pair<Len,Len> Radii =
-      (BodyName == Body::Sun)
-      ? // The Sun is an alsmost ideal sphere   (flattening is ~0.00005, which
-        // can be disregarded as the Semi-Minor Axis value appears to be within
-        // the error margin  for the Semi-Major one):
-        std::make_pair(696'300'000.0_m, 696'300'000.0_m)
-      :
-      (BodyName == Body::Earth)
-      ? // IMPORTANT: From WGS84:
-        std::make_pair(  6'378'137.0_m,   6'356'752.314245_m )
-      :
-      (BodyName == Body::Moon)
-      ? std::make_pair(  1'738'000.0_m,   1'736'000.0_m )
-      :
-      (BodyName == Body::Venus)
-      ? // Venus is a perfect sphere:
-        std::make_pair(  6'051'800.0_m,   6'051'800.0_m )
-      :
-      (BodyName == Body::Mars)
-      ? std::make_pair(  3'396'200.0_m,   3'376'200.0_m )
-      :
-      (BodyName == Body::Jupiter)
-      ? std::make_pair( 71'492'000.0_m,  66'854'000.0_m )
-      : // BEWARE: A CATCH-ALL CASE:
-        std::make_pair( 0.0_m, 0.0_m );
-
   public:
     // Equatorial Radius:
-    constexpr static Len Re       = Radii.first;
+    constexpr static Len Re = BodyData<BodyName>::Re;
 
     // Polar Radius:
-    constexpr static Len Rp       = Radii.second;
+    constexpr static Len Rp = BodyData<BodyName>::Rp;
+    static_assert(Rp <= Re);
 
     // Flattening:
     constexpr static double FlatC = double(Rp / Re);
