@@ -26,27 +26,27 @@ namespace SpaceBallistics
   // Position, Velocity and other Vectors in this COS:                       //
   //-------------------------------------------------------------------------//
   template<LVSC LVSCKind>
-  using PosVEmb    = PosV   <EmbddedCOS<LVSCKind>>;
+  using PosVEmb    = PosV   <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using VelVEmb    = VelV   <EmbddedCOS<LVSCKind>>;
+  using VelVEmb    = VelV   <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using AccVEmb    = AccV   <EmbddedCOS<LVSCKind>>;
+  using AccVEmb    = AccV   <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using ForceVEmb  = ForceV <EmbddedCOS<LVSCKind>>;
+  using ForceVEmb  = ForceV <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using AngVelVEmb = AngVelV<EmbddedCOS<LVSCKind>>;
+  using AngVelVEmb = AngVelV<EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using AngAccVEmb = AngAccV<EmbddedCOS<LVSCKind>>;
+  using AngAccVEmb = AngAccV<EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using AngMomVEmb = AngMomV<EmbddedCOS<LVSCKind>>;
+  using AngMomVEmb = AngMomV<EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using TorqVEmb   = TorqV  <EmbddedCOS<LVSCKind>>;
+  using TorqVEmb   = TorqV  <EmbeddedCOS<LVSCKind>>;
 }
 // End namespace SpaceBallistics
