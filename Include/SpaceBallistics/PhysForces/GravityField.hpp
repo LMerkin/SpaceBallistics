@@ -4,8 +4,9 @@
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/Types.hpp"
+#include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
-#include "SpaceBallistics/CoOrds/Locations.h"
+#include "SpaceBallistics/PhysForces/BodyData.hpp"
 #include <type_traits>
 #include <cmath>
 #include <stdexcept>
@@ -27,34 +28,10 @@ namespace SpaceBallistics
     //=======================================================================//
     // Equatorial Radius of the Body (used in the Gravitational Potential exp-
     // ansion):
-    constexpr static Len Re = Location<BodyName>::Re;
+    constexpr static Len Re = BodyData<BodyName>::Re;
 
-    // Gravitational Field Constants (from DE440, unless stated otherwise):
-    constexpr static GM  K  =
-      (BodyName == Body::Sun)
-      ? GM(132712440041.279419 * 1e9)
-      :
-      (BodyName == Body::Earth)
-      ? // NOT including the Moon, but including the atmosphere:
-        GM(398600.435507       * 1e9)
-      :
-      (BodyName == Body::Moon)
-      ? // XXX: This is from the GGGRX Lunar Gravity Field model (2013),
-        // NOT from DE440; the latter says GM(4902.800118 * 1e9):
-        GM(4902.8001224453001  * 1e9)
-      :
-      (BodyName == Body::Venus)
-      ? GM(324858.592          * 1e9)
-      :
-      (BodyName == Body::Mars)
-      ? // For the whole Mars system, incl the atmosphere and the moons:
-        GM(42828.375816        * 1e9)
-      :
-      (BodyName == Body::Jupiter)
-      ? // For the whole Jupiter system, incl the moons:
-        GM(126712764.1         * 1e9)
-      : // BEWARE: CATCH-ALL CASE:
-        GM(0.0);
+    // Gravitational Field Constant of the Body:
+    constexpr static GM  K  = BodyData<BodyName>::K;
 
     //=======================================================================//
     // Model Coeffs:                                                         //
@@ -72,14 +49,12 @@ namespace SpaceBallistics
     };
 
     // The Max Degree and Order of Spherical Harmonics available:
-    constexpr static int N =
-      (BodyName == Body::Moon)
-      ? 600    // Truncated from 1200 asctually available  in GGGRX
-      : 0;     // TODO: All other models currently contain the Main Term only
+    constexpr static int N = BodyData<BodyName>::MaxSpherHarmDegreeAndOrder;
 
   private:
     // Actual Coeffs:
-    static SpherHarmonicCoeffs const s_coeffs[((N+1)*(N+2))/2];
+    static_assert(N == 0 || N >= 2);
+    static SpherHarmonicCoeffs const s_coeffs[N == 0 ? 0 : ((N+1)*(N+2))/2];
 
   public:
     //-----------------------------------------------------------------------//
