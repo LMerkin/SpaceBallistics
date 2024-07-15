@@ -49,6 +49,9 @@ namespace SpaceBallistics
     // of the CoM, so not very important):
     using VelVE     = VelV    <ECOS>;
 
+    // Force in the Embedded COS:
+    using ForceVE   = ForceV  <ECOS>;
+
     // The MoI Tensor (XXX: currently the main diagonal only), also in the ECOS:
     using MoITE     = MoIT    <ECOS>;
 

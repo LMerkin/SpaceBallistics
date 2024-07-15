@@ -56,17 +56,8 @@ namespace SpaceBallistics
   template<Body BodyName>
   using ForceVFix  = ForceV <BodyCentricFixedCOS<BodyName>>;
 
-  template<Body BodyName>
-  using AngVelVFix = AngVelV<BodyCentricFixedCOS<BodyName>>;
-
-  template<Body BodyName>
-  using AngAccVFix = AngAccV<BodyCentricFixedCOS<BodyName>>;
-
-  template<Body BodyName>
-  using AngMomVFix = AngMomV<BodyCentricFixedCOS<BodyName>>;
-
-  template<Body BodyName>
-  using TorqVFix   = TorqV  <BodyCentricFixedCOS<BodyName>>;
+  // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
+  // in this COS yet...
 
   //=========================================================================//
   // "BodyCentricRotatingCOS" Class:                                         //
@@ -117,16 +108,7 @@ namespace SpaceBallistics
   template<Body BodyName>
   using ForceVRot  = ForceV <BodyCentricRotatingCOS<BodyName>>;
 
-  template<Body BodyName>
-  using AngVelVRot = AngVelV<BodyCentricRotatingCOS<BodyName>>;
-
-  template<Body BodyName>
-  using AngAccVRot = AngAccV<BodyCentricRotatingCOS<BodyName>>;
-
-  template<Body BodyName>
-  using AngMomVRot = AngMomV<BodyCentricRotatingCOS<BodyName>>;
-
-  template<Body BodyName>
-  using TorqVRot   = TorqV  <BodyCentricRotatingCOS<BodyName>>;
+  // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
+  // in this COS yet...
 }
 // End namespace SpaceBallistics

@@ -13,9 +13,9 @@ namespace SpaceBallistics
   //=========================================================================//
   // "a_t" is Flight Time since the "Contact Separation" event:
   //
-  StageDynParams Soyuz21b_Stage3::GetDynParams(Time a_t)
+  StageDynParams<LVSC::Soyuz21b> Soyuz21b_Stage3::GetDynParams(Time a_t)
   {
-    StageDynParams res;   // XXX: Uninitialised yet
+    StageDynParams<LVSC::Soyuz21b> res;   // XXX: Empty (all 0s) yet...
 
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
@@ -83,11 +83,11 @@ namespace SpaceBallistics
     res.m_fullMass  = fullMass;
     res.m_fuelMass  = fuelMass;
     res.m_oxidMass  = oxidMass;
+
     // FIXME: We currently assume that the Thrust vector is parallel to the
-    // embedded OX axis (pointing in the positive direction):
-    res.m_thrust[0] = absThrust;
-    res.m_thrust[1] = Force(0.0);
-    res.m_thrust[2] = Force(0.0);
+    // embedded OX axis (pointing in the positive direction). No Thrust Ctl
+    // is applied yet:
+    res.m_thrust = ME::ForceVE{{absThrust, Force(0.0), Force(0.0)}};
 
     //-----------------------------------------------------------------------//
     // Moments of Inertia and Center of Masses:                              //
@@ -145,16 +145,8 @@ namespace SpaceBallistics
            oxidMass.ApproxEquals(oxidME.GetMass()));
 
     // Extract the the CoM and the MoIs:
-    ME::PosVE const& com  = fullME.GetCoM ();
-    ME::MoITE const& mois = fullME.GetMoIs();
-
-    res.m_com [0] =  com [0];
-    res.m_com [1] =  com [1];
-    res.m_com [2] =  com [2];
-
-    res.m_mois[0] =  mois[0];
-    res.m_mois[1] =  mois[1];
-    res.m_mois[2] =  mois[2];
+    res.m_com  = fullME.GetCoM ();
+    res.m_mois = fullME.GetMoIs();
 
     // All Done:
     return res;

@@ -4,6 +4,7 @@
 //       Embedded Co-Ords System (Bound to the Physical Axes of LV/SC)       //
 //===========================================================================//
 #pragma  once
+#include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/LVSC/LVSC.h"
 
 namespace SpaceBallistics
@@ -23,30 +24,36 @@ namespace SpaceBallistics
   };
 
   //-------------------------------------------------------------------------//
-  // Position, Velocity and other Vectors in this COS:                       //
+  // Position, Velocity and other Vectors and Tensors in this COS:           //
   //-------------------------------------------------------------------------//
   template<LVSC LVSCKind>
-  using PosVEmb    = PosV   <EmbeddedCOS<LVSCKind>>;
+  using PosVEmb     = PosV    <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using VelVEmb    = VelV   <EmbeddedCOS<LVSCKind>>;
+  using VelVEmb     = VelV    <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using AccVEmb    = AccV   <EmbeddedCOS<LVSCKind>>;
+  using AccVEmb     = AccV    <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using ForceVEmb  = ForceV <EmbeddedCOS<LVSCKind>>;
+  using ForceVEmb   = ForceV  <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using AngVelVEmb = AngVelV<EmbeddedCOS<LVSCKind>>;
+  using AngVelVEmb  = AngVelV <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using AngAccVEmb = AngAccV<EmbeddedCOS<LVSCKind>>;
+  using AngAccVEmb  = AngAccV <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using AngMomVEmb = AngMomV<EmbeddedCOS<LVSCKind>>;
+  using AngMomVEmb  = AngMomV <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using TorqVEmb   = TorqV  <EmbeddedCOS<LVSCKind>>;
+  using TorqVEmb    = TorqV   <EmbeddedCOS<LVSCKind>>;
+
+  template<LVSC LVSCKind>
+  using MoITEmb     = MoIT    <EmbeddedCOS<LVSCKind>>;
+
+  template<LVSC LVSCKind>
+  using MoIRateTEmb = MoIRateT<EmbeddedCOS<LVSCKind>>;
 }
 // End namespace SpaceBallistics

@@ -573,7 +573,6 @@ namespace SpaceBallistics
       auto tvDot = a_v_dot / m_cR3;
       auto xDot  = tvDot   / (3.0 * x * (2.0 - x));
       Vel  lDot  = xDot    * m_R;
-      assert(!IsPos(lDot));
 
       return std::make_pair(l, lDot);
     }

@@ -4,6 +4,8 @@
 //                      Body-TopoCentric Co-Ord System                      //
 //===========================================================================//
 #pragma once
+#include "SpaceBallistics/Types.hpp"
+#include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/Locations.h"
 
 namespace SpaceBallistics
@@ -27,27 +29,33 @@ namespace SpaceBallistics
   // Position, Velocity and other Vectors in this COS:                       //
   //-------------------------------------------------------------------------//
   template<Body BodyName, Location<BodyName> const* L>
-  using PosVTop    = PosV   <TopoCentricCOS<BodyName, L>>;
+  using PosVTop     = PosV    <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using VelVTop    = VelV   <TopoCentricCOS<BodyName, L>>;
+  using VelVTop     = VelV    <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using AccVTop    = AccV   <TopoCentricCOS<BodyName, L>>;
+  using AccVTop     = AccV    <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using ForceVTop  = ForceV <TopoCentricCOS<BodyName, L>>;
+  using ForceVTop   = ForceV  <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using AngVelVTop = AngVelV<TopoCentricCOS<BodyName, L>>;
+  using AngVelVTop  = AngVelV <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using AngAccVTop = AngAccV<TopoCentricCOS<BodyName, L>>;
+  using AngAccVTop  = AngAccV <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using AngMomVTop = AngMomV<TopoCentricCOS<BodyName, L>>;
+  using AngMomVTop  = AngMomV <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using TorqVTop   = TorqV  <TopoCentricCOS<BodyName, L>>;
+  using TorqVTop    = TorqV   <TopoCentricCOS<BodyName, L>>;
+
+  template<Body BodyName, Location<BodyName> const* L>
+  using MoITTop     = MoIT    <TopoCentricCOS<BodyName, L>>;
+
+  template<Body BodyName, Location<BodyName> const* L>
+  using MoIRateTTop = MoIRateT<TopoCentricCOS<BodyName, L>>;
 }
 // End namespave SpaceBallistics

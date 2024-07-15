@@ -107,6 +107,21 @@ namespace
 }
 
 //===========================================================================//
+// Lunar Gravitational Field Coeffs:                                         //
+//===========================================================================//
+namespace SpaceBallistics
+{
+  // We need to tell the compiler that "s_coeffs" are provided in a separate
+  // compilation unit, otherwise a warning is generated in CLang:
+  //
+  using MGF = GravityField<Body::Moon>;
+
+  extern template
+  MGF::SpherHarmonicCoeffs const
+  GravityField<Body::Moon>::s_coeffs[((MGF::N+1)*(MGF::N+2))/2];
+}
+
+//===========================================================================//
 // "main":                                                                   //
 //===========================================================================//
 int main()

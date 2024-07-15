@@ -121,7 +121,7 @@ namespace SpaceBallistics
       double x   = double(a_h / m_R);
       assert(0.0 < x && x <= 1.0);
       double cx  = 1.0 - x;
-      double acx = std::acos(cx);  // XXX: Again, not a "constexpr" in CLang...
+      double acx = ACos(cx);
       double s   = SqRt(x * (2.0 - x));
       Area   sideSurfArea = (4.0 * Pi<double> * acx) * m_R * m_Q;
       assert(IsPos(sideSurfArea));
@@ -226,7 +226,7 @@ namespace SpaceBallistics
         double cz2  = 1.0 - z2;
         assert(cz2 >= 0.0);
         double s    = SqRt(cz2);
-        double dy   = y - std::acos(z);
+        double dy   = y - ACos(z);
         double dz   =
           2.0 * cz2 * (dy + z * s) / ((4.0 - 3.0 * z2) * s + z * dy);
 
@@ -338,7 +338,7 @@ namespace SpaceBallistics
       x = std::min(std::max(x, 0.0), 1.0);
 
       double cx  = 1.0 - x;
-      double acx = std::acos(cx);  // XXX: Again, not a "constexpr" in Clang...
+      double acx = ACos(cx);
       double x2  = Sqr(x);
       double x3  = x2 * x;
       double s   = SqRt(x * (2.0 - x));

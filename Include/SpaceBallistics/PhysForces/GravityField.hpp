@@ -116,9 +116,9 @@ namespace SpaceBallistics
         // Inner points are not allowed: Divergence may occur. We treat this as
         // a "surface impact" event,   though it might not be a physical impact
         // yet (we are under the Equatorial Radius, possibly not the local one):
-        double const phi     = std::asin(double(z/r));
+        double const phi     = ASin (double(z/r));
         double const lambda  =
-          IsZero(r2xy) ? 0.0 : std::atan2(x.Magnitude(), y.Magnitude());
+          IsZero(r2xy) ? 0.0 : ATan2(x.Magnitude(), y.Magnitude());
 
         throw ImpactExn{ a_t, r - Re, Angle(lambda), Angle(phi) };
       }
@@ -129,7 +129,7 @@ namespace SpaceBallistics
       if (a_n == 0)
       {
         // Trivial Case: Spherically-Symmetric Gravitational Field:
-        for (int i = 0; i < 3; ++i)
+        for (size_t i = 0; i < 3; ++i)
           (*a_acc)[i] = - mainAcc * a_pos[i] / r;
         return;
       }
@@ -147,7 +147,7 @@ namespace SpaceBallistics
 
       // The Longitude: Undefined if rXY=0, assume Lambda=0 in that case:
       double const lambda  =
-        IsZero(r2xy) ? 0.0 : std::atan2(x.Magnitude(), y.Magnitude());
+        IsZero(r2xy) ? 0.0 : ATan2(x.Magnitude(), y.Magnitude());
 
       // Pre-compute Cos(m*lambda), Sin(m*lambda) for m = 0..a_n:
       assert(2 <= a_n && a_n <= N);
@@ -226,7 +226,7 @@ namespace SpaceBallistics
       //---------------------------------------------------------------------//
       // Finally:                                                            //
       //---------------------------------------------------------------------//
-      for (int i = 0; i < 3; ++i)
+      for (size_t i = 0; i < 3; ++i)
       {
         // NB: In GSL, the Spherical Harmonics are normalised to 1, not to 4*Pi
         // as assumed in the "s_coeffs", so compensate for that:

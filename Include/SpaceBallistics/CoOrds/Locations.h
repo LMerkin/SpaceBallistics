@@ -140,10 +140,7 @@ namespace SpaceBallistics
         double avgPhi = double (To_Angle (a_to_phi + a_from_phi)) / 2.0;
         double tgA    = dLambda /
                         (dPhi * FlatC * SqRt(1.0 + Sqr(FlatC * Tan(avgPhi))));
-
-        // XXX: std::atan() might not be "constexpr" in CLang yet; may need to
-        // implement our own "constexpr" ATan function:
-        double A      = std::atan(tgA);
+        double A      = ATan(tgA);
 
         // "A" is in (-Pi/2 .. +Pi/2), modify it to [0..2*Pi):
         if (dPhi < 0.0)

@@ -44,7 +44,7 @@ int main()
   //-------------------------------------------------------------------------//
   for (Time t = 250.0_sec; t <= 600.0_sec; t += 0.1_sec)
   {
-    StageDynParams dp = S3::GetDynParams(t);
+    StageDynParams<LVSC::Soyuz21b> dp = S3::GetDynParams(t);
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois[1]        == dp.m_mois[2]);
