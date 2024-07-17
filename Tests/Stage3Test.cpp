@@ -42,9 +42,13 @@ int main()
   //-------------------------------------------------------------------------//
   // Stage3 Mass as a function of Flight Time:                               //
   //-------------------------------------------------------------------------//
+  // XXX: Currently assuming no Thrust Vector Control:
+  //
+  S3::ThrustVecCtl thrustCtl0;  // All 0s by default 
+
   for (Time t = 250.0_sec; t <= 600.0_sec; t += 0.1_sec)
   {
-    StageDynParams<LVSC::Soyuz21b> dp = S3::GetDynParams(t);
+    StageDynParams<LVSC::Soyuz21b> dp = S3::GetDynParams(t, thrustCtl0);
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois[1]        == dp.m_mois[2]);

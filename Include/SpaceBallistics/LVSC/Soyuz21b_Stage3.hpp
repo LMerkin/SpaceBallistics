@@ -5,6 +5,8 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/LVSC/Soyuz21b_Stage3.h"
+#include "SpaceBallistics/Utils.hpp"
+#include <stdexcept>
 
 namespace SpaceBallistics
 {
@@ -13,7 +15,8 @@ namespace SpaceBallistics
   //=========================================================================//
   // "a_t" is Flight Time since the "Contact Separation" event:
   //
-  StageDynParams<LVSC::Soyuz21b> Soyuz21b_Stage3::GetDynParams(Time a_t)
+  StageDynParams<LVSC::Soyuz21b>
+  Soyuz21b_Stage3::GetDynParams(Time a_t, ThrustVecCtl const& a_thrust_ctl)
   {
     StageDynParams<LVSC::Soyuz21b> res;   // XXX: Empty (all 0s) yet...
 
@@ -84,10 +87,47 @@ namespace SpaceBallistics
     res.m_fuelMass  = fuelMass;
     res.m_oxidMass  = oxidMass;
 
-    // FIXME: We currently assume that the Thrust vector is parallel to the
-    // embedded OX axis (pointing in the positive direction). No Thrust Ctl
-    // is applied yet:
-    res.m_thrust = ME::ForceVE{{absThrust, Force(0.0), Force(0.0)}};
+    //-----------------------------------------------------------------------//
+    // Thrust Vector:                                                        //
+    //-----------------------------------------------------------------------//
+    Force thrustX;        // Initially 0
+    Force thrustY;        //
+    Force thrustZ;        //
+    Force chamberThrust = absThrust / 4.0;
+
+    // Consider GimbalAngles of all 4 Chambers:
+    for (size_t i = 0; i < 4; ++i)
+    {
+      Angle_deg A = a_thrust_ctl[i];
+      if (Abs(A) > GimbalAmpl)
+        throw std::invalid_argument
+              ("Soyuz21b_Stage3::GetDynParams: GimbalAmpl exceeded");
+
+      double sinA = Sin(double(To_Angle(A)));
+      double cosA = Cos(double(To_Angle(A)));
+      thrustX    += chamberThrust * cosA;
+
+      // NB: The ThrustVector rotation in the YZ plane is opposite to the
+      // corresp Chamber (more precisely, Nozzle) rotation:
+      switch (i)
+      {
+      case 0:
+        thrustZ -= chamberThrust * sinA;
+        break;
+      case 1:
+        thrustY += chamberThrust * sinA;
+        break;
+      case 2:
+        thrustZ += chamberThrust * sinA;
+        break;
+      case 3:
+        thrustY -= chamberThrust * sinA;
+        break;
+      default:
+        assert(false);
+      }
+    }
+    res.m_thrust = ME::ForceVE{{thrustX, thrustY, thrustZ}};
 
     //-----------------------------------------------------------------------//
     // Moments of Inertia and Center of Masses:                              //

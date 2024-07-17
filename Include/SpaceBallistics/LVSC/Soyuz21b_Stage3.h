@@ -100,8 +100,8 @@ namespace SpaceBallistics
     constexpr static Mass   EngMass       = 572.0_kg;
 
     // Masses of Fuel and Oxidiser. ArianSpace/StarSem says 7600 and 17800 kg,
-    // resp., but those figures seem to be incorrect  (too much for the actual
-    // tank volumes!):
+    // resp., but those figures seem to be GROSSLY INCORRECT (too high for the
+    // actual tank volumes!):
     constexpr static Mass   FuelMass      = 6650.0_kg;
     constexpr static Mass   OxidMass      = 16554.0_kg;
     constexpr static Mass   GasesMass     = 30.0_kg;  // He, air, ...
@@ -140,19 +140,34 @@ namespace SpaceBallistics
     static_assert(IsPos(StaticThrust));
 
     // IMPORTANT:
-    // Each of the 4 Chambers of RD-0124 is gimbaled in the Tangential Plane.
+    // Each of the 4 Chambers of RD-0124 is GIMBALED in the Tangential  Plane.
     // The Chambers are installed in the same planes as the Blocks B,V,G,D of
-    // Stage1, that is, in planes XY and XZ. Therefore, Tangential Planes are
-    // at the 45 deg angles to the XY and XZ planes.  The max gimbaling angle
-    // of RD-0124 Chambers is not known, probably in the range +-(3..8) degs;
-    // we can safely assume +-5 degs.
+    // Stage1, that is, in planes XY and XZ, at some distance (r > 0) from the
+    // Stage 3 main axis (the X axis):
+    //    Chamber0: (Y= r, Z= 0);
+    //    Chamber1: (Y= 0, Z= r);
+    //    Chamber2: (Y=-r, Z= 0);
+    //    Chamber3: (Y= 0, Z=-r).
+    // The max gimbaling angle of RD-0124 Chambers is not known exactlt, prob-
+    // ably in the range +-(3..8) degs; we can safely assume +-5 degs.
+    // BY OUR CONVENTION, GimbalAngle > 0 corresponds to a COUNTER-CLOCK-WISE
+    // rotation of the corresp Chamber (more precisely, NOZZLE) in the YZ plane
+    // around the X axis.
+    // NORMALLY, one can expect that Chambers (0 and 2), (1 and 3) are moved
+    // symmetrically in one direction, so
+    //    GimbalAngle[0] = - GimbalAngle[2],
+    //    GimbalAngle[1] = - GimbalAngle[3],
+    // but this is not strictly enforced:
+    //
+    constexpr static Angle_deg GimbalAmpl = Angle_deg(5.0);
+    using            ThrustVecCtl         = std::array<Angle_deg, 4>;
 
   private:
     //-----------------------------------------------------------------------//
     // "MechElement"s: "Proto"s with Yet-UnKnown Masses:                     //
     //-----------------------------------------------------------------------//
     // Fore Section:
-    constexpr static TC ForeSectionProto =
+    constexpr static TC ForeSectionProto  =
       TC
       (
         ForeX0,                         // Up @ X=0
@@ -453,7 +468,8 @@ namespace SpaceBallistics
     // NB: This method is NOT "constexpr": it is intended to be called at Run-
     // Time (eg multiple times during Trajectory Integration):
     //
-    static StageDynParams<LVSC::Soyuz21b> GetDynParams(Time a_t);
+    static StageDynParams<LVSC::Soyuz21b>
+    GetDynParams(Time a_t, ThrustVecCtl const& a_thrust_ctl);
   };
 }
 // End namespace SpaceBallistics
