@@ -16,7 +16,11 @@ namespace SpaceBallistics
   // "a_t" is Flight Time since the "Contact Separation" event:
   //
   StageDynParams<LVSC::Soyuz21b>
-  Soyuz21b_Stage3::GetDynParams(Time a_t, ThrustVecCtl const& a_thrust_ctl)
+  Soyuz21b_Stage3::GetDynParams
+  (
+    Time                      a_t,
+    ChamberDeflections const& a_chamber_defls
+  )
   {
     StageDynParams<LVSC::Soyuz21b> res;   // XXX: Empty (all 0s) yet...
 
@@ -98,8 +102,8 @@ namespace SpaceBallistics
     // Consider GimbalAngles of all 4 Chambers:
     for (size_t i = 0; i < 4; ++i)
     {
-      Angle_deg A = a_thrust_ctl[i];
-      if (Abs(A) > GimbalAmpl)
+      Angle_deg A = a_chamber_defls[i];
+      if (Abs(A)  > GimbalAmpl)
         throw std::invalid_argument
               ("Soyuz21b_Stage3::GetDynParams: GimbalAmpl exceeded");
 
@@ -107,21 +111,21 @@ namespace SpaceBallistics
       double cosA = Cos(double(To_Angle(A)));
       thrustX    += chamberThrust * cosA;
 
-      // NB: The ThrustVector rotation in the YZ plane is opposite to the
-      // corresp Chamber (more precisely, Nozzle) rotation:
+      // NB: The ThrustVector rotation in the YZ plane is OPPOSITE to the
+      // corresp Chamber Deflection:
       switch (i)
       {
       case 0:
-        thrustZ -= chamberThrust * sinA;
-        break;
-      case 1:
-        thrustY += chamberThrust * sinA;
-        break;
-      case 2:
         thrustZ += chamberThrust * sinA;
         break;
-      case 3:
+      case 1:
         thrustY -= chamberThrust * sinA;
+        break;
+      case 2:
+        thrustZ -= chamberThrust * sinA;
+        break;
+      case 3:
+        thrustY += chamberThrust * sinA;
         break;
       default:
         assert(false);
@@ -132,11 +136,15 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Moments of Inertia and Center of Masses:                              //
     //-----------------------------------------------------------------------//
-    // XXX: For the purpose of MoI computation, we include the masses  of Tank
-    // Pressurisation Gases into the corresp Fuel/Oxid masses (proportional to
-    // the volumes of the corresp Tanks):
-    // XXX: "fuelLevel" and "oxidLevel" are hooks provided for debugging purpo-
-    // ses only:
+    // NB:
+    // (*) "fuelLevel" and "oxidLevel" are hooks provided for debugging purposes
+    //     only;
+    // (*) Gases (primarily He) are considered along with the EmptyMass; redist-
+    //     ribution of Gases within Stage3 is NOT taken into account, whereas in
+    //     reality, He is used for Fuel and Oxid tanks pressurisation, as fills
+    //     the "empty" space above the remaining Fuel and Oxid.   However, this
+    //     effect is considered negligible for Stage3 (though may have some imp-
+    //     act on the Moments of Inertia for Stage2):
     //
     // Fuel:
     assert(IsPos(fuelMass) && fuelMass <= FuelMass && FuelMass < FuelTankMC);

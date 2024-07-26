@@ -26,11 +26,14 @@ namespace SpaceBallistics
   // wrt  OX, OY, OZ axes,   as well as time derivatives ("Dots") of CoMs and
   // MoIs.
   // NB:
-  // It is assumed that the co-ords system OXYZ is such that  OX  is  the LV's
-  // principal axis of symmetry, with the positive direction pointing UPWARDS
-  // (ie from the Tail to the Nose). This is important when it comes to the CoM
-  // and MoIs of the contained Propellant:    we assume that the Propellant is
-  // concentrated at the bottom (Lower, Smaller-X) part of the "MechElement":
+  // It is assumed that the co-ords system OXYZ is the Embedded CS  of the obj-
+  // ect given by the "LVSKind" template param. Then OX is the object's princi-
+  // pal axis of symmetry, with the positive direction pointing UPWARDS (ie
+  // from the Tail to the Nose, normally making a SHARP angle with the velocity
+  // vector). This is important when it comes  to the CoM and MoIs of the cont-
+  // ained Propellant: We assume that the Propellant is concentrated at the
+  // bottom (Lower, Smaller-X) part of the "MechElement", due to the gravity and
+  // tanks pressurisation (FIXME what about the SCs in the Free Space???):
   //
   template<LVSC LVSCKind>
   class MechElement

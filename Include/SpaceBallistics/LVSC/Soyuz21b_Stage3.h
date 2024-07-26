@@ -26,18 +26,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // "Soyuz21b_Stage3" Class:                                                //
   //=========================================================================//
-  // The following local co-ord system is used for convenience (so that most
-  // X-coords are positive and the origin  is not  affected by separation of
-  // stages):
-  // (*) The OX axis is the main axis of the rocket. The OX positive direction
-  //     is towards the HEAD of the LV. The origin O is the LOWER base of the
-  //     InterStage (junction plane with Stage3). That is, X >= 0 for
-  //     for InterStage, the optional Stage4, Payload Adapter/Dispenser, Pay-
-  //     load itself and the Fairing, and X <= 0 for Stages 3, 2, 1.
-  // (*) The OY and OZ axes are such that the OXY and OXZ planes pass through
-  //     the symmetry axes of the corresp opposite strap-on boosters (Blocks
-  //     B, V, G, D -- Stage 1), and OXYZ is a right-oriented co-ords system.
-  // (*) This class is actually a namespace: all entities declared in it are
+  // NB: This class is actually a namespace: all entities declared in it are
   //     "static" (and mostly "constexpr") ones. However, we still make it a
   //     class, not a namespace, in order to be able to control the external
   //     visibility of its entities:
@@ -58,7 +47,7 @@ namespace SpaceBallistics
     // Geometry:                                                             //
     //-----------------------------------------------------------------------//
     // Stage3 Over-All:
-    constexpr static Len  D               = SH::InterStageD1;
+    constexpr static Len  D               = SH::InterStageMinD;
     constexpr static Len  H               = SC::Stage3Len;
 
     // Stage3 Fore Section:
@@ -102,14 +91,18 @@ namespace SpaceBallistics
     // Masses of Fuel and Oxidiser. ArianSpace/StarSem says 7600 and 17800 kg,
     // resp., but those figures seem to be GROSSLY INCORRECT (too high for the
     // actual tank volumes!):
-    constexpr static Mass   FuelMass      = 6650.0_kg;
+    // XXX: "EE" is 2-EtoxyEthanol which is used as an antifreeze in the Fuel,
+    // if launch occurs in sub-0 conditions(?). Should it be added to "Fuel"?
+    // We do (the effect is small anyway):
+    constexpr static Mass   FuelMass      = 6650.0_kg * 1.002; // Incl EE
     constexpr static Mass   OxidMass      = 16554.0_kg;
-    constexpr static Mass   GasesMass     = 30.0_kg;  // He, air, ...
+    constexpr static Mass   GasesMass     = 30.0_kg;           // He + N2
     constexpr static Mass   FullMass      = EmptyMass + FuelMass + OxidMass +
                                             GasesMass;
 
-    // UnSpendable Remnants of the Fuel and Oxidiser in Stage3 at the engine
-    // cut-off time:
+    // UnSpendable Remnants of the Fuel and Oxidiser in Stage3  at the engine
+    // cut-off time. NB: These masses are Technically UnSpendable; they do NOT
+    // include the "guarantee margins":
     constexpr static Mass   FuelRem       = 104.0_kg; // StarSem: 98 kg
     constexpr static Mass   OxidRem       = 167.0_kg; // StarSem: 188..207 kg
 
@@ -139,28 +132,29 @@ namespace SpaceBallistics
       ThrustVac - MassRate * IspVac * g0;
     static_assert(IsPos(StaticThrust));
 
-    // IMPORTANT:
+    //-----------------------------------------------------------------------//
+    // Thrust Vector Control:                                                //
+    //-----------------------------------------------------------------------//
     // Each of the 4 Chambers of RD-0124 is GIMBALED in the Tangential  Plane.
     // The Chambers are installed in the same planes as the Blocks B,V,G,D of
     // Stage1, that is, in planes XY and XZ, at some distance (r > 0) from the
     // Stage 3 main axis (the X axis):
-    //    Chamber0: (Y= r, Z= 0);
-    //    Chamber1: (Y= 0, Z= r);
-    //    Chamber2: (Y=-r, Z= 0);
-    //    Chamber3: (Y= 0, Z=-r).
-    // The max gimbaling angle of RD-0124 Chambers is not known exactlt, prob-
-    // ably in the range +-(3..8) degs; we can safely assume +-5 degs.
+    //    Chamber0: @ -Y
+    //    Chamber1: @ -Z
+    //    Chamber2: @ +Y
+    //    Chamber3: @ +Z
+    // The max gimbaling angle of RD-0124 Chambers is most likely  +-8  degs.
     // BY OUR CONVENTION, GimbalAngle > 0 corresponds to a COUNTER-CLOCK-WISE
     // rotation of the corresp Chamber (more precisely, NOZZLE) in the YZ plane
     // around the X axis.
     // NORMALLY, one can expect that Chambers (0 and 2), (1 and 3) are moved
     // symmetrically in one direction, so
-    //    GimbalAngle[0] = - GimbalAngle[2],
-    //    GimbalAngle[1] = - GimbalAngle[3],
+    //    ChamberDeflections[0] = - ChamberDeflections[2],
+    //    ChamberDeflections[1] = - ChamberDeflections[3],
     // but this is not strictly enforced:
     //
-    constexpr static Angle_deg GimbalAmpl = Angle_deg(5.0);
-    using            ThrustVecCtl         = std::array<Angle_deg, 4>;
+    constexpr static Angle_deg GimbalAmpl = Angle_deg(8.0);
+    using            ChamberDeflections   = std::array<Angle_deg, 4>;
 
   private:
     //-----------------------------------------------------------------------//
@@ -268,7 +262,7 @@ namespace SpaceBallistics
   private:
     // Scale Factor to determine the individual masses. NB: For simplicity, we
     // include the Mass of the Gases (which is very small) into the  TotalMass
-    // of the "ConstElement"s:
+    // of the "MechElement"s:
     //
     constexpr static double ScaleFactor =
       ME::GetMassScale
@@ -279,7 +273,7 @@ namespace SpaceBallistics
           &EquipBayProto,
           &OxidTankUpProto, &OxidTankMidProto, &OxidTankLowProto
         },
-        // The TotalMass (incl Gases):
+        // The total mass of the sbove MEs (incl Gases):
         EmptyMass + GasesMass - AftMass - EngMass
       );
 
@@ -375,7 +369,7 @@ namespace SpaceBallistics
       OxidTankUpMC + OxidTankMidMC + OxidTankLowMC;
 
   private:
-    // "ConstElement" objs for Maximum Theoretical Propellant Loads in Tank
+    // "MechElement" objs for Maximum Theoretical Propellant Loads in Tank
     // Sections (for optimisation of "GetDynParams"):
     constexpr static ME FuelUpME     = FuelTankUp .GetPropBulkME(FuelTankUpMC) ;
     constexpr static ME FuelMidME    = FuelTankMid.GetPropBulkME(FuelTankMidMC);
@@ -414,8 +408,7 @@ namespace SpaceBallistics
                (OxidMass - OxidRem) / OxidRate);
 
     // The actual Burn Duration must not exceed the above theoretical maximum:
-    constexpr static Time BurnDur = SC::Stage3BurnDur;
-    static_assert(BurnDur < MaxBurnDur);
+    static_assert(SC::Stage3BurnDur < MaxBurnDur);
 
   public:
     //-----------------------------------------------------------------------//
@@ -469,7 +462,7 @@ namespace SpaceBallistics
     // Time (eg multiple times during Trajectory Integration):
     //
     static StageDynParams<LVSC::Soyuz21b>
-    GetDynParams(Time a_t, ThrustVecCtl const& a_thrust_ctl);
+    GetDynParams(Time a_t, ChamberDeflections const& a_chamber_defls);
   };
 }
 // End namespace SpaceBallistics

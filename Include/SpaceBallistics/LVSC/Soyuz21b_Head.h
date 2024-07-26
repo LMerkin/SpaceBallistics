@@ -40,13 +40,13 @@ namespace SpaceBallistics::Soyuz21b_Head
   // InterStage, in 2 Variants: Large and Small:                             //
   //-------------------------------------------------------------------------//
   // Geometries:
-  constexpr inline Len  InterStageLargeD0    = FairingLargeMaxD;
-  constexpr inline Len  InterStageSmallD0    = FairingSmallMaxD;
+  constexpr inline Len  InterStageLargeMaxD  = FairingLargeMaxD;
+  constexpr inline Len  InterStageSmallMaxD  = FairingSmallMaxD;
   constexpr inline Len  InterStageLargeH     = 1.20_m;
   constexpr inline Len  InterStageSmallH     = 0.987_m;
   // The lower diameter is the same for both types of Fairing/InterStage, as
   // it coincides with the Stage3 diameter:
-  constexpr inline Len  InterStageD1         = 2.66_m;
+  constexpr inline Len  InterStageMinD       = 2.66_m;
 
   // NB: ArianeSpace/StarSem says 400 kg for Large InterStage:
   constexpr inline Mass InterStageLargeMass  = 450.0_kg;

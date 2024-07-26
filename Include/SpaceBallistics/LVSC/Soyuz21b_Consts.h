@@ -9,14 +9,32 @@
 namespace SpaceBallistics::Soyuz21b_Consts
 {
   //=========================================================================//
+  // Embedded Co-Ordinate System:                                            //
+  //=========================================================================//
+  // The following local co-ord system is used. Most X-coords are NEGATIVE but
+  // the origin  is not  affected by separation of stages, which is convenient:
+  //
+  // (*) The OX axis is the main axis of the rocket. The OX positive direction
+  //     is towards the HEAD of the LV. The origin O is the LOWER base of the
+  //     InterStage (junction plane with Stage3). That is, X >= 0 for
+  //     for InterStage, the optional Stage4, Payload Adapter/Dispenser, Pay-
+  //     load itself and the Fairing, and X <= 0 for Stages 3, 2, 1.
+  // (*) The OY and OZ axes are such that the OXY and OXZ planes pass through
+  //     the symmetry axes of the corresp opposite strap-on boosters (Blocks
+  //     B, V, G, D -- Stage 1), and OXYZ is a right-oriented co-ords system.
+  //     Block B: -Y
+  //     Block V: -Z
+  //     Block G: +Y
+  //     Block D: +Z
+  // Source: ArianSpace/StarSem Soyuz CSG User's Manual.
+
+  //=========================================================================//
   // Launch TimeLine:                                                        //
   //=========================================================================//
-  // Source: ArianSpace/StarSem Soyuz CSG User's Manual, and others;
   // t=0 is the notional LiftOff (Contact Separation) time. Thus, Stage1 and
-  // Stage2 engines ignition time is < 0:
-  constexpr inline Time   Stages12IgnTime        = -15.0_sec;
-  constexpr inline Time   Stages12FullThrustTime = 0.0_sec;
-
+  // Stage2 engines ignition time is < 0 (the detailed info is in the corresp
+  // Stage models).
+  //
   // MaxQ occurs at approx 72.0 sec.
 
   // Stage1 (Blocks B, V, G, D) separation time.  XXX: approximately, Stage1
@@ -30,13 +48,13 @@ namespace SpaceBallistics::Soyuz21b_Consts
   constexpr inline Time   FairingJetTime         = 208.4_sec;
 
   // Stage2 (Block A) separation time. Some srcs indicate 278 sec but this is
-  // probably for an earlier version of Soyuz. The RD-108A cut-off time is
-  // approx 286 sec. Stage3 ignition occurs at approx that time, just PRIOR to
-  // Stage2 separation (but arguably not at full thrust at once). We assume
-  // that at the moment of separation, Stage3 is at full thrust.  NB: Earlier
-  // versions of RD-108 could burn for up to 340 sec:
-  //
+  // probably for an earlier version of Soyuz.   The RD-108A  cut-off time is
+  // approx 286 sec (by StarSem; other data say 285--320 sec; earlier versions
+  // of RD-108 could burn for up to 340 sec):
   constexpr inline Time   Stage2CutOffTime       = 286.0_sec;
+
+  // Stage3 ignition occurs at approx "Stage2CutOffTime", PRIOR to Stage2 sepa-
+  // ration, immediately at full thrust:
   constexpr inline Time   Stage3IgnTime          = Stage2CutOffTime;
   constexpr inline Time   Stage2SepTime          = 287.6_sec;
 
@@ -44,10 +62,9 @@ namespace SpaceBallistics::Soyuz21b_Consts
   constexpr inline Time   Stage3AftJetTime       = 300.4_sec;
 
   // Stage3 engine (RD-0124) cut-off time. Some srcs say Stage3 burns for
-  // 250..300 sec or even 320 sec  (for the older RD-0110, 240..250 sec),
-  // here we set  ~274.9 sec of burn time (see "Soyuz21b_Stage3.h" for the
-  // details), which is probably about correct (StarSem says 270 sec):
-  constexpr inline Time   Stage3BurnDur          = 274.9_sec;
+  // 250..300 sec or even 320 sec  (for the older RD-0110, 240..250 sec);
+  // StarSem says 270 sec:
+  constexpr inline Time   Stage3BurnDur          = 270.0_sec;
   constexpr inline Time   Stage3CutOffTime       = Stage3IgnTime +
                                                    Stage3BurnDur;
 

@@ -180,6 +180,7 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
 #=============================================================================#
 SET(SB_TESTS
   METest
+  Stage2Test
   Stage3Test
   LocationsTest
   AzimuthTest
