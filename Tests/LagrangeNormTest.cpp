@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                         "LagrangeNormTest.cpp":                           //
+//                       "Tests/LagrangeNormTest.cpp":                       //
 //  Test the Normalisation Coeffs of Associated Lagrange Polynomials in GSL  //
 //===========================================================================//
 #include "DimTypes/Bits/Macros.h"

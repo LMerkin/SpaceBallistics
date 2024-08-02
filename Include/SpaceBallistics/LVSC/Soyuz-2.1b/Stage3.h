@@ -1,15 +1,15 @@
 // vim:ts=2:et
 //===========================================================================//
-//                 "SpaceBallistics/LVSC/Soyuz21b_Stage3.h":                 //
+//                "SpaceBallistics/LVSC/Soyuz-2.1b/Stage3.h":                //
 //         Mathematical Model of the "Soyuz-2.1b" Stage3 ("Block I")         //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/ME/TrConeSpherSegm.hpp"
 #include "SpaceBallistics/LVSC/LVSC.h"
-#include "SpaceBallistics/LVSC/Soyuz21b_Consts.h"
-#include "SpaceBallistics/LVSC/Soyuz21b_Head.h"
 #include "SpaceBallistics/LVSC/Propellants.h"
 #include "SpaceBallistics/LVSC/StageDynParams.h"
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Consts.h"
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Head.h"
 #include <cassert>
 
 namespace SpaceBallistics
@@ -170,7 +170,9 @@ namespace SpaceBallistics
         Density(0.0)                    // No Propellant there
       );
 
-    // Fuel Tank "Proto" components (with yet-unknown masses):
+    //-----------------------------------------------------------------------//
+    // Fuel Tank "Proto" components (with yet-unknown masses):               //
+    //-----------------------------------------------------------------------//
     constexpr static SpS FuelTankUpProto  =
       SpS
       (
@@ -197,7 +199,9 @@ namespace SpaceBallistics
         Propellants::RG1Dens            // Naftil
       );
 
-    // Equipment Bay (containing the Control System):
+    //-----------------------------------------------------------------------//
+    // Equipment Bay (containing the Control System):                        //
+    //-----------------------------------------------------------------------//
     // "Proto" with yet-unknown mass:
     constexpr static TC  EquipBayProto =
       TC
@@ -208,7 +212,9 @@ namespace SpaceBallistics
         Density(0.0)                    // No Propellant there
       );
 
-    // Oxidiser Tank "Proto" components (with yet-unknown masses):
+    //-----------------------------------------------------------------------//
+    // Oxidiser Tank "Proto" components (with yet-unknown masses):           //
+    //-----------------------------------------------------------------------//
     constexpr static SpS OxidTankUpProto =
       SpS
       (
@@ -273,7 +279,7 @@ namespace SpaceBallistics
           &EquipBayProto,
           &OxidTankUpProto, &OxidTankMidProto, &OxidTankLowProto
         },
-        // The total mass of the sbove MEs (incl Gases):
+        // The TotalMass of the sbove MEs (incl Gases):
         EmptyMass + GasesMass - AftMass - EngMass
       );
 

@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                   "SpaceBallistics/LVSC/Soyuz21b.h":                      //
+//              "SpaceBallistics/LVSC/Soyuz-2.1b/Soyuz21b.h":                //
 //          Mathematical Model of the "Soyuz-2.1b" Launch Vehicle            //
 //===========================================================================//
 // Includes Blocks B,V,G,D (Stage1), A (Stage2), I (Stage3), InterStage and

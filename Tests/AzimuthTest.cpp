@@ -1,8 +1,8 @@
 // vim:ts=2:et
 //===========================================================================//
-//                              "AzimuthTest.cpp":                           //
+//                            "Tests/AzimuthTest.cpp":                       //
 //===========================================================================//
-#include "SpaceBallistics/LVSC/Soyuz2_LaunchPads.hpp"
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/LaunchPads.hpp"
 #include <iostream>
 
 int main()

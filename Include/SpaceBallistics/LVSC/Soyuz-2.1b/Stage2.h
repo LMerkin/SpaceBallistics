@@ -1,23 +1,26 @@
 // vim:ts=2:et
 //===========================================================================//
-//                 "SpaceBallistics/LVSC/Soyuz21b_Stage2.h":                 //
+//                "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h":                //
 //         Mathematical Model of the "Soyuz-2.1b" Stage2 ("Block A")         //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/ME/MechElement.hpp"
-#include "SpaceBallistics/LVSC/Soyuz21b_Consts.h"
-#include "SpaceBallistics/LVSC/Soyuz21b_Head.h"
+#include "SpaceBallistics/ME/TrConeSpherSegm.hpp"
+#include "SpaceBallistics/ME/ToricSegms.hpp"
 #include "SpaceBallistics/LVSC/Propellants.h"
 #include "SpaceBallistics/LVSC/StageDynParams.h"
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Consts.h"
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Head.h"
 #include <cassert>
 
 namespace SpaceBallistics
 {
-  namespace SC = Soyuz21b_Consts;
-  namespace SH = Soyuz21b_Head;
+  namespace SC  = Soyuz21b_Consts;
+  namespace SH  = Soyuz21b_Head;
 
   // All "MechElements" are instantiated with "LVSC::Soyuz21b":
-  using     ME = MechElement<LVSC::Soyuz21b>;
+  using     ME  = MechElement<LVSC::Soyuz21b>;
+  using     TC  = TrCone     <LVSC::Soyuz21b>;
+  using     SpS = SpherSegm  <LVSC::Soyuz21b>;
 
   //=========================================================================//
   // "Soyuz21b_Stage2" Class:                                                //
@@ -45,7 +48,8 @@ namespace SpaceBallistics
     constexpr static Len    GridH         = 0.975_m;
     constexpr static Len    TopX          = SC::X0 - SC::Stage3Len - GridH;
 
-    // Deflector Code Height and Base Diameter:
+    // DeflectorCone Height and Base Diameter. The Height is < GridH, so the
+    // DeflectorCone is within the Grid:
     constexpr static Len    DeflConeH     = GridH / 2.0;
     constexpr static Len    TopD          = 2.700_m;  // Slightly >than Stage3D
 
@@ -65,11 +69,12 @@ namespace SpaceBallistics
     constexpr static Len    MidTrCH       = 4.55_m;
     constexpr static Len    MinD          = 2.05_m;
 
-    // The Lower Cylinder: Contains the Mid Cylinder and the Bottom ShperSegm
+    // The Lower Cylinder: Contains the Mid Cylinder and the Bottom SpherSegm
     // of the FuelTank, the H2O2 Tank and the LiqN2 Tank (see below).
 
     // OxidTank:
-    // Top SpherSegm:
+    // Top SpherSegm. Its top-most point (the pole) is at the level of the not-
+    // ional bottom base of the EqipBay:
     constexpr static Len    OxidTankTopH  = 0.900_m;  // Approx
     constexpr static Len    OxidTankTopD  =
       TopD + double(OxidTankTopH / UpperTrCH) * (MaxD - TopD);
@@ -242,23 +247,111 @@ namespace SpaceBallistics
       (H2O2Mass - H2O2Rem) / MaxFlightTime;
 
   private:
-/*
     //-----------------------------------------------------------------------//
     // "MechElement"s: "Proto"s with Yet-UnKnown Masses:                     //
     //-----------------------------------------------------------------------//
-    // XXX: Inter-Stage Grid (between Stages 2 and 3) is not modeled. Its mass
-    // will be implicitly included into the EmptyMass of Stage2.
+    //-----------------------------------------------------------------------//
+    // Top-Level ME Protos:                                                  //
+    //-----------------------------------------------------------------------//
+    // XXX: Inter-Stage Grid (between Stages 2 and 3)  is  not modeled at all.
+    // Its mass is included into the EmptyMass of Stage2, and will be "spread"
+    // over the masses of all MEs defined below.  The reason is that the Grid
+    // cannot (as yet) be represented as any supported "ME".  This will have a
+    // minor effect on MoIs accuracy...
     //
-    // Deflector Cone at the top of Stage2:
-    constexpr static TrCone DeflectorCone =
-      TrCone
+    // "DeflectorCone" at the top of Stage2. Its base is @ "TopX" co-ord, but
+    // the Ctor requires the vertex point in this case:
+    //
+    constexpr static TC DeflectorConeProto =
+      TC
       (
-        ForeX0, 
-        D,
-        ForeH,
+        TopX - DeflConeH,               // Cone vertex point
+        0.0_m,                          //  ... so its D=0
+        TopD,                           // Lower Base  D
+        DeflConeH,
         Density(0.0)                    // No Propellant there
       );
 
+    // "EquipBay" is assumed to be a Cylinder, its UpperBase is the LowBase of
+    // "DeflectorCone", ie @ TopX:
+    constexpr static TC EquipBayProto =
+      TC
+      (
+        TopX,
+        TopD,
+        EquipBayH,
+        Density(0.0)                    // No propellant there
+      );
+
+    // The TrCone enclosing the OxidTankTop (which is a SpherSegm). Its Upper-
+    // Base is LowBase of "EquipBay", so its D is "TopD" as well:
+    //
+    constexpr static TC  OxidTankTopEnclProto =
+      TC
+      (
+        EquipBayProto.GetLow()[0],
+        TopD,
+        OxidTankTopD,
+        OxidTankTopH,
+        Density(0.0)                    // No propellant in it by itself...
+      );
+
+    //-----------------------------------------------------------------------//
+    // OxidTank Protos:                                                      //
+    //-----------------------------------------------------------------------//
+    // The Top SpherSegm of the OxidTank. Its UpperBase is the LowBase of the
+    // above "OxidTankTopEnclProto":
+    //
+    constexpr static SpS OxidTankTopProto =
+      SpS
+      (
+        true,                           // Yes, Facing Up!
+        OxidTankTopEnclProto.GetLow()[0],
+        OxidTankTopD,
+        OxidTankTopH,
+        Propellants::LOxDens
+      );
+
+    // The Upper TrCone of the OxidTank. Its UpperBase is the LowBase of the
+    // "OxidTankTopProto" (same as the LowBase of "OxidTankTopEnclProto"):
+    //
+    static_assert(OxidTankTopEnclProto.GetLow()[0] ==
+                  OxidTankTopProto    .GetLow()[0]);
+
+    constexpr static TC OxidTankUpProto =
+      TC
+      (
+        OxidTankTopProto.GetLow()[0],
+        OxidTankTopD,
+        MaxD,
+        OxidTankUpH,
+        Propellants::LOxDens
+      );
+
+    // The Lower TrCone of the OxidTank. Its UpperBase is the LowerBase of the
+    // "OxidTankUpProto":
+    constexpr static TC OxidTankLowProto =
+      TC
+      (
+        OxidTankUpProto.GetLow()[0],
+        MaxD,
+        OxidTankBtmD,
+        OxidTankLowH,
+        Propellants::LOxDens
+      );
+
+    // The Bottom SpherSegm of the OxidTank. Its Base is the LowBase of the
+    // "OxidTankLowProto":
+    constexpr static SpS OxidTankBtmProto =
+      SpS
+      (
+        false,                      // Facing Low!
+        OxidTankLowProto.GetLow()[0],
+        OxidTankBtmD,
+        OxidTankBtmH,
+        Propellants::LOxDens
+      );
+/*
   public:
     //-----------------------------------------------------------------------//
     // "MechElement"s with Real Masses:                                      //

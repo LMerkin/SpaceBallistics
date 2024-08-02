@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                  "SpaceBallistics/LVSC/Soyuz21b_Head.h":                  //
+//                 "SpaceBallistics/LVSC/Soyuz-2.1b/Head.h":                 //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"

@@ -695,11 +695,21 @@ namespace SpaceBallistics
 
   public:
     //=======================================================================//
-    // Elementary Accessors:                                                 //
+    // Accessors:                                                            //
     //=======================================================================//
-    constexpr Area GetSideSurfArea() const { return m_sideSurfArea; }
-    constexpr Vol  GetEnclVol()      const { return m_enclVol;      }
-    constexpr Len  GetHeight ()      const { return m_h;            }
+    constexpr Area     GetSideSurfArea()  const { return m_sideSurfArea; }
+    constexpr Vol      GetEnclVol()       const { return m_enclVol;      }
+    constexpr Len      GetHeight ()       const { return m_h;            }
+
+    // Upper and Lower Points:
+    constexpr typename ME::PosVE const& GetUp () const { return m_up;    }
+    constexpr typename ME::PosVE const& GetLow() const { return m_low;   }
+
+    // The Maximum Propellant Mass (Capacity):
+    constexpr Mass     GetPropMassCap()   const { return m_propMassCap;  }
+
+    // The Propellant Density:
+    constexpr Density  GetPropDens()      const { return m_rho;          }
 
     //=======================================================================//
     // "GetPropBulkME":                                                      //
@@ -785,18 +795,6 @@ namespace SpaceBallistics
       return MechElement<LVSCKind>
         (com, comDots, a_prop_mass, a_prop_mass_dot, mois, moiDots, true);
     }
-
-    //=======================================================================//
-    // Accessors (for use by Derived Classes):                               //
-    //=======================================================================//
-    constexpr typename ME::PosVE const& GetLow() const { return m_low; }
-    constexpr typename ME::PosVE const& GetUp () const { return m_up;  }
-
-    // The Maximum Propellant Mass (Capacity):
-    constexpr Mass     GetPropMassCap()   const { return m_propMassCap; }
-
-    // The Propellant Density:
-    constexpr Density  GetPropDens()      const { return m_rho; }
   };
 }
 // End namespace SpaceBallistics

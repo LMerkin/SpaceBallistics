@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
-//                         "Soyuz2_LaunchPads.hpp":                          //
-//                        Pad Locations with Azimuths                        //
+//             "SpaceBallistics/LVSC/Soyuz-2.1b/LaunchPads.hpp":             //
+//        Soyuz-2 (.1a, .1b) Pad Locations with Orientation Azimuths         //
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/CoOrds/GeoLocations.hpp"

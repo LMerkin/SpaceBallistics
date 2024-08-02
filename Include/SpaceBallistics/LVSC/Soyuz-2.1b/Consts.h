@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                 "SpaceBallistics/LVSC/Soyuz21b_Consts.h":                 //
+//                  "SpaceBallistics/LVSC/Soyuz-2.1b/Consts.h":              //
 //    Over-All Consts for the Mathematical Model of the "Soyuz-2.1b" LV      //
 //===========================================================================//
 #pragma  once

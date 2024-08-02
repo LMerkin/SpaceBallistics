@@ -475,7 +475,7 @@ namespace SpaceBallistics
     constexpr SpherSegm
     (
       bool        a_facing_up,
-      Len         a_xb,       // Base centerr X co-ord
+      Len         a_xb,       // Base center X co-ord
       Len         a_d,        // Base diameter
       Len         a_h,        // Height
       Density     a_rho,      // 0 may be OK

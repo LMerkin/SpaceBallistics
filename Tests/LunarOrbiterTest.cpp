@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                             "LunarOrbiter.cpp":                           //
+//                       "Tests/LunarOrbiterTest.cpp":                       //
 //                  Integration of the Lunar Orbiter Motion                  //
 //                    in an Irregualr Gravitational Field                    //
 //===========================================================================//
