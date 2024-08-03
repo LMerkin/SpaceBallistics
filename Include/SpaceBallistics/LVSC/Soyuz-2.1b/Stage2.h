@@ -351,14 +351,81 @@ namespace SpaceBallistics
         OxidTankBtmH,
         Propellants::LOxDens
       );
-/*
+
+    // Scale Factor to determine the individual masses. NB: For simplicity, we
+    // include the Mass of the Gases (which is very small) into the  TotalMass
+    // of the "MechElement"s:
+    //
+    constexpr static double ScaleFactor =
+      ME::GetMassScale
+      (
+        // Components for which we provide the TotalMass (below):
+        { &DeflectorConeProto, &EquipBayProto,   &OxidTankTopEnclProto,
+          &OxidTankTopProto,   &OxidTankUpProto, &OxidTankLowProto,
+          &OxidTankBtmProto
+          // FIXME: NEED MORE!
+        },
+        // The TotalMass of the sbove MEs (unlike "Stage3", it does NOT include
+        // Gases):
+        EmptyMass
+      );
+
   public:
     //-----------------------------------------------------------------------//
     // "MechElement"s with Real Masses:                                      //
     //-----------------------------------------------------------------------//
-*/
+    constexpr static TC  DeflectorCone    =
+      ME::ProRateMass(DeflectorConeProto,   ScaleFactor);
+
+    constexpr static TC  EquipBay         =
+      ME::ProRateMass(EquipBayProto,        ScaleFactor);
+
+    constexpr static TC  OxidTankTopEncl  =
+      ME::ProRateMass(OxidTankTopEnclProto, ScaleFactor);
+
+    constexpr static SpS OxidTankTop      =
+      ME::ProRateMass(OxidTankTopProto,     ScaleFactor);
+
+    constexpr static TC  OxidTankUp       =
+      ME::ProRateMass(OxidTankUpProto,      ScaleFactor);
+
+    constexpr static TC  OxidTankLow      =
+      ME::ProRateMass(OxidTankLowProto,     ScaleFactor);
+
+    constexpr static SpS OxidTankBtm      =
+      ME::ProRateMass(OxidTankBtmProto,     ScaleFactor);
+
+  private:
+    //-----------------------------------------------------------------------//
+    // "MechElement"s for Propellant Loads:                                  //
+    //-----------------------------------------------------------------------//
+    // Propallant Mass Capacities (MC) of Oxid, Fuel, H2O2 and N2 Tank Sections
+    // and their "Unions".
+    // Oxid:
+    constexpr static Mass OxidTankTopMC      = OxidTankTop.GetPropMassCap();
+    constexpr static Mass OxidTankUpMC       = OxidTankUp .GetPropMassCap();
+    constexpr static Mass OxidTankLowMC      = OxidTankLow.GetPropMassCap();
+    constexpr static Mass OxidTankBtmMC      = OxidTankBtm.GetPropMassCap();
+    // Unions:
+    constexpr static Mass OxidTankBtmLowMC   = OxidTankBtmMC    + OxidTankLowMC;
+    constexpr static Mass OxidTankBtmLowUpMC = OxidTankBtmLowMC + OxidTankUpMC;
 
   public:
+    //-----------------------------------------------------------------------//
+    // Propellant Volumes and Max Theoretical Loads (Capacities):            //
+    //-----------------------------------------------------------------------//
+    // Volumes of the Oxid, Fuel, H2O2 and N2 Tanks:
+    constexpr static Vol  OxidTankVol  =
+      OxidTankTop.GetEnclVol() + OxidTankUp .GetEnclVol() +
+      OxidTankLow.GetEnclVol() + OxidTankBtm.GetEnclVol();
+
+    // Maximum Theoretical Fuel and Oxid Capacities of the resp Tanks:
+    constexpr static Mass OxidTankMC   = OxidTankBtmLowUpMC + OxidTankTopMC;
+
+    // Propellant Load Ratios (ActualMass / TheorMassCapacity):
+    constexpr static double OxidLoadRatio = double(OxidMass / OxidTankMC);
+//  static_assert(OxidLoadRatio < 1.0);
+
     //=======================================================================//
     // Thrust Vector Control:                                                //
     //=======================================================================//

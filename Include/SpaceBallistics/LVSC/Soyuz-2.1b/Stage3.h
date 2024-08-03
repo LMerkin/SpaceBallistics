@@ -240,6 +240,23 @@ namespace SpaceBallistics
         Propellants::LOxDens
       );
 
+    // Scale Factor to determine the individual masses. NB: For simplicity, we
+    // include the Mass of the Gases (which is very small) into the  TotalMass
+    // of the "MechElement"s:
+    //
+    constexpr static double ScaleFactor =
+      ME::GetMassScale
+      (
+        // Components for which we provide the TotalMass (below):
+        { &ForeSectionProto,
+          &FuelTankUpProto, &FuelTankMidProto, &FuelTankLowProto,
+          &EquipBayProto,
+          &OxidTankUpProto, &OxidTankMidProto, &OxidTankLowProto
+        },
+        // The TotalMass of the sbove MEs (incl Gases):
+        EmptyMass + GasesMass - AftMass - EngMass
+      );
+
   public:
     //-----------------------------------------------------------------------//
     // "MechElement"s with Real Masses:                                      //
@@ -265,25 +282,6 @@ namespace SpaceBallistics
         EngMass                         // Mass is known!
       );
 
-  private:
-    // Scale Factor to determine the individual masses. NB: For simplicity, we
-    // include the Mass of the Gases (which is very small) into the  TotalMass
-    // of the "MechElement"s:
-    //
-    constexpr static double ScaleFactor =
-      ME::GetMassScale
-      (
-        // Components for which we provide the TotalMass (below):
-        { &ForeSectionProto,
-          &FuelTankUpProto, &FuelTankMidProto, &FuelTankLowProto,
-          &EquipBayProto,
-          &OxidTankUpProto, &OxidTankMidProto, &OxidTankLowProto
-        },
-        // The TotalMass of the sbove MEs (incl Gases):
-        EmptyMass + GasesMass - AftMass - EngMass
-      );
-
-  public:
     // Real-Mass Fore Section:
     constexpr static TC  ForeSection =
       ME::ProRateMass(ForeSectionProto, ScaleFactor);
@@ -347,18 +345,24 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "MechElement"s for Propellant Loads:                                  //
     //-----------------------------------------------------------------------//
-    // Propallant Mass Capacities (MC) of Fuel and Oxid Tank Sections:
+    // Propallant Mass Capacities (MC) of Fuel and Oxid Tank Sections and their
+    // "Unions":
     constexpr static Mass FuelTankUpMC     = FuelTankUp .GetPropMassCap();
     constexpr static Mass FuelTankMidMC    = FuelTankMid.GetPropMassCap();
     constexpr static Mass FuelTankLowMC    = FuelTankLow.GetPropMassCap();
+    // Union:
     constexpr static Mass FuelTankLowMidMC = FuelTankLowMC + FuelTankMidMC;
 
     constexpr static Mass OxidTankUpMC     = OxidTankUp .GetPropMassCap();
     constexpr static Mass OxidTankMidMC    = OxidTankMid.GetPropMassCap();
     constexpr static Mass OxidTankLowMC    = OxidTankLow.GetPropMassCap();
+    // Union:
     constexpr static Mass OxidTankLowMidMC = OxidTankLowMC + OxidTankMidMC;
 
   public:
+    //-----------------------------------------------------------------------//
+    // Propellant Volumes and Max Theoretical Loads (Capacities):            //
+    //-----------------------------------------------------------------------//
     // Volumes of the Fuel and Oxid Tanks:
     constexpr static Vol  FuelTankVol  =
       FuelTankUp .GetEnclVol() + FuelTankMid.GetEnclVol() +
@@ -369,10 +373,15 @@ namespace SpaceBallistics
       OxidTankLow.GetEnclVol();
 
     // Maximum Theoretical Fuel and Oxid Capacities of the resp Tanks:
-    constexpr static Mass FuelTankMC   =
-      FuelTankUpMC + FuelTankMidMC + FuelTankLowMC;
-    constexpr static Mass OxidTankMC   =
-      OxidTankUpMC + OxidTankMidMC + OxidTankLowMC;
+    constexpr static Mass FuelTankMC   = FuelTankLowMidMC + FuelTankUpMC;
+    constexpr static Mass OxidTankMC   = OxidTankLowMidMC + OxidTankUpMC;
+
+    // Fuel and Oxid Load Ratios (ActualMass / TheorMassCapacity):
+    constexpr static double FuelLoadRatio = double(FuelMass / FuelTankMC);
+    static_assert(FuelLoadRatio < 1.0);
+
+    constexpr static double OxidLoadRatio = double(OxidMass / OxidTankMC);
+    static_assert(OxidLoadRatio < 1.0);
 
   private:
     // "MechElement" objs for Maximum Theoretical Propellant Loads in Tank
@@ -388,13 +397,6 @@ namespace SpaceBallistics
     constexpr static ME OxidLowMidME = OxidLowME + OxidMidME;
 
   public:
-    // Fuel and Oxid Load Ratios (ActualMass / TheorMassCapacity):
-    constexpr static double FuelLoadRatio = double(FuelMass / FuelTankMC);
-    static_assert(FuelLoadRatio < 1.0);
-
-    constexpr static double OxidLoadRatio = double(OxidMass / OxidTankMC);
-    static_assert(OxidLoadRatio < 1.0);
-
     //-----------------------------------------------------------------------//
     // TimeLine Consts:                                                      //
     //-----------------------------------------------------------------------//
@@ -416,7 +418,6 @@ namespace SpaceBallistics
     // The actual Burn Duration must not exceed the above theoretical maximum:
     static_assert(SC::Stage3BurnDur < MaxBurnDur);
 
-  public:
     //-----------------------------------------------------------------------//
     // Masses at Event Times (for "GetDynParams" Optimisation):              //
     //-----------------------------------------------------------------------//

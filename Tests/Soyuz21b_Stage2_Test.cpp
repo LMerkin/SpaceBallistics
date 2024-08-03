@@ -14,8 +14,14 @@ int main()
   namespace  SC = Soyuz21b_Consts;
   using      S2 = Soyuz21b_Stage2;
 
-  cout << "Stage2PropMargin: "
+  cout << "# Stage2PropMargin  : "
        << (double(S2::MaxFlightTime / SC::Stage2CutOffTime) - 1.0) * 100.0
        << " %" << endl;
+
+  // Max and Real Fuel and Oxid Loads:
+  cout << "# Stage2MaxOxidLoad : " << S2::OxidTankMC             << endl;
+  cout << "# Stage2ActOxidLoad : " << S2::OxidLoadRatio * 100.0  << " %"
+       << endl;
+
   return 0;
 }
