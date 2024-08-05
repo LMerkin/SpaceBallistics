@@ -60,12 +60,11 @@ namespace SpaceBallistics
     // The over-all Upper (Expanding) TrCone: Contains the Top SpherSegm of the
     // OxidTank, and the Upper TrCone of the OxidTank itself. The diameter inc-
     // reases from "TopD" to "MaxD":
-    constexpr static Len    UpperTrCH     = 5.835_m;
+    constexpr static Len    UpperTrCH     = 5.840_m;  // Or 5.835 m?
     constexpr static Len    MaxD          = 2.950_m;  // Max for entire Stage2
 
-    // The over-all Middle (Narrowing-Down) TrCone: Contains the Low TrCone and
-    // Bottom SpherSegm of the OxidTank, as well as Top SpherSegm of the Fuel
-    // Tank. The diameter decreses from MaxD to MinD:
+    // The over-all Middle (Narrowing-Down) TrCone: Contains the Low TrCone of
+    // the OxidTank. The diameter decreses from MaxD to MinD:
     constexpr static Len    MidTrCH       = 4.55_m;
     constexpr static Len    MinD          = 2.05_m;
 
@@ -74,35 +73,40 @@ namespace SpaceBallistics
 
     // OxidTank:
     // Top SpherSegm. Its top-most point (the pole) is at the level of the not-
-    // ional bottom base of the EqipBay:
+    // ional bottom base of the EquipBay:
     constexpr static Len    OxidTankTopH  = 0.900_m;  // Approx
     constexpr static Len    OxidTankTopD  =
       TopD + double(OxidTankTopH / UpperTrCH) * (MaxD - TopD);
 
-    // Height of the Upper TrCone part of the OxidTank: Stretches to the end of
+    // Height of the Upper TrCone part of the OxidTank: extends to the end of
     // the over-all  Upper TrCone:
     constexpr static Len    OxidTankUpH   = UpperTrCH - OxidTankTopH;
 
-    // Height of the Lower TrCone part of the OxidTank (located within the over-
-    // all Middle TrCone):
-    constexpr static Len    OxidTankLowH  = 3.20_m;
+    // Height of the Lower TrCone part of the OxidTank (extends to the end of
+    // the Middle TrCone):
+    constexpr static Len    OxidTankLowH  = MidTrCH;
 
     // Height and Base Diameter of the Bottom SpherSegm part of the OxidTank:
-    constexpr static Len    OxidTankBtmH  = 0.635_m;
-    constexpr static Len    OxidTankBtmD  =
-      MaxD + double(OxidTankLowH / MidTrCH) * (MinD - MaxD);
+    // XXX: we assume it is located within the Cylindrical Low section of St2
+    // (different srcs given different info) of the "MinD" diameter:
+    constexpr static Len    OxidTankBtmH  = 0.5_m;
+    constexpr static Len    OxidTankBtmD  = MinD;
 
     // FuelTank:
-    // Top SpherSegm (Base Diameter = MinD):
-    constexpr static Len    FuelTankTopH  = 0.5_m;
+    // Located entirely in the Cylindrical Low section of Stage2, Diameter is
+    // "MinD":
+    // Top SpherSegm:
+    constexpr static Len    FuelTankTopH  = OxidTankBtmH;   // XXX: Approx...
 
+    /*
     // There is a gap between the OxidTankBtm and FuelTankTop:
     constexpr static Len    InterTankGap  =
       MidTrCH - OxidTankLowH - OxidTankBtmH - FuelTankTopH;
     static_assert(IsPos(InterTankGap));
 
     // Length of the main cylindrical section of the FuelTank:
-//  constexpr static Len    FuelTankMidH  =
+    constexpr static Len    FuelTankMidH  =
+    */
 
     //-----------------------------------------------------------------------//
     // Masses:                                                               //
@@ -231,7 +235,10 @@ namespace SpaceBallistics
       FullThrustPropMass / MassRateEng;
 
     // Then the Max Time of RD-108A operation from LiftOff=FullThrust (NOT from
-    // Ignition which occurs before LiftOff) to Full ShutDown  is:
+    // Ignition which occurs before LiftOff) to Full ShutDown  is.
+    // XXX: For Stage3, a similar param is called "MaxBurnDur", but in this case
+    // the ignition occurs BEFORE the lift-off, and we are actually interested
+    // in the "MaxFlightTime", not "MaxBurnDur":
     constexpr static Time     MaxFlightTime      = MaxFullThrustTime + 6.0_sec;
 
     // MaxFlightTime appears to be ~291 sec, whereas the actual Stage2CutOffTime
@@ -424,7 +431,7 @@ namespace SpaceBallistics
 
     // Propellant Load Ratios (ActualMass / TheorMassCapacity):
     constexpr static double OxidLoadRatio = double(OxidMass / OxidTankMC);
-//  static_assert(OxidLoadRatio < 1.0);
+    static_assert(OxidLoadRatio < 1.0);
 
     //=======================================================================//
     // Thrust Vector Control:                                                //

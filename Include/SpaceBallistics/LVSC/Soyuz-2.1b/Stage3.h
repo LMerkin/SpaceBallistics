@@ -118,7 +118,7 @@ namespace SpaceBallistics
     // they refer to Naftil or Kerosene. The OxidRate is quoted somewhere as
     // 56.7 kg/sec, which is clearly too low.
     // In different sources, Oxidiser/Fuel Ratio is 2.5..2.6, here 2.50:
-    // These figure must be consistent with the BurnDur and the StaticThrust
+    // These figure must be consistent with the MaxBurnDur and the StaticThrust
     // below:
     constexpr static auto   FuelRate      = 23.8_kg / 1.0_sec;
     constexpr static auto   OxidRate      = 59.6_kg / 1.0_sec;
