@@ -18,10 +18,18 @@ int main()
        << (double(S2::MaxFlightTime / SC::Stage2CutOffTime) - 1.0) * 100.0
        << " %" << endl;
 
-  // Max and Real Fuel and Oxid Loads:
+  // Max and Real Oxid and Fuel Loads:
   cout << "# Stage2MaxOxidLoad : " << S2::OxidTankMC             << endl;
   cout << "# Stage2ActOxidLoad : " << S2::OxidLoadRatio * 100.0  << " %"
        << endl;
+  cout << "# Stage2MaxFuelLoad : " << S2::FuelTankMC             << endl;
+  cout << "# Stage2ActFuelLoad : " << S2::FuelLoadRatio * 100.0  << " %"
+       << endl;
 
+  // Over-All Length:
+  cout << "# Stage2OverAllLen  : " << S2::H << endl;
+
+  cout << "# StillFree         : "
+       << (S2::FuelTankBtm.GetLow()[0] - (S2::TopX - S2::H)) << endl;
   return 0;
 }

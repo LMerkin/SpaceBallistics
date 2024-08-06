@@ -19,7 +19,7 @@ namespace SpaceBallistics
 
   // All "MechElements" are instantiated with "LVSC::Soyuz21b":
   using     ME  = MechElement<LVSC::Soyuz21b>;
-  using     TC  = TrCone     <LVSC::Soyuz21b>;
+  using     TrC = TrCone     <LVSC::Soyuz21b>;
   using     SpS = SpherSegm  <LVSC::Soyuz21b>;
 
   //=========================================================================//
@@ -38,15 +38,16 @@ namespace SpaceBallistics
 
   public:
     //=======================================================================//
-    // Consts:                                                               //
+    // Geometry:                                                             //
     //=======================================================================//
     //-----------------------------------------------------------------------//
-    // Geometry:                                                             //
+    // InterStageGrid, DeflectorCone, EquipmentBay:                          //
     //-----------------------------------------------------------------------//
-    // Stage2 Top (Base of Deflector Cone): Bottom of Stage3 minus the Height
-    // of InterStage Grid:
+    // Stage2 Top is the Bottom of Stage3:
+    constexpr static Len    TopX          = SC::X0 - SC::Stage3Len;
+
+    // The IntegrStageGrid:
     constexpr static Len    GridH         = 0.975_m;
-    constexpr static Len    TopX          = SC::X0 - SC::Stage3Len - GridH;
 
     // DeflectorCone Height and Base Diameter. The Height is < GridH, so the
     // DeflectorCone is within the Grid:
@@ -57,6 +58,9 @@ namespace SpaceBallistics
     // different drawings. Assume Cylindrical, of the same "TopD" diameter:
     constexpr static Len    EquipBayH     = 0.595_m;
 
+    //-----------------------------------------------------------------------//
+    // OxidTank:                                                             //
+    //-----------------------------------------------------------------------//
     // The over-all Upper (Expanding) TrCone: Contains the Top SpherSegm of the
     // OxidTank, and the Upper TrCone of the OxidTank itself. The diameter inc-
     // reases from "TopD" to "MaxD":
@@ -68,13 +72,9 @@ namespace SpaceBallistics
     constexpr static Len    MidTrCH       = 4.55_m;
     constexpr static Len    MinD          = 2.05_m;
 
-    // The Lower Cylinder: Contains the Mid Cylinder and the Bottom SpherSegm
-    // of the FuelTank, the H2O2 Tank and the LiqN2 Tank (see below).
-
-    // OxidTank:
-    // Top SpherSegm. Its top-most point (the pole) is at the level of the not-
-    // ional bottom base of the EquipBay:
-    constexpr static Len    OxidTankTopH  = 0.900_m;  // Approx
+    // Top OxidTank SpherSegm. Its top-most point (the pole) is at the level of
+    // the notional bottom base of the EquipBay:
+    constexpr static Len    OxidTankTopH  = 0.8_m;    // Approx
     constexpr static Len    OxidTankTopD  =
       TopD + double(OxidTankTopH / UpperTrCH) * (MaxD - TopD);
 
@@ -82,35 +82,60 @@ namespace SpaceBallistics
     // the over-all  Upper TrCone:
     constexpr static Len    OxidTankUpH   = UpperTrCH - OxidTankTopH;
 
-    // Height of the Lower TrCone part of the OxidTank (extends to the end of
-    // the Middle TrCone):
-    constexpr static Len    OxidTankLowH  = MidTrCH;
+    // Height of the Lower TrCone part of the OxidTank (extends ALMOST to the
+    // end of the Middle TrCone):
+    constexpr static Len    OxidTankBtmH  = 0.5_m;    // Approx
+    constexpr static Len    OxidTankLowH  = MidTrCH   - OxidTankBtmH / 2.0;
 
-    // Height and Base Diameter of the Bottom SpherSegm part of the OxidTank:
-    // XXX: we assume it is located within the Cylindrical Low section of St2
-    // (different srcs given different info) of the "MinD" diameter:
-    constexpr static Len    OxidTankBtmH  = 0.5_m;
-    constexpr static Len    OxidTankBtmD  = MinD;
+    // Bottom SpherSegm of OxidTank: D=MinD, H=OxidTankBtmH
 
-    // FuelTank:
-    // Located entirely in the Cylindrical Low section of Stage2, Diameter is
-    // "MinD":
+    //-----------------------------------------------------------------------//
+    // FuelTank:                                                             //
+    //-----------------------------------------------------------------------//
+    // Located entirely in the Cylindrical Low section of Stage2. The Diameter
+    // of this section is "MinD", and over-all length is:
+    constexpr static Len    LowCylH       = 15.178_m;
+
+    // There is a gap between the OxidTankBtm and FuelTankTop. Its exact size
+    // is not known, so assume something similar to Stage3:
+    constexpr static Len    OxidFuelGap   = 0.15_m;
+
     // Top SpherSegm:
     constexpr static Len    FuelTankTopH  = OxidTankBtmH;   // XXX: Approx...
 
-    /*
-    // There is a gap between the OxidTankBtm and FuelTankTop:
-    constexpr static Len    InterTankGap  =
-      MidTrCH - OxidTankLowH - OxidTankBtmH - FuelTankTopH;
-    static_assert(IsPos(InterTankGap));
+    // Bottom SpherSegm:
+    constexpr static Len    FuelTankBtmH  = FuelTankTopH;
 
-    // Length of the main cylindrical section of the FuelTank:
-    constexpr static Len    FuelTankMidH  =
-    */
+    // Length of the main cylindrical section of the FuelTank: Known only
+    // approximately. We assume (see above) that half of the OxidTankBtm secti-
+    // on is in the "MidTrCone", and the "FuelTankBtm" SpherSegm is beyond the
+    // 10.378_m quoted below:
+    constexpr static Len    OxidFuelEnclH =
+      OxidTankBtmH / 2.0  + OxidFuelGap   + FuelTankTopH;
+
+    constexpr static Len    FuelTankMidH  = 10.378_m - OxidFuelEnclH;
 
     //-----------------------------------------------------------------------//
+    // H2O2 Tank:                                                            //
+    //-----------------------------------------------------------------------//
+
+    //-----------------------------------------------------------------------//
+    // N2 Tank:                                                              //
+    //-----------------------------------------------------------------------//
+
+    //-----------------------------------------------------------------------//
+    // Over-all length of Stage2:                                            //
+    //-----------------------------------------------------------------------//
+    // (From the top of the InterStageGrid to the end of the LowCyl, but w/o
+    // the extending Engine Nozzles):
+    //
+    constexpr static Len    H =
+      GridH + EquipBayH + UpperTrCH + MidTrCH + LowCylH;
+    static_assert(H.ApproxEquals(27.138_m));
+
+    //=======================================================================//
     // Masses:                                                               //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // EmptyMass: XXX: StarSem says 6545 kg:
     constexpr static Mass   EmptyMass     = 6450.0_kg;
 
@@ -174,11 +199,11 @@ namespace SpaceBallistics
     // at +-Y are rotatable in the XZ plane, and those installed at +-Z are ro-
     // tatable in the XY plane:
     //
-    constexpr static Time   IspVernSL      = 251.9_sec;
-    constexpr static Time   IspVernVac     = 313.1_sec;
-    constexpr static Force  ThrustVernSL   = 2700.0_kg * g0;
-    constexpr static Force  ThrustVernVac  =
-      ThrustVernSL * double(IspVernVac / IspVernSL);
+    constexpr static Time   IspVernSL1     = 251.9_sec;
+    constexpr static Time   IspVernVac1    = 313.1_sec;
+    constexpr static Force  ThrustVernSL1  = 2700.0_kg * g0;
+    constexpr static Force  ThrustVernVac1 =
+      ThrustVernSL1 * double(IspVernVac1 / IspVernSL1);
       // 3.356 tf => Total=80.8/100.5 tf, very close to 80.81/100.97 tf above!
 
     // We can then calculate the MassRates for the Main Engine and for each
@@ -187,13 +212,16 @@ namespace SpaceBallistics
     static_assert(MassRateMain.ApproxEquals(ThrustMainVac / (IspMainVac * g0)));
     // ~277.89 kg/sec
 
-    constexpr static MassRate MassRateVern = ThrustVernSL / (IspVernSL  * g0);
-    static_assert(MassRateVern.ApproxEquals(ThrustVernVac / (IspVernVac * g0)));
+    constexpr static MassRate MassRateVern1 =
+      ThrustVernSL1 / (IspVernSL1 * g0);
+    static_assert
+      (MassRateVern1.ApproxEquals(ThrustVernVac1 / (IspVernVac1 * g0)));
+
     // ~10.72  kg/sec, NOT 4.15+8.55=12.70 kg/sec as it would be with the orig-
     // inal RD-107 Vernier Chamber data...
 
     // Total MassRate for the whole Engine:
-    constexpr static MassRate MassRateEng  = MassRateMain + 4.0 * MassRateVern;
+    constexpr static MassRate MassRateEng  = MassRateMain + 4.0 * MassRateVern1;
     // ~320.76 kg/sec
 
     // Separate Fuel and Oxid Rates are obtained using the Oxid/Fuel Ratio which
@@ -223,7 +251,7 @@ namespace SpaceBallistics
     // Thus, the Propellany Mass spent at ShutDown is:
     //
     constexpr static Mass     ShutDownPropMass   =
-      (MassRateMain * 1.0_sec + 4.0 * MassRateVern * 6.0_sec) * 0.25;
+      (MassRateMain * 1.0_sec + 4.0 * MassRateVern1 * 6.0_sec) * 0.25;
 
     // Thus, the Propellant Mass left for the FullThrust Mode:
     constexpr static Mass     FullThrustPropMass =
@@ -254,9 +282,9 @@ namespace SpaceBallistics
       (H2O2Mass - H2O2Rem) / MaxFlightTime;
 
   private:
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // "MechElement"s: "Proto"s with Yet-UnKnown Masses:                     //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     //-----------------------------------------------------------------------//
     // Top-Level ME Protos:                                                  //
     //-----------------------------------------------------------------------//
@@ -266,13 +294,13 @@ namespace SpaceBallistics
     // cannot (as yet) be represented as any supported "ME".  This will have a
     // minor effect on MoIs accuracy...
     //
-    // "DeflectorCone" at the top of Stage2. Its base is @ "TopX" co-ord, but
-    // the Ctor requires the vertex point in this case:
+    // "DeflectorCone" at the top of Stage2. The Ctor requires the vertex point
+    // (not the base!):
     //
-    constexpr static TC DeflectorConeProto =
-      TC
+    constexpr static TrC DeflectorConeProto =
+      TrC
       (
-        TopX - DeflConeH,               // Cone vertex point
+        TopX - GridH + DeflConeH,       // Cone vertex point
         0.0_m,                          //  ... so its D=0
         TopD,                           // Lower Base  D
         DeflConeH,
@@ -280,21 +308,25 @@ namespace SpaceBallistics
       );
 
     // "EquipBay" is assumed to be a Cylinder, its UpperBase is the LowBase of
-    // "DeflectorCone", ie @ TopX:
-    constexpr static TC EquipBayProto =
-      TC
+    // "DeflectorCone":
+    constexpr static TrC EquipBayProto =
+      TrC
       (
-        TopX,
+        DeflectorConeProto.GetLow()[0],
         TopD,
         EquipBayH,
         Density(0.0)                    // No propellant there
       );
+    static_assert(EquipBayProto.GetUp()[0].ApproxEquals(TopX - GridH));
 
-    // The TrCone enclosing the OxidTankTop (which is a SpherSegm). Its Upper-
-    // Base is LowBase of "EquipBay", so its D is "TopD" as well:
+    //-----------------------------------------------------------------------//
+    // OxidTank Protos:                                                      //
+    //-----------------------------------------------------------------------//
+    // The Enclosure of the OxidTankTop. Its UpperBase is the LowBase of the
+    // "EquipBay", so its D is "TopD" as well:
     //
-    constexpr static TC  OxidTankTopEnclProto =
-      TC
+    constexpr static TrC  OxidTankTopEnclProto =
+      TrC
       (
         EquipBayProto.GetLow()[0],
         TopD,
@@ -303,9 +335,6 @@ namespace SpaceBallistics
         Density(0.0)                    // No propellant in it by itself...
       );
 
-    //-----------------------------------------------------------------------//
-    // OxidTank Protos:                                                      //
-    //-----------------------------------------------------------------------//
     // The Top SpherSegm of the OxidTank. Its UpperBase is the LowBase of the
     // above "OxidTankTopEnclProto":
     //
@@ -325,8 +354,8 @@ namespace SpaceBallistics
     static_assert(OxidTankTopEnclProto.GetLow()[0] ==
                   OxidTankTopProto    .GetLow()[0]);
 
-    constexpr static TC OxidTankUpProto =
-      TC
+    constexpr static TrC OxidTankUpProto =
+      TrC
       (
         OxidTankTopProto.GetLow()[0],
         OxidTankTopD,
@@ -337,12 +366,12 @@ namespace SpaceBallistics
 
     // The Lower TrCone of the OxidTank. Its UpperBase is the LowerBase of the
     // "OxidTankUpProto":
-    constexpr static TC OxidTankLowProto =
-      TC
+    constexpr static TrC OxidTankLowProto =
+      TrC
       (
         OxidTankUpProto.GetLow()[0],
         MaxD,
-        OxidTankBtmD,
+        MinD,
         OxidTankLowH,
         Propellants::LOxDens
       );
@@ -352,60 +381,144 @@ namespace SpaceBallistics
     constexpr static SpS OxidTankBtmProto =
       SpS
       (
-        false,                      // Facing Low!
+        false,                      // Facing Down
         OxidTankLowProto.GetLow()[0],
-        OxidTankBtmD,
+        MinD,
         OxidTankBtmH,
         Propellants::LOxDens
       );
+    static_assert(OxidTankLowProto.GetLow()[0] == OxidTankBtmProto.GetUp()[0]);
 
-    // Scale Factor to determine the individual masses. NB: For simplicity, we
-    // include the Mass of the Gases (which is very small) into the  TotalMass
-    // of the "MechElement"s:
+    //-----------------------------------------------------------------------//
+    // FuelTank Protos:                                                      //
+    //-----------------------------------------------------------------------//
+    // The Cylindrical Enclosure of the OxidTankBtm and FuelTankTop SpherSegms.
+    // Its UpperBase is the Base of the "OxidTankBtmProto". It does not belong
+    // to Oxid or Fuel Tank:
+    constexpr static TrC OxidFuelEnclProto =
+      TrC
+      (
+        OxidTankLowProto.GetLow()[0] - OxidTankBtmH / 2.0,
+        MinD,
+        OxidFuelEnclH,
+        Density(0.0)
+      );
+
+    // The Top SpherSegm, with the Base coinciding with the LowBase of the
+    // "OxidFuelEnclProto":
+    constexpr static SpS FuelTankTopProto =
+      SpS
+      (
+        true,                                                      // Facing Up!
+        OxidFuelEnclProto.GetLow()[0],
+        MinD,
+        FuelTankTopH,
+        Propellants::RG1Dens
+      );
+    static_assert((OxidTankBtmProto.GetLow()[0] - FuelTankTopProto.GetUp()[0])
+                  .ApproxEquals(OxidFuelGap));
+
+    // The Mid Cylinder:
+    constexpr static TrC FuelTankMidProto =
+      TrC
+      (
+        OxidFuelEnclProto.GetLow()[0],
+        MinD,
+        FuelTankMidH,
+        Propellants::RG1Dens
+      );
+
+    // The Bottom SpherSegm, with the Base coinciding with the LowBase of the
+    // "FuelTankMidProto":
+    constexpr static SpS FuelTankBtmProto =
+      SpS
+      (
+        false,                      // Facing Down
+        FuelTankMidProto.GetLow()[0],
+        MinD,
+        FuelTankBtmH,
+        Propellants::RG1Dens
+      );
+
+    //-----------------------------------------------------------------------//
+    // H2O2 Tank Proto:                                                      //
+    //-----------------------------------------------------------------------//
+
+    //-----------------------------------------------------------------------//
+    // N2 Tank Proto:                                                        //
+    //-----------------------------------------------------------------------//
+
+    //-----------------------------------------------------------------------//
+    // Scale Factor to determine the individual masses:                      //
+    //-----------------------------------------------------------------------//
+    // XXX: Once again, InterStageGrid is not modeled, its mass is spread over
+    // the masses of other "ME"s:
     //
     constexpr static double ScaleFactor =
       ME::GetMassScale
       (
         // Components for which we provide the TotalMass (below):
-        { &DeflectorConeProto, &EquipBayProto,   &OxidTankTopEnclProto,
-          &OxidTankTopProto,   &OxidTankUpProto, &OxidTankLowProto,
-          &OxidTankBtmProto
-          // FIXME: NEED MORE!
+        { &DeflectorConeProto, &EquipBayProto,    &OxidTankTopEnclProto,
+          &OxidTankTopProto,   &OxidTankUpProto,  &OxidTankLowProto,
+          &OxidTankBtmProto,
+          &OxidFuelEnclProto,
+          &FuelTankTopProto,   &FuelTankMidProto, &FuelTankBtmProto
         },
         // The TotalMass of the sbove MEs (unlike "Stage3", it does NOT include
         // Gases):
-        EmptyMass
+        EmptyMass - EngMass
       );
 
   public:
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // "MechElement"s with Real Masses:                                      //
+    //=======================================================================//
     //-----------------------------------------------------------------------//
-    constexpr static TC  DeflectorCone    =
+    // Top of Stage2:                                                        //
+    //-----------------------------------------------------------------------//
+    constexpr static TrC DeflectorCone    =
       ME::ProRateMass(DeflectorConeProto,   ScaleFactor);
 
-    constexpr static TC  EquipBay         =
+    constexpr static TrC EquipBay         =
       ME::ProRateMass(EquipBayProto,        ScaleFactor);
 
-    constexpr static TC  OxidTankTopEncl  =
+    //-----------------------------------------------------------------------//
+    // OxidTank-Related :                                                    //
+    //-----------------------------------------------------------------------//
+    constexpr static TrC OxidTankTopEncl  =
       ME::ProRateMass(OxidTankTopEnclProto, ScaleFactor);
 
     constexpr static SpS OxidTankTop      =
       ME::ProRateMass(OxidTankTopProto,     ScaleFactor);
 
-    constexpr static TC  OxidTankUp       =
+    constexpr static TrC OxidTankUp       =
       ME::ProRateMass(OxidTankUpProto,      ScaleFactor);
 
-    constexpr static TC  OxidTankLow      =
+    constexpr static TrC OxidTankLow      =
       ME::ProRateMass(OxidTankLowProto,     ScaleFactor);
 
     constexpr static SpS OxidTankBtm      =
       ME::ProRateMass(OxidTankBtmProto,     ScaleFactor);
 
+    //-----------------------------------------------------------------------//
+    // FuelTank-Related (incl the OxidFuelEncl):                             //
+    //-----------------------------------------------------------------------//
+    constexpr static TrC OxidFuelEncl     =
+      ME::ProRateMass(OxidFuelEnclProto,    ScaleFactor);
+
+    constexpr static SpS FuelTankTop      =
+      ME::ProRateMass(FuelTankTopProto,     ScaleFactor);
+
+    constexpr static TrC FuelTankMid      =
+      ME::ProRateMass(FuelTankMidProto,     ScaleFactor);
+
+    constexpr static SpS FuelTankBtm      =
+      ME::ProRateMass(FuelTankBtmProto,     ScaleFactor);
+
   private:
-    //-----------------------------------------------------------------------//
-    // "MechElement"s for Propellant Loads:                                  //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
+    // Propellant Volumes and Mass Capacities:                               //
+    //=======================================================================//
     // Propallant Mass Capacities (MC) of Oxid, Fuel, H2O2 and N2 Tank Sections
     // and their "Unions".
     // Oxid:
@@ -417,21 +530,28 @@ namespace SpaceBallistics
     constexpr static Mass OxidTankBtmLowMC   = OxidTankBtmMC    + OxidTankLowMC;
     constexpr static Mass OxidTankBtmLowUpMC = OxidTankBtmLowMC + OxidTankUpMC;
 
+    // Fuel:
+    constexpr static Mass FuelTankTopMC      = FuelTankTop.GetPropMassCap();
+    constexpr static Mass FuelTankMidMC      = FuelTankMid.GetPropMassCap();
+    constexpr static Mass FuelTankBtmMC      = FuelTankBtm.GetPropMassCap();
+    // Union:
+    constexpr static Mass FuelTankBtmMidMC   = FuelTankBtmMC    + FuelTankMidMC;
+
   public:
-    //-----------------------------------------------------------------------//
-    // Propellant Volumes and Max Theoretical Loads (Capacities):            //
-    //-----------------------------------------------------------------------//
     // Volumes of the Oxid, Fuel, H2O2 and N2 Tanks:
     constexpr static Vol  OxidTankVol  =
       OxidTankTop.GetEnclVol() + OxidTankUp .GetEnclVol() +
       OxidTankLow.GetEnclVol() + OxidTankBtm.GetEnclVol();
 
-    // Maximum Theoretical Fuel and Oxid Capacities of the resp Tanks:
+    // Maximum Theoretical Oxid & Fuel Capacities of the resp Tanks:
     constexpr static Mass OxidTankMC   = OxidTankBtmLowUpMC + OxidTankTopMC;
+    constexpr static Mass FuelTankMC   = FuelTankBtmMidMC   + FuelTankTopMC;
 
     // Propellant Load Ratios (ActualMass / TheorMassCapacity):
     constexpr static double OxidLoadRatio = double(OxidMass / OxidTankMC);
     static_assert(OxidLoadRatio < 1.0);
+    constexpr static double FuelLoadRatio = double(FuelMass / FuelTankMC);
+//  static_assert(FuelLoadRatio < 1.0);
 
     //=======================================================================//
     // Thrust Vector Control:                                                //

@@ -9,8 +9,8 @@
 namespace SpaceBallistics::Propellants
 {
   // Densities of Naftil (RG-1), Kerosene (T-1) and LOX:
-  constexpr auto RG1Dens = Density( 833.0);
-  constexpr auto T1Dens  = Density( 820.0);  // Another src: >= 800
+  constexpr auto RG1Dens = Density( 833.0);	 // Naftil
+  constexpr auto T1Dens  = Density( 820.0);  // Kerosene; another src: >= 800
   constexpr auto LOxDens = Density(1141.0);
 }
 // End namespace SpaceBallistics

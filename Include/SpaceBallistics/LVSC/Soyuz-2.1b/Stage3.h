@@ -20,7 +20,7 @@ namespace SpaceBallistics
   // All "MechElements" are instantiated with "LVSC::Soyuz21b":
   using     ME  = MechElement<LVSC::Soyuz21b>;
   using     PM  = PointMass  <LVSC::Soyuz21b>;
-  using     TC  = TrCone     <LVSC::Soyuz21b>;
+  using     TrC = TrCone     <LVSC::Soyuz21b>;
   using     SpS = SpherSegm  <LVSC::Soyuz21b>;
 
   //=========================================================================//
@@ -41,11 +41,8 @@ namespace SpaceBallistics
 
   public:
     //=======================================================================//
-    // Consts:                                                               //
-    //=======================================================================//
-    //-----------------------------------------------------------------------//
     // Geometry:                                                             //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // Stage3 Over-All:
     constexpr static Len  D               = SH::InterStageMinD;
     constexpr static Len  H               = SC::Stage3Len;
@@ -72,9 +69,9 @@ namespace SpaceBallistics
     // XXX: The approximate dX of the CoM of the Engine from AftTop:
     constexpr static Len  EngCoMdX        = 1.0_m;
 
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // Masses:                                                               //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // EmptyMass (incl the jettisonable Aft Section and the RD-0124 engine):
     // XXX: Some srcs give a much larger EmptyMass: 2597..2710 kg, or a lower
     // one: 2355 kg:
@@ -106,9 +103,9 @@ namespace SpaceBallistics
     constexpr static Mass   FuelRem       = 104.0_kg; // StarSem: 98 kg
     constexpr static Mass   OxidRem       = 167.0_kg; // StarSem: 188..207 kg
 
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // RD-0124 (14D23) Engine Performance:                                   //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // (In Vacuum; SeaLevel is meaningless here). StarSem: Thrust = 297.9e3 N
     constexpr static Time   IspVac        = 359.0_sec;
     constexpr static Force  ThrustVac     = Force(294.3e3);
@@ -132,37 +129,13 @@ namespace SpaceBallistics
       ThrustVac - MassRate * IspVac * g0;
     static_assert(IsPos(StaticThrust));
 
-    //-----------------------------------------------------------------------//
-    // Thrust Vector Control:                                                //
-    //-----------------------------------------------------------------------//
-    // Each of the 4 Chambers of RD-0124 is GIMBALED in the Tangential  Plane.
-    // The Chambers are installed in the same planes as the Blocks B,V,G,D of
-    // Stage1, that is, in planes XY and XZ, at some distance (r > 0) from the
-    // Stage 3 main axis (the X axis):
-    //    Chamber0: @ -Y
-    //    Chamber1: @ -Z
-    //    Chamber2: @ +Y
-    //    Chamber3: @ +Z
-    // The max gimbaling angle of RD-0124 Chambers is most likely  +-8  degs.
-    // BY OUR CONVENTION, GimbalAngle > 0 corresponds to a COUNTER-CLOCK-WISE
-    // rotation of the corresp Chamber (more precisely, NOZZLE) in the YZ plane
-    // around the X axis.
-    // NORMALLY, one can expect that Chambers (0 and 2), (1 and 3) are moved
-    // symmetrically in one direction, so
-    //    ChamberDeflections[0] = - ChamberDeflections[2],
-    //    ChamberDeflections[1] = - ChamberDeflections[3],
-    // but this is not strictly enforced:
-    //
-    constexpr static Angle_deg GimbalAmpl = Angle_deg(8.0);
-    using            ChamberDeflections   = std::array<Angle_deg, 4>;
-
   private:
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // "MechElement"s: "Proto"s with Yet-UnKnown Masses:                     //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // Fore Section:
-    constexpr static TC ForeSectionProto  =
-      TC
+    constexpr static TrC ForeSectionProto  =
+      TrC
       (
         ForeX0,                         // Up @ X=0
         D,
@@ -181,8 +154,8 @@ namespace SpaceBallistics
         D,
         Propellants::RG1Dens            // Naftil
       );
-    constexpr static TC  FuelTankMidProto =
-      TC
+    constexpr static TrC FuelTankMidProto =
+      TrC
       (
         ForeSectionProto.GetLow()[0],   // Up   @ Low (Bottom) of ForeSection
         D,
@@ -203,8 +176,8 @@ namespace SpaceBallistics
     // Equipment Bay (containing the Control System):                        //
     //-----------------------------------------------------------------------//
     // "Proto" with yet-unknown mass:
-    constexpr static TC  EquipBayProto =
-      TC
+    constexpr static TrC EquipBayProto =
+      TrC
       (
         FuelTankMidProto.GetLow()[0],   // Up @ Low (Bottom) of FuelTankMid
         D,
@@ -223,8 +196,8 @@ namespace SpaceBallistics
         D,
         Propellants::LOxDens
       );
-    constexpr static TC  OxidTankMidProto =
-      TC
+    constexpr static TrC OxidTankMidProto =
+      TrC
       (
         EquipBayProto.GetLow()[0],      // Up @   Low (Bottom) of EquipBay
         D,
@@ -240,9 +213,11 @@ namespace SpaceBallistics
         Propellants::LOxDens
       );
 
-    // Scale Factor to determine the individual masses. NB: For simplicity, we
-    // include the Mass of the Gases (which is very small) into the  TotalMass
-    // of the "MechElement"s:
+    //-----------------------------------------------------------------------//
+    // Scale Factor to determine the individual masses:                      //
+    //-----------------------------------------------------------------------//
+    // NB: For simplicity, we include the Mass of the Gases (which is very
+    // small) into the TotalMass of the "MechElement"s listed below:
     //
     constexpr static double ScaleFactor =
       ME::GetMassScale
@@ -258,12 +233,12 @@ namespace SpaceBallistics
       );
 
   public:
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // "MechElement"s with Real Masses:                                      //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // Aft Section (jettisonable): Cylinder:
-    constexpr static TC  AftSection =
-      TC
+    constexpr static TrC AftSection =
+      TrC
       (
         OxidTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of OxidTankMid
         D,
@@ -283,14 +258,14 @@ namespace SpaceBallistics
       );
 
     // Real-Mass Fore Section:
-    constexpr static TC  ForeSection =
+    constexpr static TrC  ForeSection =
       ME::ProRateMass(ForeSectionProto, ScaleFactor);
 
     // Real-Mass Fuel Tank Components:
     constexpr static SpS FuelTankUp  =
       ME::ProRateMass(FuelTankUpProto,  ScaleFactor);
 
-    constexpr static TC  FuelTankMid =
+    constexpr static TrC FuelTankMid =
       ME::ProRateMass(FuelTankMidProto, ScaleFactor);
 
     constexpr static SpS FuelTankLow =
@@ -299,14 +274,14 @@ namespace SpaceBallistics
     // Real-Mass Equipment Bay (XXX: though the mass  of  the Control System
     // itself cannot be exactly accounted for -- it is pro-rated in the same
     // way as the masses of all other components):
-    constexpr static TC  EquipBay    =
+    constexpr static TrC EquipBay    =
       ME::ProRateMass(EquipBayProto,    ScaleFactor);
 
     // Real-Mass Oxid Tank Components:
     constexpr static SpS OxidTankUp  =
       ME::ProRateMass(OxidTankUpProto,  ScaleFactor);
 
-    constexpr static TC  OxidTankMid =
+    constexpr static TrC OxidTankMid =
       ME::ProRateMass(OxidTankMidProto, ScaleFactor);
 
     constexpr static SpS OxidTankLow =
@@ -342,9 +317,9 @@ namespace SpaceBallistics
     static_assert(OxidTankLow.GetLow()[0] > ForeX0 - H);
 
   private:
-    //-----------------------------------------------------------------------//
-    // "MechElement"s for Propellant Loads:                                  //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
+    // Pro[ellant Volumes and Mass Capacities:                               //
+    //=======================================================================//
     // Propallant Mass Capacities (MC) of Fuel and Oxid Tank Sections and their
     // "Unions":
     constexpr static Mass FuelTankUpMC     = FuelTankUp .GetPropMassCap();
@@ -359,10 +334,20 @@ namespace SpaceBallistics
     // Union:
     constexpr static Mass OxidTankLowMidMC = OxidTankLowMC + OxidTankMidMC;
 
+    // "MechElement" objs for Maximum Theoretical Propellant Loads in Tank
+    // Sections (for optimisation of "GetDynParams"):
+    constexpr static ME FuelUpME     = FuelTankUp .GetPropBulkME(FuelTankUpMC) ;
+    constexpr static ME FuelMidME    = FuelTankMid.GetPropBulkME(FuelTankMidMC);
+    constexpr static ME FuelLowME    = FuelTankLow.GetPropBulkME(FuelTankLowMC);
+    constexpr static ME FuelLowMidME = FuelLowME + FuelMidME;
+
+    constexpr static ME OxidUpME     = OxidTankUp .GetPropBulkME(OxidTankUpMC) ;
+    constexpr static ME OxidMidME    = OxidTankMid.GetPropBulkME(OxidTankMidMC);
+    constexpr static ME OxidLowME    = OxidTankLow.GetPropBulkME(OxidTankLowMC);
+    constexpr static ME OxidLowMidME = OxidLowME + OxidMidME;
+
   public:
-    //-----------------------------------------------------------------------//
-    // Propellant Volumes and Max Theoretical Loads (Capacities):            //
-    //-----------------------------------------------------------------------//
+    // Propellant Volumes and Max Theoretical Loads (Capacities):
     // Volumes of the Fuel and Oxid Tanks:
     constexpr static Vol  FuelTankVol  =
       FuelTankUp .GetEnclVol() + FuelTankMid.GetEnclVol() +
@@ -383,23 +368,9 @@ namespace SpaceBallistics
     constexpr static double OxidLoadRatio = double(OxidMass / OxidTankMC);
     static_assert(OxidLoadRatio < 1.0);
 
-  private:
-    // "MechElement" objs for Maximum Theoretical Propellant Loads in Tank
-    // Sections (for optimisation of "GetDynParams"):
-    constexpr static ME FuelUpME     = FuelTankUp .GetPropBulkME(FuelTankUpMC) ;
-    constexpr static ME FuelMidME    = FuelTankMid.GetPropBulkME(FuelTankMidMC);
-    constexpr static ME FuelLowME    = FuelTankLow.GetPropBulkME(FuelTankLowMC);
-    constexpr static ME FuelLowMidME = FuelLowME + FuelMidME;
-
-    constexpr static ME OxidUpME     = OxidTankUp .GetPropBulkME(OxidTankUpMC) ;
-    constexpr static ME OxidMidME    = OxidTankMid.GetPropBulkME(OxidTankMidMC);
-    constexpr static ME OxidLowME    = OxidTankLow.GetPropBulkME(OxidTankLowMC);
-    constexpr static ME OxidLowMidME = OxidLowME + OxidMidME;
-
-  public:
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // TimeLine Consts:                                                      //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     constexpr static Time IgnTime     = SC::Stage3IgnTime;
     constexpr static Time AftJetTime  = SC::Stage3AftJetTime;
     constexpr static Time CutOffTime  = SC::Stage3CutOffTime;
@@ -408,9 +379,7 @@ namespace SpaceBallistics
     static_assert
       (IsPos(IgnTime) && IgnTime < AftJetTime && AftJetTime < CutOffTime);
 
-    //-----------------------------------------------------------------------//
-    // Max Theoretical Burn Duration:                                        //
-    //-----------------------------------------------------------------------//
+    // Max Theoretical Burn Duration:
     constexpr static Time MaxBurnDur =
       std::min((FuelMass - FuelRem) / FuelRate,
                (OxidMass - OxidRem) / OxidRate);
@@ -462,6 +431,30 @@ namespace SpaceBallistics
                   CutOffOxidMass > OxidRem);
 
   public:
+    //=======================================================================//
+    // Thrust Vector Control:                                                //
+    //=======================================================================//
+    // Each of the 4 Chambers of RD-0124 is GIMBALED in the Tangential  Plane.
+    // The Chambers are installed in the same planes as the Blocks B,V,G,D of
+    // Stage1, that is, in planes XY and XZ, at some distance (r > 0) from the
+    // Stage 3 main axis (the X axis):
+    //    Chamber0: @ -Y
+    //    Chamber1: @ -Z
+    //    Chamber2: @ +Y
+    //    Chamber3: @ +Z
+    // The max gimbaling angle of RD-0124 Chambers is most likely  +-8  degs.
+    // BY OUR CONVENTION, GimbalAngle > 0 corresponds to a COUNTER-CLOCK-WISE
+    // rotation of the corresp Chamber (more precisely, NOZZLE) in the YZ plane
+    // around the X axis.
+    // NORMALLY, one can expect that Chambers (0 and 2), (1 and 3) are moved
+    // symmetrically in one direction, so
+    //    ChamberDeflections[0] = - ChamberDeflections[2],
+    //    ChamberDeflections[1] = - ChamberDeflections[3],
+    // but this is not strictly enforced:
+    //
+    constexpr static Angle_deg GimbalAmpl = Angle_deg(8.0);
+    using            ChamberDeflections   = std::array<Angle_deg, 4>;
+
     //=======================================================================//
     // Dynamic Params as a function of Flight Time:                          //
     //=======================================================================//
