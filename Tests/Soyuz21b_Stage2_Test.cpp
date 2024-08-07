@@ -28,14 +28,13 @@ int main()
   cout << "# Stage2MaxH2O2Load : " << S2::H2O2TankMC             << endl;
   cout << "# Stage2ActH2O2Load : " << S2::H2O2LoadRatio * 100.0  << " %"
        << endl;
+  cout << "# Stage2MaxN2Load   : " << S2::N2TankMC               << endl;
+  cout << "# Stage2ActN2Load   : " << S2::N2LoadRatio   * 100.0  << " %"
+       << endl;
 
   // Over-All Length:
-  cout << "# Stage2OverAllLen  : " << S2::H << endl;
-
-  cout << "# StillFree         : "
-       << (S2::FuelTankBtm.GetLow()[0] - (S2::TopX - S2::H)) << endl;
-
-  cout << "# FromTopToTail     : "
-       << (S2::TailEncl.GetLow()[0]    - (S2::TopX - S2::H)) << endl;
+  cout << "# Stage2OverAllLen  : " << S2::H                      << endl;
+  cout << "# EngineNozzlesLow1 : " << S2::EngineNozzlesLow1      << endl;
+  cout << "# EngineNozzlesLow2 : " << S2::EngineNozzlesLow2      << endl;
   return 0;
 }
