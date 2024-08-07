@@ -17,10 +17,10 @@ namespace SpaceBallistics
   // like the "SpherSegm", the "ToricSegm" is obtained by rotation of a circu-
   // lar arc around an axis which is parallel to the arc axis, but not coinci-
   // ding with the latter). "R" is the Minor Radius of the Torus (derived from
-  // "r" and "h" similar to "SpherSegm"), and "Q" is  the Major Radius of the
-  // Torus, that is, the distance between the aforemention arc axis and the ro-
-  // tation axis; we may assume r <= R <= Q.  Up-/Low-Facing orientation is si-
-  // milar to that of a "SpherSegm":
+  // "r" and "h" similar to "SpherSegm"),  and "Q" is the Major Radius of the
+  // Torus, that is, the distance between the aforementioned arc axis and the
+  // rotation axis; we may assume r <= R <= Q.  Up-/Low-Facing orientation is
+  // similar to that of a "SpherSegm":
   //
   template<LVSC LVSCKind>
   class ToricSegm final: public RotationShell<LVSCKind, ToricSegm<LVSCKind>>
