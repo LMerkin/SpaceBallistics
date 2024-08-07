@@ -645,12 +645,12 @@ namespace SpaceBallistics
       ME::ProRateMass(N2TankBtmProto,      ScaleFactor);
 
     // Two ways of computing the Lowest Co-Ord (the Nozzles End), should be
-    // equal up to 1 cm:
+    // equal up to 5 mm:
     constexpr static Len  EngineNozzlesLow1 =
       N2TankBtm.GetLow()[0] - EngineH;
     constexpr static Len  EngineNozzlesLow2 =
       TopX - H - EngineNozzlesExtH;
-    static_assert(Abs(EngineNozzlesLow1 - EngineNozzlesLow2) < 0.01_m);
+    static_assert(Abs(EngineNozzlesLow1 - EngineNozzlesLow2) < 0.005_m);
 
   private:
     //=======================================================================//
@@ -710,7 +710,7 @@ namespace SpaceBallistics
     //=======================================================================//
     // Thrust Vector Control:                                                //
     //=======================================================================//
-    // Achived via 4 Gimbaled Vernier Chambers. Each Vernier Chamber is located
+    // Achieved via 4 Gimbaled Vernier Chambers. Each Vernier Chamber is located
     // in the XY or XZ plane:
     //   0: @ -Y
     //   1: @ -Z

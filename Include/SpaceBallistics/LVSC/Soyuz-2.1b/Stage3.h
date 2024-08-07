@@ -318,7 +318,7 @@ namespace SpaceBallistics
 
   private:
     //=======================================================================//
-    // Pro[ellant Volumes and Mass Capacities:                               //
+    // Propellant Volumes and Mass Capacities:                               //
     //=======================================================================//
     // Propallant Mass Capacities (MC) of Fuel and Oxid Tank Sections and their
     // "Unions":
@@ -406,7 +406,8 @@ namespace SpaceBallistics
 
   private:
     // Checks: The Empty incl Gases ("EG") Mass must be the same in all cases,
-    // up to the mass of the AftSection (jettisonable):
+    // up to the mass of the AftSection (jettisonable);  "Before" and "After"
+    // refer to AftSection Jettisoning event:
     //
     constexpr static Mass EGMassBefore  = EmptyMass    + GasesMass;
     constexpr static Mass EGMassAfter   = EGMassBefore - AftMass;
