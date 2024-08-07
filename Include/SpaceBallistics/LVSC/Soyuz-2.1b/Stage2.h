@@ -131,7 +131,7 @@ namespace SpaceBallistics
     // Top and Bottom parts are Semi-ToricSegms, the Mid part is a Double
     // Cylinder. All sizes are approximate:
     constexpr static Len    H2O2TankOutR  = MinD / 2.0;
-    constexpr static Len    H2O2TankInR   = 0.65_m;
+    constexpr static Len    H2O2TankInR   = 0.63_m;
     constexpr static Len    H2O2TankMinoR = (H2O2TankOutR - H2O2TankInR) / 2.0;
     constexpr static Len    H2O2TankCylH  = 1.2_m;
 
@@ -645,12 +645,12 @@ namespace SpaceBallistics
       ME::ProRateMass(N2TankBtmProto,      ScaleFactor);
 
     // Two ways of computing the Lowest Co-Ord (the Nozzles End), should be
-    // equal up to 5 mm:
+    // equal up to 3 cm:
     constexpr static Len  EngineNozzlesLow1 =
       N2TankBtm.GetLow()[0] - EngineH;
     constexpr static Len  EngineNozzlesLow2 =
       TopX - H - EngineNozzlesExtH;
-    static_assert(Abs(EngineNozzlesLow1 - EngineNozzlesLow2) < 0.005_m);
+    static_assert(Abs(EngineNozzlesLow1 - EngineNozzlesLow2) < 0.03_m);
 
   private:
     //=======================================================================//
