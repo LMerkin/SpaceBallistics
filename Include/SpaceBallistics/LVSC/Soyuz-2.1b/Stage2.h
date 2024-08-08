@@ -243,12 +243,14 @@ namespace SpaceBallistics
       ThrustVernSL1 / (IspVernSL1 * g0);
     static_assert
       (MassRateVern1.ApproxEquals(ThrustVernVac1 / (IspVernVac1 * g0)));
-
+    //
     // ~10.72  kg/sec, NOT 4.15+8.55=12.70 kg/sec as it would be with the orig-
     // inal RD-107 Vernier Chamber data...
 
+    constexpr static MassRate MassRateVern4 = 4.0 * MassRateVern1;
+
     // Total MassRate for the whole Engine:
-    constexpr static MassRate MassRateEng  = MassRateMain + 4.0 * MassRateVern1;
+    constexpr static MassRate MassRateEng  = MassRateMain + MassRateVern4;
     // ~320.76 kg/sec
 
     // Separate Fuel and Oxid Rates are obtained using the Oxid/Fuel Ratio which
@@ -267,6 +269,8 @@ namespace SpaceBallistics
     // Preliminary thrust level (assumed to be a 25%) occurs notionally at -15
     // sec (in reality, the ignition sequence is more complex):
     // So the Propellant Mass spent at Ignition is:
+    // XXX: It is OK to use hard-wired consts here, they are not used anywhere
+    // else (unlike the ShutDown process, see below):
     //
     constexpr static Mass     IgnPropMass = MassRateEng * 15.0_sec * 0.25;
 
@@ -277,8 +281,12 @@ namespace SpaceBallistics
     // well?) until "tF".
     // Thus, the Propellany Mass spent at ShutDown is:
     //
+    constexpr static Time     VernThrottlAdvance = 6.0_sec;
+    constexpr static Time     MainThrottlAdvance = 1.0_sec;
+    constexpr static double   ThrottlLevel       = 0.25;
     constexpr static Mass     ShutDownPropMass   =
-      (MassRateMain * 1.0_sec + 4.0 * MassRateVern1 * 6.0_sec) * 0.25;
+      (MassRateMain * MainThrottlAdvance + MassRateVern4 * VernThrottlAdvance) *
+      ThrottlLevel;
 
     // Thus, the Propellant Mass left for the FullThrust Mode:
     constexpr static Mass     FullThrustPropMass =
@@ -294,7 +302,8 @@ namespace SpaceBallistics
     // XXX: For Stage3, a similar param is called "MaxBurnDur", but in this case
     // the ignition occurs BEFORE the lift-off, and we are actually interested
     // in the "MaxFlightTime", not "MaxBurnDur":
-    constexpr static Time     MaxFlightTime      = MaxFullThrustTime + 6.0_sec;
+    constexpr static Time     MaxFlightTime      =
+      MaxFullThrustTime + std::max(VernThrottlAdvance, MainThrottlAdvance);
 
     // MaxFlightTime appears to be ~291 sec, whereas the actual Stage2CutOffTime
     // is ~286 sec, which is a reasonably good match:

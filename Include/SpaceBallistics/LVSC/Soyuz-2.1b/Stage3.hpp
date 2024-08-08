@@ -57,7 +57,7 @@ namespace SpaceBallistics
       oxidMassDot = - OxidRate;
     }
     else
-    if (a_t < CutOffTime)     // Running at Throttled Thrust again
+    if (a_t < CutOffTime)     // Running at Full Thrust, w/o Aft
     {
       Time dt0    = a_t             - IgnTime;
       Time dt1    = a_t             - AftJetTime;
@@ -85,8 +85,16 @@ namespace SpaceBallistics
       Mass egMass = fullMass - fuelMass - oxidMass;
       assert
         (egMass.ApproxEquals(a_t < AftJetTime ? EGMassBefore : EGMassAfter));
+
+      // Also, the Fuel and Oxid masses must not be below the physical low
+      // limits:
+      if (UNLIKELY(fuelMass < FuelRem || oxidMass < OxidRem))
+        throw std::logic_error(std::format
+             ("Soyuz21b_Stage3: t={}: Fuel and/or Oxid Mass too low: "
+              "Fuel={} (Min={}), Oxid={} (Min={})",
+              a_t, fuelMass, FuelRem, oxidMass, OxidRem));
     )
-    // Save the masses in the "res":
+    // If OK: Save the masses in the "res":
     res.m_fullMass  = fullMass;
     res.m_fuelMass  = fuelMass;
     res.m_oxidMass  = oxidMass;

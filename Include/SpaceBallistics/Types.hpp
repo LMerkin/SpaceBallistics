@@ -128,9 +128,15 @@ namespace SpaceBallistics
 
   //=========================================================================//
   // Computation Tolerances:                                                 //
-  //========================================================================//
+  //=========================================================================//
   // (Searching for a better place to define them...):
   constexpr inline double Tol     = 100.0 * Eps<double>;
   constexpr inline double TolFact = 1.0   + Tol;
 }
 // End namespace SpaceBallistics
+
+//===========================================================================//
+// Support for using "std::format" with our "DimQ"s:                         //
+//===========================================================================//
+MK_DIMS_FMT(SpaceBallistics)
+
