@@ -47,19 +47,19 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Stage2 Top is the Bottom of Stage3. It is also the top of the InterStage
     // Grid:
-    constexpr static Len    TopX          = SC::X0 - SC::Stage3Len;
+    constexpr static Len    TopX            = SC::X0 - SC::Stage3Len;
 
     // The IntegrStageGrid:
-    constexpr static Len    GridH         = 0.975_m;
+    constexpr static Len    GridH           = 0.975_m;
 
     // DeflectorCone Height and Base Diameter. The Height is < GridH, so the
     // DeflectorCone is within the Grid:
-    constexpr static Len    DeflConeH     = GridH / 2.0;
-    constexpr static Len    TopD          = 2.700_m;  // Slightly >than Stage3D
+    constexpr static Len      DeflConeH     = GridH / 2.0;
+    constexpr static Len      TopD          = 2.700_m;  // Slightly > Stage3D
 
     // Equipment Bay: Cylindrical or expanding TrCone? Information differs in
     // different drawings. Assume Cylindrical, of the same "TopD" diameter:
-    constexpr static Len    EquipBayH     = 0.595_m;
+    constexpr static Len      EquipBayH     = 0.595_m;
 
     //-----------------------------------------------------------------------//
     // OxidTank:                                                             //
@@ -67,30 +67,30 @@ namespace SpaceBallistics
     // The over-all Upper (Expanding) TrCone: Contains the Top SpherSegm of the
     // OxidTank, and the Upper TrCone of the OxidTank itself. The diameter inc-
     // reases from "TopD" to "MaxD":
-    constexpr static Len    UpperTrCH     = 5.840_m;  // Or 5.835 m?
-    constexpr static Len    MaxD          = 2.950_m;  // Max for entire Stage2
+    constexpr static Len      UpperTrCH     = 5.840_m;  // Or 5.835 m?
+    constexpr static Len      MaxD          = 2.950_m;  // Max for entire Stage2
 
     // The over-all Middle (Narrowing-Down) TrCone: Contains the Low TrCone of
     // the OxidTank. The diameter decreses from MaxD to MinD:
-    constexpr static Len    MidTrCH       = 4.55_m;
-    constexpr static Len    MinD          = 2.05_m;
+    constexpr static Len      MidTrCH       = 4.55_m;
+    constexpr static Len      MinD          = 2.05_m;
 
     // Top OxidTank SpherSegm. Its top-most point (the pole) is at the level of
     // the notional bottom base of the EquipBay:
-    constexpr static Len    OxidTankTopH  = 0.8_m;    // Approx
-    constexpr static Len    OxidTankTopD  =
+    constexpr static Len      OxidTankTopH  = 0.8_m;    // Approx
+    constexpr static Len      OxidTankTopD  =
       TopD + double(OxidTankTopH / UpperTrCH) * (MaxD - TopD);
 
     // Height of the Upper TrCone part of the OxidTank: extends to the end of
     // the over-all  Upper TrCone:
-    constexpr static Len    OxidTankUpH   = UpperTrCH - OxidTankTopH;
+    constexpr static Len      OxidTankUpH   = UpperTrCH - OxidTankTopH;
 
     // Height of the Lower TrCone part of the OxidTank (extends ALMOST to the
     // end of the Middle TrCone, so its diameter is slightly > MinD):
-    constexpr static Len    OxidTankBtmH  = 0.5_m;    // Approx
-    constexpr static Len    OxidTankBtmH2 = OxidTankBtmH / 2.0;
-    constexpr static Len    OxidTankLowH  = MidTrCH   - OxidTankBtmH2;
-    constexpr static Len    OxidTankLowD  =
+    constexpr static Len      OxidTankBtmH  = 0.5_m;    // Approx
+    constexpr static Len      OxidTankBtmH2 = OxidTankBtmH / 2.0;
+    constexpr static Len      OxidTankLowH  = MidTrCH   - OxidTankBtmH2;
+    constexpr static Len      OxidTankLowD  =
       MinD + (MaxD - MinD) * double(OxidTankBtmH2 / MidTrCH);
 
     // Bottom SpherSegm of OxidTank: D=OxidTankLowD, H=OxidTankBtmH
@@ -100,104 +100,105 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Located entirely in the Cylindrical Low section of Stage2. The Diameter
     // of this section is "MinD", and over-all length is:
-    constexpr static Len    LowCylH       = 15.178_m;
+    constexpr static Len      LowCylH       = 15.178_m;
 
     // There is a gap between the OxidTankBtm and FuelTankTop. Its exact size
     // is not known, so assume something similar to Stage3:
-    constexpr static Len    OxidFuelGap   = 0.15_m;
+    constexpr static Len      OxidFuelGap   = 0.15_m;
 
     // Top SpherSegm:
-    constexpr static Len    FuelTankTopH  = OxidTankBtmH;   // XXX: Approx...
+    constexpr static Len      FuelTankTopH  = OxidTankBtmH;   // XXX: Approx...
 
     // Bottom SpherSegm:
-    constexpr static Len    FuelTankBtmH  = FuelTankTopH;
+    constexpr static Len      FuelTankBtmH  = FuelTankTopH;
 
     // TrCone Enclosure of the top-half of "OxidTankBtm" (NB: the lower-half is
     // enclosed by the "OxidFuelEnc", see below):
-    constexpr static Len    OxidBtmEnclH  = OxidTankBtmH2;
+    constexpr static Len      OxidBtmEnclH  = OxidTankBtmH2;
 
     // Length of the main cylindrical section of the FuelTank: Known only
     // approximately. We assume (see above) that half of the OxidTankBtm secti-
     // on is in the "MidTrCone", and the "FuelTankBtm" SpherSegm is beyond the
     // 10.378_m quoted below:
-    constexpr static Len    OxidFuelEnclH =
+    constexpr static Len      OxidFuelEnclH =
       OxidTankBtmH2 + OxidFuelGap + FuelTankTopH;
 
-    constexpr static Len    FuelTankMidH  = 10.378_m - OxidFuelEnclH;
+    constexpr static Len      FuelTankMidH  = 10.378_m - OxidFuelEnclH;
 
     //-----------------------------------------------------------------------//
     // H2O2 and N2 Tanks:                                                    //
     //-----------------------------------------------------------------------//
     // Top and Bottom parts are Semi-ToricSegms, the Mid part is a Double
     // Cylinder. All sizes are approximate:
-    constexpr static Len    H2O2TankOutR  = MinD / 2.0;
-    constexpr static Len    H2O2TankInR   = 0.63_m;
-    constexpr static Len    H2O2TankMinoR = (H2O2TankOutR - H2O2TankInR) / 2.0;
-    constexpr static Len    H2O2TankCylH  = 1.2_m;
+    constexpr static Len      H2O2TankOutR  = MinD / 2.0;
+    constexpr static Len      H2O2TankInR   = 0.63_m;
+    constexpr static Len      H2O2TankMinoR =
+      (H2O2TankOutR - H2O2TankInR) / 2.0;
+    constexpr static Len      H2O2TankCylH  = 1.2_m;
 
     // N2 Tank is a full Torus:
-    constexpr static Len    N2TankMinoR   = 0.2_m;
+    constexpr static Len      N2TankMinoR   = 0.2_m;
 
     // We assume that the two Gaps (FuelTank-H2O2Tank and H2O2Tank -- N2Tank)
     // are the same, and derive them from the over-all compartment length. In
     // that part of the Tail compartment, the following are located:
     //   FuelTankBtm, H2O2Gap, H2O2Tank, H2O2Gap, N2Tank:
     // Make this gap pretty small, otherwise the Engine may not fit:
-    constexpr static Len    H2O2Gap       = 0.05_m;
+    constexpr static Len      H2O2Gap       = 0.05_m;
 
     //-----------------------------------------------------------------------//
     // Over-all length of Stage2:                                            //
     //-----------------------------------------------------------------------//
     // (From the top of the InterStageGrid to the end of the LowCyl, but w/o
     // the extending Engine Nozzles):
-    constexpr static Len    H =
+    constexpr static Len      H =
       GridH + EquipBayH + UpperTrCH + MidTrCH + LowCylH;
     static_assert(H.ApproxEquals(27.138_m));
 
     // Nozzles extension beyond "H":
-    constexpr static Len   EngineNozzlesExtH  = 0.635_m;
+    constexpr static Len      EngineNozzlesExtH  = 0.635_m;
 
     // RD-108A Height:
-    constexpr static Len   EngineH            = 2.865_m;
+    constexpr static Len      EngineH            = 2.865_m;
 
     //=======================================================================//
     // Masses:                                                               //
     //=======================================================================//
     // EmptyMass: XXX: StarSem says 6545 kg:
-    constexpr static Mass   EmptyMass     = 6450.0_kg;
+    constexpr static Mass     EmptyMass     = 6450.0_kg;
 
     // Mass of the RD-108A engine (part of EmptyMass):
-    constexpr static Mass   EngMass       = 1075.0_kg;
+    constexpr static Mass     EngMass       = 1075.0_kg;
 
     // Masses of Fuel (Naftil) and Oxidiser. As for Stage3, FuelMass includes
     // extra 0.2% for the antifreeze (2-EtoxyEthanol):
-    constexpr static Mass   FuelMass      = 26794.0_kg * 1.002;
-                                                        // StarSem: 26300 (T1)
-    constexpr static Mass   OxidMass      = 63709.0_kg; // StarSem: 63800
-    constexpr static Mass   H2O2Mass      = 2636.0_kg;
-    constexpr static Mass   N2Mass        = 513.0_kg;
-    constexpr static Mass   FullMass      = EmptyMass + FuelMass + OxidMass +
-                                            H2O2Mass  + N2Mass;
+    constexpr static Mass     FuelMass      = 26794.0_kg * 1.002;
+                                                          // StarSem: 26300 (T1)
+    constexpr static Mass     OxidMass      = 63709.0_kg; // StarSem: 63800
+    constexpr static Mass     H2O2Mass      = 2636.0_kg;
+    constexpr static Mass     N2Mass        = 513.0_kg;
+    constexpr static Mass     FullMass      = EmptyMass + FuelMass + OxidMass +
+                                              H2O2Mass  + N2Mass;
 
     // UnSpendable Remnants of the Fuel and Oxidiser in Stage2 at the engine
     // cut-off time.   NB: The Remnants are about 1% of the corresp initial
     // masses. NB: They are Technically UnSpendable, so they do NOT include the
     // "guarantee margins":
-    constexpr static Mass   FuelRem       = 272.0_kg;
-    constexpr static Mass   OxidRem       = 678.0_kg;
-    constexpr static Mass   H2O2Rem       = 263.0_kg;
-    constexpr static Mass   N2Rem         = 88.0_kg;
+    constexpr static Mass     FuelRem       = 272.0_kg;
+    constexpr static Mass     OxidRem       = 678.0_kg;
+    constexpr static Mass     H2O2Rem       = 263.0_kg;
+    constexpr static Mass     N2Rem         = 88.0_kg;
 
     //-----------------------------------------------------------------------//
     // RD-108A (14D21) Engine Performance:                                   //
     //-----------------------------------------------------------------------//
     // Isp (SL/Vac, sec): EnergoMash says 257.7/320.6,  StarSem: 255.0/319.0;
-    // but it is unclear whether these vals apply to the Main Engine    (w/o 
-    // Vernier Chambers) or to the Whole Engine (incl Vernier Chambers, which
-    // may have a slightly lower Isp). So assume higher vals for the Main Eng-
-    // ine:
-    constexpr static Time   IspMainSL     = 262.9_sec;
-    constexpr static Time   IspMainVac    = 327.1_sec;
+    // but it is unclear whether these vals apply to the Main Engine (all Main
+    // Chambers together but w/o the Vernier Chambers), or to the Whole Engine
+    // (incl the Vernier Chambers, which may have a slightly lower Isp).   So
+    // assume higher vals for the Main Engine:
+    constexpr static Time     IspMainSL     = 262.9_sec;
+    constexpr static Time     IspMainVac    = 327.1_sec;
 
     // XXX: For Thrust (SL/Vac, tf), many different vals exist:
     // 70/87, 79.2/92.1, 80.8/94 (EnergoMash), 80.81/100.97;
@@ -208,8 +209,8 @@ namespace SpaceBallistics
     // onable ratios;  then the 1st one is apparently for Main Engine only,
     // and the last one is for the engine over-all;   use the former here:
     //
-    constexpr static Force  ThrustMainSL  = 70000.0_kg * g0;
-    constexpr static Force  ThrustMainVac =
+    constexpr static Force    ThrustMainSL  = 70000.0_kg * g0;
+    constexpr static Force    ThrustMainVac =
       ThrustMainSL * double(IspMainVac / IspMainSL);  // 87.1 tf
 
     // For each Vernier Chamber, the data are taken from the old RD-107, so
@@ -226,31 +227,31 @@ namespace SpaceBallistics
     // at +-Y are rotatable in the XZ plane, and those installed at +-Z are ro-
     // tatable in the XY plane:
     //
-    constexpr static Time   IspVernSL1     = 251.9_sec;
-    constexpr static Time   IspVernVac1    = 313.1_sec;
-    constexpr static Force  ThrustVernSL1  = 2700.0_kg * g0;
-    constexpr static Force  ThrustVernVac1 =
+    constexpr static Time     IspVernSL1     = 251.9_sec;
+    constexpr static Time     IspVernVac1    = 313.1_sec;
+    constexpr static Force    ThrustVernSL1  = 2700.0_kg * g0;
+    constexpr static Force    ThrustVernVac1 =
       ThrustVernSL1 * double(IspVernVac1 / IspVernSL1);
       // 3.356 tf => Total=80.8/100.5 tf, very close to 80.81/100.97 tf above!
 
     // We can then calculate the MassRates for the Main Engine and for each
     // Vernier Chamber:
-    constexpr static MassRate MassRateMain = ThrustMainSL / (IspMainSL  * g0);
-    static_assert(MassRateMain.ApproxEquals(ThrustMainVac / (IspMainVac * g0)));
+    constexpr static MassRate MainMR = ThrustMainSL  / (IspMainSL  * g0);
+    static_assert(MainMR.ApproxEquals (ThrustMainVac / (IspMainVac * g0)));
     // ~277.89 kg/sec
 
-    constexpr static MassRate MassRateVern1 =
+    constexpr static MassRate VernMR1 =
       ThrustVernSL1 / (IspVernSL1 * g0);
     static_assert
-      (MassRateVern1.ApproxEquals(ThrustVernVac1 / (IspVernVac1 * g0)));
+      (VernMR1.ApproxEquals(ThrustVernVac1 / (IspVernVac1 * g0)));
     //
     // ~10.72  kg/sec, NOT 4.15+8.55=12.70 kg/sec as it would be with the orig-
     // inal RD-107 Vernier Chamber data...
 
-    constexpr static MassRate MassRateVern4 = 4.0 * MassRateVern1;
+    constexpr static MassRate VernMR4  = 4.0 * VernMR1;
 
     // Total MassRate for the whole Engine:
-    constexpr static MassRate MassRateEng  = MassRateMain + MassRateVern4;
+    constexpr static MassRate EngineMR = MainMR + VernMR4;
     // ~320.76 kg/sec
 
     // Separate Fuel and Oxid Rates are obtained using the Oxid/Fuel Ratio which
@@ -259,43 +260,63 @@ namespace SpaceBallistics
       double((OxidMass - OxidRem) / (FuelMass - FuelRem));
     // ~2.38, very close to 2.39 often quoted for RD-108A
 
-    constexpr static MassRate MassRateFuel =
-      MassRateEng                  / (1.0  + OxidFuelRatio);
-    constexpr static MassRate MassRateOxid =
-      MassRateEng * (OxidFuelRatio / (1.0  + OxidFuelRatio));
+    constexpr static MassRate FuelMR =
+      EngineMR                  / (1.0  + OxidFuelRatio);
+    constexpr static MassRate OxidMR =
+      EngineMR * (OxidFuelRatio / (1.0  + OxidFuelRatio));
 
     // IMPORTANT: For RD-108A, we assume that FullThrust instant is the same as
     // LiftOff (Contact Separation), ie t=0.
     // Preliminary thrust level (assumed to be a 25%) occurs notionally at -15
-    // sec (in reality, the ignition sequence is more complex):
-    // So the Propellant Mass spent at Ignition is:
-    // XXX: It is OK to use hard-wired consts here, they are not used anywhere
-    // else (unlike the ShutDown process, see below):
+    // sec, for both the Main Engine and the Vernier Engines (XXX: in reality,
+    // the ignition sequence is more complex).
     //
-    constexpr static Mass     IgnPropMass = MassRateEng * 15.0_sec * 0.25;
+    // So the Masses at LiftOff (t=0) are following. NB: H2O2 is NOT spent at
+    // that point yet, the TurboPumps become operational only at t=0; the init-
+    // ial Propellants flow is autonomous:
+    //
+    constexpr static Time     IgnAdvance      = 15.0_sec;
+    constexpr static double   IgnThrottlLevel = 0.25;
+    constexpr static Mass     FuelMass0       =
+      FuelMass - FuelMR * IgnAdvance * IgnThrottlLevel;
+    constexpr static Mass     OxidMass0       =
+      OxidMass - OxidMR * IgnAdvance * IgnThrottlLevel;
+
+    constexpr static Mass     H2O2Mass0       = H2O2Mass;
+    constexpr static Mass     FullMass0       =
+      FullMass - ((FuelMass + OxidMass) - (FuelMass0 + OxidMass0));
+    static_assert(FullMass0 < FullMass);
 
     // RD-108A Shut-Down Sequence:
     // If "tF" is the Full ShutDown Time,  then the Main Chambers run for 1 sec
     // (from tF-6 to tF-5) sec at the 25% (???) thrust level and then shut down
     // completely, and the Vernier Chambers run (at which thrust level? 25% as
     // well?) until "tF".
-    // Thus, the Propellany Mass spent at ShutDown is:
+    // Thus, the Propellany Mass spent during the ShutDown sequence is:
     //
-    constexpr static Time     VernThrottlAdvance = 6.0_sec;
-    constexpr static Time     MainThrottlAdvance = 1.0_sec;
-    constexpr static double   ThrottlLevel       = 0.25;
-    constexpr static Mass     ShutDownPropMass   =
-      (MassRateMain * MainThrottlAdvance + MassRateVern4 * VernThrottlAdvance) *
-      ThrottlLevel;
+    constexpr static Time     VernThrottlAdvance    = 6.0_sec;
+    constexpr static Time     MainThrottlAdvance    = 1.0_sec;
+    constexpr static double   ShutDownThrottlLevel  = 0.25;
+    constexpr static Mass     ShutDownSpentPropMass =
+      (MainMR * MainThrottlAdvance + VernMR4 * VernThrottlAdvance) *
+      ShutDownThrottlLevel;
+
+    // So the Throttling Times: Verniers throttle first, then the Main Engine:
+    constexpr static Time     VernThrottlTime       =
+      SC::Stage2CutOffTime  - VernThrottlAdvance;
+    constexpr static Time     MainThrottlTime       =
+      SC::Stage2CutOffTime  - MainThrottlAdvance;
+    constexpr static Time     CutOffTime            =
+      SC::Stage2CutOffTime;
 
     // Thus, the Propellant Mass left for the FullThrust Mode:
     constexpr static Mass     FullThrustPropMass =
-      FuelMass + OxidMass - IgnPropMass - ShutDownPropMass - FuelRem - OxidRem;
+      FuelMass0 + OxidMass0 - ShutDownSpentPropMass - FuelRem - OxidRem;
     static_assert(IsPos(FullThrustPropMass));
 
     // Then the Max Time at FullThrust is:
     constexpr static Time     MaxFullThrustTime  =
-      FullThrustPropMass / MassRateEng;
+      FullThrustPropMass / EngineMR;
 
     // Then the Max Time of RD-108A operation from LiftOff=FullThrust (NOT from
     // Ignition which occurs before LiftOff) to Full ShutDown  is.
@@ -305,17 +326,20 @@ namespace SpaceBallistics
     constexpr static Time     MaxFlightTime      =
       MaxFullThrustTime + std::max(VernThrottlAdvance, MainThrottlAdvance);
 
-    // MaxFlightTime appears to be ~291 sec, whereas the actual Stage2CutOffTime
-    // is ~286 sec, which is a reasonably good match:
-    static_assert(SC::Stage2CutOffTime < MaxFlightTime);
+    // MaxFlightTime appears to be ~291 sec, whereas the actual CutOffTime is
+    // ~286 sec, which is a reasonably good match:
+    static_assert(CutOffTime < MaxFlightTime);
 
     // NB: In addition, there is a MassRate due to H2O2 burning   to drive the
     // TurboPumps; however, this MassRate does not formally participate in the
     // Thrust. We assume that H2O2 flow begins at FullThrust / LiftOff time
     // and lasts for the whole "MaxFlightTime":
     //
-    constexpr static MassRate MassRateH2O2  =
+    constexpr static MassRate H2O2MR =
       (H2O2Mass - H2O2Rem) / MaxFlightTime;
+
+    // So  the total MassRate (at Full Thrust) is:
+    constexpr static MassRate TotalMR = EngineMR + H2O2MR;
 
   private:
     //=======================================================================//
@@ -716,6 +740,29 @@ namespace SpaceBallistics
     constexpr static double N2LoadRatio   = double(N2Mass   / N2TankMC);
     static_assert(N2LoadRatio   < 1.0);
 
+  private:
+    //-----------------------------------------------------------------------//
+    // "ME" objs for Max Theoretical Propellant Loads in Tank Sections:      //
+    //-----------------------------------------------------------------------//
+    // (For optimisation of "GetDynParams"):
+    // Oxid:
+    constexpr static ME OxidTopME         = OxidTankTop.GetPropBulkME();
+    constexpr static ME OxidUpME          = OxidTankUp .GetPropBulkME();
+    constexpr static ME OxidLowME         = OxidTankLow.GetPropBulkME();
+    constexpr static ME OxidBtmME         = OxidTankBtm.GetPropBulkME();
+    // Unions:
+    constexpr static ME OxidBtmLowME      = OxidBtmME    + OxidLowME;
+    constexpr static ME OxidBtmLowUpME    = OxidBtmLowME + OxidUpME;
+
+    //Fuel:
+    constexpr static ME FuelTopME         = FuelTankTop.GetPropBulkME();
+    constexpr static ME FuelMidME         = FuelTankMid.GetPropBulkME();
+    constexpr static ME FuelBtmME         = FuelTankBtm.GetPropBulkME();
+    // Union:
+    constexpr static ME FuelBtmMidME      = FuelBtmME    + FuelMidME;
+
+    // H2O2:
+
     //=======================================================================//
     // Thrust Vector Control:                                                //
     //=======================================================================//
@@ -744,7 +791,12 @@ namespace SpaceBallistics
     // Time (eg multiple times during Trajectory Integration):
     //
     static StageDynParams<LVSC::Soyuz21b>
-    GetDynParams(Time a_t, ChamberDeflections const& a_chamber_defls);
+    GetDynParams
+    (
+      Time                      a_t,
+      Pressure                  a_p,      // Curr Atmospheric Pressure
+      ChamberDeflections const& a_chamber_defls
+    );
   };
 }
 // End namespace SpaceBallistics

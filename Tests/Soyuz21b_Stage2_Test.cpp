@@ -15,7 +15,7 @@ int main()
   using      S2 = Soyuz21b_Stage2;
 
   cout << "# Stage2PropMargin  : "
-       << (double(S2::MaxFlightTime / SC::Stage2CutOffTime) - 1.0) * 100.0
+       << (double(S2::MaxFlightTime / S2::CutOffTime) - 1.0) * 100.0
        << " %" << endl;
 
   // Max and Real Oxid and Fuel Loads:

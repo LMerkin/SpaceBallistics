@@ -1,104 +1,86 @@
 // vim:ts=2:et
 //===========================================================================//
-//               "SpaceBallistics/LVSC/Soyuz-2.1b/Stage3.hpp":               //
-//         Mathematical Model of the "Soyuz-2.1b" Stage3 ("Block I")         //
+//               "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.hpp":               //
+//         Mathematical Model of the "Soyuz-2.1b" Stage2 ("Block A")         //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/Utils.hpp"
-#include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage3.h"
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
 #include <stdexcept>
 
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // "Soyuz21b_Stage3::GetDynParams":                                        //
+  // "Soyuz21b_Stage2::GetDynParams":                                        //
   //=========================================================================//
   // "a_t" is Flight Time since the "Contact Separation" event:
   //
   StageDynParams<LVSC::Soyuz21b>
-  Soyuz21b_Stage3::GetDynParams
+  Soyuz21b_Stage2::GetDynParams
   (
     Time                      a_t,
+    Pressure                  a_p,      // Curr Atmospheric Pressure
     ChamberDeflections const& a_chamber_defls
   )
   {
+    //-----------------------------------------------------------------------//
+    // Checks:                                                               //
+    //-----------------------------------------------------------------------//
+    // We currently do not allow any times prior to LiftOff:
     if (UNLIKELY(IsNeg(a_t)))
-      // We currently do not allow any times prior to LiftOff:
-      throw std::logic_error("Soyuz21b_Stage3: t < 0 not allowed");
+      throw std::logic_error("Soyuz21b_Stage2: t < 0 not allowed");
 
-    StageDynParams<LVSC::Soyuz21b> res;   // XXX: Empty (all 0s) yet...
+    // Also check the ShutDown sequnce: Verniers thtottle first, then the Main
+    // engine:
+    static_assert(VernThrottlTime < MainThrottlTime);
+
+    // The atmospheric pressure is >= 0 obviously:
+    assert(!IsNeg(a_p));
+
+    // Check the MassRates at FullThrust:
+    static_assert((OxidMR + FuelMR + H2O2MR).ApproxEquals(TotalMR));
 
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
     //-----------------------------------------------------------------------//
-    Mass      fullMass   (NaN<double>);
-    Mass      fuelMass   (NaN<double>);
-    Mass      oxidMass   (NaN<double>);
-    MassRate  fuelMassDot(NaN<double>);
-    MassRate  oxidMassDot(NaN<double>);
-    Force     absThrust  (NaN<double>);
+    StageDynParams<LVSC::Soyuz21b> res;               // XXX: All-0s yet...
 
-    if (a_t < IgnTime)        // Before Stage3 Ignition
+    Mass      oxidMass         (NaN<double>);
+    Mass      fuelMass         (NaN<double>);
+    Mass      h2o2Mass         (NaN<double>);
+    Mass      fullMass         (NaN<double>);
+
+    MassRate  oxidMassDot      (NaN<double>);
+    MassRate  fuelMassDot      (NaN<double>);
+    MassRate  h2o2MassDot      (NaN<double>);
+
+    Force     absMainThrustVac (NaN<double>);         // Main Engine
+    Force     absVernThrustVac1(NaN<double>);         // Each Vernier Chamber
+
+    if (a_t < VernThrottlTime)
     {
-      fullMass    = FullMass;
-      fuelMass    = FuelMass;
-      oxidMass    = OxidMass;
-      absThrust   = Force   (0.0);
-      fuelMassDot = MassRate(0.0);
-      oxidMassDot = MassRate(0.0);
+      // Full-Thrust Mode:
+      oxidMass          = OxidMass0 - OxidMR  * a_t;  // Not including H2O2MR
+      fuelMass          = FuelMass0 - FuelMR  * a_t;  //
+      h2o2Mass          = H2O2Mass0 - H2O2MR  * a_t;
+      fullMass          = FullMass0 - TotalMR * a_t;  // Including H2O2MR
+      oxidMassDot       = - OxidMR;
+      fuelMassDot       = - FuelMR;
+      h2o2MassDot       = - H2O2MR;
+//    absMainThrustVac  =
     }
     else
-    if (a_t < AftJetTime)     // Running at Full Thrust, with Aft (yet)
+    if (a_t < MainThrottlTime)
     {
-      Time     dt = a_t      - IgnTime;
-      fullMass    = FullMass - EngineMR * dt;
-      fuelMass    = FuelMass - FuelMR   * dt;
-      oxidMass    = OxidMass - OxidMR   * dt;
-      absThrust   = ThrustVac;
-      fuelMassDot = - FuelMR;
-      oxidMassDot = - OxidMR;
     }
     else
-    if (a_t < CutOffTime)     // Running at Full Thrust, w/o Aft
+    if (a_t < CutOffTime)
     {
-      Time dt0    = a_t             - IgnTime;
-      Time dt1    = a_t             - AftJetTime;
-      fullMass    = AftJetFullMass  - EngineMR * dt1;
-      fuelMass    = FuelMass        - FuelMR   * dt0;
-      oxidMass    = OxidMass        - OxidMR   * dt0;
-      absThrust   = ThrustVac;
-      fuelMassDot = - FuelMR;
-      oxidMassDot = - OxidMR;
     }
-    else                      // After the Engine Cut-Off: "Spent" Stage
+    else
     {
-      fullMass    = CutOffFullMass;
-      fuelMass    = CutOffFuelMass;
-      oxidMass    = CutOffOxidMass;
-      absThrust   = Force   (0.0);
-      fuelMassDot = MassRate(0.0);
-      oxidMassDot = MassRate(0.0);
     }
 
-    // Verify the Masses:
-    //  "egMass" includes EmptyMass and GasesMass:
-    Mass egMass   = fullMass - fuelMass - oxidMass;
-    assert
-      (egMass.ApproxEquals(a_t < AftJetTime ? EGMassBefore : EGMassAfter));
-
-    // Also, the Fuel and Oxid masses must not be below the physical low
-    // limits:
-    if (UNLIKELY(fuelMass < FuelRem || oxidMass < OxidRem))
-      throw std::logic_error(std::format
-           ("Soyuz21b_Stage3: t={}: Fuel and/or Oxid Mass too low: "
-            "Fuel={} (Min={}), Oxid={} (Min={})",
-            a_t, fuelMass, FuelRem, oxidMass, OxidRem));
-
-    // If OK: Save the masses in the "res":
-    res.m_fullMass  = fullMass;
-    res.m_fuelMass  = fuelMass;
-    res.m_oxidMass  = oxidMass;
-
+/*
     //-----------------------------------------------------------------------//
     // Thrust Vector:                                                        //
     //-----------------------------------------------------------------------//
@@ -113,7 +95,7 @@ namespace SpaceBallistics
       Angle_deg A = a_chamber_defls[i];
       if (Abs(A)  > GimbalAmpl)
         throw std::invalid_argument
-              ("Soyuz21b_Stage3::GetDynParams: GimbalAmpl exceeded");
+              ("Soyuz21b_Stage2::GetDynParams: GimbalAmpl exceeded");
 
       double sinA = Sin(double(To_Angle(A)));
       double cosA = Cos(double(To_Angle(A)));
@@ -144,16 +126,6 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Moments of Inertia and Center of Masses:                              //
     //-----------------------------------------------------------------------//
-    // NB:
-    // (*) "fuelLevel" and "oxidLevel" are hooks provided for debugging purposes
-    //     only;
-    // (*) Gases (primarily He) are considered along with the EmptyMass; redist-
-    //     ribution of Gases within Stage3 is NOT taken into account, whereas in
-    //     reality, He is used for Fuel and Oxid tanks pressurisation, as fills
-    //     the "empty" space above the remaining Fuel and Oxid.   However, this
-    //     effect is considered negligible for Stage3 (though may have some imp-
-    //     act on the Moments of Inertia for Stage2):
-    //
     // Fuel:
     assert(IsPos(fuelMass) && fuelMass <= FuelMass && FuelMass < FuelTankMC);
     Len fuelLevel = 0.0_m;
@@ -203,6 +175,7 @@ namespace SpaceBallistics
     // Extract the the CoM and the MoIs:
     res.m_com  = fullME.GetCoM ();
     res.m_mois = fullME.GetMoIs();
+*/
 
     // All Done:
     return res;

@@ -47,6 +47,8 @@ namespace SpaceBallistics
     Len3      m_clVol;
     Len2      m_rh;
     Len6      m_rh3;
+    Area      m_baseArea; // Meaningful for a Cylinder only
+    Len2      m_PiR2;
 
     // Coeffs for computation of "intrinsic" MoI params (J0, J1, K) as polynom-
     // ial functions (of degress 5 for JP0, JP1, and of degree 4 for KP) of the
@@ -114,6 +116,7 @@ namespace SpaceBallistics
       m_clVol     = 3.0 * m_deltaR * m_clD;
       m_rh        = r * a_h;
       m_rh3       = Cube(m_rh);
+      m_PiR2      = Pi<double> * Sqr(R);
 
       //---------------------------------------------------------------------//
       // Parent Classes Initialisation:                                      //
@@ -132,6 +135,7 @@ namespace SpaceBallistics
       // Side Surface Area and Nominal Enclosed Volume:
       Area   sideSurfArea = Pi<double>     * s   * (R  + r);
       Vol    enclVol      = Pi<double>/3.0 * a_h * (R2 + R * r + r2);
+      m_baseArea          = enclVol   /a_h;  // Meaningful for a Cylinder only
 
       // "Intrinsic" "empty" MoIs:
       Len4   JE0  = Pi<double> * h2 * s * (R / 2.0 + r / 6.0);
@@ -210,38 +214,73 @@ namespace SpaceBallistics
     // Propellant Volume -> Propellant Level:                                //
     //=======================================================================//
     // Returns (Level, LevelDot):
+    //
     constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
       assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
+      bool isFull = (a_v  == RS::GetEnclVol());
+
+      Len l   (NaN<double>);
+      Vel lDot(NaN<double>);
 
       if (IsZero(m_deltaR))
       {
-        // R==r: The simplest and the most common case: A Cylinder:
-        auto x    = RS::GetHeight() / RS::GetEnclVol();
-        Len  l    = a_v     * x;
-        Vel  lDot = a_v_dot * x;
-
-        assert(!(IsNeg(l) || IsPos(lDot)));
-        return std::make_pair(l, lDot);
+        // R==r, ie a Cylinder:
+        assert(IsPos(m_baseArea));
+        l    = isFull  ? RS::GetHeight() : (a_v / m_baseArea);
+        lDot = a_v_dot / m_baseArea;
       }
       else
       {
-        // General case: Solving a cubic equation by the Cardano formula;
-        // since Vol'(l) > 0 globally, there is only 1 real root:
-        auto x    = CbRt(m_clVol * a_v  + m_rh3);
-        Len  l    = (x - m_rh) / m_deltaR;
-        Vel  lDot = m_clD      / Sqr(x) * a_v_dot;
+        // A (possibly Truncated) Cone indeed:
+        if (isFull)
+        {
+          l    = RS::GetHeight();
+          lDot =
+            // XXX: Beware of R==0:
+            LIKELY(IsPos(m_PiR2))
+            ? a_v_dot / m_PiR2
+            :
+            IsPos(a_v_dot)
+            ? Vel( Inf<double>)
+            :
+            IsNeg(a_v_dot)
+            ? Vel(-Inf<double>)
+            : Vel(0.0);
+        }
+        else
+        {
+          // General case: Solving a cubic equation by the Cardano formula;
+          // since Vol'(l) > 0 globally, there is only 1 real root:
+          // m_deltaR != 0:
+          auto x = CbRt(m_clVol * a_v  + m_rh3);
+          assert(!IsNeg(x));
 
+          l      = (x - m_rh) / m_deltaR;
+          lDot   =
+            // It is possible that x==0, but only if a_v==0 && r==0:
+            LIKELY(IsPos(x))
+            ? m_clD / Sqr(x) * a_v_dot
+            :
+            IsPos(a_v_dot)
+            ? Vel (Inf<double>)
+            :
+            IsNeg(a_v_dot)
+            ? Vel(-Inf<double>)
+            : Vel(0.0);
+        }
         assert(!(IsNeg(l) || IsPos(lDot)));
         return std::make_pair(l, lDot);
       }
+      assert(IsFinite(l) && IsFinite(lDot) && !(IsNeg(l) || IsPos(lDot)));
+      return std::make_pair(l, lDot);
     }
 
     //=======================================================================//
     // MoI Components for the Propellant of Given Level:                     //
     //=======================================================================//
-    // This function is exacytly the same for "TrCone" and "SpherSegm", yet we
-    // cannot factor it out without creating an untermediate parent class.  So
+    // This function is exactly the same for "TrCone" and "SpherSegm",  yet we
+    // cannot factor it out without creating an intermediate parent class.  So
     // use a macro to generate it:
 #   ifdef  MK_PROP_MOI_COMPS
 #   undef  MK_PROP_MOI_COMPS
@@ -518,62 +557,91 @@ namespace SpaceBallistics
     constexpr std::pair<Len,Vel> PropLevelOfVolLow
       (Vol a_v, VolRate a_v_dot) const
     {
-      // Solving the equation
-      //   x^2*(3-x) = tv,
-      // where
-      //   "x"  is the Propellant level relative to "R": x=l/R, 0 <= x  <= 1;
-      //   "tv" is the Volume/(Pi/3*R^3),                       0 <= tv <= 2;
-      // by using Halley's Method (to avoid dealing with complex roots in the
-      // Cardano formula):
-      // x=1/2 is a reasonble initial approximation (XXX: We may use "h"  for
-      // a more accurate initial point, but this is not required yet):
-      //
-      assert(!IsNeg(a_v));
+      assert(!IsNeg(a_v) && a_v <= RS::GetEnclVol());
+
       // However, "a_v_dot" may be of any sign, as this function may be called
       // either from "PropLevelOfVol" or from "PropLevelOfVolUp"...
-
-      double x   = 0.5;
-      double tv  = double(a_v / m_cR3);
-      assert(0.0 <= tv && tv < 2.0 * TolFact);
-      tv = std::min(2.0,  tv);           // Enforce the boundary
-
-      // For safety, restrict the number of iterations:
-      constexpr int N = 100;
-      int           i = 0;
-      for (; i < N; ++i)
-      {
-        double x2 = Sqr(x);
-        double x3 = x2 * x;
-        double x4 = Sqr(x2);
-        double dx =
-          x * (x - 2.0)   * (x3 - 3.0 * x2 + tv) /
-          (2.0 * x4 - 8.0 *  x3 + 9.0 * x2 + tv * (1.0 - x));
-
-        // Iterative update:
-        x -= dx;
-
-        // Exit condition:
-        if (UNLIKELY(Abs(dx) < Tol))
-          break;
-      }
-      // If we got here w/o achieving the required precision, it's an error:
-      assert(i < N);
-
-      // If all is fine: To prevent rounding errors, enforce the boundaries:
-      x = std::max(std::min(x, 1.0), 0.0);
-
-      // The level:
-      Len l = x * m_R;
-      assert(!IsNeg(l));
-
-      // And finally, "lDot":
-      // Derive it from the above cubic equation:
-      // 3*x*(2-x) * x_dot = tv_dot ;   the LHS always exists:
       //
-      auto tvDot = a_v_dot / m_cR3;
-      auto xDot  = tvDot   / (3.0 * x * (2.0 - x));
-      Vel  lDot  = xDot    * m_R;
+      Len l   (NaN<double>);
+      Vel lDot(NaN<double>);
 
+      if (UNLIKELY(IsZero(a_v)))
+      {
+        // NB: This case corresponds to infinite "lDot", be careful of its sign.
+        // When a_v_dot==0, "lDot" is obviously 0:
+        l    = Len(0.0);
+        lDot = IsPos(a_v_dot)
+               ? Vel( Inf<double>) :
+               IsNeg(a_v_dot)
+               ? Vel(-Inf<double>)
+               : Vel(0.0);
+      }
+      else
+      {
+        // Generic Case: a_v > 0:
+        // Solving the equation
+        //   x^2*(3-x) = tv,
+        // where
+        //   "x"  is the Propellant level relative to "R": x=l/R, 0 <= x  <= 1;
+        //   "tv" is the Volume/(Pi/3*R^3),                       0 <= tv <= 2;
+        // by using Halley's Method (to avoid dealing with complex roots in the
+        // Cardano formula):
+        // x=0.5 is a reasonble initial approximation (XXX: We may use "h"  for
+        // a more accurate initial point, but this is not required yet):
+        //
+        double x    = 0.5;
+        double tv   = double(a_v / m_cR3);
+        assert(0.0 <= tv && tv < 2.0 * TolFact);
+        tv = std::min(2.0,  tv);           // Enforce the boundary
+
+        // For safety, restrict the number of iterations:
+        constexpr int N = 100;
+        int           i = 0;
+        for (; i < N; ++i)
+        {
+          double x2 = Sqr(x);
+          double x3 = x2 * x;
+          double x4 = Sqr(x2);
+          double dx =
+            x * (x - 2.0)   * (x3 - 3.0 * x2 + tv) /
+            (2.0 * x4 - 8.0 *  x3 + 9.0 * x2 + tv * (1.0 - x));
+
+          // Iterative update:
+          x -= dx;
+
+          // Exit condition:
+          if (UNLIKELY(Abs(dx) < Tol))
+            break;
+        }
+        // If we got here w/o achieving the required precision, it's an error:
+        assert(i < N);
+
+        // If all is fine: To prevent rounding errors, enforce the boundaries:
+        x = std::max(std::min(x, 1.0), 0.0);
+
+        // So the Level:
+        l = x * m_R;
+
+        // And finally, "lDot":
+        // Derive it from the above cubic equation:
+        // 3*x*(2-x) * x_dot = tv_dot ;   the LHS always exists:
+        // BEWARE of x==0 and other boundary cases:
+        if (LIKELY(x > 0.0))
+        {
+          assert(IsPos(m_cR3));
+          auto tvDot = a_v_dot / m_cR3;
+          auto xDot  = tvDot   / (3.0 * x * (2.0 - x));
+          lDot       = xDot    * m_R;
+        }
+        else
+          lDot       =
+            IsPos(a_v_dot)
+            ? Vel( Inf<double>) :
+            IsNeg(a_v_dot)
+            ? Vel(-Inf<double>)
+            : Vel(0.0);
+      }
+      assert(IsFinite(l) && !IsNeg(l)); // But "lDot" can be any...
       return std::make_pair(l, lDot);
     }
 

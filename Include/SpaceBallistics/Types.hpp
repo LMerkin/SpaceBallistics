@@ -50,6 +50,9 @@ namespace SpaceBallistics
   // Force (N = kg*m/sec^2):
   using Force    = decltype(Mass() * Acc());
 
+  // Pressure:
+  using Pressure = decltype(Force() / Area(1.0));
+
   // Angular Velocity and Angular Acceleration:
   using AngVel   = decltype(1.0    / 1.0_sec);
   using AngAcc   = decltype(1.0    / Sqr(1.0_sec));
@@ -59,9 +62,6 @@ namespace SpaceBallistics
 
   // Rotational Moment of Force ("Torque"):
   using Torq     = decltype(Len()  * Force());
-
-  // Standard Gravity (m/sec^2):
-  constexpr inline Acc g0 = Acc(9.80665);
 
   // Mass Rate (kg/sec):
   using MassRate = decltype(Mass() / 1.0_sec);
@@ -86,6 +86,15 @@ namespace SpaceBallistics
   using VolRate  = Len3Rate;
   using Len4Rate = decltype(Len4() / 1.0_sec);
   using Len5Rate = decltype(Len5() / 1.0_sec);
+
+  //=========================================================================//
+  // Some Standard Constants:                                                //
+  //=========================================================================//
+  // Standard Gravity (m/sec^2):
+  constexpr inline Acc      g0 = Acc(9.80665);
+
+  // Standard Atnospheric Pressure at Sea Level:
+  constexpr inline Pressure p0 = Pressure(101325.0);
 
   //=========================================================================//
   // 3D Vectors, Parameterised by the CoOrd System (COS):                    //

@@ -186,13 +186,13 @@ int main()
   constexpr TS upHT (true,  R, D, TD, rho, emptyMassHT);
   constexpr TS lowHT(false, R, D, TD, rho, emptyMassHT);
 
-  constexpr ME upHTPropME  = upHT .GetPropBulkME(propMassHT);
-  constexpr ME lowHTPropME = lowHT.GetPropBulkME(propMassHT);
+  constexpr ME upHTPropME     = upHT .GetPropBulkME(propMassHT);
+  constexpr ME lowHTPropME    = lowHT.GetPropBulkME(propMassHT);
 
-  auto const&  upHTCoM     = upHTPropME .GetCoM ();
-  auto const&  upHTMoIs    = upHTPropME .GetMoIs();
-  auto const&  lowHTCoM    = lowHTPropME.GetCoM ();
-  auto const&  lowHTMoIs   = lowHTPropME.GetMoIs();
+  auto const&  upHTCoM        = upHTPropME .GetCoM ();
+  auto const&  upHTMoIs       = upHTPropME .GetMoIs();
+  auto const&  lowHTCoM       = lowHTPropME.GetCoM ();
+  auto const&  lowHTMoIs      = lowHTPropME.GetMoIs();
 
   // Over-All CoM and MoIs for the Solid Torus (3D):
   Len comT[3]

@@ -200,60 +200,74 @@ namespace SpaceBallistics
       assert(!IsNeg(a_v));
       // But "a_v_dot" may be of any sign in different use cases...
 
-      // Solving the equation
-      //   arccos(z) - z * SqRt(1-z^2) = y
-      // where
-      //   z = 1-x,
-      //   "x" is the Propellant level relative to "R": x=l/R, 0 <= x <= 1;
-      //   "y" is the Volume/(NV = 2*Pi*R^2*Q),                0 <= y <= Pi/2;
-      // by using Halley's Method;
-      // x=z=1/2 is a reasonble initial approximation:
-      //
-      double z  = 0.5;
-      double y  = double(a_v / m_NV);
-      assert(0.0 <= y && y < Pi_2<double> * TolFact);
-      y = std::min (y, Pi_2<double>);       // Enforce the upper boundary
+      Len l   (0.0);   // Initially 0s...
+      Vel lDot(0.0);   //
 
-      // For safety, restrict the number of iterations:
-      constexpr int N = 100;
-      int           i = 0;
-      for (; i < N; ++i)
+      if (LIKELY(!IsZero(a_v)))
       {
-        assert(- Tol < z  && z < TolFact);
+        // Solving the equation
+        //   arccos(z) - z * SqRt(1-z^2) = y
+        // where
+        //   z = 1-x,
+        //   "x" is the Propellant level relative to "R": x=l/R, 0 <= x <= 1;
+        //   "y" is the Volume/(NV = 2*Pi*R^2*Q),                0 <= y <= Pi/2;
+        // by using Halley's Method;
+        // x=z=0.5 is a reasonble initial approximation:
+        //
+        double z = 0.5;
+        assert(IsPos(m_NV));
+        double y = double(a_v / m_NV);
+        assert(0.0 <= y && y < Pi_2<double> * TolFact);
+        y = std::min (y, Pi_2<double>);       // Enforce the upper boundary
+
+        // For safety, restrict the number of iterations:
+        constexpr int N = 100;
+        int           i = 0;
+        for (; i < N; ++i)
+        {
+          assert(- Tol < z  && z < TolFact);
+          z = std::min(std::max(z, 0.0), 1.0);
+
+          double z2   = Sqr(z);
+          double cz2  = 1.0 - z2;
+          assert(cz2 >= 0.0);
+          double s    = SqRt(cz2);
+          double dy   = y - ACos(z);
+          double dz   =
+            2.0 * cz2 * (dy + z * s) / ((4.0 - 3.0 * z2) * s + z * dy);
+
+          // Iterative update:
+          z -= dz;
+
+          // Exit condition:
+          if (UNLIKELY(Abs(dz) < Tol))
+            break;
+        }
+        // If we got here w/o achieving the required precision, it's an error:
+        assert(i < N);
+
+        // If all is fine: To prevent rounding errors, enforce the boundaries:
         z = std::min(std::max(z, 0.0), 1.0);
 
-        double z2   = Sqr(z);
-        double cz2  = 1.0 - z2;
-        assert(cz2 >= 0.0);
-        double s    = SqRt(cz2);
-        double dy   = y - ACos(z);
-        double dz   =
-          2.0 * cz2 * (dy + z * s) / ((4.0 - 3.0 * z2) * s + z * dy);
+        // So the Propellant level:
+        l = (1.0 - z) * m_R;
+        assert(!IsNeg(l));
 
-        // Iterative update:
-        z -= dz;
-
-        // Exit condition:
-        if (UNLIKELY(Abs(dz) < Tol))
-          break;
+        // And "lDot" from the equation solved. But BEWARE of z==1:
+        // -2 * sqrt(1-z^2) * z_dot = y_dot :
+        //
+        auto yDot = a_v_dot / m_NV;
+        lDot      =
+          LIKELY(z != 1.0)
+          ? m_R * yDot / (2.0 * SqRt(1.0 - Sqr(z)))
+          :
+          IsPos(a_v_dot)
+          ? Vel( Inf<double>)
+          :
+          IsNeg(a_v_dot)
+          ? Vel(-Inf<double>)
+          : Vel(0.0);
       }
-      // If we got here w/o achieving the required precision, it's an error:
-      assert(i < N);
-
-      // If all is fine: To prevent rounding errors, enforce the boundaries:
-      z = std::min(std::max(z, 0.0), 1.0);
-
-      // So the Propellant level:
-      Len l = (1.0 - z) * m_R;
-      assert(!IsNeg(l));
-
-      // And "lDot" from the equation solved:
-      // -2 * sqrt(1-z^2) * z_dot = y_dot :
-      //
-      auto yDot = a_v_dot    / m_NV;
-      Vel  lDot = m_R * yDot / (2.0 * SqRt(1.0 - Sqr(z)));  // Infinite if z=1
-      assert(!IsPos(lDot));
-
       return std::make_pair(l, lDot);
     }
 

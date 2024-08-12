@@ -727,39 +727,63 @@ namespace SpaceBallistics
     //
     constexpr MechElement<LVSCKind> GetPropBulkME
     (
-      Mass     a_prop_mass,
-      MassRate a_prop_mass_dot = MassRate(0.0),    // Must be <= 0 in general
+      Mass     a_prop_mass     = Mass    (Inf<double>),
+      MassRate a_prop_mass_dot = MassRate(0.0),     // Must be <= 0 in gen
       Len*     a_prop_level    = nullptr
     )
     const
     {
-      // Check the limits of the Propellant Mass. For the 2nd inequaluty, allow
-      // some floating-point tolerance:
-      assert(!IsNeg(a_prop_mass) && a_prop_mass <= GetPropMassCap() * TolFact);
+      // The Propellant Level, relative to the Low (Smallest-X) Base,  and its
+      // time derivative. XXX: We assume that the propellant surface is always
+      // orthogonal to the rotation axis, due to the tank pressurisation:
+      Len l      (NaN<double>);
+      Vel lDot   (NaN<double>);
+      Vol propVol(NaN<double>);
 
-      // The Propellant Volume: Make sure it is within the limits to avoid
-      // rounding errors:
-      Vol     propVol    = a_prop_mass     / GetPropDens();
       VolRate propVolDot = a_prop_mass_dot / GetPropDens();
-      assert (!IsNeg(propVol) && propVol <= GetEnclVol() * TolFact &&
-              !IsPos(propVolDot));
-      propVol = std::min(propVol, GetEnclVol()); // Enforce it for safety
+      assert(!IsPos(propVolDot));
 
-      // The Propellant Level, relative to the Low (Smallest-X) Base.
-      // XXX: We assume that the propellant surface is always orthogonal to the
-      // rotation axis, due to the tank pressurisation:
-      auto [l, lDot] =
-        static_cast<Derived const*>(this)->Derived::PropLevelOfVol
-          (propVol, propVolDot);
+      if (!IsFinite(a_prop_mass) && IsZero(a_prop_mass_dot))
+      {
+        // This is a special "static" case, Full Propellant Load:
+        propVol = m_enclVol;
+        l       = m_h;
+        lDot    = Vel(0.0);
+      }
+      else
+      {
+        // "a_prop_mass" is explicitly specified. Check its limits. For the 2nd
+        // inequaluty, allow some floating-point tolerance:
+        assert(!IsNeg(a_prop_mass) &&
+               a_prop_mass <= GetPropMassCap() * TolFact);
 
-      // Mathematically, we must have 0 <= l <= h, where l=0 corresponds to the
-      // empty Element, and l=h to the full one. We enforce this interval expli-
-      // citly to prevent rounding errors:
-      assert(!IsNeg(l) && l <= m_h * TolFact);
-      l        = std::min(l,   m_h);
+        // The Propellant Volume: Make sure it is within the limits to avoid
+        // rounding errors:
+        propVol = a_prop_mass  /  GetPropDens();
+        assert(!IsNeg(propVol) && propVol <= GetEnclVol() * TolFact);
+        propVol = std::min(propVol, GetEnclVol());    // Enforce it for safety
 
+        // Solve for (l, lDot) using the "Derived" geometry:
+        auto lld =
+          static_cast<Derived const*>(this)->Derived::PropLevelOfVol
+            (propVol, propVolDot);
+        l    = lld.first;
+        lDot = lld.second;
+
+        // Mathematically, we must have 0 <= l <= h,   where l=0 corresponds to
+        // the empty Element, and l=h to the full one. We enforce this interval
+        // explicitly to prevent rounding errors:
+        assert(!IsNeg(l) && l <= m_h * TolFact);
+        l        = std::min(l,   m_h);
+      }
+      // Memoise the "l" if required:
       if (a_prop_level != nullptr)
-        * a_prop_level  = l;
+         *a_prop_level  = l;
+
+      // If an infinite (placeholder) "a_prop_mass" was provided, restore its
+      // actual value:
+      if (!IsFinite(a_prop_mass))
+        a_prop_mass = GetPropMassCap();
 
       // Get the MoIs and the CoM of the Popellant. NB: Needless to say, use the
       // current "propVol" here, NOT the maximum "GetEnclVol()". NB: "Intrinsic"

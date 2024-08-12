@@ -171,9 +171,10 @@ LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
 # The Target Library:                                                         #
 #=============================================================================#
 ADD_LIBRARY(${PROJECT_NAME} STATIC
-  Src/Soyuz-2.1b/Stage3.cpp
-  Src/GravityPotential-Earth.cpp
-  Src/GravityPotential-Moon.cpp)
+  Src/LVSC/Soyuz-2.1b/Stage2.cpp
+  Src/LVSC/Soyuz-2.1b/Stage3.cpp
+  Src/PhysForces/GravityPotential-Earth.cpp
+  Src/PhysForces/GravityPotential-Moon.cpp)
 
 #=============================================================================#
 # Tests:                                                                      #

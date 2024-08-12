@@ -44,30 +44,30 @@ namespace SpaceBallistics
     // Geometry:                                                             //
     //=======================================================================//
     // Stage3 Over-All:
-    constexpr static Len  D               = SH::InterStageMinD;
-    constexpr static Len  H               = SC::Stage3Len;
+    constexpr static Len      D               = SH::InterStageMinD;
+    constexpr static Len      H               = SC::Stage3Len;
 
     // Stage3 Fore Section:
-    constexpr static Len  ForeX0          = SC::X0;    // THE ORIGIN IS HERE!!!
-    constexpr static Len  ForeH           = 0.718_m;
+    constexpr static Len      ForeX0          = SC::X0;  // THE ORIGIN IS HERE!
+    constexpr static Len      ForeH           = 0.718_m;
 
     // Stage3 Fuel Tank:
-    constexpr static Len  FuelTankMidH    = 0.373_m;
-    constexpr static Len  FuelTankLowH    = 0.552_m;
+    constexpr static Len      FuelTankMidH    = 0.373_m;
+    constexpr static Len      FuelTankLowH    = 0.552_m;
 
     // Stage3 Equipment Bay:
-    constexpr static Len  EquipBayH       = 2.071_m;
+    constexpr static Len      EquipBayH       = 2.071_m;
 
     // Stage3 Oxidiser Tank:
-    constexpr static Len  OxidTankMidH    = 1.05_m;
+    constexpr static Len      OxidTankMidH    = 1.05_m;
 
     // Stage3 Aft Section:
-    constexpr static Len  AftH            =
+    constexpr static Len      AftH            =
       H - (ForeH + FuelTankMidH + EquipBayH + OxidTankMidH);
     static_assert(IsPos(AftH));
 
     // XXX: The approximate dX of the CoM of the Engine from AftTop:
-    constexpr static Len  EngCoMdX        = 1.0_m;
+    constexpr static Len      EngCoMdX        = 1.0_m;
 
     //=======================================================================//
     // Masses:                                                               //
@@ -75,15 +75,15 @@ namespace SpaceBallistics
     // EmptyMass (incl the jettisonable Aft Section and the RD-0124 engine):
     // XXX: Some srcs give a much larger EmptyMass: 2597..2710 kg, or a lower
     // one: 2355 kg:
-    constexpr static Mass   EmptyMass     = 2490.0_kg;
+    constexpr static Mass     EmptyMass     = 2490.0_kg;
 
     // Mass of the jettisonable Aft Section:
-    constexpr static Mass   AftMass       = 441.0_kg;
+    constexpr static Mass     AftMass       = 441.0_kg;
 
     // Mass of the RD-0124 engine:
     // Data in various srcs vary significantly: 450 kg, 460 kg, 520 kg, 572 kg;
     // we assume that the latter figure includes the support structure:
-    constexpr static Mass   EngMass       = 572.0_kg;
+    constexpr static Mass     EngMass       = 572.0_kg;
 
     // Masses of Fuel and Oxidiser. ArianSpace/StarSem says 7600 and 17800 kg,
     // resp., but those figures seem to be GROSSLY INCORRECT (too high for the
@@ -91,42 +91,42 @@ namespace SpaceBallistics
     // XXX: "EE" is 2-EtoxyEthanol which is used as an antifreeze in the Fuel,
     // if launch occurs in sub-0 conditions(?). Should it be added to "Fuel"?
     // We do (the effect is small anyway):
-    constexpr static Mass   FuelMass      = 6650.0_kg * 1.002; // Incl EE
-    constexpr static Mass   OxidMass      = 16554.0_kg;
-    constexpr static Mass   GasesMass     = 30.0_kg;           // He + N2
-    constexpr static Mass   FullMass      = EmptyMass + FuelMass + OxidMass +
-                                            GasesMass;
+    constexpr static Mass     FuelMass      = 6650.0_kg * 1.002; // Incl EE
+    constexpr static Mass     OxidMass      = 16554.0_kg;
+    constexpr static Mass     GasesMass     = 30.0_kg;           // He + N2
+    constexpr static Mass     FullMass      = EmptyMass + FuelMass + OxidMass +
+                                              GasesMass;
 
     // UnSpendable Remnants of the Fuel and Oxidiser in Stage3  at the engine
     // cut-off time. NB: These masses are Technically UnSpendable; they do NOT
     // include the "guarantee margins":
-    constexpr static Mass   FuelRem       = 104.0_kg; // StarSem: 98 kg
-    constexpr static Mass   OxidRem       = 167.0_kg; // StarSem: 188..207 kg
+    constexpr static Mass     FuelRem       = 104.0_kg; // StarSem: 98 kg
+    constexpr static Mass     OxidRem       = 167.0_kg; // StarSem: 188..207 kg
 
     //=======================================================================//
     // RD-0124 (14D23) Engine Performance:                                   //
     //=======================================================================//
     // (In Vacuum; SeaLevel is meaningless here). StarSem: Thrust = 297.9e3 N
-    constexpr static Time   IspVac        = 359.0_sec;
-    constexpr static Force  ThrustVac     = Force(294.3e3);
+    constexpr static Time     IspVac        = 359.0_sec;
+    constexpr static Force    ThrustVac     = Force(294.3e3);
 
     // The actual MassRates:
     // XXX: These figures may not be highly accurate, as it is unclear whether
-    // they refer to Naftil or Kerosene. The OxidRate is quoted somewhere as
-    // 56.7 kg/sec, which is clearly too low.
+    // they refer to Naftil or Kerosene. The OxidMR is quoted somewhere as 56.7
+    // kg/sec, which is clearly too low.
     // In different sources, Oxidiser/Fuel Ratio is 2.5..2.6, here 2.50:
     // These figure must be consistent with the MaxBurnDur and the StaticThrust
     // below:
-    constexpr static auto   FuelRate      = 23.8_kg / 1.0_sec;
-    constexpr static auto   OxidRate      = 59.6_kg / 1.0_sec;
-    constexpr static auto   MassRate      = FuelRate + OxidRate;
+    constexpr static MassRate FuelMR        = 23.8_kg / 1.0_sec;
+    constexpr static MassRate OxidMR        = 59.6_kg / 1.0_sec;
+    constexpr static MassRate EngineMR      = FuelMR + OxidMR;
 
     // The MassRate is connected to Specific Impulse and Thrust, but we must
     // take into account that Thrust is a sum of Reactive Force (proportional
     // to MassRate) and the residual inline pressure force at the nozzle exh-
     // aust:
     constexpr static Force  StaticThrust  =
-      ThrustVac - MassRate * IspVac * g0;
+      ThrustVac - EngineMR * IspVac * g0;
     static_assert(IsPos(StaticThrust));
 
   private:
@@ -334,18 +334,6 @@ namespace SpaceBallistics
     // Union:
     constexpr static Mass OxidTankLowMidMC = OxidTankLowMC + OxidTankMidMC;
 
-    // "MechElement" objs for Maximum Theoretical Propellant Loads in Tank
-    // Sections (for optimisation of "GetDynParams"):
-    constexpr static ME FuelUpME     = FuelTankUp .GetPropBulkME(FuelTankUpMC) ;
-    constexpr static ME FuelMidME    = FuelTankMid.GetPropBulkME(FuelTankMidMC);
-    constexpr static ME FuelLowME    = FuelTankLow.GetPropBulkME(FuelTankLowMC);
-    constexpr static ME FuelLowMidME = FuelLowME + FuelMidME;
-
-    constexpr static ME OxidUpME     = OxidTankUp .GetPropBulkME(OxidTankUpMC) ;
-    constexpr static ME OxidMidME    = OxidTankMid.GetPropBulkME(OxidTankMidMC);
-    constexpr static ME OxidLowME    = OxidTankLow.GetPropBulkME(OxidTankLowMC);
-    constexpr static ME OxidLowMidME = OxidLowME + OxidMidME;
-
   public:
     // Propellant Volumes and Max Theoretical Loads (Capacities):
     // Volumes of the Fuel and Oxid Tanks:
@@ -368,6 +356,22 @@ namespace SpaceBallistics
     constexpr static double OxidLoadRatio = double(OxidMass / OxidTankMC);
     static_assert(OxidLoadRatio < 1.0);
 
+  private:
+    //-----------------------------------------------------------------------//
+    // "ME" objs for Max Theoretical Propellant Loads in Tank Sections:      //
+    //-----------------------------------------------------------------------//
+    // (For optimisation of "GetDynParams"):
+    constexpr static ME FuelUpME     = FuelTankUp .GetPropBulkME();
+    constexpr static ME FuelMidME    = FuelTankMid.GetPropBulkME();
+    constexpr static ME FuelLowME    = FuelTankLow.GetPropBulkME();
+    constexpr static ME FuelLowMidME = FuelLowME + FuelMidME;
+
+    constexpr static ME OxidUpME     = OxidTankUp .GetPropBulkME();
+    constexpr static ME OxidMidME    = OxidTankMid.GetPropBulkME();
+    constexpr static ME OxidLowME    = OxidTankLow.GetPropBulkME();
+    constexpr static ME OxidLowMidME = OxidLowME + OxidMidME;
+
+  public:
     //=======================================================================//
     // TimeLine Consts:                                                      //
     //=======================================================================//
@@ -381,8 +385,8 @@ namespace SpaceBallistics
 
     // Max Theoretical Burn Duration:
     constexpr static Time MaxBurnDur =
-      std::min((FuelMass - FuelRem) / FuelRate,
-               (OxidMass - OxidRem) / OxidRate);
+      std::min((FuelMass - FuelRem) / FuelMR,
+               (OxidMass - OxidRem) / OxidMR);
 
     // The actual Burn Duration must not exceed the above theoretical maximum:
     static_assert(SC::Stage3BurnDur < MaxBurnDur);
@@ -392,22 +396,25 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Full Mass just after jettisoning of the Aft Section:
     constexpr static Mass AftJetFullMass  =
-      FullMass - MassRate * (AftJetTime - IgnTime) - AftMass;
+      FullMass - EngineMR * (AftJetTime - IgnTime) - AftMass;
 
     // Masses at the Engine Cut-Off:
     constexpr static Mass CutOffFullMass  =
-      AftJetFullMass - MassRate  * (CutOffTime - AftJetTime);
+      AftJetFullMass - EngineMR * (CutOffTime - AftJetTime);
 
     constexpr static Mass CutOffFuelMass  =
-      FuelMass       - FuelRate  * SC::Stage3BurnDur;
+      FuelMass       - FuelMR   * SC::Stage3BurnDur;
 
     constexpr static Mass CutOffOxidMass  =
-      OxidMass       - OxidRate  * SC::Stage3BurnDur;
+      OxidMass       - OxidMR   * SC::Stage3BurnDur;
 
   private:
-    // Checks: The Empty incl Gases ("EG") Mass must be the same in all cases,
-    // up to the mass of the AftSection (jettisonable);  "Before" and "After"
-    // refer to AftSection Jettisoning event:
+    //-----------------------------------------------------------------------//
+    // Mass Checks:                                                          //
+    //-----------------------------------------------------------------------//
+    // The Empty incl Gases ("EG") Mass must be the same in all cases,   up to
+    // the mass of the AftSection (jettisonable); "Before" and "After" qualifi-
+    // ers refer to the AftSection Jettisoning event:
     //
     constexpr static Mass EGMassBefore  = EmptyMass    + GasesMass;
     constexpr static Mass EGMassAfter   = EGMassBefore - AftMass;
@@ -428,8 +435,7 @@ namespace SpaceBallistics
 
     // Also, Fuel and Oxid Masses at CutOff must be greater than UnSpendable
     // Remnants:
-    static_assert(CutOffFuelMass > FuelRem &&
-                  CutOffOxidMass > OxidRem);
+    static_assert(CutOffFuelMass > FuelRem && CutOffOxidMass > OxidRem);
 
   public:
     //=======================================================================//
