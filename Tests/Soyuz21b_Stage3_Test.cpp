@@ -60,7 +60,8 @@ int main()
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois[1]        == dp.m_mois[2]);
 
-    cout << t.Magnitude  ()  << '\t'  << dp.m_fullMass.Magnitude() << '\t'
+    cout << t.Magnitude  ()           << '\t'
+         << dp.m_fullMass.Magnitude() << '\t'
          << dp.m_fuelMass.Magnitude() << '\t'
          << dp.m_oxidMass.Magnitude() << '\t'
          << dp.m_com [0] .Magnitude() << '\t'

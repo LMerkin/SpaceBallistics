@@ -250,7 +250,7 @@ namespace SpaceBallistics
 
     constexpr static MassRate VernMR4  = 4.0 * VernMR1;
 
-    // Total MassRate for the whole Engine:
+    // Total MassRate for the whole Engine at FullThrust:
     constexpr static MassRate EngineMR = MainMR + VernMR4;
     // ~320.76 kg/sec
 
@@ -260,10 +260,11 @@ namespace SpaceBallistics
       double((OxidMass - OxidRem) / (FuelMass - FuelRem));
     // ~2.38, very close to 2.39 often quoted for RD-108A
 
-    constexpr static MassRate FuelMR =
-      EngineMR                  / (1.0  + OxidFuelRatio);
-    constexpr static MassRate OxidMR =
-      EngineMR * (OxidFuelRatio / (1.0  + OxidFuelRatio));
+    constexpr static double FuelPart = 1.0  /   (1.0 + OxidFuelRatio);
+    constexpr static double OxidPart = OxidFuelRatio * FuelPart;
+
+    constexpr static MassRate FuelMR = EngineMR * FuelPart;
+    constexpr static MassRate OxidMR = EngineMR * OxidPart;
 
     // IMPORTANT: For RD-108A, we assume that FullThrust instant is the same as
     // LiftOff (Contact Separation), ie t=0.
@@ -335,11 +336,49 @@ namespace SpaceBallistics
     // Thrust. We assume that H2O2 flow begins at FullThrust / LiftOff time
     // and lasts for the whole "MaxFlightTime":
     //
-    constexpr static MassRate H2O2MR =
+    constexpr static MassRate H2O2MR    =
       (H2O2Mass - H2O2Rem) / MaxFlightTime;
 
     // So  the total MassRate (at Full Thrust) is:
-    constexpr static MassRate TotalMR = EngineMR + H2O2MR;
+    constexpr static MassRate FullMR    = EngineMR + H2O2MR;
+
+    // For testing: Minimal Mass of the Spent Stage2 (with all Remnants at their
+    // minimal physical levels):
+    constexpr static Mass     MinEndMass =
+      EmptyMass + FuelRem + OxidRem + H2O2Rem + N2Mass;
+
+    //-----------------------------------------------------------------------//
+    // FOR OPTIMISATION ONLY:                                                //
+    //-----------------------------------------------------------------------//
+    // Between "VernThrottleTime" and "MainThrottlTime", the following MassRates
+    // apply:
+    constexpr static MassRate EngineMRV =
+      MainMR + VernMR4 * ShutDownThrottlLevel;
+    constexpr static MassRate FuelMRV   = EngineMRV * FuelPart;
+    constexpr static MassRate OxidMRV   = EngineMRV * OxidPart;
+
+    // Between "MainThrottlTime" and "CutOffTime", the following MassRates
+    // apply:
+    constexpr static MassRate FuelMRM   = FuelMR * ShutDownThrottlLevel;
+    constexpr static MassRate OxidMRM   = OxidMR * ShutDownThrottlLevel;
+
+    // Fuel, Oxid and H2O2 Masses @ "{Vern,Main}ThrottlTime" and @ "CutOffTime":
+    constexpr static Mass     FuelMassV = FuelMass0 - FuelMR  * VernThrottlTime;
+    constexpr static Mass     OxidMassV = OxidMass0 - OxidMR  * VernThrottlTime;
+
+    constexpr static Mass     FuelMassM =
+      FuelMassV - FuelMRV * (MainThrottlTime - VernThrottlTime);
+    constexpr static Mass     OxidMassM =
+      OxidMassV - OxidMRV * (MainThrottlTime - VernThrottlTime);
+
+    constexpr static Mass     FuelMassC =
+      FuelMassM - FuelMRM * (CutOffTime      - MainThrottlTime);
+    constexpr static Mass     OxidMassC =
+      OxidMassM - OxidMRM * (CutOffTime      - MainThrottlTime);
+    constexpr static Mass     H2O2MassC = H2O2Mass0 - H2O2MR * CutOffTime;
+
+    static_assert
+      (FuelMassC > FuelRem && OxidMassC > OxidRem && H2O2MassC > H2O2Rem);
 
   private:
     //=======================================================================//
@@ -762,7 +801,13 @@ namespace SpaceBallistics
     constexpr static ME FuelBtmMidME      = FuelBtmME    + FuelMidME;
 
     // H2O2:
+    constexpr static ME H2O2TopME         = H2O2TankTop.GetPropBulkME();
+    constexpr static ME H2O2MidME         = H2O2TankMid.GetPropBulkME();
+    constexpr static ME H2O2BtmME         = H2O2TankBtm.GetPropBulkME();
+    // Union:
+    constexpr static ME H2P2BtmMidME      = H2O2BtmME    + H2O2MidME;
 
+  public:
     //=======================================================================//
     // Thrust Vector Control:                                                //
     //=======================================================================//
@@ -772,17 +817,17 @@ namespace SpaceBallistics
     //   1: @ -Z
     //   2: @ +Y
     //   3: @ +Z
-    // Each chamber can be deflected within the GimbalAmpl in the Tangential
+    // Each Vernier can be deflected within the GimbalAmpl in the Tangential
     // Plane. Similar to Stage3, we assume that Gimbaling (Deflection) Angle
-    // is positive when the corresp chamber is deflected  Counter-Clock-Wise
-    // in the YZ plane. And again, similar to Stage3, opposite Chambers would
+    // is positive when the corresp Vernier is deflected  Counter-Clock-Wise
+    // in the YZ plane. And again, similar to Stage3, opposite Verniers would
     // normally be moved symmetrically in one direction, so that
-    //    ChamberDeflections[0] = - ChamberDeflections[2],
-    //    ChamberDeflections[1] = - ChamberDeflections[3],
+    //    VernDeflections[0] = - VernDeflections[2],
+    //    VernDeflections[1] = - VernDeflections[3],
     // but this is not strictly enforced:
     //
-    constexpr static Angle_deg GimbalAmpl = Angle_deg(45.0);
-    using            ChamberDeflections   = std::array<Angle_deg, 4>;
+    constexpr static Angle_deg VernGimbalAmpl = Angle_deg(45.0);
+    using            VernDeflections          = std::array<Angle_deg, 4>;
 
     //=======================================================================//
     // Dynamic Params as a function of Flight Time:                          //
@@ -793,9 +838,9 @@ namespace SpaceBallistics
     static StageDynParams<LVSC::Soyuz21b>
     GetDynParams
     (
-      Time                      a_t,
-      Pressure                  a_p,      // Curr Atmospheric Pressure
-      ChamberDeflections const& a_chamber_defls
+      Time                   a_t,
+      Pressure               a_p,      // Curr Atmospheric Pressure
+      VernDeflections const& a_vern_defls
     );
   };
 }

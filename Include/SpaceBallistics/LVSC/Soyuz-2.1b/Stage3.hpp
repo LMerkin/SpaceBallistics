@@ -4,9 +4,8 @@
 //         Mathematical Model of the "Soyuz-2.1b" Stage3 ("Block I")         //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/Utils.hpp"
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage3.h"
-#include <stdexcept>
+#include "SpaceBallistics/Utils.hpp"
 
 namespace SpaceBallistics
 {
@@ -22,9 +21,8 @@ namespace SpaceBallistics
     ChamberDeflections const& a_chamber_defls
   )
   {
-    if (UNLIKELY(IsNeg(a_t)))
-      // We currently do not allow any times prior to LiftOff:
-      throw std::logic_error("Soyuz21b_Stage3: t < 0 not allowed");
+    // We currently do not allow any times prior to LiftOff:
+    assert(!IsNeg(a_t));
 
     StageDynParams<LVSC::Soyuz21b> res;   // XXX: Empty (all 0s) yet...
 
@@ -88,11 +86,7 @@ namespace SpaceBallistics
 
     // Also, the Fuel and Oxid masses must not be below the physical low
     // limits:
-    if (UNLIKELY(fuelMass < FuelRem || oxidMass < OxidRem))
-      throw std::logic_error(std::format
-           ("Soyuz21b_Stage3: t={}: Fuel and/or Oxid Mass too low: "
-            "Fuel={} (Min={}), Oxid={} (Min={})",
-            a_t, fuelMass, FuelRem, oxidMass, OxidRem));
+    assert(fuelMass >= FuelRem && oxidMass >= OxidRem);
 
     // If OK: Save the masses in the "res":
     res.m_fullMass  = fullMass;
@@ -110,10 +104,8 @@ namespace SpaceBallistics
     // Consider GimbalAngles of all 4 Chambers:
     for (size_t i = 0; i < 4; ++i)
     {
-      Angle_deg A = a_chamber_defls[i];
-      if (Abs(A)  > GimbalAmpl)
-        throw std::invalid_argument
-              ("Soyuz21b_Stage3::GetDynParams: GimbalAmpl exceeded");
+      Angle_deg  A   = a_chamber_defls[i];
+      assert(Abs(A) <= GimbalAmpl);
 
       double sinA = Sin(double(To_Angle(A)));
       double cosA = Cos(double(To_Angle(A)));
