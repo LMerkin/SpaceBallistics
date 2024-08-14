@@ -289,11 +289,11 @@ namespace SpaceBallistics
 
     // "MechElement"s for the Empty Stage with Gases ("EG"): Before and After
     // Jettisoning of the AftSection:
-    constexpr static ME EGAfterME  =
+    constexpr static ME  EGAfterME  =
       ForeSection + FuelTankUp  + FuelTankMid  + FuelTankLow +
       EquipBay    + OxidTankUp  + OxidTankMid  + OxidTankLow + Engine;
 
-    constexpr static ME EGBeforeME = EGAfterME + AftSection;
+    constexpr static ME  EGBeforeME = EGAfterME + AftSection;
 
     //-----------------------------------------------------------------------//
     // Geometry Checks:                                                      //

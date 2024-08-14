@@ -86,7 +86,9 @@ namespace SpaceBallistics
 
     // Also, the Fuel and Oxid masses must not be below the physical low
     // limits:
-    assert(fuelMass >= FuelRem && oxidMass >= OxidRem);
+    assert(FuelRem <= fuelMass  && fuelMass <= FuelMass &&
+           OxidRem <= oxidMass  && oxidMass <= OxidMass &&
+           !(IsPos(fuelMassDot) || IsPos(oxidMassDot)));
 
     // If OK: Save the masses in the "res":
     res.m_fullMass  = fullMass;
@@ -148,41 +150,45 @@ namespace SpaceBallistics
     //
     // Fuel:
     assert(IsPos(fuelMass) && fuelMass <= FuelMass && FuelMass < FuelTankMC);
-    Len fuelLevel = 0.0_m;
+    Len fuelLevel(NaN<double>);
+
     ME fuelME =
       (fuelMass > FuelTankLowMidMC)
       ? // Fuel level is within the FuelTankUp:
         FuelTankUp .GetPropBulkME
-          (fuelMass - FuelTankLowMidMC, fuelMassDot, &fuelLevel) +
+          (fuelMass - FuelTankLowMidMC,     fuelMassDot, &fuelLevel) +
         FuelLowMidME
       :
       (fuelMass > FuelTankLowMC)
       ? // Fuel level is within the FuelTankMid:
         FuelTankMid.GetPropBulkME
-          (fuelMass - FuelTankLowMC,    fuelMassDot, &fuelLevel) +
+          (fuelMass - FuelTankLowMC,        fuelMassDot, &fuelLevel) +
         FuelLowME
       :
         // Fuel level is within the FuelTankLow:
         FuelTankLow.GetPropBulkME(fuelMass, fuelMassDot, &fuelLevel);
+    assert(IsPos(fuelLevel));
 
     // Oxid:
-    Len oxidLevel = 0.0_m;
+    Len oxidLevel(NaN<double>);
     assert(IsPos(oxidMass) && oxidMass <= OxidMass && OxidMass < OxidTankMC);
+
     ME oxidME =
       (oxidMass > OxidTankLowMidMC)
       ? // Oxid level is within the OxidTankUp:
         OxidTankUp .GetPropBulkME
-          (oxidMass - OxidTankLowMidMC, oxidMassDot, &oxidLevel) +
+          (oxidMass - OxidTankLowMidMC,     oxidMassDot, &oxidLevel) +
         OxidLowMidME
       :
       (oxidMass > OxidTankLowMC)
       ? // Oxid level is within the OxidTankMid:
         OxidTankMid.GetPropBulkME
-          (oxidMass - OxidTankLowMC,    oxidMassDot, &oxidLevel) +
+          (oxidMass - OxidTankLowMC,        oxidMassDot, &oxidLevel) +
         OxidLowME
       :
         // Oxid level is within the OxidTankLow:
         OxidTankLow.GetPropBulkME(oxidMass, oxidMassDot, &oxidLevel);
+    assert(IsPos(oxidLevel));
 
     // Full = (Empty+Gases) + Fuel + Oxid:
     ME fullME = (a_t < AftJetTime ? EGBeforeME : EGAfterME) + fuelME + oxidME;

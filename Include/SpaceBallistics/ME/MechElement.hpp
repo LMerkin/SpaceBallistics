@@ -76,6 +76,7 @@ namespace SpaceBallistics
     VelVE       m_CoMDots;     // Velocity of the moving CoM
     Mass        m_mass;        // Mass
     MassRate    m_massDot;     // d(Mass)/dt, typically <= 0
+    Vol         m_enclVol;     // Enclosed Volume
     MoITE       m_MoIs;        // Moments of Inertia wrt the OX, OY and OZ axes
     MoIRateTE   m_MoIDots;     // d(MoIs)/dt
     bool        m_isFinal;     // False => Mass, MoIs & their Dots not valid
@@ -99,6 +100,7 @@ namespace SpaceBallistics
       Vel  const      a_com_dots[3],
       Mass            a_mass,
       MassRate        a_mass_dot,
+      Vol             a_encl_vol,
       MoI     const   a_mois    [3],
       MoIRate const   a_moi_dots[3],
       bool            a_is_final
@@ -112,7 +114,8 @@ namespace SpaceBallistics
              IsPos(a_mass)        && !IsNeg(a_mois    [0]) &&
             !IsNeg(a_mois    [1]) && !IsNeg(a_mois    [2]) &&
             !IsPos(a_mass_dot)    && !IsPos(a_moi_dots[0]) &&
-            !IsPos(a_moi_dots[1]) && !IsPos(a_moi_dots[1]));
+            !IsPos(a_moi_dots[1]) && !IsPos(a_moi_dots[1]) &&
+            !IsNeg(a_encl_vol));
 
       a_me->m_CoM[0]     = a_com     [0];
       a_me->m_CoM[1]     = a_com     [1];
@@ -124,6 +127,7 @@ namespace SpaceBallistics
 
       a_me->m_mass       = a_mass;
       a_me->m_massDot    = a_mass_dot;
+      a_me->m_enclVol    = a_encl_vol;
 
       a_me->m_MoIs[0]    = a_mois    [0];
       a_me->m_MoIs[1]    = a_mois    [1];
@@ -152,6 +156,7 @@ namespace SpaceBallistics
       m_CoMDots{{Vel    (0.0), Vel    (0.0), Vel    (0.0)}},
       m_mass   (0.0),
       m_massDot(0.0),
+      m_enclVol(0.0),
       m_MoIs   {{MoI    (0.0), MoI    (0.0), MoI    (0.0)}},
       m_MoIDots{{MoIRate(0.0), MoIRate(0.0), MoIRate(0.0)}},
       m_isFinal(true)
@@ -165,14 +170,15 @@ namespace SpaceBallistics
       Len      const a_com     [3],
       Vel      const a_com_dots[3],
       Mass           a_mass,
-      MassRate const a_mass_dot,
-      MoI            a_mois    [3],
+      MassRate       a_mass_dot,
+      Vol            a_encl_vol,
+      MoI      const a_mois    [3],
       MoIRate  const a_moi_dots[3],
       bool           a_is_final
     )
     {
-      Init(this, a_com, a_com_dots, a_mass, a_mass_dot, a_mois, a_moi_dots,
-           a_is_final);
+      Init(this,   a_com,      a_com_dots, a_mass, a_mass_dot, a_encl_vol,
+           a_mois, a_moi_dots, a_is_final);
     }
     // Copy Ctor, Assignment and Equality are auto-generated...
 
@@ -219,7 +225,7 @@ namespace SpaceBallistics
     //     "MechElement"s, so all Rates must be 0, and are not affected by the
     //     scaling:
     //
-    template<typename Derived>
+    template<bool Force = false, typename Derived>
     constexpr static  Derived ProRateMass(Derived const& a_der, double a_scale)
     {
       static_assert(std::is_base_of_v<MechElement, Derived>);
@@ -230,10 +236,11 @@ namespace SpaceBallistics
       Derived copy(a_der);
 
       // Cannot adjust the Mass once it has been finalised, or if any Rates are
-      // non-0:
-      assert(!copy.m_isFinal           && IsZero(copy.m_massDot)    &&
+      // non-0, unless the "Force" flag is set:
+      assert(Force ||
+            (!copy.m_isFinal           && IsZero(copy.m_massDot)    &&
              IsZero(copy.m_MoIDots[0]) && IsZero(copy.m_MoIDots[1]) &&
-             IsZero(copy.m_MoIDots[2]));
+             IsZero(copy.m_MoIDots[2])));
 
       // Set the Mass and adjust the MoIs; but the CoM is unchanged:
       copy.m_mass    *= a_scale;
@@ -241,6 +248,15 @@ namespace SpaceBallistics
       copy.m_MoIs[1] *= a_scale;
       copy.m_MoIs[2] *= a_scale;
       copy.m_isFinal  = true;
+
+      // If the "Force" flag is set, forcibly re-set all rates to 0:
+      if constexpr(Force)
+      {
+        copy.m_massDot    = MassRate(0.0);
+        copy.m_MoIDots[0] = MoIRate (0.0);
+        copy.m_MoIDots[1] = MoIRate (0.0);
+        copy.m_MoIDots[2] = MoIRate (0.0);
+      }
       return copy;
     }
 
@@ -269,6 +285,9 @@ namespace SpaceBallistics
       return m_massDot;
     }
 
+    constexpr Vol              GetEnclVol() const
+      { return m_enclVol; }    // For both Final and Non-Final MEs
+
     constexpr MoITE     const& GetMoIs()    const
     {
       assert(m_isFinal);
@@ -284,9 +303,10 @@ namespace SpaceBallistics
     //=======================================================================//
     // Addition / Subtraction:                                               //
     //=======================================================================//
-    // The summands must both have FINAL masses. Only one summand is allowed to
+    // The operands must both have FINAL masses. Only one summand is allowed to
     // have zero mass, otherwise we cannot compute the CoM.  WE ASSUME that the
-    // summands DO NOT INTERSECT in space:
+    // summands DO NOT INTERSECT in space, and for subtraction, the 2nd operand
+    // entirely belongs to the 1st one:
     //
     constexpr MechElement& operator+= (MechElement const& a_right)
     {
@@ -297,6 +317,7 @@ namespace SpaceBallistics
       Mass      m0  = m_mass;
       m_mass       += a_right.m_mass;
       m_massDot    += a_right.m_massDot;
+      m_enclVol    += a_right.m_enclVol;
 
       m_MoIs   [0] += a_right.m_MoIs   [0];
       m_MoIs   [1] += a_right.m_MoIs   [1];
@@ -320,6 +341,42 @@ namespace SpaceBallistics
     {
       MechElement res = *this;
       res += a_right;
+      return res;
+    }
+
+    constexpr MechElement& operator-= (MechElement const& a_right)
+    {
+      assert(m_isFinal && a_right.m_isFinal &&
+             !(IsZero(m_mass) && IsZero(a_right.m_mass)));
+
+      // Masses, SurfAreas, Vols and MoIs are directly-additive:
+      Mass      m0  = m_mass;
+      m_mass       -= a_right.m_mass;
+      m_massDot    -= a_right.m_massDot;
+      m_enclVol    -= a_right.m_enclVol;
+
+      m_MoIs   [0] -= a_right.m_MoIs   [0];
+      m_MoIs   [1] -= a_right.m_MoIs   [1];
+      m_MoIs   [2] -= a_right.m_MoIs   [2];
+
+      m_MoIDots[0] -= a_right.m_MoIDots[0];
+      m_MoIDots[1] -= a_right.m_MoIDots[1];
+      m_MoIDots[2] -= a_right.m_MoIDots[2];
+
+      // For the CoM, do the weighted avg (but the result mass must be non-0):
+      assert(IsPos(m_mass) && !IsNeg(m_enclVol));
+      double mu0  = double(m0             / m_mass);
+      double mu1  = double(a_right.m_mass / m_mass);
+      m_CoM[0]    = mu0 * m_CoM[0]  - mu1 * a_right.m_CoM[0];
+      m_CoM[1]    = mu0 * m_CoM[1]  - mu1 * a_right.m_CoM[1];
+      m_CoM[2]    = mu0 * m_CoM[2]  - mu1 * a_right.m_CoM[2];
+      return *this;
+    }
+
+    constexpr MechElement operator- (MechElement const& a_right) const
+    {
+      MechElement res = *this;
+      res -= a_right;
       return res;
     }
   };
@@ -360,7 +417,7 @@ namespace SpaceBallistics
       constexpr Vel     Vel0  [3] {Vel    (0.0), Vel    (0.0), Vel     (0.0)};
 
       MechElement<LVSCKind>::Init
-        (this, pt, Vel0, a_mass, MassRate(0.0), mois, Rates0, true);
+        (this, pt, Vel0, a_mass, MassRate(0.0), Vol(0.0), mois, Rates0, true);
     }
   };
 
@@ -403,7 +460,6 @@ namespace SpaceBallistics
 
     // Geometric Properties:
     Area        m_sideSurfArea; // W/o the Bases
-    Vol         m_enclVol;      // Nominal Volume enclosed (with imag. Bases)
 
     // Propellant-related flds (ie it is assumed that this rotation body may
     // contain Propellant):
@@ -505,10 +561,7 @@ namespace SpaceBallistics
 
       // Side Surace Area and Nominal Volume Enclosed:
       m_sideSurfArea = a_side_surf_area;
-      assert(IsPos(m_sideSurfArea));
-
-      m_enclVol      = a_encl_vol;
-      assert(IsPos(m_enclVol));
+      assert(IsPos(m_sideSurfArea) && IsPos(a_encl_vol));
 
       // Propellant Params:
       m_rho          = a_rho;
@@ -595,7 +648,7 @@ namespace SpaceBallistics
 
       // Finally, invoke the Base Class Initialiser:
       MechElement<LVSCKind>::Init
-        (this, emptyCoM, emptyCoMDots, emptyMass, MDot0, emptyMoIs,
+        (this, emptyCoM, emptyCoMDots, emptyMass, MDot0, a_encl_vol, emptyMoIs,
          emptyMoIDots,   isFinal);
     }
 
@@ -698,7 +751,6 @@ namespace SpaceBallistics
     // Accessors:                                                            //
     //=======================================================================//
     constexpr Area     GetSideSurfArea()  const { return m_sideSurfArea; }
-    constexpr Vol      GetEnclVol()       const { return m_enclVol;      }
     constexpr Len      GetHeight ()       const { return m_h;            }
 
     // Upper and Lower Points:
@@ -746,7 +798,7 @@ namespace SpaceBallistics
       if (!IsFinite(a_prop_mass) && IsZero(a_prop_mass_dot))
       {
         // This is a special "static" case, Full Propellant Load:
-        propVol = m_enclVol;
+        propVol = ME::GetEnclVol();
         l       = m_h;
         lDot    = Vel(0.0);
       }
@@ -760,8 +812,8 @@ namespace SpaceBallistics
         // The Propellant Volume: Make sure it is within the limits to avoid
         // rounding errors:
         propVol = a_prop_mass  /  GetPropDens();
-        assert(!IsNeg(propVol) && propVol <= GetEnclVol() * TolFact);
-        propVol = std::min(propVol, GetEnclVol());    // Enforce it for safety
+        assert(!IsNeg(propVol) && propVol <= ME::GetEnclVol() * TolFact);
+        propVol = std::min(propVol, ME::GetEnclVol()); // Enforce it for safety
 
         // Solve for (l, lDot) using the "Derived" geometry:
         auto lld =
@@ -776,6 +828,8 @@ namespace SpaceBallistics
         assert(!IsNeg(l) && l <= m_h * TolFact);
         l        = std::min(l,   m_h);
       }
+      assert(IsFinite(propVol) && !IsNeg(propVol));
+
       // Memoise the "l" if required:
       if (a_prop_level != nullptr)
          *a_prop_level  = l;
@@ -817,7 +871,8 @@ namespace SpaceBallistics
       // (*) the result is Final:
       //
       return MechElement<LVSCKind>
-        (com, comDots, a_prop_mass, a_prop_mass_dot, mois, moiDots, true);
+        (com, comDots, a_prop_mass, a_prop_mass_dot, propVol, mois, moiDots,
+         true);
     }
   };
 }

@@ -217,8 +217,8 @@ namespace SpaceBallistics
     //
     constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
-      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
-      bool isFull = (a_v  == RS::GetEnclVol());
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= ME::GetEnclVol());
+      bool isFull = (a_v  == ME::GetEnclVol());
 
       Len l   (NaN<double>);
       Vel lDot(NaN<double>);
@@ -557,7 +557,7 @@ namespace SpaceBallistics
     constexpr std::pair<Len,Vel> PropLevelOfVolLow
       (Vol a_v, VolRate a_v_dot) const
     {
-      assert(!IsNeg(a_v) && a_v <= RS::GetEnclVol());
+      assert(!IsNeg(a_v) && a_v <= ME::GetEnclVol());
 
       // However, "a_v_dot" may be of any sign, as this function may be called
       // either from "PropLevelOfVol" or from "PropLevelOfVolUp"...
@@ -654,8 +654,8 @@ namespace SpaceBallistics
     constexpr std::pair<Len,Vel> PropLevelOfVolUp
       (Vol a_v, VolRate a_v_dot) const
     {
-      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
-      auto lowRes = PropLevelOfVolLow(RS::GetEnclVol() - a_v, - a_v_dot);
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= ME::GetEnclVol());
+      auto lowRes = PropLevelOfVolLow(ME::GetEnclVol() - a_v, - a_v_dot);
       Len l       = RS::GetHeight() - lowRes.first;
       Vel lDot    =                 - lowRes.second;
       assert(!(IsNeg(l) || IsPos(lDot)));

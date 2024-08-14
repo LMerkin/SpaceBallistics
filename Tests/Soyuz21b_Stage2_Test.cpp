@@ -39,6 +39,8 @@ int main()
   cout << "# Stage2OverAllLen  : " << S2::H                      << endl;
   cout << "# EngineNozzlesLow1 : " << S2::EngineNozzlesLow1      << endl;
   cout << "# EngineNozzlesLow2 : " << S2::EngineNozzlesLow2      << endl;
+  cout << "# TailEnclLow       : " << S2::TailEncl.GetLow()[0]   << endl;
+  cout << "# EngineAsPointMass : " << S2::EngineCoMX             << endl;
 
   //-------------------------------------------------------------------------//
   // Stage2 Params as a function of Flight Time:                             //
@@ -52,17 +54,16 @@ int main()
   {
     StageDynParams<LVSC::Soyuz21b> dp = S2::GetDynParams(t, p0, vernDefls0);
 
-//  assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
-//         dp.m_mois[1]        == dp.m_mois[2]);
+    assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
+           dp.m_mois[1]        == dp.m_mois[2]);
 
     cout << t.Magnitude  ()           << '\t'
          << dp.m_fullMass.Magnitude() << '\t'
          << dp.m_fuelMass.Magnitude() << '\t'
          << dp.m_oxidMass.Magnitude() << '\t'
-//       << dp.m_com [0] .Magnitude() << '\t'
-//       << dp.m_mois[0] .Magnitude() << '\t'
-//       << dp.m_mois[1] .Magnitude()
-         << endl;
+         << dp.m_com [0] .Magnitude() << '\t'
+         << dp.m_mois[0] .Magnitude() << '\t'
+         << dp.m_mois[1] .Magnitude() << endl;
   }
   cout << "# FullMR            : " << S2::FullMR     << endl;
   cout << "# MinEndMass        : " << S2::MinEndMass << endl;

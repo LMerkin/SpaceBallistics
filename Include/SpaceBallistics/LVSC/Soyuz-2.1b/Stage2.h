@@ -19,6 +19,7 @@ namespace SpaceBallistics
 
   // All "MechElements" are instantiated with "LVSC::Soyuz21b":
   using     ME   = MechElement   <LVSC::Soyuz21b>;
+  using     PM   = PointMass     <LVSC::Soyuz21b>;
   using     TrC  = TrCone        <LVSC::Soyuz21b>;
   using     SpS  = SpherSegm     <LVSC::Soyuz21b>;
   using     Tor  = ToricSegm     <LVSC::Soyuz21b>;
@@ -176,9 +177,13 @@ namespace SpaceBallistics
                                                           // StarSem: 26300 (T1)
     constexpr static Mass     OxidMass      = 63709.0_kg; // StarSem: 63800
     constexpr static Mass     H2O2Mass      = 2636.0_kg;
-    constexpr static Mass     N2Mass        = 513.0_kg;
+    constexpr static Mass     N2Mass        = 509.0_kg;
     constexpr static Mass     FullMass      = EmptyMass + FuelMass + OxidMass +
                                               H2O2Mass  + N2Mass;
+    // N2Mass is split into a Liquid and Gaseous Phases, the initial masses are:
+    constexpr static Mass     LiqN2Mass0    = 485.0_kg;
+    constexpr static Mass     GasN2Mass0    =  24.0_kg;
+    static_assert(LiqN2Mass0 + GasN2Mass0  == N2Mass);
 
     // UnSpendable Remnants of the Fuel and Oxidiser in Stage2 at the engine
     // cut-off time.   NB: The Remnants are about 1% of the corresp initial
@@ -187,7 +192,7 @@ namespace SpaceBallistics
     constexpr static Mass     FuelRem       = 272.0_kg;
     constexpr static Mass     OxidRem       = 678.0_kg;
     constexpr static Mass     H2O2Rem       = 263.0_kg;
-    constexpr static Mass     N2Rem         = 88.0_kg;
+    constexpr static Mass     LiqN2Rem      = 60.0_kg;
 
     //-----------------------------------------------------------------------//
     // RD-108A (14D21) Engine Performance:                                   //
@@ -336,11 +341,18 @@ namespace SpaceBallistics
     // Thrust. We assume that H2O2 flow begins at FullThrust / LiftOff time
     // and lasts for the whole "MaxFlightTime":
     //
-    constexpr static MassRate H2O2MR    =
-      (H2O2Mass - H2O2Rem) / MaxFlightTime;
+    constexpr static MassRate H2O2MR  = (H2O2Mass   - H2O2Rem)  / MaxFlightTime;
+    static_assert(IsPos(H2O2MR));
 
     // So  the total MassRate (at Full Thrust) is:
-    constexpr static MassRate FullMR    = EngineMR + H2O2MR;
+    constexpr static MassRate FullMR  = EngineMR + H2O2MR;
+
+    // We assume that vaporisation of LiqN2 is also linear over time. however,
+    // unlike H2O2, N2 is not exhaused, only re-distributed over the Tank vol-
+    // umes becoming available:
+    //
+    constexpr static MassRate LiqN2MR = (LiqN2Mass0 - LiqN2Rem) / MaxFlightTime;
+    static_assert(IsPos(LiqN2MR));
 
     // For testing: Minimal Mass of the Spent Stage2 (with all Remnants at their
     // minimal physical levels):
@@ -362,7 +374,7 @@ namespace SpaceBallistics
     constexpr static MassRate FuelMRM   = FuelMR * ShutDownThrottlLevel;
     constexpr static MassRate OxidMRM   = OxidMR * ShutDownThrottlLevel;
 
-    // Fuel, Oxid and H2O2 Masses @ "{Vern,Main}ThrottlTime" and @ "CutOffTime":
+    // Fuel and Oxid Masses @ "{Vern,Main}ThrottlTime":
     constexpr static Mass     FuelMassV = FuelMass0 - FuelMR  * VernThrottlTime;
     constexpr static Mass     OxidMassV = OxidMass0 - OxidMR  * VernThrottlTime;
 
@@ -371,14 +383,18 @@ namespace SpaceBallistics
     constexpr static Mass     OxidMassM =
       OxidMassV - OxidMRV * (MainThrottlTime - VernThrottlTime);
 
+    // Fuel, Oxid, H2O2 and LiqN2 Masses @ "CutOffTime":
     constexpr static Mass     FuelMassC =
       FuelMassM - FuelMRM * (CutOffTime      - MainThrottlTime);
     constexpr static Mass     OxidMassC =
       OxidMassM - OxidMRM * (CutOffTime      - MainThrottlTime);
-    constexpr static Mass     H2O2MassC = H2O2Mass0 - H2O2MR * CutOffTime;
+
+    constexpr static Mass    H2O2MassC  = H2O2Mass0  - H2O2MR  * CutOffTime;
+    constexpr static Mass    LiqN2MassC = LiqN2Mass0 - LiqN2MR * CutOffTime;
 
     static_assert
-      (FuelMassC > FuelRem && OxidMassC > OxidRem && H2O2MassC > H2O2Rem);
+      (FuelMassC  > FuelRem && OxidMassC > OxidRem && H2O2MassC > H2O2Rem &&
+       LiqN2MassC > LiqN2Rem);
 
   private:
     //=======================================================================//
@@ -724,6 +740,38 @@ namespace SpaceBallistics
       TopX - H - EngineNozzlesExtH;
     static_assert(Abs(EngineNozzlesLow1 - EngineNozzlesLow2) < 0.03_m);
 
+    // RD-108A Engine, modeled as a PointMass. XXX: We assume that its CoM is
+    // located in the middle of the lowest part of the TailEncl, but  that is
+    // obviously grossly imprecise:
+    //
+    constexpr static Len EngineCoMX         =
+      0.5 * (N2TankBtm.GetLow()[0] + TailEncl.GetLow()[0]);
+
+    constexpr static PM  Engine =
+      PM
+      (
+        EngineCoMX,
+        0.0_m,
+        0.0_m,
+        EngMass
+      );
+
+    //-----------------------------------------------------------------------//
+    // Empty Stage2 as a whole:                                              //
+    //-----------------------------------------------------------------------//
+    // (Unlike Stage3, we do NOT include the Pressurisation Gas, in this case
+    // N2, into this ME):
+    //
+    constexpr static ME EmptyME      =
+      DeflectorCone   + EquipBay     + OxidTankTopEncl +
+      OxidTankTop     + OxidTankUp   + OxidTankLow     + OxidTankBtm +
+      OxidTankBtmEncl + OxidFuelEncl +
+      FuelTankTop     + FuelTankMid  + FuelTankBtm     +
+      TailEncl        +
+      H2O2TankTop     + H2O2TankMid  + H2O2TankBtm     +
+      N2TankTop       + N2TankBtm    +
+      Engine;
+
   private:
     //=======================================================================//
     // Propellant Volumes and Mass Capacities:                               //
@@ -770,13 +818,13 @@ namespace SpaceBallistics
     constexpr static Mass N2TankMC     = N2TankTopMC        + N2TankBtmMC;
 
     // Propellant Load Ratios (ActualMass / TheorMassCapacity):
-    constexpr static double OxidLoadRatio = double(OxidMass / OxidTankMC);
+    constexpr static double OxidLoadRatio = double(OxidMass   / OxidTankMC);
     static_assert(OxidLoadRatio < 1.0);
-    constexpr static double FuelLoadRatio = double(FuelMass / FuelTankMC);
+    constexpr static double FuelLoadRatio = double(FuelMass   / FuelTankMC);
     static_assert(FuelLoadRatio < 1.0);
-    constexpr static double H2O2LoadRatio = double(H2O2Mass / H2O2TankMC);
+    constexpr static double H2O2LoadRatio = double(H2O2Mass   / H2O2TankMC);
     static_assert(H2O2LoadRatio < 1.0);
-    constexpr static double N2LoadRatio   = double(N2Mass   / N2TankMC);
+    constexpr static double N2LoadRatio   = double(LiqN2Mass0 / N2TankMC);
     static_assert(N2LoadRatio   < 1.0);
 
   private:
@@ -790,22 +838,29 @@ namespace SpaceBallistics
     constexpr static ME OxidLowME         = OxidTankLow.GetPropBulkME();
     constexpr static ME OxidBtmME         = OxidTankBtm.GetPropBulkME();
     // Unions:
-    constexpr static ME OxidBtmLowME      = OxidBtmME    + OxidLowME;
-    constexpr static ME OxidBtmLowUpME    = OxidBtmLowME + OxidUpME;
+    constexpr static ME OxidBtmLowME      = OxidBtmME      + OxidLowME;
+    constexpr static ME OxidBtmLowUpME    = OxidBtmLowME   + OxidUpME;
+    // The whole maximum Oxid bulk:
+    constexpr static ME OxidME            = OxidBtmLowUpME + OxidTopME;
 
     //Fuel:
     constexpr static ME FuelTopME         = FuelTankTop.GetPropBulkME();
     constexpr static ME FuelMidME         = FuelTankMid.GetPropBulkME();
     constexpr static ME FuelBtmME         = FuelTankBtm.GetPropBulkME();
     // Union:
-    constexpr static ME FuelBtmMidME      = FuelBtmME    + FuelMidME;
+    constexpr static ME FuelBtmMidME      = FuelBtmME      + FuelMidME;
+    // The whole maximum Fuel bulk:
+    constexpr static ME FuelME            = FuelBtmMidME   + FuelTopME;
 
+    // For H2O2 and LiqN2, "Top" MEs are not required:
     // H2O2:
-    constexpr static ME H2O2TopME         = H2O2TankTop.GetPropBulkME();
     constexpr static ME H2O2MidME         = H2O2TankMid.GetPropBulkME();
     constexpr static ME H2O2BtmME         = H2O2TankBtm.GetPropBulkME();
     // Union:
-    constexpr static ME H2P2BtmMidME      = H2O2BtmME    + H2O2MidME;
+    constexpr static ME H2O2BtmMidME      = H2O2BtmME      + H2O2MidME;
+
+    // LiqN2:
+    constexpr static ME LiqN2BtmME        = N2TankBtm  .GetPropBulkME();
 
   public:
     //=======================================================================//

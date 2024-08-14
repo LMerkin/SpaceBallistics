@@ -281,9 +281,9 @@ namespace SpaceBallistics
     constexpr std::pair<Len,Vel> PropLevelOfVolUp
       (Vol a_v, VolRate a_v_dot) const
     {
-      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= ME::GetEnclVol());
 
-      auto lowRes = PropLevelOfVolLow(RS::GetEnclVol() - a_v, - a_v_dot);
+      auto lowRes = PropLevelOfVolLow(ME::GetEnclVol() - a_v, - a_v_dot);
       Len l       = RS::GetHeight() - lowRes.first;
       Vel lDot    =                 - lowRes.second;
       assert(!IsNeg(l) || IsPos(lDot));
@@ -429,7 +429,7 @@ namespace SpaceBallistics
       Len5 JP0 = m_JPL0 - JC0;
       Len5 JP1 = m_JPL1 - JC1;
       Len4 KP  = m_KPL  - KC;
-      Vol  VP  = RS::GetEnclVol() - VC;
+      Vol  VP  = ME::GetEnclVol() - VC;
       assert(IsPos(JP0) && IsPos(JP1) && IsPos(KP) && IsPos(VP));
 
       // "JP0" is now almost what we need:
@@ -565,7 +565,7 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr std::pair<Len,Vel> PropLevelOfVol(Vol a_v, VolRate a_v_dot) const
     {
-      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= RS::GetEnclVol());
+      assert(!(IsNeg(a_v) || IsPos(a_v_dot)) && a_v <= ME::GetEnclVol());
       Len l    = a_v     /  m_S;
       Vel lDot = a_v_dot /  m_S;
       return std::make_pair(l, lDot);
