@@ -80,10 +80,12 @@ namespace SpaceBallistics
 
     // Verify the Masses:
     //  "egMass" includes EmptyMass and GasesMass:
-    Mass egMass   = fullMass - fuelMass - oxidMass;
-    assert
-      (egMass.ApproxEquals(a_t < AftJetTime ? EGMassBefore : EGMassAfter));
-
+    DEBUG_ONLY
+    (
+      Mass egMass   = fullMass - fuelMass - oxidMass;
+      assert
+        (egMass.ApproxEquals(a_t < AftJetTime ? EGMassBefore : EGMassAfter));
+    )
     // Also, the Fuel and Oxid masses must not be below the physical low
     // limits:
     assert(FuelRem <= fuelMass  && fuelMass <= FuelMass &&
