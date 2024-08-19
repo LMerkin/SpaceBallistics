@@ -55,23 +55,27 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr ToricSegm
     (
-      bool        a_facing_up,
-      Len         a_xb,          // Over-All   Segment Base Center
-      Len         a_yb,          //
-      Len         a_zb,          //
-      double      a_alpha,       // Dimension-less, in (-Pi/2 .. Pi/2)
-      Len         a_d,           // Cross-Section Base Diameter
-      Len         a_h,           // Cross-Section Height
-      Len         a_D,           // Over-All   Segment Diameter
-      Density     a_rho,         // Propellant Density (may be 0 if no Propelt)
-      Mass        a_empty_mass = ME::UnKnownMass
+      bool    a_facing_up,
+      Len     a_xb,          // Over-All   Segment Base Center
+      Len     a_yb,          //
+      Len     a_zb,          //
+      double  a_cosA,        // See "RotationShell"...
+      double  a_sinA,        //
+      double  a_cosP,        //
+      double  a_sinP,        //
+      Len     a_d,           // Cross-Section Base Diameter
+      Len     a_h,           // Cross-Section Height
+      Len     a_D,           // Over-All   Segment Diameter
+      Density a_rho,         // Propellant Density (may be 0 if no Propelt)
+      Mass    a_empty_mass = ME::UnKnownMass
     )
     {
       //---------------------------------------------------------------------//
       // Geometry:                                                           //
       //---------------------------------------------------------------------//
-      assert(IsPos(a_d)   && IsPos(a_h) && Abs(a_alpha) < Pi_2<double> &&
+      assert(IsPos(a_d)   && IsPos(a_h) && a_cosA > 0.0 && a_sinA >= 0.0 &&
             !IsNeg(a_rho) && IsPos(a_D) && !IsNeg(a_empty_mass));
+      // XXX: Further geometry checks are performed by "RS::Init"...
 
       Len r       =  a_d / 2.0;                   // Cross-Section Base Radius
       m_Q         =  a_D / 2.0 - r;               // Major Segment      Radius
@@ -138,44 +142,45 @@ namespace SpaceBallistics
       // NB: (xb,yb,zb) is the Base Center, so BaseIsUp = !IsFacingUp:
       RS::Init
       (
-        sideSurfArea,  enclVol,    a_empty_mass,
-        a_alpha, a_xb, a_yb, a_zb, !a_facing_up, a_h,
-        JE0,     JE1,  KE,   a_rho
+        sideSurfArea, enclVol, a_empty_mass, a_cosA, a_sinA, a_cosP, a_sinP,
+        a_xb,   a_yb, a_zb,   !a_facing_up,  a_h,    JE0,    JE1,    KE,
+        a_rho
       );
     }
 
     //=======================================================================//
-    // Non-Default Ctor, Simple Cases:
+    // Non-Default Ctor, Simple Cases:                                       //
     //=======================================================================//
-    // Rotation axis coinciding with OX:
+    // Rotation axis coinciding with OX, so alpha=0 and we can then assume psi=0
+    // as well:
     //
     constexpr ToricSegm
     (
-      bool        a_facing_up,
-      Len         a_xb,       // Over-All Segment Base Center (X-CoOrd)
-      Len         a_d,        // Cross-Section Base Diameter
-      Len         a_h,        // Cross-Section Height
-      Len         a_D,        // Over-All Segment Diameter
-      Density     a_rho,      // 0 may be OK (if holds no Propellant)
-      Mass        a_empty_mass = ME::UnKnownMass
+      bool    a_facing_up,
+      Len     a_xb,       // Over-All Segment Base Center (X-CoOrd)
+      Len     a_d,        // Cross-Section Base Diameter
+      Len     a_h,        // Cross-Section Height
+      Len     a_D,        // Over-All Segment Diameter
+      Density a_rho,      // 0 may be OK (if holds no Propellant)
+      Mass    a_empty_mass = ME::UnKnownMass
     )
-    : ToricSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_h, a_D,
-                a_rho,       a_empty_mass)
+    : ToricSegm(a_facing_up,   a_xb,  0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+                a_d, a_h, a_D, a_rho, a_empty_mass)
     {}
 
     // As above, but with d/2 = h, ie the Cross-Section is a HemiSpehere:
     //
     constexpr ToricSegm
     (
-      bool        a_facing_up,
-      Len         a_xb,       // Over-All Segment Base Center (X-CoOrd)
-      Len         a_d,        // Cross-Section Base Diameter
-      Len         a_D,        // Over-All Segment Diameter
-      Density     a_rho,      // 0 may be OK (if holds no Propellant)
-      Mass        a_empty_mass = ME::UnKnownMass
+      bool    a_facing_up,
+      Len     a_xb,       // Over-All Segment Base Center (X-CoOrd)
+      Len     a_d,        // Cross-Section Base Diameter
+      Len     a_D,        // Over-All Segment Diameter
+      Density a_rho,      // 0 may be OK (if holds no Propellant)
+      Mass    a_empty_mass = ME::UnKnownMass
     )
-    : ToricSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_d / 2.0, a_D,
-                a_rho,       a_empty_mass)
+    : ToricSegm(a_facing_up,    a_xb, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+                a_d, a_d / 2.0, a_D,  a_rho, a_empty_mass)
     {}
 
     //=======================================================================//
@@ -382,7 +387,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // For the Up-Facing "ToricSegm":                                        //
     //-----------------------------------------------------------------------//
-    // Here there is no optional rerturn values "VP" and "VPDot":
+    // Here there is no optional return values "VP" and "VPDot":
     //
     constexpr void PropMoICompsUp
     (
@@ -491,20 +496,24 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     constexpr DoubleCylinder
     (
-      Len         a_xu,          // Upper  Base Center
-      Len         a_yu,          //
-      Len         a_zu,          //
-      double      a_alpha,       // Dimension-less, in (-Pi/2 .. Pi/2)
-      Len         a_D,           // Outer Diameter
-      Len         a_d,           // Inner Diameter
-      Len         a_h,           // Height
-      Density     a_rho,         // Propellant Density (may be 0 if no Propelt)
-      Mass        a_empty_mass = ME::UnKnownMass
+      Len     a_xu,          // Upper  Base Center
+      Len     a_yu,          //
+      Len     a_zu,          //
+      double  a_cosA,        // As in "RotationShell"...
+      double  a_sinA,        //
+      double  a_cosP,        //
+      double  a_sinP,        //
+      Len     a_D,           // Outer Diameter
+      Len     a_d,           // Inner Diameter
+      Len     a_h,           // Height
+      Density a_rho,         // Propellant Density (may be 0 if no Propelt)
+      Mass    a_empty_mass = ME::UnKnownMass
     )
     {
-      assert(IsPos(a_D)  && IsPos(a_d)   && a_D > a_d     && IsPos(a_h) &&
-             Abs(a_alpha) < Pi_2<double> && !IsNeg(a_rho) &&
+      assert(IsPos(a_D)   && IsPos(a_d)    && a_D > a_d     && IsPos(a_h) &&
+             a_cosA > 0.0 && a_sinA >= 0.0 && !IsNeg(a_rho) &&
              !IsNeg(a_empty_mass));
+      // XXX: Further geometry checks are performed by "RS::Init"...
 
       // Geometry:
       Len   R  = a_D / 2.0;
@@ -538,26 +547,28 @@ namespace SpaceBallistics
       // NB: (xu,yu,zu) is the Upper Base Center, so BaseIsUp = true here:
       RS::Init
       (
-        sideSurfArea,  enclVol,    a_empty_mass,
-        a_alpha, a_xu, a_yu, a_zu, true,   a_h,
-        JE0,     JE1,  KE,   a_rho
+        sideSurfArea, enclVol,  a_empty_mass, a_cosA, a_sinA, a_cosP, a_sinP,
+        a_xu, a_yu, a_zu, true, a_h,     JE0, JE1,    KE,     a_rho
       );
     }
 
     //-----------------------------------------------------------------------//
     // Simple Case: Rotation Axis coincides with OX:                         //
     //-----------------------------------------------------------------------//
+    // Then alpha=0 and we can assume psi=0 as well:
+    //
     constexpr DoubleCylinder
     (
-      Len         a_xu,          // Upper  Base Center
-      Len         a_D,           // Outer Diameter
-      Len         a_d,           // Inner Diameter
-      Len         a_h,           // Height
-      Density     a_rho,         // Propellant Density (may be 0 if no Propelt)
-      Mass        a_empty_mass = ME::UnKnownMass
+      Len     a_xu,          // Upper  Base Center
+      Len     a_D,           // Outer Diameter
+      Len     a_d,           // Inner Diameter
+      Len     a_h,           // Height
+      Density a_rho,         // Propellant Density (may be 0 if no Propelt)
+      Mass    a_empty_mass = ME::UnKnownMass
     )
     : DoubleCylinder
-        (a_xu, 0.0_m, 0.0_m, 0.0, a_D, a_d, a_h, a_rho, a_empty_mass)
+        (a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0, a_D, a_d, a_h, a_rho,
+         a_empty_mass)
     {}
 
     //=======================================================================//

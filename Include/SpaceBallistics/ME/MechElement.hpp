@@ -33,7 +33,7 @@ namespace SpaceBallistics
   // vector). This is important when it comes  to the CoM and MoIs of the cont-
   // ained Propellant: We assume that the Propellant is concentrated at the
   // bottom (Lower, Smaller-X) part of the "MechElement", due to the gravity and
-  // tanks pressurisation (FIXME what about the SCs in the Free Space???):
+  // tanks pressurisation:
   //
   template<LVSC LVSCKind>
   class MechElement
@@ -440,23 +440,23 @@ namespace SpaceBallistics
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
-    // Orientation of the rotation axis: "alpha" (|alpha| < Pi/2)  is the angle
-    // between the positive direction of the OX axis and the rotation axis
-    // (from the Low (Smaller-X) to the Up (Larger-X) end points). The latter is
-    // assumed to lie in the OXY plane or in the OXZ plane (or both, in which
-    // case it coincides with OX);  MoIs are computed wrt (xL, yL, zL)  which is
-    // the Low (Smaller-X) rotation axis end, because this point is invariant
-    // under the change of the Propellant level. We must have yL=0 (the rotation
-    // axis is in OXY) or zL=0 (in OXZ), or both (then alpha=0 as well):
+    // Orientation of the rotation axis:
+    // (*) "alpha" (0 <= alpha < Pi/2)  is the angle between the positive direc-
+    //     tion of the OX axis and the positive direction rotation axis (Xi, ie
+    //     from the Low (Smaller-X) to the Up (Larger-X) end point); the  angle
+    //     is in the counter-clock-wise direction as usual;
+    // (*) "psi" (in 0..2*Pi or -Pi..+Pi) is the polar angle in the OYZ plane of
+    //     the intersection line between the OYZ plane and the plane made by the
+    //     OX axis and the rotation axis (Xi), viewed from the positive directi-
+    //     on of the OX axis.
+    // MoIs are computed wrt (xL, yL, zL)  which is the Low (Smaller-X) rotation
+    // axis end, because for Propellant Bulks, this point is INVARIANT under the
+    // change of the Propellant level.
     //
-    bool        m_inXY;         // If false, then inXZ holds (both may be true)
-    bool        m_inXZ;         //
-    double      m_cosA;         // cos(alpha)
-    double      m_sinA;         // sin(alpha)
-    ME::PosVE   m_up;           // Upper (Smaller-X) axis end
+    ME::PosVE   m_up;           // Up  (Larger-X)  axis end
     Len         m_h;            // Over-all body length along the rotation axis
-    ME::PosVE   m_low;          // Lower (Larger-X)  axis end: MoI ORIGIN
-    Len         m_yzL;          // Low[1] or Low[2]
+    ME::PosVE   m_low;          // Low (Smaller-X) axis end:  MoI ORIGIN
+    double      m_xi[3];        // Directing Cosines of the Xi axis, Low->Up
 
     // Geometric Properties:
     Area        m_sideSurfArea; // W/o the Bases
@@ -474,14 +474,16 @@ namespace SpaceBallistics
     double      m_Jx1;
     Len         m_JxK;
     Len2        m_JxSV;
-    // For Jin:
-    double      m_Jin0;
-    double      m_Jin1;
-    Len         m_JinK;
-    Len2        m_JinSV;
-    // For Jort (Jort0 = Jort1 = 1):
-    Len         m_JortK;
-    Len2        m_JortSV;
+    // For Jy:
+    double      m_Jy0;
+    double      m_Jy1;
+    Len         m_JyK;
+    Len2        m_JySV;
+    // For Jz:
+    double      m_Jz0;
+    double      m_Jz1;
+    Len         m_JzK;
+    Len2        m_JzSV;
 
   protected:
     // Default and Copy Ctors, Assignment and Equality are auto-generated, and
@@ -501,63 +503,98 @@ namespace SpaceBallistics
     constexpr void Init
     (
       // Params for the Base Class ("MechElement"):
-      Area        a_side_surf_area,
-      Vol         a_encl_vol,
-      Mass        a_mass,     // If 0, then auto-calculated with SurfDens=1
+      Area    a_side_surf_area,
+      Vol     a_encl_vol,
+      Mass    a_mass,     // If 0, then auto-calculated with SurfDens=1
 
-      // Params for "RotationShell" itself:
-      double      a_alpha,    // Rotation axis orientation
-      Len         a_x0,       // The Up or Low rotation axis end
-      Len         a_y0,       //
-      Len         a_z0,       //
-      bool        a_0is_up,   // Is (x0,y0,z0) the Up or Low end?
-      Len         a_h,        // Over-all body length  (along the rotation axis)
+      // Params for "RotationShell" itself. Providing both Cos and Sin of Alpha
+      // and Psi is for optimisation only,  because these angles are typically
+      // the same for several "ME"s. Also, (x0, y0, z0) are not independent of
+      // Psi but provided for convenience:
+      double  a_cosA,     // cos(alpha)
+      double  a_sinA,     // sin(alpha)
+      double  a_cosP,     // cos(psi)
+      double  a_sinP,     // sin(psi)
+      Len     a_x0,       // The Up or Low end of the Xi axis
+      Len     a_y0,       //
+      Len     a_z0,       //
+      bool    a_0is_up,   // So is (x0,y0,z0) the Up or Low end?
+      Len     a_h,        // Over-all length  (along the rotation axis)
 
       // "Empty" MoI Coeffs (wrt the Low end of the rotation axis):
-      Len4        a_je0,
-      Len4        a_je1,
-      Len3        a_ke,
+      Len4    a_je0,
+      Len4    a_je1,
+      Len3    a_ke,
 
-      // Propellant Density (may be 0 if no Propellant is held in this Body):
-      Density     a_rho
+      // Propellant Density (0 if no Propellant is held in this Body):
+      Density a_rho
     )
     {
       //---------------------------------------------------------------------//
+      // Checks:                                                             //
+      //---------------------------------------------------------------------//
+      // 0 <= alpha < Pi/2, so:
+      assert(a_cosA > 0.0 && a_sinA >= 0.0);
+
+      // If a_y0==a_z0==0,   ie there is a point on the Xi rotation axis segment
+      // which also lies on the OX axis, then we assume both axes should coinci-
+      // de:
+      assert(!(IsZero(a_y0)  && IsZero(a_z0)) ||
+              (a_cosA == 1.0 && a_sinA == 0.0));
+
+      double      cosA2 = Sqr(a_cosA);
+      double      sinA2 = Sqr(a_sinA);
+      double      cosP2 = Sqr(a_cosP);
+      double      sinP2 = Sqr(a_sinP);
+      assert(ApproxEqual(cosA2 + sinA2, 1.0) &&
+             ApproxEqual(cosP2 + sinP2, 1.0));
+
+      // Cos(Psi), Sin(Psi) may be of any sign, but they are actually determined
+      // by "a_y0", "a_z0"; they are passed explicitly only for the sake of opt-
+      // imisation and accuracy:
+      DEBUG_ONLY
+      (
+        Len2   y02  = Sqr(a_y0);
+        Len2   z02  = Sqr(a_z0);
+        Len2   u02  = y02 + z02;
+        assert((u02 * cosP2).ApproxEquals(y02) &&
+               (u02 * sinP2).ApproxEquals(z02));
+      )
+      assert(IsPos(a_h) && IsPos(a_je0) && IsPos(a_je1) && IsPos(a_ke) &&
+            !IsNeg(a_rho));
+      // NB:
+      // (*) In general, "a_ke" may be of any sign, but because it is a moment
+      //     wrt the lower Xi end,  in this case it should be positive as well;
+      // (*) a_rho==0 is OK if there is no Propellant in this Shell...
+
+      //---------------------------------------------------------------------//
       // Initialise the "RotationShell" flds FIRST:                          //
       //---------------------------------------------------------------------//
-      // Rotation axis orientation angle, and the over-all length:
-      m_inXY = IsZero(a_z0);
-      m_inXZ = IsZero(a_y0);
-      assert(  m_inXY || m_inXZ);
-      assert(!(m_inXY && m_inXZ) || a_alpha == 0.0);
-
-      m_cosA  = Cos(a_alpha);
-      m_sinA  = Sin(a_alpha);
-      m_h     = a_h;
-      assert(m_cosA > 0.0 && IsPos(m_h));
+      // Directing Cosines of the Xi axis (Low -> Up):
+      m_h        =  a_h;
+      m_xi[0]    =  a_cosA;
+      m_xi[1]    = -a_sinA * a_cosP;
+      m_xi[2]    = -a_sinA * a_sinP;
 
       // The Up (Larger-X) and Low (Smaller-X) ends of the rotation axis:
       if (a_0is_up)
       {
-        m_up   [0] = a_x0;
-        m_up   [1] = a_y0;
-        m_up   [2] = a_z0;
-        Len dyz    =          m_sinA * m_h;
-        m_low  [0] = a_x0   - m_cosA * m_h;
-        m_low  [1] = m_inXY ? (a_y0  - dyz) : 0.0_m;
-        m_low  [2] = m_inXZ ? (a_z0  - dyz) : 0.0_m;
+        m_up [0] = a_x0;
+        m_up [1] = a_y0;
+        m_up [2] = a_z0;
+        m_low[0] = a_x0 - m_h * m_xi[0];
+        m_low[1] = a_y0 - m_h * m_xi[1];
+        m_low[2] = a_z0 - m_h * m_xi[2];
       }
       else
       {
-        m_low  [0] = a_x0;
-        m_low  [1] = a_y0;
-        m_low  [2] = a_z0;
-        Len dyz    =          m_sinA * m_h;
-        m_up   [0] = a_x0   + m_cosA * m_h;
-        m_up   [1] = m_inXY ? (a_y0  + dyz) : 0.0_m;
-        m_up   [2] = m_inXZ ? (a_z0  + dyz) : 0.0_m;
+        m_low[0] = a_x0;
+        m_low[1] = a_y0;
+        m_low[2] = a_z0;
+        m_up [0] = a_x0 + m_h * m_xi[0];
+        m_up [1] = a_y0 - m_h * m_xi[1];
+        m_up [2] = a_y0 - m_h * m_xi[2];
       }
-      m_yzL = m_inXY ? m_low[1] : m_low[2];
 
       // Side Surace Area and Nominal Volume Enclosed:
       m_sideSurfArea = a_side_surf_area;
@@ -569,46 +606,33 @@ namespace SpaceBallistics
 
       // IMPORTANT!
       // Coeffs for (Jx, Jy, Jz) wrt (J0, J1, K, SurfOrVol), where J0, J1, K
-      // are computed relative to the Low end-point of the rotation axis.
+      // are computed relative to the Low end-point of the rotation axis (Xi).
       // This is just a matter of choice for 2D Shells, but becomes important
       // for 3D Propellant Volumes: as Propellants are spent, the Low end of
       // of the Propellant Volume remains unchanged, whereas the Up one moves
       // with the decreasing level of Propellant:
       //
-      // Jx =  m_sinA^2   * J0 + (1.0 + m_cosA^2)    * J1 +
-      //       yzL * (yzL * SurfOrVol + 2.0 * m_sinA * K) :
-      m_Jx0    = Sqr(m_sinA);
-      m_Jx1    = 1.0 + Sqr(m_cosA);
-      m_JxK    = 2.0 * m_sinA * m_yzL;
-      m_JxSV   = Sqr(m_yzL);
+      Len  xL  = m_low[0];
+      Len  yL  = m_low[1];
+      Len  zL  = m_low[2];
+      Len2 xL2 = Sqr(xL);
+      Len2 yL2 = Sqr(yL);
+      Len2 zL2 = Sqr(zL);
 
-      // Jin = m_cosA^2   * J0 + (1.0 + m_sinA^2)    * J1 +
-      //       xL  * (xL  * SurfOrVol + 2.0 * m_cosA * K) :
-      m_Jin0   = Sqr(m_cosA);
-      m_Jin1   = 1.0 + Sqr(m_sinA);
-      m_JinK   = 2.0 * m_cosA * m_low[0];
-      m_JinSV  = Sqr(m_low[0]);
+      m_Jx0    =  sinA2;
+      m_Jx1    =  1.0 + cosA2;
+      m_JxK    = -2.0 * a_sinA  * (a_cosP * yL + a_sinP * zL);
+      m_JxSV   =  yL2 + zL2;
 
-      // Jort =  J0  + J1    + (Sqr(xL)  + Sqr(yzL)) * SurfOrVol +
-      //         2.0 * (cosA * xL + sinA * yzL) * K :
-      m_JortK  = 2.0 * (m_cosA  * m_low[0] + m_sinA * m_yzL);
-      m_JortSV = Sqr(m_low[0])  + Sqr(m_yzL);
+      m_Jy0    =  1.0 - sinA2   * cosP2;
+      m_Jy1    =  1.0 + sinA2   * cosP2;
+      m_JyK    =  2.0 * (a_cosA * xL  - a_sinA * a_sinP * zL);
+      m_JySV   =  xL2 + zL2;
 
-      //---------------------------------------------------------------------//
-      // Checks:                                                             //
-      //---------------------------------------------------------------------//
-      // The rotation axis lies in the OXY plane, or OXZ plane, or in both:
-      assert(m_inXY || m_inXZ);
-
-      // If the rotation axis lies in both OXY and OXZ, then it must coincide
-      // with OX, and therefore, we must have alpha=0:
-      assert(!(m_inXY && m_inXZ) || (m_cosA == 1.0 && m_sinA == 0.0));
-
-      // In general, |alpha| < Pi/2:
-      assert(m_cosA > 0.0);
-
-      // Propellant Density must be non-negative (0 is OK if no propellant):
-      assert(!IsNeg(m_rho));
+      m_Jz0    =  1.0 - sinA2   * sinP2;
+      m_Jz1    =  1.0 + sinA2   * sinP2;
+      m_JzK    =  2.0 * (a_cosA * xL  - a_sinA * a_cosP * yL);
+      m_JzSV   =  xL2 + yL2;
 
       //---------------------------------------------------------------------//
       // Now the Base Class ("MechElement"):                               //
@@ -636,11 +660,6 @@ namespace SpaceBallistics
         a_je0, a_je1,    a_ke,     JDot0, JDot0, KDot0,     a_side_surf_area,
         SDot0, surfDens, emptyCoM, emptyCoMDots, emptyMoIs, emptyMoIDots
       );
-      // Check: "m_inXY", "m_inXZ" derived from "a_{xyz}0" must be consistent
-      // with "emptyCoM":
-      assert(!m_inXY || IsZero(emptyCoM[2]));
-      assert(!m_inXZ || IsZero(emptyCoM[1]));
-
       // CoMDots and MoIDots must all be 0s, of course:
       assert(IsZero(emptyCoMDots[0]) && IsZero(emptyCoMDots[1]) &&
              IsZero(emptyCoMDots[2]) && IsZero(emptyMoIDots[0]) &&
@@ -655,8 +674,8 @@ namespace SpaceBallistics
     //=======================================================================//
     // "MoIsCoM": Computation of XYZ MoIs and CoM from "intrinsic" MoIs:     //
     //=======================================================================//
-    // The same functions are applicable to both MoI per SurfDens (Len4) and
-    // MoI per (Volume) Density (Len5), hence:
+    // The same function is applicable to both MoI per SurfDens (Len4) and MoI
+    // per (Volume) Density (Len5), hence:
     // J=Len4, K=Len3, SV=Len2, OR
     // J=Len5, K=Len4, SV=Len3:
     //
@@ -695,25 +714,21 @@ namespace SpaceBallistics
           IsPos(a_j1_dot)         ||   IsPos (a_k_dot))));
 
       // MoIs:
-      J Jx   = m_Jx0  * a_j0 + m_Jx1  * a_j1 + m_JxK   * a_k + m_JxSV   * a_sv;
-      J Jin  = m_Jin0 * a_j0 + m_Jin1 * a_j1 + m_JinK  * a_k + m_JinSV  * a_sv;
-      J Jort =          a_j0 +          a_j1 + m_JortK * a_k + m_JortSV * a_sv;
-      J Jy   = m_inXY ? Jin  : Jort;
-      J Jz   = m_inXZ ? Jin  : Jort;
+      J Jx = m_Jx0 * a_j0 + m_Jx1 * a_j1 + m_JxK * a_k + m_JxSV * a_sv;
+      J Jy = m_Jy0 * a_j0 + m_Jy1 * a_j1 + m_JyK * a_k + m_JySV * a_sv;
+      J Jz = m_Jz0 * a_j0 + m_Jz1 * a_j1 + m_JzK * a_k + m_JzSV * a_sv;
 
       // MoI Rates: Linear transforms similar to above:
-      using JRate   = decltype(a_j0 / 1.0_sec);
-      JRate JxDot   =
-        m_Jx0   * a_j0_dot   + m_Jx1  * a_j1_dot + m_JxK    * a_k_dot +
+      using JRate  = decltype(a_j0 / 1.0_sec);
+      JRate JxDot  =
+        m_Jx0   * a_j0_dot + m_Jx1 * a_j1_dot + m_JxK * a_k_dot +
         m_JxSV  * a_sv_dot;
-      JRate JinDot  =
-        m_Jin0  * a_j0_dot   + m_Jin1 * a_j1_dot + m_JinK   * a_k_dot +
-        m_JinSV * a_sv_dot;
-      JRate JortDot =
-        a_j0_dot + a_j1_dot  + m_JortK * a_k_dot + m_JortSV * a_sv_dot;
-
-      JRate JyDot   = m_inXY ? JinDot : JortDot;
-      JRate JzDot   = m_inXZ ? JinDot : JortDot;
+      JRate JyDot   =
+        m_Jy0   * a_j0_dot + m_Jy1 * a_j1_dot + m_JyK * a_k_dot +
+        m_JySV  * a_sv_dot;
+      JRate JzDot   =
+        m_Jz0   * a_j0_dot + m_Jz1 * a_j1_dot + m_JzK * a_k_dot +
+        m_JzSV  * a_sv_dot;
 
       a_mois[0]     = a_dens * Jx;
       a_mois[1]     = a_dens * Jy;
@@ -729,21 +744,19 @@ namespace SpaceBallistics
              (std::is_same_v<J, Len5> && !(IsPos(a_moi_dots[0])  ||
               IsPos(a_moi_dots[1])    ||   IsPos(a_moi_dots[2]))));
 
-      // Now the CoM: "xiC" is its co-ord along the rotation axis, relative to
-      // the Low (Smallest-X) axis end, hence positive:
-      Len  xiC      = a_k / a_sv;
-      assert(IsPos(xiC));
-      a_com[0]      = m_low[0]     + m_cosA * xiC;
-      Len  yzC      = m_yzL        + m_sinA * xiC;
-      a_com[1]      = m_inXY ? yzC : 0.0_m;
-      a_com[2]      = m_inXZ ? yzC : 0.0_m;
+      // Now the CoM: "xiCoM" is its co-ord along the rotation axis, relative
+      // to the Low (Smallest-X) axis end, hence positive:
+      Len  xiCoM    = a_k / a_sv;
+      assert(IsPos(xiCoM));
+      a_com[0]      = m_low[0] + m_xi[0] * xiCoM;
+      a_com[1]      = m_low[1] + m_xi[1] * xiCoM;
+      a_com[2]      = m_low[2] + m_xi[2] * xiCoM;
 
       // Similar for CoMDots:
-      Vel xiCDot    = a_k_dot / a_sv - a_k * a_sv_dot / Sqr(a_sv);
-      a_com_dots[0] = m_cosA * xiCDot;
-      Vel yzCDot    = m_sinA * xiCDot;
-      a_com_dots[1] = m_inXY ? yzCDot : Vel(0.0);
-      a_com_dots[2] = m_inXZ ? yzCDot : Vel(0.0);
+      Vel xiCoMDot  = a_k_dot / a_sv - a_k * a_sv_dot / Sqr(a_sv);
+      a_com_dots[0] = m_xi[0]  * xiCoMDot;
+      a_com_dots[1] = m_xi[1]  * xiCoMDot;
+      a_com_dots[2] = m_xi[2]  * xiCoMDot;
     }
 
   public:
@@ -839,9 +852,8 @@ namespace SpaceBallistics
       if (!IsFinite(a_prop_mass))
         a_prop_mass = GetPropMassCap();
 
-      // Get the MoIs and the CoM of the Popellant. NB: Needless to say, use the
-      // current "propVol" here, NOT the maximum "GetEnclVol()". NB: "Intrinsic"
-      // MoI components of the Propellant are computed by "Derived":
+      // Get the MoIs and the CoM of the Popellant. NB: the "Intrinsic" MoI
+      // components of the Propellant are computed by "Derived":
       Len5     JP0,    JP1;
       Len4     KP;
       Len5Rate JP0Dot, JP1Dot;

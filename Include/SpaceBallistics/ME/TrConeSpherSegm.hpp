@@ -85,25 +85,31 @@ namespace SpaceBallistics
     //=======================================================================//
     // Non-Default Ctor:                                                     //
     //=======================================================================//
+    // See "RotationShell" for the meaning of "{cos|sin}{A|P}":
+    //
     constexpr TrCone
     (
-      Len       a_xu,       // Upper Base Center (Upper=Larger-X axis end)
-      Len       a_yu,       //
-      Len       a_zu,       //
-      double    a_alpha,    // Dimension-less, in (-Pi/2 .. Pi/2)
-      Len       a_du,       // Upper (Larger-X)  Base Diameter
-      Len       a_dl,       // Lower (Smaller-X) Base Diameter
-      Len       a_h,        // Height
-      Density   a_rho,      // Propellant Density (0 if no Propellant)
-      Mass      a_empty_mass = ME::UnKnownMass
+      Len     a_xu,        // Upper Base Center (Upper=Larger-X axis end)
+      Len     a_yu,        //
+      Len     a_zu,        //
+      double  a_cosA,      // cos(alpha), >  0
+      double  a_sinA,      // sin(alpha), >= 0
+      double  a_cosP,      // cos(psi),   any sign
+      double  a_sinP,      // sin(psi),   any sign
+      Len     a_du,        // Upper (Larger-X)  Base Diameter
+      Len     a_dl,        // Lower (Smaller-X) Base Diameter
+      Len     a_h,         // Height
+      Density a_rho,       // Propellant Density (0 if no Propellant)
+      Mass    a_empty_mass = ME::UnKnownMass
     )
     {
       //---------------------------------------------------------------------//
       // Over-All Geometry:                                                  //
       //---------------------------------------------------------------------//
-      assert( IsPos(a_h)   && !IsNeg(a_du)  && !IsNeg(a_dl) &&
-            !(IsZero(a_du) && IsZero(a_dl)) && Abs(a_alpha) < Pi_2<double> &&
-            ! IsNeg(a_rho) && !IsNeg(a_empty_mass));
+      assert( IsPos(a_h)    && !IsNeg(a_du)  && !IsNeg(a_dl) &&
+            !(IsZero(a_du)  && IsZero(a_dl)) && a_cosA > 0.0 &&
+              a_sinA >= 0.0 && !IsNeg(a_rho) && !IsNeg(a_empty_mass));
+      // XXX: Further geometry checks are performed by "RS::Init"...
 
       // The over-all sizes:
       Len   R     = a_du / 2.0;   // Upper base radius
@@ -175,39 +181,41 @@ namespace SpaceBallistics
       // Initialise the Parent Classes' Flds: NB: For (xu,yu,zu), IsUp=true:
       RS::Init
       (
-        sideSurfArea,  enclVol, a_empty_mass,
-        a_alpha, a_xu, a_yu,    a_zu,   true, a_h,
-        JE0,     JE1,  KE,      a_rho
+        sideSurfArea,  enclVol, a_empty_mass,  a_cosA, a_sinA, a_cosP, a_sinP,
+        a_xu, a_yu, a_zu, true, a_h, JE0, JE1, KE,     a_rho
       );
     }
 
     //=======================================================================//
     // Non-Default Ctor, Simple Cases (TrCone/Cylinder with OX axis):        //
     //=======================================================================//
-    // "TrCone" with the rotation axis coinsiding with Ox: yu=zu=alpha=0:
+    // "TrCone" with the rotation axis coinsiding with Ox: yu=zu=alpha=0, psi
+    // is irrelevant and is also set to 0:
     //
     constexpr TrCone
     (
-      Len         a_xu,       // Upper (Larger-X)  Base Center
-      Len         a_du,       // Upper (Larger-X)  Base Diameter
-      Len         a_dl,       // Lower (Smaller-X) Base Diameter
-      Len         a_h,        // Height
-      Density     a_rho,      // 0 may be OK
-      Mass        a_empty_mass = ME::UnKnownMass
+      Len     a_xu,       // Upper (Larger-X)  Base Center
+      Len     a_du,       // Upper (Larger-X)  Base Diameter
+      Len     a_dl,       // Lower (Smaller-X) Base Diameter
+      Len     a_h,        // Height
+      Density a_rho,      // 0 may be OK
+      Mass    a_empty_mass = ME::UnKnownMass
     )
-    : TrCone(a_xu, 0.0_m, 0.0_m, 0.0, a_du, a_dl, a_h, a_rho, a_empty_mass)
+    : TrCone(a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0, a_du, a_dl, a_h, a_rho,
+             a_empty_mass)
     {}
 
     // As above, but with dU=dL, ie a Cylinder:
     constexpr TrCone
     (
-      Len         a_xu,       // Upper (Larger-X)  Base Center
-      Len         a_d,        // Diameter of both  Bases
-      Len         a_h,        // Height
-      Density     a_rho,      // 0 may be OK
-      Mass        a_empty_mass = ME::UnKnownMass
+      Len     a_xu,       // Upper (Larger-X)  Base Center
+      Len     a_d,        // Diameter of both  Bases
+      Len     a_h,        // Height
+      Density a_rho,      // 0 may be OK
+      Mass    a_empty_mass = ME::UnKnownMass
     )
-    : TrCone(a_xu, 0.0_m, 0.0_m, 0.0, a_d, a_d, a_h, a_rho, a_empty_mass)
+    : TrCone(a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0, a_d, a_d, a_h, a_rho,
+             a_empty_mass)
     {}
 
     //=======================================================================//
@@ -403,22 +411,26 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr SpherSegm
     (
-      bool        a_facing_up,
-      Len         a_xb,          // Base center
-      Len         a_yb,          //
-      Len         a_zb,          //
-      double      a_alpha,       // Dimension-less, in (-Pi/2 .. Pi/2)
-      Len         a_d,           // Base diameter
-      Len         a_h,           // Height
-      Density     a_rho,         // Propellant Density (may be 0)
-      Mass        a_empty_mass = ME::UnKnownMass
+      bool    a_facing_up,
+      Len     a_xb,          // Base center
+      Len     a_yb,          //
+      Len     a_zb,          //
+      double  a_cosA,        // As in "RotationShell"
+      double  a_sinA,        //
+      double  a_cosP,        //
+      double  a_sinP,        //
+      Len     a_d,           // Base diameter
+      Len     a_h,           // Height
+      Density a_rho,         // Propellant Density (may be 0)
+      Mass    a_empty_mass = ME::UnKnownMass
     )
     {
       //---------------------------------------------------------------------//
       // Over-All Geometry:                                                  //
       //---------------------------------------------------------------------//
-      assert(IsPos(a_d)   &&  IsPos(a_h) && Abs(a_alpha) < Pi_2<double> &&
+      assert(IsPos(a_d)   &&  IsPos(a_h) && a_cosA > 0.0 && a_sinA >= 0.0 &&
             !IsNeg(a_rho) && !IsNeg(a_empty_mass));
+      // XXX: Furher geometry checks are performed by "RS::Init"...
 
       Len  r        = a_d / 2.0;                    // Base   radius
       assert(a_h   <= r * TolFact);                 // Important!
@@ -500,42 +512,42 @@ namespace SpaceBallistics
       // NB: (xb,yb,zb) is the Base Center, so for it, BaseIsUp = !IsFacingUp:
       RS::Init
       (
-        sideSurfArea,   enclVol,    a_empty_mass,
-        a_alpha,  a_xb, a_yb, a_zb, !a_facing_up, a_h,
-        JE0,      JE1,  KE,   a_rho
+        sideSurfArea, enclVol, a_empty_mass, a_cosA,  a_sinA, a_cosP, a_sinP,
+        a_xb, a_yb, a_zb, !a_facing_up, a_h,    JE0, JE1, KE, a_rho
       );
     }
 
     //=======================================================================//
     // Non-Default Ctor, Simple Cases:                                       //
     //=======================================================================//
-    // Rotation axis coinciding with OX:
+    // Rotation axis coinciding with OX, so alpha=0; in this case, we can assume
+    // psi=0 as well:
     //
     constexpr SpherSegm
     (
-      bool        a_facing_up,
-      Len         a_xb,       // Base center X co-ord
-      Len         a_d,        // Base diameter
-      Len         a_h,        // Height
-      Density     a_rho,      // 0 may be OK
-      Mass        a_empty_mass = ME::UnKnownMass
+      bool    a_facing_up,
+      Len     a_xb,       // Base center X co-ord
+      Len     a_d,        // Base diameter
+      Len     a_h,        // Height
+      Density a_rho,      // 0 may be OK
+      Mass    a_empty_mass = ME::UnKnownMass
     )
-    : SpherSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_h, a_rho,
-                a_empty_mass)
+    : SpherSegm(a_facing_up, a_xb,  0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+                a_d,    a_h, a_rho, a_empty_mass)
     {}
 
     // As above, but with d/2 = h, ie a HemiSpehere:
     //
     constexpr SpherSegm
     (
-      bool        a_facing_up,
-      Len         a_xb,       // Base center X co-ord
-      Len         a_d,        // Base diameter
-      Density     a_rho,      // 0 may be OK
-      Mass        a_empty_mass = ME::UnKnownMass
+      bool    a_facing_up,
+      Len     a_xb,       // Base center X co-ord
+      Len     a_d,        // Base diameter
+      Density a_rho,      // 0 may be OK
+      Mass    a_empty_mass = ME::UnKnownMass
     )
-    : SpherSegm(a_facing_up, a_xb, 0.0_m, 0.0_m, 0.0, a_d, a_d / 2.0, a_rho,
-                a_empty_mass)
+    : SpherSegm(a_facing_up,    a_xb,  0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+                a_d, a_d / 2.0, a_rho, a_empty_mass)
     {}
 
     //=======================================================================//
