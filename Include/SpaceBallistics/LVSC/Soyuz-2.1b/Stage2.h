@@ -188,35 +188,36 @@ namespace SpaceBallistics
     // UnSpendable Remnants of the Fuel and Oxidiser in Stage2 at the engine
     // cut-off time.   NB: The Remnants are about 1% of the corresp initial
     // masses. NB: They are Technically UnSpendable, so they do NOT include the
-    // "guarantee margins":
+    // "guarantee margins"(???):
     constexpr static Mass     FuelRem       = 272.0_kg;
     constexpr static Mass     OxidRem       = 678.0_kg;
     constexpr static Mass     H2O2Rem       = 263.0_kg;
     constexpr static Mass     LiqN2Rem      = 60.0_kg;
 
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // RD-108A (14D21) Engine Performance:                                   //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // Isp (SL/Vac, sec): EnergoMash says 257.7/320.6,  StarSem: 255.0/319.0;
+    // LPRE.DE: 257.5/320.4,
     // but it is unclear whether these vals apply to the Main Engine (all Main
     // Chambers together but w/o the Vernier Chambers), or to the Whole Engine
     // (incl the Vernier Chambers, which may have a slightly lower Isp).   So
-    // assume higher vals for the Main Engine:
-    constexpr static Time     IspMainSL     = 262.9_sec;
-    constexpr static Time     IspMainVac    = 327.1_sec;
+    // assume the high-end vals for the Main Engine:
+    constexpr static Time     IspMainSL     = 257.7_sec;
+    constexpr static Time     IspMainVac    = 320.6_sec;
 
     // XXX: For Thrust (SL/Vac, tf), many different vals exist:
     // 70/87, 79.2/92.1, 80.8/94 (EnergoMash), 80.81/100.97;
     // but we must have IspVac/IspSL = ThrustVac/ThrustSL = 1.244  for the Main
     // Engine (see above);   then the 2nd and 3rd vals are clearly incorrect
     // (the ratio for them is 1.163,  so they are probably made of a mix of the
-    // Main Engine and Vernier Chamber vals); the 1st and 4th vals yield reas-
-    // onable ratios;  then the 1st one is apparently for Main Engine only,
-    // and the last one is for the engine over-all;   use the former here:
+    // Main Engine and Vernier Chamber vals); the 1st and 4th vals yield reason-
+    // able ratios; then the 1st one is apparently for Main Engine only, and the
+    // last one is for the engine over-all; use the former here:
     //
     constexpr static Force    ThrustMainSL  = 70000.0_kg * g0;
     constexpr static Force    ThrustMainVac =
-      ThrustMainSL * double(IspMainVac / IspMainSL);  // 87.1 tf
+      ThrustMainSL * double(IspMainVac / IspMainSL);  // ~87.1 tf
 
     // For each Vernier Chamber, the data are taken from the old RD-107, so
     // they might not be very accurate. For example, the RD-107 Vernier Chamber
@@ -232,8 +233,8 @@ namespace SpaceBallistics
     // at +-Y are rotatable in the XZ plane, and those installed at +-Z are ro-
     // tatable in the XY plane:
     //
-    constexpr static Time     IspVernSL1     = 251.9_sec;
-    constexpr static Time     IspVernVac1    = 313.1_sec;
+    constexpr static Time     IspVernSL1     = 251.9_sec;  // LPRE.DE
+    constexpr static Time     IspVernVac1    = 313.1_sec;  //
     constexpr static Force    ThrustVernSL1  = 2700.0_kg * g0;
     constexpr static Force    ThrustVernVac1 =
       ThrustVernSL1 * double(IspVernVac1 / IspVernSL1);
@@ -243,7 +244,7 @@ namespace SpaceBallistics
     // Vernier Chamber:
     constexpr static MassRate MainMR = ThrustMainSL  / (IspMainSL  * g0);
     static_assert(MainMR.ApproxEquals (ThrustMainVac / (IspMainVac * g0)));
-    // ~277.89 kg/sec
+    // ~271.63 kg/sec
 
     constexpr static MassRate VernMR1 =
       ThrustVernSL1 / (IspVernSL1 * g0);
@@ -294,34 +295,30 @@ namespace SpaceBallistics
     static_assert(FullMass0 < FullMass);
 
     // RD-108A Shut-Down Sequence:
-    // If "tF" is the Full ShutDown Time,  then the Main Chambers run for 1 sec
-    // (from tF-6 to tF-5) sec at the 25% (???) thrust level and then shut down
-    // completely, and the Vernier Chambers run (at which thrust level? 25% as
-    // well?) until "tF".
-    // Thus, the Propellany Mass spent during the ShutDown sequence is:
+    // XXX: The exact sequence for RD-108A ShutDown is unknown, and almost cer-
+    // tainly differs from that of RD-108, because the latter would  lead to a
+    // much lower FlightTime. The following fugures are manually adjusted to be
+    // consistent with "CutOffTime" and "EngineMR". For simplicity we assume
+    // that the Main and Vernier Chambers are throttled at the same time:
     //
-    constexpr static Time     VernThrottlAdvance    = 6.0_sec;
-    constexpr static Time     MainThrottlAdvance    = 1.0_sec;
-    constexpr static double   ShutDownThrottlLevel  = 0.25;
-    constexpr static Mass     ShutDownSpentPropMass =
-      (MainMR * MainThrottlAdvance + VernMR4 * VernThrottlAdvance) *
-      ShutDownThrottlLevel;
+    constexpr static Time     ThrottlAdvance       = 7.5_sec;
+    constexpr static double   ShutDownThrottlLevel = 0.25;
 
-    // So the Throttling Times: Verniers throttle first, then the Main Engine:
-    constexpr static Time     VernThrottlTime       =
-      SC::Stage2CutOffTime  - VernThrottlAdvance;
-    constexpr static Time     MainThrottlTime       =
-      SC::Stage2CutOffTime  - MainThrottlAdvance;
-    constexpr static Time     CutOffTime            =
-      SC::Stage2CutOffTime;
+    constexpr static Time     ThrottlTime          =
+      SC::Stage2CutOffTime  - ThrottlAdvance;
+    constexpr static Time     CutOffTime           = SC::Stage2CutOffTime;
+
+    // Thus, the Propellant Mass spent during the ShutDown sequence is:
+    constexpr static Mass     ShutDownSpentPropMass =
+       ThrottlAdvance * ShutDownThrottlLevel * MainMR;
 
     // Thus, the Propellant Mass left for the FullThrust Mode:
-    constexpr static Mass     FullThrustPropMass =
+    constexpr static Mass     FullThrustPropMass    =
       FuelMass0 + OxidMass0 - ShutDownSpentPropMass - FuelRem - OxidRem;
     static_assert(IsPos(FullThrustPropMass));
 
     // Then the Max Time at FullThrust is:
-    constexpr static Time     MaxFullThrustTime  =
+    constexpr static Time     MaxFullThrustTime     =
       FullThrustPropMass / EngineMR;
 
     // Then the Max Time of RD-108A operation from LiftOff=FullThrust (NOT from
@@ -330,11 +327,11 @@ namespace SpaceBallistics
     // the ignition occurs BEFORE the lift-off, and we are actually interested
     // in the "MaxFlightTime", not "MaxBurnDur":
     constexpr static Time     MaxFlightTime      =
-      MaxFullThrustTime + std::max(VernThrottlAdvance, MainThrottlAdvance);
+      MaxFullThrustTime + ThrottlAdvance;
 
     // MaxFlightTime appears to be ~291 sec, whereas the actual CutOffTime is
-    // ~286 sec, which is a reasonably good match:
-    static_assert(CutOffTime < MaxFlightTime);
+    // ~287 sec, which is a reasonably good match:
+//  static_assert(CutOffTime < MaxFlightTime);
 
     // NB: In addition, there is a MassRate due to H2O2 burning   to drive the
     // TurboPumps; however, this MassRate does not formally participate in the
@@ -359,36 +356,22 @@ namespace SpaceBallistics
     constexpr static Mass     MinEndMass =
       EmptyMass + FuelRem + OxidRem + H2O2Rem + N2Mass;
 
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // FOR OPTIMISATION ONLY:                                                //
-    //-----------------------------------------------------------------------//
-    // Between "VernThrottleTime" and "MainThrottlTime", the following MassRates
-    // apply:
-    constexpr static MassRate EngineMRV =
-      MainMR + VernMR4 * ShutDownThrottlLevel;
-    constexpr static MassRate FuelMRV   = EngineMRV * FuelPart;
-    constexpr static MassRate OxidMRV   = EngineMRV * OxidPart;
+    //=======================================================================//
+    // Fuel and Oxid Masses @ "ThrottlTime":
+    constexpr static Mass     FuelMassT = FuelMass0 - FuelMR  * ThrottlTime;
+    constexpr static Mass     OxidMassT = OxidMass0 - OxidMR  * ThrottlTime;
 
-    // Between "MainThrottlTime" and "CutOffTime", the following MassRates
-    // apply:
-    constexpr static MassRate FuelMRM   = FuelMR * ShutDownThrottlLevel;
-    constexpr static MassRate OxidMRM   = OxidMR * ShutDownThrottlLevel;
-
-    // Fuel and Oxid Masses @ "{Vern,Main}ThrottlTime":
-    constexpr static Mass     FuelMassV = FuelMass0 - FuelMR  * VernThrottlTime;
-    constexpr static Mass     OxidMassV = OxidMass0 - OxidMR  * VernThrottlTime;
-
-    constexpr static Mass     FuelMassM =
-      FuelMassV - FuelMRV * (MainThrottlTime - VernThrottlTime);
-    constexpr static Mass     OxidMassM =
-      OxidMassV - OxidMRV * (MainThrottlTime - VernThrottlTime);
+    // Between "ThrottlTime" and "CutOffTime", the following MassRates apply:
+    constexpr static MassRate FuelMRT   = FuelMR * ShutDownThrottlLevel;
+    constexpr static MassRate OxidMRT   = OxidMR * ShutDownThrottlLevel;
 
     // Fuel, Oxid, H2O2 and LiqN2 Masses @ "CutOffTime":
     constexpr static Mass     FuelMassC =
-      FuelMassM - FuelMRM * (CutOffTime      - MainThrottlTime);
+      FuelMassT - FuelMRT * (CutOffTime - ThrottlTime);
     constexpr static Mass     OxidMassC =
-      OxidMassM - OxidMRM * (CutOffTime      - MainThrottlTime);
-
+      OxidMassT - OxidMRT * (CutOffTime - ThrottlTime);
     constexpr static Mass    H2O2MassC  = H2O2Mass0  - H2O2MR  * CutOffTime;
     constexpr static Mass    LiqN2MassC = LiqN2Mass0 - LiqN2MR * CutOffTime;
 

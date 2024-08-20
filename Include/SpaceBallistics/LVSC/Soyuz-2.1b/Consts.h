@@ -42,29 +42,34 @@ namespace SpaceBallistics::Soyuz21b_Consts
   // engine could burn for up to 140 sec):
   constexpr inline Time   Stage1ThrottlTime      = 112.0_sec;
   constexpr inline Time   Stage1VernCutOffTime   = 117.7_sec;
-  constexpr inline Time   Stage1SepTime          = 118.1_sec;
+  constexpr inline Time   Stage1SepTime          = 118.1_sec;   // Or 118.93 ?
 
-  // Fairing jettisoning time (some srcs say ~183 sec):
-  constexpr inline Time   FairingJetTime         = 208.4_sec;
+  // Fairing jettisoning time (some srcs say ~183 sec; "Luna-25": 211.95 sec):
+  constexpr inline Time   FairingJetTimeMin      = 208.4_sec;
+  constexpr inline Time   FairingJetTimeMax      = 212.0_sec;
 
-  // Stage2 (Block A) separation time. Some srcs indicate 278 sec but this is
-  // probably for an earlier version of Soyuz.   The RD-108A  cut-off time is
-  // approx 286 sec (by StarSem; other data say 285--320 sec; earlier versions
-  // of RD-108 could burn for up to 340 sec):
-  constexpr inline Time   Stage2CutOffTime       = 286.0_sec;
+  // Stage2 (Block A) separation time.  Some srcs indicate 278 sec but this is
+  // probably for an earlier version of Soyuz(?). The RD-108A  cut-off time is
+  // approx 286 sec by StarSem, ~287 sec by "Luna 25"; other data say 285--320
+  // sec; earlier versions of RD-108 could burn for up to 340 sec):
+  constexpr inline Time   Stage2CutOffTime       = 286.7_sec;
 
   // Stage3 ignition occurs at approx "Stage2CutOffTime", PRIOR to Stage2 sepa-
   // ration, immediately at full thrust:
   constexpr inline Time   Stage3IgnTime          = Stage2CutOffTime;
-  constexpr inline Time   Stage2SepTime          = 287.6_sec;
+  constexpr inline Time   Stage2SepTime          = 287.9_sec;
 
-  // Stage3 aft section jettisoning time (some srcs say 297 sec):
+  // Stage3 aft section jettisoning time;
+  // some srcs say (Stage2SepTime + 10 sec, ie ~299 sec):
   constexpr inline Time   Stage3AftJetTime       = 300.4_sec;
 
   // Stage3 engine (RD-0124) cut-off time. Some srcs say Stage3 burns for
   // 250..300 sec or even 320 sec  (for the older RD-0110, 240..250 sec);
-  // StarSem says 270 sec:
-  constexpr inline Time   Stage3BurnDur          = 270.0_sec;
+  // StarSem says 270 sec, "Luna 25" launch was ~274 sec.  XXX: but there are
+  // also much shorter burns of 230--240 sec (eg "Prichal" launch); we assume
+  // they occur with PARTIAL propellant load in Stage3, which is not supported
+  // by our model yet:
+  constexpr inline Time   Stage3BurnDur          = 274.0_sec;
   constexpr inline Time   Stage3CutOffTime       = Stage3IgnTime +
                                                    Stage3BurnDur;
 

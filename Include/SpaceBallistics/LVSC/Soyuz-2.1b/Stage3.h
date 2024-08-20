@@ -115,19 +115,21 @@ namespace SpaceBallistics
     // they refer to Naftil or Kerosene. The OxidMR is quoted somewhere as 56.7
     // kg/sec, which is clearly too low.
     // In different sources, Oxidiser/Fuel Ratio is 2.5..2.6, here 2.50:
-    // These figure must be consistent with the MaxBurnDur and the StaticThrust
-    // below:
-    constexpr static MassRate FuelMR        = 23.8_kg / 1.0_sec;
-    constexpr static MassRate OxidMR        = 59.6_kg / 1.0_sec;
-    constexpr static MassRate EngineMR      = FuelMR + OxidMR;
+    //
+    constexpr static MassRate FuelMR0       = 23.8_kg / 1.0_sec;
+    constexpr static MassRate OxidMR0       = 59.6_kg / 1.0_sec;
+    constexpr static MassRate EngineMR0     = FuelMR0 + OxidMR0; // 83.4 kg/sec
 
-    // The MassRate is connected to Specific Impulse and Thrust, but we must
-    // take into account that Thrust is a sum of Reactive Force (proportional
-    // to MassRate) and the residual inline pressure force at the nozzle exh-
-    // aust:
-    constexpr static Force  StaticThrust  =
-      ThrustVac - EngineMR * IspVac * g0;
-    static_assert(IsPos(StaticThrust));
+    // On the other hand, the MassRate is connected to the effective Specific
+    // Impulse and Thrust:
+    constexpr static MassRate EngineMR      = ThrustVac / (IspVac * g0);
+    // 83.6 kg/sec which is very close to the above estimate!
+
+    // Assuming the same Oxid/Fuel Ratio as above, adjust the {Fuel,Oxid}MRs:
+    constexpr static MassRate FuelMR        =
+      FuelMR0 * double(EngineMR / EngineMR0);
+    constexpr static MassRate OxidMR        =
+      OxidMR0 * double(EngineMR / EngineMR0);
 
   private:
     //=======================================================================//
@@ -386,9 +388,11 @@ namespace SpaceBallistics
     // Max Theoretical Burn Duration:
     constexpr static Time MaxBurnDur =
       std::min((FuelMass - FuelRem) / FuelMR,
-               (OxidMass - OxidRem) / OxidMR);
+               (OxidMass - OxidRem) / OxidMR);  // 274.3 sec
 
-    // The actual Burn Duration must not exceed the above theoretical maximum:
+    // The actual Burn Duration must not exceed the above theoretical maximum.
+    // XXX: In reality, Stage3 burn times may be much shorter (230--240 sec);
+    // does it imply a partial fuel load?
     static_assert(SC::Stage3BurnDur < MaxBurnDur);
 
     //-----------------------------------------------------------------------//

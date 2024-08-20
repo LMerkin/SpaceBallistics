@@ -28,10 +28,6 @@ namespace SpaceBallistics
     // We currently do not allow any times prior to LiftOff:
     assert(!IsNeg(a_t));
 
-    // Also check the ShutDown sequnce: Verniers thtottle first, then the Main
-    // engine:
-    static_assert(VernThrottlTime < MainThrottlTime);
-
     // The atmospheric pressure is >= 0 obviously:
     assert(!IsNeg(a_p));
 
@@ -61,7 +57,7 @@ namespace SpaceBallistics
     Force     absVernThrustVac1(NaN<double>);         // Each Vernier Chamber
     Force     absVernThrustSL1 (NaN<double>);
 
-    if (a_t < VernThrottlTime)
+    if (a_t < ThrottlTime)
     {
       // Full-Thrust Mode:
       fuelMass          = FuelMass0  - FuelMR  * a_t;
@@ -79,34 +75,15 @@ namespace SpaceBallistics
       absVernThrustSL1  = ThrustVernSL1;
     }
     else
-    if (a_t < MainThrottlTime)
-    {
-      // Verniers are throttled, but the Main Engine is not yet:
-      Time  dt          = a_t - VernThrottlTime;
-      fuelMass          = FuelMassV  - FuelMRV * dt;
-      oxidMass          = OxidMassV  - OxidMRV * dt;
-      h2o2Mass          = H2O2Mass0  - H2O2MR  * a_t;
-      liqN2Mass         = LiqN2Mass0 - LiqN2MR * a_t;
-      fuelMassDot       = - FuelMRV;
-      oxidMassDot       = - OxidMRV;
-      h2o2MassDot       = - H2O2MR;
-      liqN2MassDot      = - LiqN2MR;
-
-      absMainThrustVac  = ThrustMainVac;
-      absMainThrustSL   = ThrustMainSL;
-      absVernThrustVac1 = ThrustVernVac1 * ShutDownThrottlLevel;
-      absVernThrustSL1  = ThrustVernSL1  * ShutDownThrottlLevel;
-    }
-    else
     if (a_t < CutOffTime)
     {
-      Time  dt          = a_t - MainThrottlTime;
-      fuelMass          = FuelMassM  - FuelMRM * dt;
-      oxidMass          = OxidMassM  - OxidMRM * dt;
+      Time  dt          = a_t - ThrottlTime;
+      fuelMass          = FuelMassT  - FuelMRT * dt;
+      oxidMass          = OxidMassT  - OxidMRT * dt;
       h2o2Mass          = H2O2Mass0  - H2O2MR  * a_t;
       liqN2Mass         = LiqN2Mass0 - LiqN2MR * a_t;
-      fuelMassDot       = - FuelMRM;
-      oxidMassDot       = - OxidMRM;
+      fuelMassDot       = - FuelMRT;
+      oxidMassDot       = - OxidMRT;
       h2o2MassDot       = - H2O2MR;
       liqN2MassDot      = - LiqN2MR;
 

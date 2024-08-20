@@ -48,12 +48,30 @@ namespace SpaceBallistics
     //
     // The Psi angle in the OYZ plane (see "RotationShell" for the definition):
     // Psi = Pi/2 * I:
-    constexpr static double CosPsi = (I==0) ? 1.0 : (I==2) ? -1.0 : 0.0;
-    constexpr static double SinPsi = (I==1) ? 1.0 : (I==3) ? -1.0 : 0.0;
+    constexpr static double   CosPsi = (I==0) ? 1.0 : (I==2) ? -1.0 : 0.0;
+    constexpr static double   SinPsi = (I==1) ? 1.0 : (I==3) ? -1.0 : 0.0;
 
     // The X-coord of the StrapOn top: Relative to MaxD of Stage2, ie,
     static_assert(S2::OxidTankUp.GetLow()[0] == S2::OxidTankLow.GetUp()[0]);
-    constexpr static Len    TopX   = S2::OxidTankUp.GetLow()[0];
+    constexpr static Len      TopX   = S2::OxidTankUp.GetLow()[0] - 0.56_m;
+
+    //=======================================================================//
+    // Masses:                                                               //
+    //=======================================================================//
+    // EmptyMass: XXX: StarSem says 3784 kg:
+    constexpr static Mass     EmptyMass     = 3815.0_kg;
+
+    //=======================================================================//
+    // RD-107A (14D22) Engine Performance:                                   //
+    //=======================================================================//
+    // Isp (SL/Vac, sec):
+    // 263.1/320.0 (LPRE.DE), 263.3/320.2 (EnergoMash etc), 262/319 (StarSem);
+    // similar to Stage2, assume the higher values for the Main Chambers (and
+    // slightly lower vals for the Vernier Chambers):
+    //
+    constexpr static Time     IspMainSL     = 263.3_sec;
+    constexpr static Time     IspMainVac    = 320.2_sec;
+
   };
 }
 // End namespace SpaceBallistivs

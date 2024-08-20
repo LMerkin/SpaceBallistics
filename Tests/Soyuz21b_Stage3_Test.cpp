@@ -38,11 +38,6 @@ int main()
        << (double(S3::MaxBurnDur / SC::Stage3BurnDur) - 1.0) * 100.0
        << " %" << endl;
 
-  // Percentage of the StaticThrust in the over-all thrust of Stage3:
-  cout << "# Stage3StaticThrust: " << S3::StaticThrust
-       << "\n#\t\t\t(" << (double(S3::StaticThrust/S3::ThrustVac) * 100.0)
-       << " % of over-all)" << endl;
-
   // Header for the following table:
   cout << "# Time\tTotalMass\tFuelMass\tOxidMass\tCoM_x\tJ_x\tJ_y" << endl;
 
