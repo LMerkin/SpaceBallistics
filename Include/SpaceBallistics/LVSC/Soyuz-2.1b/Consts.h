@@ -37,27 +37,25 @@ namespace SpaceBallistics::Soyuz21b_Consts
   //
   // MaxQ occurs at approx 72.0 sec.
 
-  // Stage1 (Blocks B, V, G, D) separation time.  XXX: approximately, Stage1
-  // engines cut-off occur at the same time  (earlier versions of the RD-107
-  // engine could burn for up to 140 sec):
-  constexpr inline Time   Stage1ThrottlTime      = 112.0_sec;
-  constexpr inline Time   Stage1VernCutOffTime   = 117.7_sec;
-  constexpr inline Time   Stage1SepTime          = 118.1_sec;   // Or 118.93 ?
+  // Stage1 (Blocks B, V, G, D) CutOff and Separation time (earlier versions of
+  // the RD-107 engine could burn for up to 140 sec):
+  constexpr inline Time   Stage1CutOffTime       = 117.7_sec;
+  constexpr inline Time   Stage1SepTime          = 118.1_sec;  // Or 118.9 ?
 
-  // Fairing jettisoning time (some srcs say ~183 sec; "Luna-25": 211.95 sec):
-  constexpr inline Time   FairingJetTimeMin      = 208.4_sec;
-  constexpr inline Time   FairingJetTimeMax      = 212.0_sec;
+  // Fairing jettisoning time. This is probably NOT a constant, it depends  on
+  // mission profile. Some srcs say ~157 sec, ~183 sec, ~228 sec; "Luna-25" was
+  // 211.95 sec:
+  constexpr inline Time   FairingJetTimeMin      = 157.0_sec;  // XXX ???
+  constexpr inline Time   FairingJetTimeMax      = 228.0_sec;
 
-  // Stage2 (Block A) separation time.  Some srcs indicate 278 sec but this is
-  // probably for an earlier version of Soyuz(?). The RD-108A  cut-off time is
-  // approx 286 sec by StarSem, ~287 sec by "Luna 25"; other data say 285--320
-  // sec; earlier versions of RD-108 could burn for up to 340 sec):
-  constexpr inline Time   Stage2CutOffTime       = 286.7_sec;
+  // Stage2 (Block A) separation time. Earlier versions of RD-108 could burn for
+  // up to 340 sec:
+  constexpr inline Time   Stage2CutOffTime       = 286.0_sec;  // Or 285?
 
   // Stage3 ignition occurs at approx "Stage2CutOffTime", PRIOR to Stage2 sepa-
   // ration, immediately at full thrust:
   constexpr inline Time   Stage3IgnTime          = Stage2CutOffTime;
-  constexpr inline Time   Stage2SepTime          = 287.9_sec;
+  constexpr inline Time   Stage2SepTime          = 287.7_sec; // 287.6, 287.9?
 
   // Stage3 aft section jettisoning time;
   // some srcs say (Stage2SepTime + 10 sec, ie ~299 sec):

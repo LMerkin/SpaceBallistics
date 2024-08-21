@@ -34,9 +34,9 @@ int main()
   // Max Theoretical and Real Burn Durations:
   cout << "# Stage3MaxBurnDur  : " << S3::MaxBurnDur    << endl;
   cout << "# Stage3BurnDur     : " << SC::Stage3BurnDur << endl;
-  cout << "# Stage3PropMargin  : "
-       << (double(S3::MaxBurnDur / SC::Stage3BurnDur) - 1.0) * 100.0
-       << " %" << endl;
+  cout << "# Stage3OxidFuelRat : " << S3::OxidFuelRat   << endl;
+  cout << "# Stage3FuelMassRate: " << S3::FuelMR        << endl;
+  cout << "# Stage3OxidMassRate: " << S3::OxidMR        << endl;
 
   // Header for the following table:
   cout << "# Time\tTotalMass\tFuelMass\tOxidMass\tCoM_x\tJ_x\tJ_y" << endl;

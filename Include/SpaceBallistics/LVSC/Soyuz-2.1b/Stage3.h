@@ -111,25 +111,28 @@ namespace SpaceBallistics
     constexpr static Force    ThrustVac     = Force(294.3e3);
 
     // The actual MassRates:
-    // XXX: These figures may not be highly accurate, as it is unclear whether
-    // they refer to Naftil or Kerosene. The OxidMR is quoted somewhere as 56.7
-    // kg/sec, which is clearly too low.
+    // XXX: These figures are approximate (the OxidMR is quoted somewhere as
+    // 56.7 kg/sec, which is clearly too low), but they yield the results very
+    // close to the other method (which is used below as the main one). They
+    // are provided here for reference only:
     // In different sources, Oxidiser/Fuel Ratio is 2.5..2.6, here 2.50:
     //
     constexpr static MassRate FuelMR0       = 23.8_kg / 1.0_sec;
     constexpr static MassRate OxidMR0       = 59.6_kg / 1.0_sec;
-    constexpr static MassRate EngineMR0     = FuelMR0 + OxidMR0; // 83.4 kg/sec
-
-    // On the other hand, the MassRate is connected to the effective Specific
-    // Impulse and Thrust:
+    constexpr static MassRate EngineMR0     = FuelMR0 + OxidMR0;
+                                                             // 83.4 kg/sec
+    constexpr static double   OxidFuelRat0  = double(OxidMR0 / FuelMR0);
+                                                             // 2.50
+    // Our "official" way of determining the MassRates:
     constexpr static MassRate EngineMR      = ThrustVac / (IspVac * g0);
     // 83.6 kg/sec which is very close to the above estimate!
 
-    // Assuming the same Oxid/Fuel Ratio as above, adjust the {Fuel,Oxid}MRs:
-    constexpr static MassRate FuelMR        =
-      FuelMR0 * double(EngineMR / EngineMR0);
-    constexpr static MassRate OxidMR        =
-      OxidMR0 * double(EngineMR / EngineMR0);
+    constexpr static double   OxidFuelRat   =
+      double((OxidMass - OxidRem) / (FuelMass - FuelRem));   // 2.50 as well!
+    constexpr static double   FuelPart      = 1.0         / (1.0 + OxidFuelRat);
+    constexpr static double   OxidPart      = OxidFuelRat / (1.0 + OxidFuelRat);
+    constexpr static MassRate FuelMR        = EngineMR * FuelPart;
+    constexpr static MassRate OxidMR        = EngineMR * OxidPart;
 
   private:
     //=======================================================================//

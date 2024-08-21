@@ -18,10 +18,7 @@ int main()
   //-------------------------------------------------------------------------//
   cout << "# Stage2MaxFullThrTime: " << S2::MaxFullThrustTime      << endl;
   cout << "# Stage2CutOffTime    : " << S2::CutOffTime             << endl;
-  cout << "# Stage2MaxFlightTime : " << S2::MaxFlightTime          << endl;
-  cout << "# Stage2PropMargin    : "
-       << (double(S2::MaxFlightTime / S2::CutOffTime) - 1.0) * 100.0
-       << " %" << endl;
+  cout << "# Stage2MaxBurnTime   : " << S2::MaxBurnTime            << endl;
 
   // Max and Real Oxid and Fuel Loads:
   cout << "# Stage2MaxOxidLoad   : " << S2::OxidTankMC             << endl;
@@ -47,6 +44,9 @@ int main()
   cout << "# EngineNozzlesLow2   : " << S2::EngineNozzlesLow2      << endl;
   cout << "# TailEnclLow         : " << S2::TailEncl.GetLow()[0]   << endl;
   cout << "# EngineAsPointMass   : " << S2::EngineCoMX             << endl;
+
+  // Header for the following table:
+  cout << "# Time\tTotalMass\tFuelMass\tOxidMass\tCoM_x\tJ_x\tJ_y" << endl;
 
   //-------------------------------------------------------------------------//
   // Stage2 Params as a function of Flight Time:                             //

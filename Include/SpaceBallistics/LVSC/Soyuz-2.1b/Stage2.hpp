@@ -41,7 +41,6 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // XXX: We assume for simplicity that both "Vac" and "SL" Thrust values are
     // throttled in the same proportion:
-
     Mass      fuelMass         (NaN<double>);
     Mass      oxidMass         (NaN<double>);
     Mass      h2o2Mass         (NaN<double>);
@@ -75,8 +74,9 @@ namespace SpaceBallistics
       absVernThrustSL1  = ThrustVernSL1;
     }
     else
-    if (a_t < CutOffTime)
+    if (a_t < MainCutOffTime)
     {
+      // Throttled Mode (for both Main Engine and Verniers):
       Time  dt          = a_t - ThrottlTime;
       fuelMass          = FuelMassT  - FuelMRT * dt;
       oxidMass          = OxidMassT  - OxidMRT * dt;
@@ -89,6 +89,25 @@ namespace SpaceBallistics
 
       absMainThrustVac  = ThrustMainVac  * ShutDownThrottlLevel;
       absMainThrustSL   = ThrustMainSL   * ShutDownThrottlLevel;
+      absVernThrustVac1 = ThrustVernVac1 * ShutDownThrottlLevel;
+      absVernThrustSL1  = ThrustVernSL1  * ShutDownThrottlLevel;
+    }
+    else
+    if (a_t < CutOffTime)
+    {
+      // Only the Verniers continue operation, in the Throttled Mode:
+      Time  dt          = a_t - MainCutOffTime;
+      fuelMass          = FuelMassM  - FuelMRM * dt;
+      oxidMass          = OxidMassM  - OxidMRM * dt;
+      h2o2Mass          = H2O2Mass0  - H2O2MR  * a_t;
+      liqN2Mass         = LiqN2Mass0 - LiqN2MR * a_t;
+      fuelMassDot       = - FuelMRM;
+      oxidMassDot       = - OxidMRM;
+      h2o2MassDot       = - H2O2MR;
+      liqN2MassDot      = - LiqN2MR;
+
+      absMainThrustVac  = Force   (0.0);
+      absMainThrustSL   = Force   (0.0);
       absVernThrustVac1 = ThrustVernVac1 * ShutDownThrottlLevel;
       absVernThrustSL1  = ThrustVernSL1  * ShutDownThrottlLevel;
     }
@@ -108,6 +127,7 @@ namespace SpaceBallistics
       absVernThrustVac1 = Force   (0.0);
       absVernThrustSL1  = Force   (0.0);
     }
+    //
     // "fullMass" is "FullMass0" (at LiftOff) minus the mass of Fuel, Oxid and
     // H2O2 spent (Once again, N2O2 is NOT spent):
     Mass  fuelSpent     = FuelMass0 - fuelMass;
@@ -139,8 +159,8 @@ namespace SpaceBallistics
     // Adjust the Thrust values to the curr atmospheric pressure:
     //
     double slC  = double(a_p / p0);    // 1 when we are @ SL
-    assert(0.0 <= slC && slC <= 1.0);
     double vacC = 1.0 - slC;           // 1 when we are in Vac
+    assert(0.0 <= slC && slC <= 1.0 && 0 <= vacC && vacC <= 1.0);
 
     Force absMainThrust  = vacC * absMainThrustVac  + slC * absMainThrustSL;
     Force absVernThrust1 = vacC * absVernThrustVac1 + slC * absVernThrustSL1;

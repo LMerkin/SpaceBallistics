@@ -171,6 +171,7 @@ LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
 # The Target Library:                                                         #
 #=============================================================================#
 ADD_LIBRARY(${PROJECT_NAME} STATIC
+  Src/LVSC/Soyuz-2.1b/Stage1.cpp
   Src/LVSC/Soyuz-2.1b/Stage2.cpp
   Src/LVSC/Soyuz-2.1b/Stage3.cpp
   Src/PhysForces/GravityPotential-Earth.cpp
@@ -181,7 +182,7 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
 #=============================================================================#
 SET(SB_TESTS
   METest
-  Soyuz21b_StrapOn_Test
+  Soyuz21b_Booster_Test
   Soyuz21b_Stage2_Test
   Soyuz21b_Stage3_Test
   LocationsTest
