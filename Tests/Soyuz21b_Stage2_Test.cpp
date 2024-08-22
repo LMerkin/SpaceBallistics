@@ -16,37 +16,39 @@ int main()
   //-------------------------------------------------------------------------//
   // Geometry and Mass Params:                                               //
   //-------------------------------------------------------------------------//
-  cout << "# Stage2MaxFullThrTime: " << S2::MaxFullThrustTime      << endl;
-  cout << "# Stage2CutOffTime    : " << S2::CutOffTime             << endl;
-  cout << "# Stage2MaxBurnTime   : " << S2::MaxBurnTime            << endl;
+  cout << "# Stage2MaxFullThrDur: " << S2::MaxFullThrustDur       << endl;
+  cout << "# Stage2CutOffTime   : " << S2::CutOffTime             << endl;
+  cout << "# Stage2MaxBurnTime  : " << S2::MaxBurnTime            << endl;
 
   // Max and Real Oxid and Fuel Loads:
-  cout << "# Stage2MaxOxidLoad   : " << S2::OxidTankMC             << endl;
-  cout << "# Stage2ActOxidLoad   : " << S2::OxidLoadRatio * 100.0  << " %"
+  cout << "# Stage2MaxOxidLoad  : " << S2::OxidTankMC             << endl;
+  cout << "# Stage2ActOxidLoad  : " << S2::OxidLoadRatio * 100.0  << " %"
        << endl;
-  cout << "# Stage2MaxFuelLoad   : " << S2::FuelTankMC             << endl;
-  cout << "# Stage2ActFuelLoad   : " << S2::FuelLoadRatio * 100.0  << " %"
+  cout << "# Stage2MaxFuelLoad  : " << S2::FuelTankMC             << endl;
+  cout << "# Stage2ActFuelLoad  : " << S2::FuelLoadRatio * 100.0  << " %"
        << endl;
-  cout << "# Stage2MaxH2O2Load   : " << S2::H2O2TankMC             << endl;
-  cout << "# Stage2ActH2O2Load   : " << S2::H2O2LoadRatio * 100.0  << " %"
+  cout << "# Stage2MaxH2O2Load  : " << S2::H2O2TankMC             << endl;
+  cout << "# Stage2ActH2O2Load  : " << S2::H2O2LoadRatio * 100.0  << " %"
        << endl;
-  cout << "# Stage2MaxN2Load     : " << S2::N2TankMC               << endl;
-  cout << "# Stage2ActN2Load     : " << S2::N2LoadRatio   * 100.0  << " %"
+  cout << "# Stage2MaxN2Load    : " << S2::N2TankMC               << endl;
+  cout << "# Stage2ActN2Load    : " << S2::N2LoadRatio   * 100.0  << " %"
        << endl;
 
   // Remnants:
-  cout << "# Stage2Fuel@CutOff   : " << S2::FuelMassC << endl;
-  cout << "# Stage2Oxid@CutOff   : " << S2::OxidMassC << endl;
+  cout << "# Stage2Fuel@CutOff  : " << S2::FuelMassC << endl;
+  cout << "# Stage2Oxid@CutOff  : " << S2::OxidMassC << endl;
 
   // Over-All Length:
-  cout << "# Stage2OverAllLen    : " << S2::H                      << endl;
-  cout << "# EngineNozzlesLow1   : " << S2::EngineNozzlesLow1      << endl;
-  cout << "# EngineNozzlesLow2   : " << S2::EngineNozzlesLow2      << endl;
-  cout << "# TailEnclLow         : " << S2::TailEncl.GetLow()[0]   << endl;
-  cout << "# EngineAsPointMass   : " << S2::EngineCoMX             << endl;
+  cout << "# Stage2OverAllLen   : " << S2::H                      << endl;
+  cout << "# EngineNozzlesLow1  : " << S2::EngineNozzlesLow1      << endl;
+  cout << "# EngineNozzlesLow2  : " << S2::EngineNozzlesLow2      << endl;
+  cout << "# TailEnclLow        : " << S2::TailEncl.GetLow()[0]   << endl;
+  cout << "# EngineAsPointMass  : " << S2::EngineCoMX             << endl;
 
   // Header for the following table:
+  cout << '#' << endl;
   cout << "# Time\tTotalMass\tFuelMass\tOxidMass\tCoM_x\tJ_x\tJ_y" << endl;
+  cout << '#' << endl;
 
   //-------------------------------------------------------------------------//
   // Stage2 Params as a function of Flight Time:                             //

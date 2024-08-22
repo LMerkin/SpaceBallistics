@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
-//                "SpaceBallistics/LVSC/Soyuz-2.1b/Booster.h":               //
-//           Mathematical Model of the "Soyuz-2.1b" StrapOn Booster          //
+//             "SpaceBallistics/LVSC/Soyuz-2.1b/Stage1_Booster.h":           //
+//      Mathematical Model of the "Soyuz-2.1b" StrapOn Booster of Stage1     //
 //                        (any of "Blocks B,V,G,D")                          //
 //===========================================================================//
 #pragma  once
@@ -26,16 +26,16 @@ namespace SpaceBallistics
   using     S2  = Soyuz21b_Stage2;
 
   //=========================================================================//
-  // "Soyuz21b_Booster" Class:                                               //
+  // "Soyuz21b_Stage1_Booster" Class:                                        //
   //=========================================================================//
   template<char Block>
-  class Soyuz21b_Booster
+  class Soyuz21b_Stage1_Booster
   {
   private:
     //=======================================================================//
     // No objects can be created of this class:                              //
     //=======================================================================//
-    Soyuz21b_Booster() = delete;
+    Soyuz21b_Stage1_Booster() = delete;
 
   public:
     //=======================================================================//
@@ -162,8 +162,8 @@ namespace SpaceBallistics
     // "2nd Intermediate", "Main"), where the "2nd Intermediate" occurs right
     // at "t0" and the "Main" (FullThrust) occurs at t0+6 sec:
     //
-    constexpr static Time   IgnAdvance = 15.0_sec;
-    constexpr static Time   IntTime    =  6.0_sec;
+    constexpr static Time   IgnAdvance      = 15.0_sec;
+    constexpr static Time   FullThrustTime  =  6.0_sec;   // Aka "t1"
 
     // Fuel and Oxidiser Mass @ t0=0. XXX: we assume that prior to t0, we run at
     // approx 25% on average (in reality, it changes over the time):
@@ -173,58 +173,119 @@ namespace SpaceBallistics
     constexpr static Mass   OxidMass0       =
       OxidMass  - OxidMR  * IgnAdvance * IgnThrottlLevel;
 
-    // Fuel and Oxidiser Mass @ "IntTime" (shortly after Lift-Off). At that
-    // stage, we assume a 75% throttling level, otherwise the thrust may be
-    // insufficient for lift-off:
-    constexpr static double IntThrottlLevel = 0.75;
-    constexpr static Mass   FuelMassI       =
-      FuelMass0 - FuelMR  * IntTime    * IntThrottlLevel;
-    constexpr static Mass   OxidMassI       =
-      OxidMass0 - OxidMR  * IntTime    * IntThrottlLevel;
+    // Fuel and Oxidiser Mass @ "FullThrustTime" ("t1", shortly after Lift-Off).
+    // Prior to that, we assume a 75% throttling level, otherwise the thrust may
+    // be insufficient for lift-off:
+    constexpr static double LiftOffThrottlLevel = 0.75;
+    constexpr static Mass   FuelMass1       =
+      FuelMass0 - FuelMR  * FullThrustTime  * LiftOffThrottlLevel;
+    constexpr static Mass   OxidMass1       =
+      OxidMass0 - OxidMR  * FullThrustTime  * LiftOffThrottlLevel;
 
     //-----------------------------------------------------------------------//
     // RD-107A ShutDown Sequence:                                            //
     //-----------------------------------------------------------------------//
-    // ShutDown. XXX: The exact sequence of events is unknown, and is likely to
-    // be different from that of the original RD-107. We assume that the Main
-    // Engine and the Verniers are throttled to the 75% level:
-    constexpr static Time   ThrottlAdvance         = 5.7_sec;
-    constexpr static double ShutDownThrottlLevel   = 0.75;
-    constexpr static Mass   ShutDownSpentPropMass  =
-      EngineMR * ShutDownThrottlLevel * ThrottlAdvance;
-
-    constexpr static Time     ThrottlTime          =
+    // XXX: We assume that the Main Engine and the Verniers are throttled to
+    // the 75% level:
+    constexpr static Time   ThrottlAdvance        = 5.7_sec;
+    constexpr static Time     ThrottlTime         =
       SC::Stage1CutOffTime -  ThrottlAdvance;
-    constexpr static Time     CutOffTime           = SC::Stage1CutOffTime;
+    constexpr static Time     CutOffTime          = SC::Stage1CutOffTime;
+
+    // The Propellant Mass spent during the ShutDown sequence is:
+    constexpr static double ShutDownThrottlLevel  = 0.75;
+    constexpr static Mass   ShutDownSpentPropMass =
+      EngineMR * ShutDownThrottlLevel * ThrottlAdvance;
 
     // Thus, the Propellant Mass left for the FullThrust Mode:
     constexpr static Mass     FullThrustPropMass  =
-      FuelMassI + OxidMassI - ShutDownSpentPropMass - FuelRem - OxidRem;
+      FuelMass1 + OxidMass1 - ShutDownSpentPropMass - FuelRem - OxidRem;
     static_assert(IsPos(FullThrustPropMass));
 
+    // Fuel and Oxid Masses @ "ThrottlTime":
+    constexpr static Mass     FuelMassT =
+      FuelMass1 - FuelMR   * (ThrottlTime - FullThrustTime);
+    constexpr static Mass     OxidMassT =
+      OxidMass1 - OxidMR   * (ThrottlTime - FullThrustTime);
+
+    // Between ThrottlTime and CutOffTime, the following MassRates apply:
+    constexpr static MassRate FuelMRT   = FuelMR * ShutDownThrottlLevel;
+    constexpr static MassRate OxidMRT   = OxidMR * ShutDownThrottlLevel;
+
     //-----------------------------------------------------------------------//
-    // RD-107A MassRates and BurnTimes:                                      //
+    // RD-107A BurnTimes:                                                    //
     //-----------------------------------------------------------------------//
-    // Then the Max Time at FullThrust is:
-    constexpr static Time     MaxFullThrustTime   =
+    // Then the Max Duration  at FullThrust is:
+    constexpr static Time  MaxFullThrustDur =
       FullThrustPropMass / EngineMR;
 
-    // Then the Max Time of RD-108A operation from LiftOff=FullThrust (NOT from
-    // Ignition which occurs before LiftOff) to Full ShutDown is    (similar to
-    // Stage2). XXX: Similar to Stage2, this is "MaxBurnTime" (from t0=0),  not
-    // "MaxBurnDur":
-    constexpr static Time     MaxBurnTime         =
-      IntTime + MaxFullThrustTime + ThrottlAdvance;
+    // Then the Max Time of RD-107A operation from the LiftOff (t0=0) (NOT from
+    // Ignition which occurs before the LiftOff) to the is the following. Simi-
+    // lar to Stage2, this is the End-Time, not Duration:
+    constexpr static Time  MaxBurnTime      =
+      FullThrustTime + MaxFullThrustDur + ThrottlAdvance;
 
+    // "CutOffTime" must be less than (but close to) the "MaxBurnTime":
     static_assert(CutOffTime < MaxBurnTime);
+
+    // H2O2:
+    // NB: In addition, there is a MassRate due to H2O2 burning   to drive the
+    // TurboPumps; however, this MassRate does not formally participate in the
+    // Thrust. We assume that H2O2 flow begins ~10 sec before the LiftOff time
+    // (before that, there is a passive flow of Fuel and Oxid) and lasts until
+    // the end of the "MaxBurnTime". XXX: We also assume a constant H2O2 rate,
+    // which is not exactly true before the Main (FullThrust) mode,   but the
+    // error is insignificant in this case:
+    //
+    constexpr static Time     H2O2Adv = 10.0_sec;
+    constexpr static MassRate H2O2MR  =
+      (H2O2Mass - H2O2Rem) / (H2O2Adv + MaxBurnTime);
+    static_assert(IsPos(H2O2MR));
+
+    // H2O2 Masses at LiftOff (t0=0) and at "FullThrustTime" (t1):
+    constexpr static Mass     H2O2Mass0 = H2O2Mass  - H2O2Adv        * H2O2MR;
+    constexpr static Mass     H2O2Mass1 = H2O2Mass0 - FullThrustTime * H2O2MR;
+
+    // So  the total MassRate (at Full Thrust) is:
+    constexpr static MassRate FullMR  = EngineMR + H2O2MR;
+
+    // We assume that vaporisation of LiqN2 is also linear over time. however,
+    // unlike H2O2, N2 is not exhaused, only re-distributed over the Tank vol-
+    // umes becoming available:
+    //
+    constexpr static MassRate LiqN2MR = (LiqN2Mass0 - LiqN2Rem) / MaxBurnTime;
+    static_assert(IsPos(LiqN2MR));
+
+    // For testing: Minimal Mass of the Spent Stage2 (with all Remnants at their
+    // minimal physical levels):
+    constexpr static Mass     MinEndMass =
+      EmptyMass + FuelRem + OxidRem + H2O2Rem + N2Mass;
+
+    //-----------------------------------------------------------------------//
+    // Fuel, Oxid, H2O2 and LiqN2 Masses @ "CutOffTime":                     //
+    //-----------------------------------------------------------------------//
+    constexpr static Mass     FuelMassC =
+      FuelMassT - FuelMRT * (CutOffTime - ThrottlTime);
+    constexpr static Mass     OxidMassC =
+      OxidMassT - OxidMRT * (CutOffTime - ThrottlTime);
+    constexpr static Mass    H2O2MassC  = H2O2Mass0  - H2O2MR  * CutOffTime;
+    constexpr static Mass    LiqN2MassC = LiqN2Mass0 - LiqN2MR * CutOffTime;
+
+   // Checks:
+    static_assert
+      (FuelMassC  > FuelRem && OxidMassC > OxidRem && H2O2MassC > H2O2Rem &&
+       LiqN2MassC > LiqN2Rem);
+
+    static_assert((FuelMassC + OxidMassC).ApproxEquals
+                  (FuelMassT + OxidMassT - ShutDownSpentPropMass));
   };
 
   //=========================================================================//
   // Stage1 Blocks ('B', 'V', 'G', 'D'):                                     //
   //=========================================================================//
-  using Soyuz21b_BlockB = Soyuz21b_Booster<'B'>;
-  using Soyuz21b_BlockV = Soyuz21b_Booster<'V'>;
-  using Soyuz21b_BlockG = Soyuz21b_Booster<'G'>;
-  using Soyuz21b_BlockD = Soyuz21b_Booster<'D'>;
+  using Soyuz21b_BlockB = Soyuz21b_Stage1_Booster<'B'>;
+  using Soyuz21b_BlockV = Soyuz21b_Stage1_Booster<'V'>;
+  using Soyuz21b_BlockG = Soyuz21b_Stage1_Booster<'G'>;
+  using Soyuz21b_BlockD = Soyuz21b_Stage1_Booster<'D'>;
 }
 // End namespace SpaceBallistivs

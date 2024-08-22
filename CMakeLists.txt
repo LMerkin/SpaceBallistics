@@ -182,7 +182,7 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
 #=============================================================================#
 SET(SB_TESTS
   METest
-  Soyuz21b_Booster_Test
+  Soyuz21b_Stage1_Booster_Test
   Soyuz21b_Stage2_Test
   Soyuz21b_Stage3_Test
   LocationsTest

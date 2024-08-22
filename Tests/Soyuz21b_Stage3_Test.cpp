@@ -39,7 +39,9 @@ int main()
   cout << "# Stage3OxidMassRate: " << S3::OxidMR        << endl;
 
   // Header for the following table:
+  cout << '#' << endl;
   cout << "# Time\tTotalMass\tFuelMass\tOxidMass\tCoM_x\tJ_x\tJ_y" << endl;
+  cout << '#' << endl;
 
   //-------------------------------------------------------------------------//
   // Stage3 Params as a function of Flight Time:                             //
