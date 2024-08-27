@@ -35,6 +35,7 @@ int main()
        << To_Angle_deg(Angle(ATan(B ::TanAlphaTop)))            << endl;
   cout << "# BoosterAlphaMid      : "
        << To_Angle_deg(Angle(ATan(S2::TanAlphaMid)))            << endl;
+  cout << "# BoosterTailCylLowX   : " << B::TailLowX            << endl;
 
   // Header for the following table:
   cout << '#' << endl;

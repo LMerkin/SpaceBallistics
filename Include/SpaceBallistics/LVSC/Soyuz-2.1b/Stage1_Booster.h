@@ -61,7 +61,7 @@ namespace SpaceBallistics
 
     // XXX: The following geometry of is somewhat approximate, it does not take
     // into account the full complicated shape of the Booster Block...
-
+    //
     // The TopCone (assumed to be a full cone, not truncated!):
     constexpr static Len      TopConeH     = 4.015_m;
     constexpr static Len      TopConeD     = 1.350_m;
@@ -155,8 +155,9 @@ namespace SpaceBallistics
       (Abs(ATan(TanAlphaTop) - ATan(TanAlpha) - ATan(S2::TanAlphaMid)) < 0.01);
 
     // The lowest point of the Booster's "TailCyl" (but w/o the extending Engine
-    // Nozzles):
-    constexpr static Len      TailLowX    = TopX - H * CosAlpha;
+    // Nozzles). NB: we must take into account the TailCylinder radius!
+    constexpr static Len      TailLowX    =
+      TopX - H * CosAlpha - MaxD / 2.0 * SinAlpha;
 
     //=======================================================================//
     // Masses:                                                               //
