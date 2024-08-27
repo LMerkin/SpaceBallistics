@@ -43,21 +43,120 @@ namespace SpaceBallistics
     //=======================================================================//
     static_assert
       (Block == 'B' || Block == 'V' || Block == 'G' || Block == 'D');
-    // Block B: +Y, Psi=0
-    // Block V: +Z, Psi=Pi/2
-    // Block G: -Y, Psi=Pi
-    // Block D: -Z, Psi-3*Pi/2
+    // Block B: -Y, Psi=Pi
+    // Block V: -Z, Psi=3*Pi/2
+    // Block G: +Y, Psi=0
+    // Block D: +Z, Psi=Pi/2
     //
     // The Psi angle in the OYZ plane (see "RotationShell" for the definition):
     // Psi = Pi/2 * I:
     constexpr static double   CosPsi =
-      (Block == 'B') ? 1.0 : (Block == 'G') ? -1.0 : 0.0;
+      (Block == 'B') ? -1.0 : (Block == 'G') ? 1.0 : 0.0;
     constexpr static double   SinPsi =
-      (Block == 'V') ? 1.0 : (Block == 'D') ? -1.0 : 0.0;
+      (Block == 'V') ? -1.0 : (Block == 'D') ? 1.0 : 0.0;
 
     // The X-coord of the Booster top: Relative to MaxD of Stage2:
     static_assert(S2::OxidTankUp.GetLow()[0] == S2::OxidTankLow.GetUp()[0]);
     constexpr static Len      TopX   = S2::OxidTankUp.GetLow()[0] - 0.56_m;
+
+    // XXX: The following geometry of is somewhat approximate, it does not take
+    // into account the full complicated shape of the Booster Block...
+
+    // The TopCone (assumed to be a full cone, not truncated!):
+    constexpr static Len      TopConeH     = 4.015_m;
+    constexpr static Len      TopConeD     = 1.350_m;
+
+    // The Top-most part of the TopCone is by itself empty, and is capped with a
+    // ball joint used for attaching the StrapOn Booster to the core Stage2:
+    constexpr static double   TopTopConeF  = 0.38;
+    constexpr static Len      TopTopConeH  = TopTopConeF * TopConeH;
+    constexpr static Len      TopTopConeD  = TopTopConeF * TopConeD;
+
+    //-----------------------------------------------------------------------//
+    // OxidTank:                                                             //
+    //-----------------------------------------------------------------------//
+    // At the bottom of the TopTopCone, there is a small SpherSegm which is the
+    // Top of the OxidTank:
+    constexpr static Len      OxidTankTopH = 0.04 * TopConeH;
+    constexpr static Len      OxidTankTopD = TopTopConeD;
+
+    // The low part of the "TopTrCone" contains the Up (TrCone) part of the Oxid
+    // Tank:
+    constexpr static Len      OxidTankUpH  = TopConeH - TopTopConeH;
+    constexpr static Len      OxidTankUpD  = TopConeD;
+ 
+    // Below is the Main ("Mid") part of the OxidTank, which is another TrCone.
+    // Its diameter increases from "OxidTankUpD" to "OxidTankMidD":
+    constexpr static Len      MainTrCH     = 11.165_m;
+    constexpr static Len      MaxD         = 2.680_m;
+    constexpr static Len      OxidTankMidH = 8.0_m;
+    constexpr static Len      OxidTankMidD =
+      OxidTankUpD  + (MaxD - OxidTankUpD)  * double(OxidTankMidH / MainTrCH);
+
+    // Below is the InterTank section which is empty by itself and serves as an
+    // enclosure for the OxidTankBtm and FuelTankTop SpherSegms:
+    constexpr static Len      InterTankH   = 1.075_m;
+    constexpr static Len      InterTankUpD = OxidTankMidD;
+    constexpr static Len      InterTankLoD =
+      InterTankUpD + (MaxD - OxidTankUpD)  * double(InterTankH   / MainTrCH);
+
+    // OxidTankBtm:
+    constexpr static Len      OxidTankBtmH = 0.45_m;
+    constexpr static Len      OxidTankBtmD = InterTankUpD;
+
+    //-----------------------------------------------------------------------//
+    // FuelTank:                                                             //
+    //-----------------------------------------------------------------------//
+    // FuelTankTop:
+    constexpr static Len      FuelTankTopH = 0.48_m;
+    static_assert(IsPos(InterTankH - OxidTankBtmH - FuelTankTopH));
+    constexpr static Len      FuelTankTopD = InterTankLoD;
+
+    // FuelTankMid: Its bottom diameter is "MaxD":
+    constexpr static Len      FuelTankMidH =
+      MainTrCH - OxidTankMidH - InterTankH;
+    static_assert(IsPos(FuelTankMidH));
+
+    // Then the cylindrical enclosure of the FuelTankBtm, H2O2Tank, LiqN2 Tank
+    // and the Engine, of the "MaxD" diameter. XXX: We ignore the fact that it
+    // is not strictly cylindrical in its lowest (Engine) part:
+    //
+    constexpr static Len      TailCylH     = 4.020_m;
+    // FuelTankBtm:
+    constexpr static Len      FuelTankBtmH = 0.52_m;
+
+    //-----------------------------------------------------------------------//
+    // H2O2, LiqN2 Tanks and the Engine:                                     //
+    //-----------------------------------------------------------------------//
+    // TODO...
+
+    //-----------------------------------------------------------------------//
+    // Over-All Length and Angles of the StrapOn Booster Block:              //
+    //-----------------------------------------------------------------------//
+    constexpr static Len      H = TopConeH + MainTrCH + TailCylH;
+    static_assert(H.ApproxEquals(19.2_m));
+
+    // The angle between the Booster's Xi axis and the LV's X axis. This is the
+    // angle of the Main TrCone:
+    constexpr static double   TanAlpha    =
+      double((MaxD - TopConeD) / (2.0 * MainTrCH));
+
+    constexpr static double   CosAlpha    = 1.0 / SqRt(1.0 + Sqr(TanAlpha));
+    constexpr static double   SinAlpha    = TanAlpha * CosAlpha;
+
+    // For info only: The angle of the TopCone:
+    constexpr static double   TanAlphaTop = double(TopConeD / 2.0 / TopConeH);
+    static_assert(TanAlpha  < TanAlphaTop);
+
+    // The difference between the Alpha and AlphaTop angles should approximately
+    // be equal to the angle of the MidTrCone of Stage2, due to the geometry of
+    // StrapOn Boosters juction with Stage2:
+    static_assert
+      (Abs(ATan(TanAlphaTop) - ATan(TanAlpha) - ATan(S2::TanAlphaMid)) < 0.01);
+
+    // The lowest point of the Booster's "TailCyl" (but w/o the extending Engine
+    // Nozzles):
+    constexpr static Len      TailLowX    = TopX - H * CosAlpha;
 
     //=======================================================================//
     // Masses:                                                               //
@@ -94,53 +193,41 @@ namespace SpaceBallistics
     //=======================================================================//
     // RD-107A (14D22) Engine Performance:                                   //
     //=======================================================================//
-    // XXX: For Vernier Chambers, use the same vals as in Stage2, but unlike
-    // Stage2, here there are only 2 Verniers per block,  deflectable in the
-    // Tangential plane:
-    constexpr static Time     IspVernSL1     = 251.9_sec;  // LPRE.DE
-    constexpr static Time     IspVernVac1    = 313.1_sec;  //
-    constexpr static Force    ThrustVernSL1  = 2700.0_kg * g0;
-    constexpr static Force    ThrustVernVac1 =             // 3.356 tf
-      ThrustVernSL1 * double(IspVernVac1 / IspVernSL1);
-    constexpr static Force    ThrustVernSL2  = 2.0 * ThrustVernSL1;
-    constexpr static Force    ThrustVernVac2 = 2.0 * ThrustVernVac1;
+    // Isp of the whole Engine (SL/Vac, sec): quite consistent:
+    // 263.1/320.0  (LPRE.DE),
+    // 263.3/320.2  (EnergoMash, Wikipedia, red.is-telecom.ru),
+    // 262  /319    (StarSem);
+    // 269  /333.14 (Kravchenko; the vals seem to be too high),
+    // so assume the higher vals:
+    constexpr static Time     IspEngSL     = 263.3_sec;
+    constexpr static Time     IspEngVac    = 320.2_sec;
 
-    // Isp of the Main Engine (SL/Vac, sec):
-    // 263.1/320.0 (LPRE.DE), 263.3/320.2 (EnergoMash etc), 262/319 (StarSem);
-    // similar to Stage2, assume the higher values for the Main Engine   (and
-    // slightly lower vals for the Vernier Chambers):
+    // Thrust of the whole Engine (SL/Vac, tf): also quite consistent:
+    // 85.56/104    (Wikipedia,  Kravchenko)
+    // 85.5 /104.14 (StarSem,    Zheleznyakov)
+    // 85.6 /104.0  (LPRE.DE,    EnergoMash, red.is-telecom.ru, an.Wikipedia)
+    // 79  / 96     (RosCosmos.ru/2115: w/o  the Verniers).
+    // Again, we must have the MassRate constant across Vac/SL, so the closest
+    // is 85.6/104.14. Thus:
     //
-    constexpr static Time     IspMainSL      = 263.3_sec;
-    constexpr static Time     IspMainVac     = 320.2_sec;
+    constexpr static Force    ThrustEngSL    = 85600.0_kg * g0;
+    constexpr static MassRate EngineMR       = ThrustEngSL / (IspEngSL * g0);
+    // EngineMR     = 325.1 kg/sec
+    constexpr static Force    ThrustEngVac   = IspEngVac  * g0 * EngineMR;
+    // ThrustEngVac = 104.1 tf
 
-    // Thrust of the Main Engine (SL/Vac, tf):
-    // 85.5/104.14 (StarSem, perhaps incl the Verniers?),
-    // 79.6/ 97.0  (StarSem,         excl the Verniers -- computed),
-    // 85.6/104.0  (EnergoMash,      incl the Verniers?)
-    //
-    // We will use the EnergoMash SL value, adjust it for the Verniers, and
-    // pro-rate to get the exact Vac value:
-    //
-    constexpr static Force    ThrustMainSL   =
-      85600.0_kg * g0 - ThrustVernSL2;                      // 80.2  tf
-    constexpr static Force    ThrustMainVac  =
-      ThrustMainSL * double(IspMainVac / IspMainSL);        // 97.53 tf
-
-    // We can then calculate the MassRates for the Main Engine and for each
-    // Vernier Chamber:
-    constexpr static MassRate MainMR   = ThrustMainSL  / (IspMainSL  * g0);
-    static_assert(MainMR.ApproxEquals   (ThrustMainVac / (IspMainVac * g0)));
-                                                            // 304.6 kg/sec
-    constexpr static MassRate VernMR1  = ThrustVernSL1 / (IspVernSL1 * g0);
-    static_assert
-      (VernMR1.ApproxEquals(ThrustVernVac1 / (IspVernVac1 * g0)));
-    // ~10.72  kg/sec, NOT 4.15+8.55=12.70 kg/sec as it would be with the orig-
-    // inal RD-107 Vernier Chamber data...
-
-    constexpr static MassRate VernMR2  = 2.0 * VernMR1;
-
-    // Total MassRate for the whole Engine at FullThrust:
-    constexpr static MassRate EngineMR = MainMR + VernMR2;  // ~326.04 kg/sec
+    // Now the separate Isp and Thrust vals for the Main Engine  and the Verni-
+    // ers. Unlike Stage2, here we do not have reliable Isp vals for the Verni-
+    // ers, so will have to match the Thrust vals alone. This means that separ-
+    // ate MassRates for the Main Engine and the Verniers will not be available,
+    // but they are not needed anyway. And unlike Stage2, there are only 2 Ver-
+    // niers in each Stage1 Booster StrapOn Block:
+    constexpr static Force    ThrustMainSL   = 79000.0_kg * g0;
+    constexpr static Force    ThrustMainVac  = 96000.0_kg * g0;
+    constexpr static Force    ThrustVernSL2  = ThrustEngSL    - ThrustMainSL;
+    constexpr static Force    ThrustVernVac2 = ThrustEngVac   - ThrustMainVac;
+    constexpr static Force    ThrustVernSL1  = ThrustVernSL2  / 2.0;
+    constexpr static Force    ThrustVernVac1 = ThrustVernVac2 / 2.0;
 
     // Separate Fuel and Oxid Rates are obtained using the Oxid/Fuel Ratio which
     // we derive from the over-all Fuel and Oxid spendable masses:
@@ -278,6 +365,59 @@ namespace SpaceBallistics
 
     static_assert((FuelMassC + OxidMassC).ApproxEquals
                   (FuelMassT + OxidMassT - ShutDownSpentPropMass));
+
+  public:
+    //=======================================================================//
+    // Flight Control:                                                       //
+    //=======================================================================//
+    //-----------------------------------------------------------------------//
+    // Thrust Vector Control:                                                //
+    //-----------------------------------------------------------------------//
+    // Achieved via 2 Gimbaled Vernier Chambers. A Pair of Vernier Chambers is
+    // located (notionally) in the XY or XZ plane:
+    //   B: @ -Y (gimbaled in Z)
+    //   V: @ -Z (gimbaled in Y)
+    //   G: @ +Y (gimbaled in Z)
+    //   D: @ +Z (gimbaled in Y)
+    // Each Vernier can be deflected within the GimbalAmpl in the Tangential
+    // Plane. Similar to Stage3 and Stage2, we assume that Gimbaling (Deflect-
+    // ion) Angle s positive when the corresp Vernier is deflected  Counter-
+    // Clock-Wise in the YZ plane, as viewed from the positive end of the OX
+    // axis. And again, similar to Stages 3 and 2,   opposite Verniers would
+    // normally be moved symmetrically in one direction,
+    // so that
+    //    VernDeflections[0] = - VernDeflections[2],
+    //    VernDeflections[1] = - VernDeflections[3],
+    // but this is not strictly enforced:
+    //
+    constexpr static Angle_deg VernGimbalAmpl = Angle_deg(45.0);
+    using            VernDeflections          = std::array<Angle_deg, 4>;
+
+    //-----------------------------------------------------------------------//
+    // AeroFin Control:                                                      //
+    //-----------------------------------------------------------------------//
+    // Each AeroFin is approx a right equilateral triangle with Sides = 1 m:
+    constexpr static Area      AeroFinS       = Area(0.5);
+
+    // XXX: The max AeroFin rotation angle is unknown, assume 30 deg (from an
+    // available photo).  Larger values would probably cause too large angles
+    // of attack:
+    constexpr static Angle_deg AeroFinAmpl    = Angle_deg(30.0);
+
+    //=======================================================================//
+    // Dynamic Params as a function of Flight Time:                          //
+    //=======================================================================//
+    // NB: This method is NOT "constexpr": it is intended to be called at Run-
+    // Time (eg multiple times during Trajectory Integration):
+    //
+    static StageDynParams<LVSC::Soyuz21b>
+    GetDynParams
+    (
+      Time                   a_t,
+      Pressure               a_p,      // Curr Atmospheric Pressure
+      VernDeflections const& a_vern_defls,
+      Angle_deg              a_aerofin_defl
+    );
   };
 
   //=========================================================================//

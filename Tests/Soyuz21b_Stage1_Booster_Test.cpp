@@ -3,6 +3,8 @@
 //                "Tests/Soyuz21b_Stage1_Booster_Test.cpp":                  //
 //===========================================================================//
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage1_Booster.h"
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
+#include "SpaceBallistics/Utils.hpp"
 
 //===========================================================================//
 // "main":                                                                   //
@@ -11,14 +13,28 @@ int main()
 {
   using namespace std;
   using namespace SpaceBallistics;
-  using       B = Soyuz21b_Stage1_Booster<'B'>;
+  using      B  = Soyuz21b_Stage1_Booster<'B'>;
+  using      S2 = Soyuz21b_Stage2;
 
   //-------------------------------------------------------------------------//
   // Geometry and Mass Params:                                               //
   //-------------------------------------------------------------------------//
-  cout << "# Stage1MaxFullThrDur: " << B::MaxFullThrustDur << endl;
-  cout << "# Stage1CutOffTime   : " << B::CutOffTime       << endl;
-  cout << "# Stage1MaxBurnTime  : " << B::MaxBurnTime      << endl;
+  cout << "# BoosterMaxFullThrDur : " << B::MaxFullThrustDur     << endl;
+  cout << "# BoosterCutOffTime    : " << B::CutOffTime           << endl;
+  cout << "# BoosterMaxBurnTime   : " << B::MaxBurnTime          << endl;
+  cout << "# BoosterThrustVac     : " << B::ThrustEngVac   / g0  << endl;
+  cout << "# BoosterThrustVernSL1 : " << B::ThrustVernSL1  / g0  << endl;
+  cout << "# BoosterThrustVernVac1: " << B::ThrustVernVac1 / g0  << endl;
+  cout << "# BoosterThrustMainSL  : " << B::ThrustMainSL   / g0  << endl;
+  cout << "# BoosterThrustMainVac : " << S2::ThrustMainVac / g0  << endl;
+  cout << "# BoosterOxidTankMidD  : " << B::OxidTankMidD         << endl;
+  cout << "# BoosterInterTankLoD  : " << B::InterTankLoD         << endl;
+  cout << "# BoosterAlpha         : "
+       << To_Angle_deg(Angle(ATan(B ::TanAlpha)))               << endl;
+  cout << "# BoosterAlphaTop      : "
+       << To_Angle_deg(Angle(ATan(B ::TanAlphaTop)))            << endl;
+  cout << "# BoosterAlphaMid      : "
+       << To_Angle_deg(Angle(ATan(S2::TanAlphaMid)))            << endl;
 
   // Header for the following table:
   cout << '#' << endl;
