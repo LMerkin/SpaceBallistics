@@ -160,7 +160,9 @@ namespace SpaceBallistics
       GridH + EquipBayH + UpperTrCH + MidTrCH + LowCylH;
     static_assert(H.ApproxEquals(27.138_m));
 
-    // Nozzles extension beyond "H":
+    // Nozzles extension beyond "H". FIXME: This val is for the Verniers; the
+    // Main Engine Nozzles extend slightly less, but for the momnet, we disre-
+    // gard the difference:
     constexpr static Len      NozzlesExtH   = 0.66_m;
 
     // RD-108A Height:
@@ -751,12 +753,16 @@ namespace SpaceBallistics
     // The following invariant must hold:
     static_assert((N2TankBtm.GetLow()[0] - EngineH).ApproxEquals(NozzlesLowX));
 
+    // The lowest point of the TailEncl (still not of the whole Stage2, because
+    // Engine Nozzles extend beyond the TailEncl):
+    constexpr static Len TailEnclLowX     = TailEncl.GetLow()[0];
+    static_assert(NozzlesLowX < TailEnclLowX);
+
     // RD-108A Engine, modeled as a PointMass. XXX: We assume that its CoM is
     // located in the middle of the lowest part of the TailEncl, but  that is
-    // obviously grossly imprecise:
-    //
-    constexpr static Len EngineCoMX         =
-      0.5 * (N2TankBtm.GetLow()[0] + TailEncl.GetLow()[0]);
+    // obviously GROSSLY IMPRECISE:
+    constexpr static Len EngineCoMX       =
+      0.5 * (N2TankBtm.GetLow()[0] + TailEnclLowX);
 
     constexpr static PM  Engine =
       PM

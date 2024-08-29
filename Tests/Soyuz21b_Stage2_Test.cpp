@@ -47,7 +47,7 @@ int main()
   // Over-All Length:
   cout << "# Stage2OverAllLen    : " << S2::H                      << endl;
   cout << "# Stage2EngineCoMX    : " << S2::EngineCoMX             << endl;
-  cout << "# Stage2TailEnclLowX  : " << S2::TailEncl.GetLow()[0]   << endl;
+  cout << "# Stage2TailEnclLowX  : " << S2::TailEnclLowX           << endl;
   cout << "# Stage2NozzlesLowX   : " << S2::NozzlesLowX            << endl;
 
   // Header for the following table:

@@ -55,9 +55,10 @@ namespace SpaceBallistics
     constexpr static double   SinPsi =
       (Block == 'V') ? -1.0 : (Block == 'D') ? 1.0 : 0.0;
 
-    // The X-coord of the Booster top: Relative to MaxD of Stage2:
+    // The X-coord of the Booster top: Relative to MaxD of Stage2. The "TopX"
+    // co-ord is adjusted to align the LoX points of Stage2 and Stage1:
     static_assert(S2::OxidTankUp.GetLow()[0] == S2::OxidTankLow.GetUp()[0]);
-    constexpr static Len      TopX   = S2::OxidTankUp.GetLow()[0] - 0.56_m;
+    constexpr static Len      TopX   = S2::OxidTankUp.GetLow()[0] - 0.48_m;
 
     // XXX: The following geometry of is somewhat approximate, it does not take
     // into account the full complicated shape of the Booster Block...
@@ -155,9 +156,18 @@ namespace SpaceBallistics
       (Abs(ATan(TanAlphaTop) - ATan(TanAlpha) - ATan(S2::TanAlphaMid)) < 0.01);
 
     // The lowest point of the Booster's "TailCyl" (but w/o the extending Engine
-    // Nozzles). NB: we must take into account the TailCylinder radius!
+    // Nozzles). NB: we must take into account the TailCylinder radius. The LowX
+    // co-ord closely matches that of Stage2:
     constexpr static Len      TailLowX    =
       TopX - H * CosAlpha - MaxD / 2.0 * SinAlpha;
+    static_assert(Abs(TailLowX - S2::TailEnclLowX) < 0.003_m);
+
+    // The lowest point of the Engine Nozzles (used for Thrust Momenta computa-
+    // tions is the same as for Stage2). XXX: Similar to Stage2,  we currently
+    // disregard the X-coord difference between the Verniers and the Main Engi-
+    // ne:
+    constexpr static Len      NozzlesLowX = S2::NozzlesLowX;
+    static_assert(NozzlesLowX < TailLowX);
 
     //=======================================================================//
     // Masses:                                                               //
