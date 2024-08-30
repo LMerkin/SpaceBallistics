@@ -16,6 +16,7 @@ int main()
   //-------------------------------------------------------------------------//
   // Geometry and Mass Params:                                               //
   //-------------------------------------------------------------------------//
+  // Thrusts and Times:
   cout << "# Stage2MaxFullThrDur : " << S2::MaxFullThrustDur       << endl;
   cout << "# Stage2CutOffTime    : " << S2::CutOffTime             << endl;
   cout << "# Stage2MaxBurnTime   : " << S2::MaxBurnTime            << endl;
@@ -44,7 +45,7 @@ int main()
   cout << "# Stage2Fuel@CutOff   : " << S2::FuelMassC << endl;
   cout << "# Stage2Oxid@CutOff   : " << S2::OxidMassC << endl;
 
-  // Over-All Length:
+  // Geometry:
   cout << "# Stage2OverAllLen    : " << S2::H                      << endl;
   cout << "# Stage2EngineCoMX    : " << S2::EngineCoMX             << endl;
   cout << "# Stage2TailEnclLowX  : " << S2::TailEnclLowX           << endl;

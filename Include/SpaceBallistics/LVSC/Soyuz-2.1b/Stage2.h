@@ -823,11 +823,6 @@ namespace SpaceBallistics
     constexpr static Mass N2TankBtmMC       = N2TankBtm.GetPropMassCap();
 
   public:
-    // Volumes of the Oxid, Fuel, H2O2 and N2 Tanks:
-    constexpr static Vol  OxidTankVol  =
-      OxidTankTop.GetEnclVol() + OxidTankUp .GetEnclVol() +
-      OxidTankLow.GetEnclVol() + OxidTankBtm.GetEnclVol();
-
     // Maximum Theoretical Capacities of the resp Tanks:
     constexpr static Mass OxidTankMC   = OxidTankBtmLowUpMC + OxidTankTopMC;
     constexpr static Mass FuelTankMC   = FuelTankBtmMidMC   + FuelTankTopMC;
