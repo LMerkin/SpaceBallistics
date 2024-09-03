@@ -29,16 +29,16 @@ int main()
 
   // Max and Real Oxid and Fuel Loads:
   cout << "# Stage2MaxOxidLoad   : " << S2::OxidTankMC             << endl;
-  cout << "# Stage2ActOxidLoad   : " << S2::OxidLoadRatio * 100.0  << " %"
+  cout << "# Stage2ActOxidLoad   : " << S2::OxidLoadRatio  * 100.0 << " %"
        << endl;
   cout << "# Stage2MaxFuelLoad   : " << S2::FuelTankMC             << endl;
-  cout << "# Stage2ActFuelLoad   : " << S2::FuelLoadRatio * 100.0  << " %"
+  cout << "# Stage2ActFuelLoad   : " << S2::FuelLoadRatio  * 100.0 << " %"
        << endl;
   cout << "# Stage2MaxH2O2Load   : " << S2::H2O2TankMC             << endl;
-  cout << "# Stage2ActH2O2Load   : " << S2::H2O2LoadRatio * 100.0  << " %"
+  cout << "# Stage2ActH2O2Load   : " << S2::H2O2LoadRatio  * 100.0 << " %"
        << endl;
-  cout << "# Stage2MaxN2Load     : " << S2::N2TankMC               << endl;
-  cout << "# Stage2ActN2Load     : " << S2::N2LoadRatio   * 100.0  << " %"
+  cout << "# Stage2MaxN2Load     : " << S2::LiqN2TankMC            << endl;
+  cout << "# Stage2ActN2Load     : " << S2::LiqN2LoadRatio * 100.0 << " %"
        << endl;
 
   // Remnants:

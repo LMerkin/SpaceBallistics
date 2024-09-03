@@ -132,8 +132,9 @@ namespace SpaceBallistics
 
     // Then the cylindrical enclosure of the FuelTankBtm, H2O2Tank, LiqN2 Tank
     // and the Engine, of the "MaxD" diameter. XXX: We ignore the fact that it
-    // is not strictly cylindrical in its lowest (Engine) part:
-    constexpr static Len      TailCylH     = 4.020_m;
+    // is not strictly cylindrical in its lowest (Engine) part. AeroFin is also
+    // included into the mass of "TailCylEnc":
+    constexpr static Len      TailCylEnclH = 4.020_m;
 
     // FuelTankBtm:
     constexpr static Len      FuelTankBtmH = OxidTankBtmH;
@@ -141,12 +142,18 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // H2O2, LiqN2 Tanks and the Engine:                                     //
     //-----------------------------------------------------------------------//
-    // TODO...
+    // Both Tanks are assume to be Circular Tori. The Major Diameter of both
+    // Tanks is assumed to be "MaxD".
+    // XXX: We currently assume that the LiqN2 and H2O2 Tanks are installed
+    // just under the FuelTank, w/o any gaps (according to StarSem drawings):
+    //
+    constexpr static Len      LiqN2TankMinoR = 0.13_m;  // XXX: Rough approx
+    constexpr static Len      H2O2TankMinoR  = 0.21_m;  // ditto
 
     //-----------------------------------------------------------------------//
     // Over-All Length and Angles of the StrapOn Booster Block:              //
     //-----------------------------------------------------------------------//
-    constexpr static Len      H = TopConeH + MainTrCH + TailCylH;
+    constexpr static Len      H = TopConeH + MainTrCH + TailCylEnclH;
     static_assert(H.ApproxEquals(19.6_m));
 
     // The angle between the Booster's Xi axis and the LV's X axis. This is the
@@ -167,12 +174,15 @@ namespace SpaceBallistics
     static_assert
       (Abs(ATan(TanAlphaTop) - ATan(TanAlpha) - ATan(S2::TanAlphaMid)) < 0.011);
 
-    // The lowest point of the Booster's "TailCyl" (but w/o the extending Engine
-    // Nozzles). NB: we must take into account the TailCylinder radius. The LowX
-    // co-ord closely matches that of Stage2:
+    // The lowest point of the Booster's "TailCylEncl" (but w/o the extending
+    // Engine Nozzles). NB: we must take into account the TailCylEncl radius.
+    // The LowX co-ord closely matches that of Stage2:
     constexpr static Len      TailLowX    =
       TopX - H * CosAlpha - MaxD / 2.0 * SinAlpha;
     static_assert(Abs(TailLowX - S2::TailEnclLowX) < 0.005_m);
+
+    // RD-107A Height:
+    constexpr static Len      EngineH     = 2.578_m;
 
     // The lowest point of the Engine Nozzles (used for Thrust Momenta computa-
     // tions is the same as for Stage2). XXX: Similar to Stage2,  we currently
@@ -180,6 +190,7 @@ namespace SpaceBallistics
     // ne:
     constexpr static Len      NozzlesLowX = S2::NozzlesLowX;
     static_assert(NozzlesLowX < TailLowX);
+    constexpr static Len      NozzlesExtH = TailLowX - NozzlesLowX;
 
     //=======================================================================//
     // Masses:                                                               //
@@ -378,13 +389,13 @@ namespace SpaceBallistics
       FuelMassT - FuelMRT * (CutOffTime - ThrottlTime);
     constexpr static Mass     OxidMassC =
       OxidMassT - OxidMRT * (CutOffTime - ThrottlTime);
-    constexpr static Mass    H2O2MassC  = H2O2Mass0  - H2O2MR  * CutOffTime;
     constexpr static Mass    LiqN2MassC = LiqN2Mass0 - LiqN2MR * CutOffTime;
+    constexpr static Mass    H2O2MassC  = H2O2Mass0  - H2O2MR  * CutOffTime;
 
    // Checks:
     static_assert
-      (FuelMassC  > FuelRem && OxidMassC > OxidRem && H2O2MassC > H2O2Rem &&
-       LiqN2MassC > LiqN2Rem);
+      (FuelMassC > FuelRem && OxidMassC > OxidRem && LiqN2MassC > LiqN2Rem &&
+       H2O2MassC > H2O2Rem);
 
     static_assert((FuelMassC + OxidMassC).ApproxEquals
                   (FuelMassT + OxidMassT - ShutDownSpentPropMass));
@@ -523,6 +534,104 @@ namespace SpaceBallistics
       );
 
     //-----------------------------------------------------------------------//
+    // Tail Cylindrical Enclosure:                                           //
+    //-----------------------------------------------------------------------//
+    // Attached to the Low of "FuelTankMidProto". The mass includes AeroFin:
+    //
+    constexpr static TrC TailCylEnclProto =
+      TrC
+      (
+        FuelTankMidProto.GetLow()[0],
+        FuelTankMidProto.GetLow()[1],
+        FuelTankMidProto.GetLow()[2],
+        CosAlpha,     SinAlpha,
+        CosPsi,       SinPsi,
+        MaxD,         MaxD,     TailCylEnclH,
+        Density(0.0)            // Does not contain any Propellants by itself
+      );
+
+    //-----------------------------------------------------------------------//
+    // "LiqN2Tank*" Protos:                                                  //
+    //-----------------------------------------------------------------------//
+    // NB: Unlike Stage2, in a Stage1 Booster the LiqN2Tank is located ABOVE the
+    // H2O2Tank, and has a slightly smaller diameter than the latter:
+    //
+    constexpr static Len LiqN2TankBaseCentrX =
+        FuelTankBtmProto.GetLow()[0] - LiqN2TankMinoR * CosAlpha;
+
+    constexpr static Len LiqN2TankBaseCentrY =
+        FuelTankBtmProto.GetLow()[1] + LiqN2TankMinoR * SinAlpha * CosPsi;
+
+    constexpr static Len LiqN2TankBaseCentrZ =
+        FuelTankBtmProto.GetLow()[2] + LiqN2TankMinoR * SinAlpha * SinPsi;
+
+    constexpr static Len LiqN2TankD          = MaxD - 2.0 * H2O2TankMinoR;
+
+    constexpr static Tor LiqN2TankTopProto   =
+      Tor
+      (
+        true,                   // Facing Up
+        LiqN2TankBaseCentrX, LiqN2TankBaseCentrY, LiqN2TankBaseCentrZ,
+        CosAlpha,     SinAlpha,
+        CosPsi,       SinPsi,
+        LiqN2TankMinoR * 2.0,
+        LiqN2TankMinoR,
+        LiqN2TankD,
+        Propellants::LN2Dens
+      );
+
+    constexpr static Tor LiqN2TankBtmProto =
+      Tor
+      (
+        false,                  // Facing Down
+        LiqN2TankBaseCentrX, LiqN2TankBaseCentrY, LiqN2TankBaseCentrZ,
+        CosAlpha,     SinAlpha,
+        CosPsi,       SinPsi,
+        LiqN2TankMinoR * 2.0,
+        LiqN2TankMinoR,
+        LiqN2TankD,
+        Propellants::LN2Dens
+      );
+
+    //-----------------------------------------------------------------------//
+    // "H2O2Tank*"  Protos:                                                  //
+    //-----------------------------------------------------------------------//
+    constexpr static Len H2O2TankBaseCentrX =
+        LiqN2TankBtmProto.GetLow()[0] - H2O2TankMinoR * CosAlpha;
+
+    constexpr static Len H2O2TankBaseCentrY =
+        LiqN2TankBtmProto.GetLow()[1] + H2O2TankMinoR * SinAlpha * CosPsi;
+
+    constexpr static Len H2O2TankBaseCentrZ =
+        LiqN2TankBtmProto.GetLow()[2] + H2O2TankMinoR * SinAlpha * SinPsi;
+
+    constexpr static Tor H2O2TankTopProto  =
+      Tor
+      (
+        true,                   // Facing Up
+        H2O2TankBaseCentrX, H2O2TankBaseCentrY, H2O2TankBaseCentrZ,
+        CosAlpha,     SinAlpha,
+        CosPsi,       SinPsi,
+        H2O2TankMinoR * 2.0,
+        H2O2TankMinoR,
+        MaxD,
+        Propellants::H2O2Dens
+      );
+
+    constexpr static Tor H2O2TankBtmProto =
+      Tor
+      (
+        false,                  // Facing Down
+        H2O2TankBaseCentrX, H2O2TankBaseCentrY, H2O2TankBaseCentrZ,
+        CosAlpha,     SinAlpha,
+        CosPsi,       SinPsi,
+        H2O2TankMinoR * 2.0,
+        H2O2TankMinoR,
+        MaxD,
+        Propellants::H2O2Dens
+      );
+
+    //-----------------------------------------------------------------------//
     // Scale Factor to determine the individual masses:                      //
     //-----------------------------------------------------------------------//
     // XXX: Once again, InterStageGrid is not modeled, its mass is spread over
@@ -533,10 +642,13 @@ namespace SpaceBallistics
       (
         // Components for which we provide the TotalMass (below):
         { &TopTopConeProto,
-          &OxidTankTopProto, &OxidTankUpProto,  &OxidTankMidProto,
+          &OxidTankTopProto,  &OxidTankUpProto,  &OxidTankMidProto,
           &OxidTankBtmProto,
           &InterTankProto,
-          &FuelTankTopProto, &FuelTankMidProto, &FuelTankBtmProto
+          &FuelTankTopProto,  &FuelTankMidProto, &FuelTankBtmProto,
+          &TailCylEnclProto,
+          &LiqN2TankTopProto, &LiqN2TankBtmProto,
+          &H2O2TankTopProto,  &H2O2TankBtmProto
         },
         EmptyMass - EngMass
       );
@@ -548,29 +660,29 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // The "TopTopCone": Empty:                                              //
     //-----------------------------------------------------------------------//
-    constexpr static TrC TopTopCone  =
-      ME::ProRateMass(TopTopConeProto,  ScaleFactor);
+    constexpr static TrC TopTopCone   =
+      ME::ProRateMass(TopTopConeProto,   ScaleFactor);
 
     //-----------------------------------------------------------------------//
     // OxidTank-Related:                                                     //
     //-----------------------------------------------------------------------//
-    constexpr static SpS OxidTankTop =
-      ME::ProRateMass(OxidTankTopProto, ScaleFactor);
+    constexpr static SpS OxidTankTop  =
+      ME::ProRateMass(OxidTankTopProto,  ScaleFactor);
 
-    constexpr static TrC OxidTankUp  =
-      ME::ProRateMass(OxidTankUpProto,  ScaleFactor);
+    constexpr static TrC OxidTankUp   =
+      ME::ProRateMass(OxidTankUpProto,   ScaleFactor);
 
-    constexpr static TrC OxidTankMid =
-      ME::ProRateMass(OxidTankMidProto, ScaleFactor);
+    constexpr static TrC OxidTankMid  =
+      ME::ProRateMass(OxidTankMidProto,  ScaleFactor);
 
-    constexpr static SpS OxidTankBtm =
-      ME::ProRateMass(OxidTankBtmProto, ScaleFactor);
+    constexpr static SpS OxidTankBtm  =
+      ME::ProRateMass(OxidTankBtmProto,  ScaleFactor);
 
     //-----------------------------------------------------------------------//
     // InterTank:                                                            //
     //-----------------------------------------------------------------------//
-    constexpr static TrC InterTank   =
-      ME::ProRateMass(InterTankProto,   ScaleFactor);
+    constexpr static TrC InterTank    =
+      ME::ProRateMass(InterTankProto,    ScaleFactor);
 
     // There must be a Gap between OxidTankBtm and FuelTankTop:
     constexpr static Len OxidFuelTankGap =
@@ -580,14 +692,83 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // FuelTank-Related:                                                     //
     //-----------------------------------------------------------------------//
-    constexpr static SpS FuelTankTop =
-      ME::ProRateMass(FuelTankTopProto, ScaleFactor);
+    constexpr static SpS FuelTankTop  =
+      ME::ProRateMass(FuelTankTopProto,  ScaleFactor);
 
-    constexpr static TrC FuelTankMid =
-      ME::ProRateMass(FuelTankMidProto, ScaleFactor);
+    constexpr static TrC FuelTankMid  =
+      ME::ProRateMass(FuelTankMidProto,  ScaleFactor);
 
-    constexpr static SpS FuelTankBtm =
-      ME::ProRateMass(FuelTankBtmProto, ScaleFactor);
+    constexpr static SpS FuelTankBtm  =
+      ME::ProRateMass(FuelTankBtmProto,  ScaleFactor);
+
+    //-----------------------------------------------------------------------//
+    // Tail Section:                                                         //
+    //-----------------------------------------------------------------------//
+    // Tail Cylindrical Enclosure:
+    constexpr static TrC TailCylEncl  =
+      ME::ProRateMass(TailCylEnclProto,  ScaleFactor);
+
+    // LiqN2Tank-Related:
+    constexpr static Tor LiqN2TankTop =
+      ME::ProRateMass(LiqN2TankTopProto, ScaleFactor);
+
+    constexpr static Tor LiqN2TankBtm =
+      ME::ProRateMass(LiqN2TankBtmProto, ScaleFactor);
+
+    // H2O2Tank-Related:
+    constexpr static Tor H2O2TankTop =
+      ME::ProRateMass(H2O2TankTopProto,  ScaleFactor);
+
+    constexpr static Tor H2O2TankBtm =
+      ME::ProRateMass(H2O2TankBtmProto,  ScaleFactor);
+
+    // Verify the lowest X-coord on the axis of the "TailCylEncl":
+    static_assert(TailCylEncl.GetLow()[0].ApproxEquals(TopX - H * CosAlpha));
+
+    // FIXME: It looks like, with the curr geometry, there is a sufficiently
+    // large usused space between the bottom of the H2O2Tank and the Engine.
+    // It is not clear whether it is real, or it is a result of our imprecise
+    // geometry. It is also not clear whether "EngineH" includes the support
+    // structure...
+    constexpr static Len TailGapH =
+      H2O2TankBtm.GetLow()[0] - EngineH - NozzlesLowX;
+    static_assert(IsPos(TailGapH));       // ~1.02 m!
+
+    // RD-107A Engine, modeled as a PointMass.   XXX: We assume that its CoM is
+    // located at 1/3 height from the Engine Top (ie 2/3 height from Nozzles),
+    // but this is obviously GROSSLY IMPRECISE.
+    // NB: the Engine is installed parallel to Stage2 Engine, NOT parallel to
+    // the Booster OX axis, so the Alpha angle does not apply in this case:
+    //
+    constexpr static Len EngineCoMX = NozzlesLowX + (2.0/3.0) * EngineH;
+    constexpr static Len EngineCoMY = H2O2TankBtm.GetLow()[1];
+    constexpr static Len EngineCoMZ = H2O2TankBtm.GetLow()[2];
+
+    constexpr static PM  Engine     =
+      PM
+      (
+        EngineCoMX, EngineCoMY, EngineCoMZ,
+        EngMass
+      );
+
+    //-----------------------------------------------------------------------//
+    // Empty Stage1 Booster as a whole:                                      //
+    //-----------------------------------------------------------------------//
+    // Similar to Stage2 and dissimilar to Stage3, the pressurisation gas (N2),
+    // although not expendable, NOT included into the "EmptyME":
+    //
+    constexpr static ME  EmptyME  =
+      TopTopCone   +
+      OxidTankTop  + OxidTankUp   + OxidTankMid + OxidTankBtm +
+      InterTank    +
+      FuelTankTop  + FuelTankMid  + FuelTankBtm +
+      TailCylEncl  +
+      LiqN2TankTop + LiqN2TankBtm +
+      H2O2TankTop  + H2O2TankBtm  +
+      Engine;
+
+    // The over-all EmptyMass check:
+    static_assert(EmptyME.GetMass().ApproxEquals(EmptyMass));
 
   private:
     //=======================================================================//
@@ -609,16 +790,61 @@ namespace SpaceBallistics
     // Union:
     constexpr static Mass FuelTankBtmMidMC   = FuelTankBtmMC    + FuelTankMidMC;
 
+    // LiqN2:
+    constexpr static Mass LiqN2TankTopMC     = LiqN2TankTop.GetPropMassCap();
+    constexpr static Mass LiqN2TankBtmMC     = LiqN2TankBtm.GetPropMassCap();
+
+    // H2O2:
+    constexpr static Mass H2O2TankTopMC      = H2O2TankTop.GetPropMassCap();
+    constexpr static Mass H2O2TankBtmMC      = H2O2TankBtm.GetPropMassCap();
+
   public:
     // Maximum Theoretical Capacities of the resp Tanks:
     constexpr static Mass OxidTankMC   = OxidTankBtmMidUpMC + OxidTankTopMC;
     constexpr static Mass FuelTankMC   = FuelTankBtmMidMC   + FuelTankTopMC;
+    constexpr static Mass LiqN2TankMC  = LiqN2TankTopMC     + LiqN2TankBtmMC;
+    constexpr static Mass H2O2TankMC   = H2O2TankTopMC      + H2O2TankBtmMC;
 
-    // Propellant Load Ratios (ActualMass / TheorMassCapacity):
-    constexpr static double OxidLoadRatio = double(OxidMass   / OxidTankMC);
-    static_assert(OxidLoadRatio < 1.0);
-    constexpr static double FuelLoadRatio = double(FuelMass   / FuelTankMC);
-    static_assert(FuelLoadRatio < 1.0);
+    // Propellant Load Ratios (ActualMass  / TheorMassCapacity):
+    constexpr static double OxidLoadRatio  = double(OxidMass   / OxidTankMC);
+    static_assert(OxidLoadRatio  < 1.0);
+    constexpr static double FuelLoadRatio  = double(FuelMass   / FuelTankMC);
+    static_assert(FuelLoadRatio  < 1.0);
+    constexpr static double LiqN2LoadRatio = double(LiqN2Mass0 / LiqN2TankMC);
+    static_assert(LiqN2LoadRatio < 1.0);
+    constexpr static double H2O2LoadRatio  = double(H2O2Mass   / H2O2TankMC);
+    static_assert(H2O2LoadRatio  < 1.0);
+
+  private:
+    //-----------------------------------------------------------------------//
+    // "ME" objs for Max Theoretical Propellant Loads in Tank Sections:      //
+    //-----------------------------------------------------------------------//
+    // (For optimisation of "GetDynParams"):
+    // Oxid:
+    constexpr static ME OxidTopME         = OxidTankTop.GetPropBulkME();
+    constexpr static ME OxidUpME          = OxidTankUp .GetPropBulkME();
+    constexpr static ME OxidMidME         = OxidTankMid.GetPropBulkME();
+    constexpr static ME OxidBtmME         = OxidTankBtm.GetPropBulkME();
+    // Unions:
+    constexpr static ME OxidBtmMidME      = OxidBtmME      + OxidMidME;
+    constexpr static ME OxidBtmMidUpME    = OxidBtmMidME   + OxidUpME;
+    // The whole maximum Oxid bulk:
+    constexpr static ME OxidME            = OxidBtmMidUpME + OxidTopME;
+
+    //Fuel:
+    constexpr static ME FuelTopME         = FuelTankTop.GetPropBulkME();
+    constexpr static ME FuelMidME         = FuelTankMid.GetPropBulkME();
+    constexpr static ME FuelBtmME         = FuelTankBtm.GetPropBulkME();
+    // Union:
+    constexpr static ME FuelBtmMidME      = FuelBtmME      + FuelMidME;
+    // The whole maximum Fuel bulk:
+    constexpr static ME FuelME            = FuelBtmMidME   + FuelTopME;
+
+    // For LiqN2 and H2O2, "Top" MEs are not required:
+    // LiqN2:
+    constexpr static ME LiqN2BtmME        = LiqN2TankBtm.GetPropBulkME();
+    // H2O2:
+    constexpr static ME H2O2BtmME         = H2O2TankBtm.GetPropBulkME();
 
   public:
     //=======================================================================//

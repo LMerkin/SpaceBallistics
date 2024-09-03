@@ -279,14 +279,14 @@ namespace SpaceBallistics
     Len liqN2Level(NaN<double>);
 
     ME liqN2ME =
-      (liqN2Mass > N2TankBtmMC)
-      ? // LiqN2 level is within the N2TankTop:
-        N2TankTop.GetPropBulkME
-          (liqN2Mass - N2TankBtmMC,         liqN2MassDot, &liqN2Level) +
+      (liqN2Mass > LiqN2TankBtmMC)
+      ? // LiqN2 level is within the LiqN2TankTop:
+        LiqN2TankTop.GetPropBulkME
+          (liqN2Mass - LiqN2TankBtmMC,        liqN2MassDot, &liqN2Level) +
         LiqN2BtmME
       :
-        // LiqN2 level is within the N2TankBtm:
-        N2TankBtm.GetPropBulkME(liqN2Mass,  liqN2MassDot, &liqN2Level);
+        // LiqN2 level is within the LiqN2TankBtm:
+        LiqN2TankBtm.GetPropBulkME(liqN2Mass, liqN2MassDot, &liqN2Level);
     assert(IsPos(liqN2Level));
 
     // GasN2:

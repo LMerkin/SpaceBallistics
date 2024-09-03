@@ -38,6 +38,10 @@ int main()
   cout << "# Stage3FuelMassRate: " << S3::FuelMR        << endl;
   cout << "# Stage3OxidMassRate: " << S3::OxidMR        << endl;
 
+  // Geometry:
+  cout << "# Stage3NozzlesExt  : " << S3::NozzlesExtH   << endl;
+  cout << "# Stage3NozzlesLowX : " << S3::NozzlesLowX   << endl;
+
   // Header for the following table:
   cout << '#' << endl;
   cout << "# Time\tTotalMass\tFuelMass\tOxidMass\tCoM_x\tJ_x\tJ_y" << endl;

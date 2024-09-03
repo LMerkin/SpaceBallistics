@@ -592,9 +592,12 @@ namespace SpaceBallistics
         m_low[1] = a_y0;
         m_low[2] = a_z0;
         m_up [0] = a_x0 + m_h * m_xi[0];
-        m_up [1] = a_y0 - m_h * m_xi[1];
-        m_up [2] = a_y0 - m_h * m_xi[2];
+        m_up [1] = a_y0 + m_h * m_xi[1];
+        m_up [2] = a_z0 + m_h * m_xi[2];
       }
+      assert((Sqr(m_up[0] - m_low[0]) + Sqr(m_up[1] - m_low[1]) +
+              Sqr(m_up[2] - m_low[2])).ApproxEquals(Sqr(m_h)));
+      assert(m_low[0] < m_up[0]);
 
       // Side Surace Area and Nominal Volume Enclosed:
       m_sideSurfArea = a_side_surf_area;

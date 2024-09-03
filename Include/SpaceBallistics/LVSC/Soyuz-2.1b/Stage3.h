@@ -66,8 +66,11 @@ namespace SpaceBallistics
       H - (ForeH + FuelTankMidH + EquipBayH + OxidTankMidH);
     static_assert(IsPos(AftH));
 
-    // XXX: The approximate dX of the CoM of the Engine from AftTop:
-    constexpr static Len      EngCoMdX        = 1.0_m;
+    // RD-0124 Engine Height:
+    constexpr static Len      EngineH         = 1.575_m;
+
+    // The Low-X point of Stage3 (w/o the extending Nozzles):
+    constexpr static Len      LowX            = ForeX0 - H;
 
     //=======================================================================//
     // Masses:                                                               //
@@ -252,11 +255,13 @@ namespace SpaceBallistics
         AftMass                         // Mass is known!
       );
 
-    // RD-0124 Engine, modeled as a PointMass:
+    // RD-0124 Engine, modeled as a PointMass. We assume that the Engine CoM
+    // is located at 1/3 height from the top,  which is of course GROSSLY IM-
+    // PRECISE:
     constexpr static PM  Engine =
       PM
       (
-        OxidTankMidProto.GetLow()[0] - EngCoMdX,
+        OxidTankMidProto.GetLow()[0] - EngineH / 3.0,
         0.0_m,
         0.0_m,
         EngMass                         // Mass is known!
@@ -320,6 +325,11 @@ namespace SpaceBallistics
     // Also, the bottom of the OxidiserTank must be well inside the over-all
     // cylindrical shell:
     static_assert(OxidTankLow.GetLow()[0] > ForeX0 - H);
+
+    // Extension of RD-0124 Nozzles:
+    constexpr static Len  NozzlesLowX = OxidTankLow.GetLow()[0] - EngineH;
+    constexpr static Len  NozzlesExtH = LowX - NozzlesLowX;
+    static_assert(IsPos(NozzlesExtH));
 
   private:
     //=======================================================================//
