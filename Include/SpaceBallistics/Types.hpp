@@ -15,7 +15,7 @@ namespace SpaceBallistics
   //=========================================================================//
   DECLARE_DIMS
   (
-    double,
+    double,,
     (Mass,     kg),
     (Len,      m,   (km,     1000.0)),
     (Time,     sec, (day,   86400.0)),

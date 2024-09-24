@@ -312,7 +312,6 @@ namespace SpaceBallistics
     Vol     gasN2Vol = complME.GetEnclVol();
     Density gasN2Rho = gasN2Mass / gasN2Vol;
     */
-
     // Full = Empty + N2 + Fuel + Oxid + H2O2 + LiqN2 + GasN2:
     ME fullME = EmptyME  + fuelME + oxidME + h2o2ME + liqN2ME + gasN2ME;
 

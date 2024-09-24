@@ -19,9 +19,10 @@ namespace DimTypes
   constexpr inline
   DimQ
   <
-    Bits::DimExp(unsigned(SB::DimsE::Angle)),
-    Bits::MkUnit(unsigned(SB::DimsE::Angle), 0),   // 0=rad: the main unit
-    double
+    SB::DimQ_Encs::DimExp(unsigned(SB::DimsE::Angle)),
+    SB::DimQ_Encs::MkUnit(unsigned(SB::DimsE::Angle), 0), // 0=rad: fund unit
+    SB::DimQ_RepT,
+    SB::DimQ_MaxDims
   >
   ::operator double() const
   {
@@ -36,9 +37,10 @@ namespace DimTypes
   constexpr inline
   DimQ
   <
-    Bits::DimExp(unsigned(SB::DimsE::Angle)),
-    Bits::MkUnit(unsigned(SB::DimsE::Angle), 1),   // 1=deg
-    double
+    SB::DimQ_Encs::DimExp(unsigned(SB::DimsE::Angle)),
+    SB::DimQ_Encs::MkUnit(unsigned(SB::DimsE::Angle), 1), // 1=deg
+    SB::DimQ_RepT,
+    SB::DimQ_MaxDims
   >
   ::operator double() const
   {

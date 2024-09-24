@@ -466,12 +466,14 @@ namespace SpaceBallistics
     //    Chamber1: @ -Z
     //    Chamber2: @ +Y
     //    Chamber3: @ +Z
-    // The max gimbaling angle of RD-0124 Chambers is most likely  +-8  degs.
+    // The max gimbaling angle of RD-0124 Chambers  is most likely  +-8  degs.
     // BY OUR CONVENTION, GimbalAngle > 0 corresponds to a COUNTER-CLOCK-WISE
-    // rotation of the corresp Chamber (more precisely, NOZZLE) in the YZ plane
-    // around the X axis.
-    // NORMALLY, one can expect that Chambers (0 and 2), (1 and 3) are moved
-    // symmetrically in one direction, so
+    // rotation of the corresp Chamber[0-3] around the corresp axis (-Y, -Z,
+    // +Y, +Z). In other words, when viewed from +X, GimbalAngle > 0 results in
+    // "positive" projections of Chambers[0-3] onto  -Z, +Y, +Z, -Y, and there-
+    // fore, in "postive" projections of THrust onto +Z, -Y, -Z, +Y.
+    // NORMALLY, one can expect that Chambers[0,2] and [1,3] are moved symmetr-
+    // ically in one direction, so
     //    ChamberDeflections[0] = - ChamberDeflections[2],
     //    ChamberDeflections[1] = - ChamberDeflections[3],
     // but this is not strictly enforced:

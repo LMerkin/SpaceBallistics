@@ -889,11 +889,13 @@ namespace SpaceBallistics
     // Thrust Vector Control:                                                //
     //=======================================================================//
     // Achieved via 4 Gimbaled Vernier Chambers. Each Vernier Chamber is located
-    // in the XY or XZ plane:
-    //   0: @ -Y (towards Block B, gimbaled in Z)
-    //   1: @ -Z (towards Block V, gimbaled in Y)
-    //   2: @ +Y (towards Block G, gimbaled in Z)
-    //   3: @ +Z (towards Block D, gimbaled in Y)
+    // in the XY or XZ plane and gimbaled around the corresp axis:
+    //   0: @ -Y (towards Block B, Angle > 0 ==> towards -Z),
+    //   1: @ -Z (towards Block V, Angle > 0 ==> towards +Y),
+    //   2: @ +Y (towards Block G, Angle > 0 ==> towards +Z),
+    //   3: @ +Z (towards Block D, Angle > 0 ==> towards -Y),
+    // and gimbaling results in "positive" thrust projections in the opposite
+    // directions (+Z, -Y, -Z, +Y, resp).
     // Each Vernier can be deflected within the GimbalAmpl in the Tangential
     // Plane. Similar to Stage3, we assume that Gimbaling (Deflection) Angle
     // is positive when the corresp Vernier is deflected  Counter-Clock-Wise

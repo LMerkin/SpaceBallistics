@@ -854,24 +854,23 @@ namespace SpaceBallistics
     // Thrust Vector Control:                                                //
     //-----------------------------------------------------------------------//
     // Achieved via 2 Gimbaled Vernier Chambers. A Pair of Vernier Chambers is
-    // located (notionally) in the XY or XZ plane:
-    //   B: @ -Y (gimbaled in Z)
-    //   V: @ -Z (gimbaled in Y)
-    //   G: @ +Y (gimbaled in Z)
-    //   D: @ +Z (gimbaled in Y)
-    // Each Vernier can be deflected within the GimbalAmpl in the Tangential
-    // Plane. Similar to Stage3 and Stage2, we assume that Gimbaling (Deflect-
-    // ion) Angle s positive when the corresp Vernier is deflected  Counter-
-    // Clock-Wise in the YZ plane, as viewed from the positive end of the OX
-    // axis. And again, similar to Stages 3 and 2,   opposite Verniers would
-    // normally be moved symmetrically in one direction,
-    // so that
-    //    VernDeflections[0] = - VernDeflections[2],
-    //    VernDeflections[1] = - VernDeflections[3],
-    // but this is not strictly enforced:
+    // located (notionally) in the XY or XZ plane. They are gimbaled SIMULTANE-
+    // OUSLY (NOT independently) within the GimbalAmpl in the Tangential Plane.
+    // Similar to Stages 3 and 2, we assume that Gimbaling (Deflection) Angle is
+    // positive when the corresp Verniers are deflected Counter-Clock-Wise wrt
+    // the corresp rotation axis (same as the "attachment direction" of this
+    // Block):
+    //   B: @ -Y (Angle > 0 ==> chamber towards -Z, thrust towards +Z);
+    //   V: @ -Z (Angle > 0 ==> chanber towards +Y, thrust towards -Y);
+    //   G: @ +Y (Angle > 0 ==> chamber towards +Z, thrust towards -Z);
+    //   D: @ +Z (Angle > 0 ==> chamber towards -Y, thrust towards +Y).
+    //
+    // When viewed from +X, positive deflection angle corredponds to a Counter-
+    // Clock-Wise movement of the Nozzles projections in the YZ plane.   Thus,
+    // gimbaling of a Booster Block is characterised by just 1 angle with the
+    // following amplitude:
     //
     constexpr static Angle_deg VernGimbalAmpl = Angle_deg(45.0);
-    using            VernDeflections          = std::array<Angle_deg, 4>;
 
     //-----------------------------------------------------------------------//
     // AeroFin Control:                                                      //
@@ -881,22 +880,30 @@ namespace SpaceBallistics
 
     // XXX: The max AeroFin rotation angle is unknown, assume 30 deg (from an
     // available photo).  Larger values would probably cause too large angles
-    // of attack:
+    // of attack.
+    // AeroFin is rotatable along the same "block attachment direction" as used
+    // for Verniers Gimbaling (that is, -Y, -Z, +Y or +Z).  Rotation angle is
+    // positive when rotation is performed Counter-Clock-Wise as viewed  from
+    // the corresp end of the rotation axis (similar to Verniers deflection):
+    //
     constexpr static Angle_deg AeroFinAmpl    = Angle_deg(30.0);
 
     //=======================================================================//
     // Dynamic Params as a function of Flight Time:                          //
     //=======================================================================//
     // NB: This method is NOT "constexpr": it is intended to be called at Run-
-    // Time (eg multiple times during Trajectory Integration):
+    // Time (eg multiple times during Trajectory Integration).  Because Stage1
+    // Booster has an AeroFin control in addition to the Verniers, we need the
+    // velocity vector to be provided as an arg:
     //
     static StageDynParams<LVSC::Soyuz21b>
     GetDynParams
     (
-      Time                   a_t,
-      Pressure               a_p,      // Curr Atmospheric Pressure
-      VernDeflections const& a_vern_defls,
-      Angle_deg              a_aerofin_defl
+      Time             a_t,
+      Pressure         a_p,           // Curr Atmospheric Pressure
+      ME::VelVE const& a_v,           // In the ECOS
+      Angle_deg        a_verns_defl,  // Same angle for both Verns
+      Angle_deg        a_aerofin_defl // AeroFin deflection angle
     );
   };
 

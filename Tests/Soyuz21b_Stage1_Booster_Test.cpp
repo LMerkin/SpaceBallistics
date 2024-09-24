@@ -13,8 +13,7 @@ int main()
 {
   using namespace std;
   using namespace SpaceBallistics;
-  using      B  = Soyuz21b_Stage1_Booster<'B'>;
-  using      S2 = Soyuz21b_Stage2;
+  using B       = Soyuz21b_Stage1_Booster<'B'>;
 
   //-------------------------------------------------------------------------//
   // Geometry and Mass Params:                                               //
