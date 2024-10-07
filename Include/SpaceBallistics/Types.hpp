@@ -16,9 +16,10 @@ namespace SpaceBallistics
   DECLARE_DIMS
   (
     double,,
-    (Mass,     kg),
-    (Len,      m,   (km,     1000.0)),
-    (Time,     sec, (day,   86400.0)),
+    (Mass,     kg),                       // Mass
+    (Len,      m,   (km,     1000.0)),    // Length
+    (Time,     sec, (day,   86400.0)),    // Time
+    (AbsTemp,  K),                        // Absolute Temperature
 
     // Angles: When expressed in "rad", angles are directly convertible to a
     // dimension-less "double";  other units must first be converted into "rad":
@@ -72,6 +73,9 @@ namespace SpaceBallistics
   // Gravitational Field Constant:
   using GM       = decltype(Cube(1.0_m) / Sqr(1.0_sec));
 
+  // Energy:
+  using Energy   = decltype(Force(1.0) * 1.0_m);
+
   //-------------------------------------------------------------------------//
   // Powers of "Len" and their Time Derivatives: Widely used:                //
   //-------------------------------------------------------------------------//
@@ -91,10 +95,13 @@ namespace SpaceBallistics
   // Some Standard Constants:                                                //
   //=========================================================================//
   // Standard Gravity (m/sec^2):
-  constexpr inline Acc      g0 = Acc(9.80665);
+  constexpr inline Acc      g0   = Acc(9.80665);
 
   // Standard Atnospheric Pressure at Sea Level:
-  constexpr inline Pressure p0 = Pressure(101325.0);
+  constexpr inline Pressure p0   = Pressure(101325.0);
+
+  // Specific Gas Constant for Dry Air (J/K):
+  constexpr inline auto     Rair = 287.0528 * Energy(1.0) / 1.0_K;
 
   //=========================================================================//
   // 3D Vectors, Parameterised by the CoOrd System (COS):                    //
