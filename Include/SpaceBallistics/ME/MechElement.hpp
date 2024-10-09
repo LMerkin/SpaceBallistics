@@ -56,10 +56,10 @@ namespace SpaceBallistics
     using ForceVE   = ForceV  <ECOS>;
 
     // The MoI Tensor (XXX: currently the main diagonal only), also in the ECOS:
-    using MoITE     = MoIT    <ECOS>;
+    using MoIVE     = MoIV    <ECOS>;
 
     // The Time Rate of the MoI Tensor:
-    using MoIRateTE = MoIRateT<ECOS>;
+    using MoIRateVE = MoIRateV<ECOS>;
 
     // "UnKnownMass": Param to be used for "MechElement"s when their mass is
     // not yet known (all real Masses are of course strictly positive):
@@ -77,8 +77,8 @@ namespace SpaceBallistics
     Mass        m_mass;        // Mass
     MassRate    m_massDot;     // d(Mass)/dt, typically <= 0
     Vol         m_enclVol;     // Enclosed Volume
-    MoITE       m_MoIs;        // Moments of Inertia wrt the OX, OY and OZ axes
-    MoIRateTE   m_MoIDots;     // d(MoIs)/dt
+    MoIVE       m_MoIs;        // Moments of Inertia wrt the OX, OY and OZ axes
+    MoIRateVE   m_MoIDots;     // d(MoIs)/dt
     bool        m_isFinal;     // False => Mass, MoIs & their Dots not valid
                                //   yet (but the CoM is valid!)
   protected:
@@ -152,13 +152,13 @@ namespace SpaceBallistics
     //     ally used as the base for "+" which requires Final operands:
     //
     constexpr MechElement()
-    : m_CoM    {{0.0_m,  0.0_m,        0.0_m}},
-      m_CoMDots{{Vel    (0.0), Vel    (0.0), Vel    (0.0)}},
+    : m_CoM    (0.0_m,  0.0_m,        0.0_m),
+      m_CoMDots(Vel    (0.0), Vel    (0.0), Vel    (0.0)),
       m_mass   (0.0),
       m_massDot(0.0),
       m_enclVol(0.0),
-      m_MoIs   {{MoI    (0.0), MoI    (0.0), MoI    (0.0)}},
-      m_MoIDots{{MoIRate(0.0), MoIRate(0.0), MoIRate(0.0)}},
+      m_MoIs   (MoI    (0.0), MoI    (0.0), MoI    (0.0)),
+      m_MoIDots(MoIRate(0.0), MoIRate(0.0), MoIRate(0.0)),
       m_isFinal(true)
     {}
 
@@ -288,13 +288,13 @@ namespace SpaceBallistics
     constexpr Vol              GetEnclVol() const
       { return m_enclVol; }    // For both Final and Non-Final MEs
 
-    constexpr MoITE     const& GetMoIs()    const
+    constexpr MoIVE     const& GetMoIs()    const
     {
       assert(m_isFinal);
       return m_MoIs;
     }
 
-    constexpr MoIRateTE const& GetMoIDots() const
+    constexpr MoIRateVE const& GetMoIDots() const
     {
       assert(m_isFinal);
       return m_MoIDots;

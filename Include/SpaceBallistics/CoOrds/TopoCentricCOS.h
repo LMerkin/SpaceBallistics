@@ -53,9 +53,24 @@ namespace SpaceBallistics
   using TorqVTop    = TorqV   <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using MoITTop     = MoIT    <TopoCentricCOS<BodyName, L>>;
+  using MoIVTop     = MoIV    <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using MoIRateTTop = MoIRateT<TopoCentricCOS<BodyName, L>>;
+  using MoIRateVTop = MoIRateV<TopoCentricCOS<BodyName, L>>;
+
+  //=========================================================================//
+  // "AirCOS" and "VelVAir" Classes:                                         //
+  //=========================================================================//
+  // "AirCOS" is a placeholder used to define "VelVAir" which is the Air Velo-
+  // city Vector (for various aerodynamic computations). XXX: Currently, they
+  // are for Earth only, and are unrelated to any particular Location:
+  //
+  class AirCOS {};
+  using VelVAir = VelV<AirCOS>;
+
+  // The Air Velocity can be derived from the TopoCentric Velocity and the
+  // (also TopoCentric) Wind Velocity at any Location:
+  //
+  
 }
 // End namespave SpaceBallistics

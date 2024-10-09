@@ -129,7 +129,7 @@ namespace SpaceBallistics
       if (a_n == 0)
       {
         // Trivial Case: Spherically-Symmetric Gravitational Field:
-        for (size_t i = 0; i < 3; ++i)
+        for (int i = 0; i < 3; ++i)
           (*a_acc)[i] = - mainAcc * a_pos[i] / r;
         return;
       }
@@ -226,7 +226,7 @@ namespace SpaceBallistics
       //---------------------------------------------------------------------//
       // Finally:                                                            //
       //---------------------------------------------------------------------//
-      for (size_t i = 0; i < 3; ++i)
+      for (int i = 0; i < 3; ++i)
       {
         // NB: In GSL, the Spherical Harmonics are normalised to 1, not to 4*Pi
         // as assumed in the "s_coeffs", so compensate for that:

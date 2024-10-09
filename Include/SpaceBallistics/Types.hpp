@@ -1,10 +1,11 @@
 // vim:ts=2:et
 //===========================================================================//
-//                                "Types.hpp":                               //
+//                        "SpaceBallistics/Types.hpp":                       //
 //        Declarations of Principal Types used in "SpaceBallistics"          //
 //===========================================================================//
 #pragma  once
 #include <DimTypes/DimTypes.hpp>
+#include <SpaceBallistics/CoOrds/Vector3D.hpp>
 
 namespace SpaceBallistics
 {
@@ -103,31 +104,25 @@ namespace SpaceBallistics
   // Specific Gas Constant for Dry Air (J/K):
   constexpr inline auto     Rair = 287.0528 * Energy(1.0) / 1.0_K;
 
-  //=========================================================================//
-  // 3D Vectors, Parameterised by the CoOrd System (COS):                    //
-  //=========================================================================//
-  // XXX: They are just "std::array"s of size 3. All elements are initialised
-  // to 0 by default (via the default "DimQ" Ctor).  The vectors are mutable,
-  // which may be somewhat unsafe(?).
-  // Macro for declaring a Vector (or a diagonal Tensor):
+  //-------------------------------------------------------------------------//
+  // Mechanical Vectors:                                                     //
+  //-------------------------------------------------------------------------//
+  // Macro for declaring a DimQ Vector (or a diagonal Tensor):
 # ifdef DCL_VEC
 # undef DCL_VEC
 # endif
-  // The following macro creates the {T}{Sfx} Vec3 templated by COS, for the
-  // type "T"; the "Sfx" is "V" for a Vector and "T" for a Tensor:
-  //
-# define DCL_VEC(T, Sfx) \
+# define DCL_VEC(T) \
   template<typename COS> \
-  using T##Sfx = std::array<T, 3>;
+  using T##V = Vector3D<T, COS>;
 
-  DCL_VEC(Len,     V)  // Position Vector ("Radius-Vector")
-  DCL_VEC(Vel,     V)  // Velocity Vector
-  DCL_VEC(Acc,     V)  // Acceleration Vector
-  DCL_VEC(Force,   V)  // Force Vector
-  DCL_VEC(AngVel,  V)  // Angular Velocity Vector
-  DCL_VEC(AngAcc,  V)  // Angular Acceleration Vector
-  DCL_VEC(AngMom,  V)  // Angular ("Kinetic") Momentum Vector
-  DCL_VEC(Torq,    V)  // Rotational Moment of Force (Torque) Vector
+  DCL_VEC(Len)      // Position Vector ("Radius-Vector")
+  DCL_VEC(Vel)      // Velocity Vector
+  DCL_VEC(Acc)      // Acceleration Vector
+  DCL_VEC(Force)    // Force Vector
+  DCL_VEC(AngVel)   // Angular Velocity Vector
+  DCL_VEC(AngAcc)   // Angular Acceleration Vector
+  DCL_VEC(AngMom)   // Angular ("Kinetic") Momentum Vector
+  DCL_VEC(Torq)     // Rotational Moment of Force (Torque) Vector
 
   // Alias for the Position vector: "LenV" -> "PosV":
   template<typename COS>
@@ -135,11 +130,10 @@ namespace SpaceBallistics
 
   // NB:  The MoI and its Rate of Change are in general not Vectors, but rather,
   // 3*3 Tensors. XXX: For the moment, we only consider those tensors in their
-  // principal axes, so they have a diagonal form. Hence the suffix is "T", not
-  // "V", although the internal rep is still "Vec3":
+  // principal axes, so they have a diagonal form  and represented by Vectors:
   //
-  DCL_VEC(MoI,     T)   // Moments of Inertia
-  DCL_VEC(MoIRate, T)   // MoI Change Rates
+  DCL_VEC(MoI)      // Moments of Inertia
+  DCL_VEC(MoIRate)  // MoI Change Rates
 # undef DCL_VEC
 
   //=========================================================================//

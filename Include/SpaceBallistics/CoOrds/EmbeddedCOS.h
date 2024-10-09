@@ -51,9 +51,9 @@ namespace SpaceBallistics
   using TorqVEmb    = TorqV   <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using MoITEmb     = MoIT    <EmbeddedCOS<LVSCKind>>;
+  using MoIVEmb     = MoIV    <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>
-  using MoIRateTEmb = MoIRateT<EmbeddedCOS<LVSCKind>>;
+  using MoIRateVEmb = MoIRateV<EmbeddedCOS<LVSCKind>>;
 }
 // End namespace SpaceBallistics

@@ -202,7 +202,7 @@ namespace SpaceBallistics
         assert(false);
       }
     }
-    res.m_thrust = ME::ForceVE{{thrustX, thrustY, thrustZ}};
+    res.m_thrust = ME::ForceVE(thrustX, thrustY, thrustZ);
 
     //-----------------------------------------------------------------------//
     // Moments of Inertia and Center of Masses:                              //
