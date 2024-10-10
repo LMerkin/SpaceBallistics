@@ -201,8 +201,9 @@ namespace SpaceBallistics
            oxidMass.ApproxEquals(oxidME.GetMass()));
 
     // Extract the the CoM and the MoIs:
-    res.m_com  = fullME.GetCoM ();
-    res.m_mois = fullME.GetMoIs();
+    res.m_com     = fullME.GetCoM    ();
+    res.m_mois    = fullME.GetMoIs   ();
+    res.m_moiDots = fullME.GetMoIDots();
 
     // All Done:
     return res;

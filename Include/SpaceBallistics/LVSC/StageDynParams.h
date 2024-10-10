@@ -21,10 +21,10 @@ namespace SpaceBallistics
   {
     Mass                  m_fullMass;  // Curr full mass of a Stage
     Mass                  m_fuelMass;  // Curr mass of Fuel
-    Mass                  m_oxidMass;  // Curr mass if Oxidiser
+    Mass                  m_oxidMass;  // Curr mass of Oxidiser
     PosVEmb    <LVSCKind> m_com;       // Curr center of masses (x,  y,  z)
     MoIVEmb    <LVSCKind> m_mois;      // Curr MoIs             (Jx, Jy, Jz)
-    MoIRateVEmb<LVSCKind> m_moiRates;  // Curr MoIRates         (  similar )
+    MoIRateVEmb<LVSCKind> m_moiDots;   // Curr MoIRates         (  similar )
     ForceVEmb  <LVSCKind> m_thrust;    // Curr engine thrust    (Fx, Fy, Fz)
   };
 }

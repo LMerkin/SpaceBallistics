@@ -13,8 +13,8 @@ namespace SpaceBallistics
   //=========================================================================//
   // "TopoCentricCOS" Class:                                                 //
   //=========================================================================//
-  // Origin: A point on the Body Surface given by "L"
-  // Axes  : (X=East, Y=North, Z=Zenith)
+  // Origin: A point on the Body Surface given by "L";
+  // Axes  : (X=East, Y=North, Z=Zenith);
   // NB    : This class just stands for itself;
   //         no objects of it are to be created:
   //
@@ -59,18 +59,32 @@ namespace SpaceBallistics
   using MoIRateVTop = MoIRateV<TopoCentricCOS<BodyName, L>>;
 
   //=========================================================================//
-  // "AirCOS" and "VelVAir" Classes:                                         //
+  // "AtmCOS" and "VelVAtm" Classes:                                         //
   //=========================================================================//
-  // "AirCOS" is a placeholder used to define "VelVAir" which is the Air Velo-
-  // city Vector (for various aerodynamic computations). XXX: Currently, they
-  // are for Earth only, and are unrelated to any particular Location:
+  // "AtmCOS" is a placeholder used to define "VelVAtm" which is the Velocity
+  // Vector relative to the Body's Atmosphere (for various aerodynamic comput-
+  // ations):
   //
-  class AirCOS {};
-  using VelVAir = VelV<AirCOS>;
+  template<Body BodyName, Location<BodyName> const* L>
+  class AtmCOS
+  {
+    static_assert(L != nullptr);
+    AtmCOS() = delete;
+  }
 
-  // The Air Velocity can be derived from the TopoCentric Velocity and the
-  // (also TopoCentric) Wind Velocity at any Location:
+  template<Body BodyName, Location<BodyName> const* L>
+  using VelVAtm = VelV<AtmCOS<BodyName, L>>;
+
+  // "GetVelVAtm":
+  // Velocity vector relative to the Atmosphere ("VelVAtm") can be constructed
+  // from the TopoCentric Velocity and TopoCentric Wind Velocity:
   //
-  
+  template<Body BodyName, Location<BodyName> const* L>
+  VelVAtm <BodyName, L> GetVelVAtm
+  (
+    VelVTop<BodyName, L> const& a_vel,
+    VelVTop<BodyName, L> const& a_wind_vel = VelVTop<BodyName, L>()
+  )
+  { return a_vel - a_wind_vel; }
 }
 // End namespave SpaceBallistics

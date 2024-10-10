@@ -17,7 +17,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // "BodyLocations" Class:                                                  //
   //=========================================================================//
-  // "Derived" is a Body-Specific Location Class:
+  // XXX: The Body is assumed to be an Ellipsoid of Rotation:
   //
   template<Body BodyName>
   class Location

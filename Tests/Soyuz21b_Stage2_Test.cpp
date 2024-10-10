@@ -53,7 +53,9 @@ int main()
 
   // Header for the following table:
   cout << '#' << endl;
-  cout << "# Time\tTotalMass\tFuelMass\tOxidMass\tCoM_x\tJ_x\tJ_y" << endl;
+  cout << "# (1)Time\t(2)TotalMass\t(3)FuelMass\t(4)OxidMass\t(5)CoM_x\t"
+          "(6)J_x\t(7)J_y\t(8)J_z\t(9)JDot_x\t(10)JDot_y\t(11)JDot_z"
+       << endl;
   cout << '#' << endl;
 
   //-------------------------------------------------------------------------//
@@ -71,13 +73,17 @@ int main()
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois[1]        == dp.m_mois[2]);
 
-    cout << t.Magnitude  ()           << '\t'
-         << dp.m_fullMass.Magnitude() << '\t'
-         << dp.m_fuelMass.Magnitude() << '\t'
-         << dp.m_oxidMass.Magnitude() << '\t'
-         << dp.m_com [0] .Magnitude() << '\t'
-         << dp.m_mois[0] .Magnitude() << '\t'
-         << dp.m_mois[1] .Magnitude() << endl;
+    cout << t.Magnitude()               << '\t'
+         << dp.m_fullMass  .Magnitude() << '\t'
+         << dp.m_fuelMass  .Magnitude() << '\t'
+         << dp.m_oxidMass  .Magnitude() << '\t'
+         << dp.m_com    [0].Magnitude() << '\t'
+         << dp.m_mois   [0].Magnitude() << '\t'
+         << dp.m_mois   [1].Magnitude() << '\t'
+         << dp.m_mois   [2].Magnitude() << '\t'
+         << dp.m_moiDots[0].Magnitude() << '\t'
+         << dp.m_moiDots[1].Magnitude() << '\t'
+         << dp.m_moiDots[2].Magnitude() << endl;
   }
   cout << "# Stage2FullMR        : " << S2::FullMR     << endl;
   cout << "# Stage2MinEndMass    : " << S2::MinEndMass << endl;
