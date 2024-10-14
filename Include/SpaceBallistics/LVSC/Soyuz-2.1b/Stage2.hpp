@@ -6,6 +6,7 @@
 #pragma  once
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
 #include "SpaceBallistics/Utils.hpp"
+#include "SpaceBallistics/ME/TanksPressrn.hpp"
 
 namespace SpaceBallistics
 {
@@ -34,8 +35,6 @@ namespace SpaceBallistics
     // Check the MassRates at FullThrust:
     static_assert((OxidMR + FuelMR + H2O2MR).ApproxEquals(FullMR));
 
-    StageDynParams<LVSC::Soyuz21b> res;               // XXX: All-0s yet...
-
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
     //-----------------------------------------------------------------------//
@@ -59,99 +58,96 @@ namespace SpaceBallistics
     if (a_t < ThrottlTime)
     {
       // Full-Thrust Mode:
-      fuelMass          = FuelMass0  - FuelMR  * a_t;
-      oxidMass          = OxidMass0  - OxidMR  * a_t;
-      h2o2Mass          = H2O2Mass0  - H2O2MR  * a_t;
-      liqN2Mass         = LiqN2Mass0 - LiqN2MR * a_t;
-      fuelMassDot       = - FuelMR;
-      oxidMassDot       = - OxidMR;
-      h2o2MassDot       = - H2O2MR;
-      liqN2MassDot      = - LiqN2MR;
+      fuelMass           = FuelMass0 - FuelMR  * a_t;
+      oxidMass           = OxidMass0 - OxidMR  * a_t;
+      h2o2Mass           = H2O2Mass  - H2O2MR  * a_t;
+      liqN2Mass          = LiqN2Mass - LiqN2MR * a_t;
+      fuelMassDot        = - FuelMR;
+      oxidMassDot        = - OxidMR;
+      h2o2MassDot        = - H2O2MR;
+      liqN2MassDot       = - LiqN2MR;
 
-      absMainThrustVac  = ThrustMainVac;
-      absMainThrustSL   = ThrustMainSL;
-      absVernThrustVac1 = ThrustVernVac1;
-      absVernThrustSL1  = ThrustVernSL1;
+      absMainThrustVac   = ThrustMainVac;
+      absMainThrustSL    = ThrustMainSL;
+      absVernThrustVac1  = ThrustVernVac1;
+      absVernThrustSL1   = ThrustVernSL1;
     }
     else
     if (a_t < MainCutOffTime)
     {
       // Throttled Mode (for both Main Engine and Verniers):
-      Time  dt          = a_t - ThrottlTime;
-      fuelMass          = FuelMassT  - FuelMRT * dt;
-      oxidMass          = OxidMassT  - OxidMRT * dt;
-      h2o2Mass          = H2O2Mass0  - H2O2MR  * a_t;
-      liqN2Mass         = LiqN2Mass0 - LiqN2MR * a_t;
-      fuelMassDot       = - FuelMRT;
-      oxidMassDot       = - OxidMRT;
-      h2o2MassDot       = - H2O2MR;
-      liqN2MassDot      = - LiqN2MR;
+      Time  dt           = a_t - ThrottlTime;
+      fuelMass           = FuelMassT - FuelMRT * dt;
+      oxidMass           = OxidMassT - OxidMRT * dt;
+      h2o2Mass           = H2O2Mass  - H2O2MR  * a_t;
+      liqN2Mass          = LiqN2Mass - LiqN2MR * a_t;
+      fuelMassDot        = - FuelMRT;
+      oxidMassDot        = - OxidMRT;
+      h2o2MassDot        = - H2O2MR;
+      liqN2MassDot       = - LiqN2MR;
 
-      absMainThrustVac  = ThrustMainVac  * ShutDownThrottlLevel;
-      absMainThrustSL   = ThrustMainSL   * ShutDownThrottlLevel;
-      absVernThrustVac1 = ThrustVernVac1 * ShutDownThrottlLevel;
-      absVernThrustSL1  = ThrustVernSL1  * ShutDownThrottlLevel;
+      absMainThrustVac   = ThrustMainVac  * ShutDownThrottlLevel;
+      absMainThrustSL    = ThrustMainSL   * ShutDownThrottlLevel;
+      absVernThrustVac1  = ThrustVernVac1 * ShutDownThrottlLevel;
+      absVernThrustSL1   = ThrustVernSL1  * ShutDownThrottlLevel;
     }
     else
     if (a_t < CutOffTime)
     {
       // Only the Verniers continue operation, in the Throttled Mode:
-      Time  dt          = a_t - MainCutOffTime;
-      fuelMass          = FuelMassM  - FuelMRM * dt;
-      oxidMass          = OxidMassM  - OxidMRM * dt;
-      h2o2Mass          = H2O2Mass0  - H2O2MR  * a_t;
-      liqN2Mass         = LiqN2Mass0 - LiqN2MR * a_t;
-      fuelMassDot       = - FuelMRM;
-      oxidMassDot       = - OxidMRM;
-      h2o2MassDot       = - H2O2MR;
-      liqN2MassDot      = - LiqN2MR;
+      Time  dt           = a_t - MainCutOffTime;
+      fuelMass           = FuelMassM - FuelMRM * dt;
+      oxidMass           = OxidMassM - OxidMRM * dt;
+      h2o2Mass           = H2O2Mass  - H2O2MR  * a_t;
+      liqN2Mass          = LiqN2Mass - LiqN2MR * a_t;
+      fuelMassDot        = - FuelMRM;
+      oxidMassDot        = - OxidMRM;
+      h2o2MassDot        = - H2O2MR;
+      liqN2MassDot       = - LiqN2MR;
 
-      absMainThrustVac  = Force   (0.0);
-      absMainThrustSL   = Force   (0.0);
-      absVernThrustVac1 = ThrustVernVac1 * ShutDownThrottlLevel;
-      absVernThrustSL1  = ThrustVernSL1  * ShutDownThrottlLevel;
+      absMainThrustVac   = Force   (0.0);
+      absMainThrustSL    = Force   (0.0);
+      absVernThrustVac1  = ThrustVernVac1 * ShutDownThrottlLevel;
+      absVernThrustSL1   = ThrustVernSL1  * ShutDownThrottlLevel;
     }
     else
     {
-      fuelMass          = FuelMassC;
-      oxidMass          = OxidMassC;
-      h2o2Mass          = H2O2MassC;
-      liqN2Mass         = LiqN2MassC;
-      fuelMassDot       = MassRate(0.0);
-      oxidMassDot       = MassRate(0.0);
-      h2o2MassDot       = MassRate(0.0);
-      liqN2MassDot      = MassRate(0.0);
+      fuelMass           = FuelMassC;
+      oxidMass           = OxidMassC;
+      h2o2Mass           = H2O2MassC;
+      liqN2Mass          = LiqN2MassC;
+      fuelMassDot        = MassRate(0.0);
+      oxidMassDot        = MassRate(0.0);
+      h2o2MassDot        = MassRate(0.0);
+      liqN2MassDot       = MassRate(0.0);
 
-      absMainThrustVac  = Force   (0.0);
-      absMainThrustSL   = Force   (0.0);
-      absVernThrustVac1 = Force   (0.0);
-      absVernThrustSL1  = Force   (0.0);
+      absMainThrustVac   = Force   (0.0);
+      absMainThrustSL    = Force   (0.0);
+      absVernThrustVac1  = Force   (0.0);
+      absVernThrustSL1   = Force   (0.0);
     }
     //
     // "fullMass" is "FullMass0" (at LiftOff) minus the mass of Fuel, Oxid and
     // H2O2 spent (Once again, N2O2 is NOT spent):
-    Mass  fuelSpent     = FuelMass0 - fuelMass;
-    Mass  oxidSpent     = OxidMass0 - oxidMass;
-    Mass  h2o2Spent     = H2O2Mass0 - h2o2Mass;
+    Mass  fuelSpent      = FuelMass0 - fuelMass;
+    Mass  oxidSpent      = OxidMass0 - oxidMass;
+    Mass  h2o2Spent      = H2O2Mass  - h2o2Mass;
     assert(!(IsNeg(fuelSpent) || IsNeg(oxidSpent) || IsNeg(h2o2Spent)));
 
-    Mass  fullMass      = FullMass0 - (fuelSpent + oxidSpent + h2o2Spent);
+    Mass     fullMass    = FullMass0   - (fuelSpent  + oxidSpent + h2o2Spent);
+    MassRate fullMassDot = fuelMassDot + oxidMassDot + h2o2MassDot;
 
     // Check the Curr Masses and MassRates:
-    assert(MinEndMass <= fullMass  && fullMass  <= FullMass0  &&
-           FuelRem    <= fuelMass  && fuelMass  <= FuelMass0  &&
-           OxidRem    <= oxidMass  && oxidMass  <= OxidMass0  &&
-           H2O2Rem    <= h2o2Mass  && h2o2Mass  <= H2O2Mass0  &&
-           LiqN2Rem   <= liqN2Mass && liqN2Mass <= LiqN2Mass0 &&
+    assert(MinEndMass <= fullMass  && fullMass  <= FullMass0 &&
+           FuelRem    <= fuelMass  && fuelMass  <= FuelMass0 &&
+           OxidRem    <= oxidMass  && oxidMass  <= OxidMass0 &&
+           H2O2Rem    <= h2o2Mass  && h2o2Mass  <= H2O2Mass  &&
+           LiqN2Rem   <= liqN2Mass && liqN2Mass <= LiqN2Mass &&
            !(IsPos(fuelMassDot) || IsPos(oxidMassDot) || IsPos(h2o2MassDot) ||
              IsPos(liqN2MassDot)));
 
-    // If OK: Save the masses in the "res"; XXX: "h2o2Mass" is not installed --
-    // there is no field in "res" for it; it is only used in the MoIs and CoM
-    // computations below:
-    res.m_fullMass  = fullMass;
-    res.m_fuelMass  = fuelMass;
-    res.m_oxidMass  = oxidMass;
+    // XXX: "h2o2Mass" is not returned to the CallER; it is only used in the
+    // MoIs and CoM computations below...
 
     //-----------------------------------------------------------------------//
     // Thrust Vector:                                                        //
@@ -202,10 +198,8 @@ namespace SpaceBallistics
         assert(false);
       }
     }
-    res.m_thrust = ME::ForceVE(thrustX, thrustY, thrustZ);
-
     //-----------------------------------------------------------------------//
-    // Moments of Inertia and Center of Masses:                              //
+    // Moments of Inertia and the Center of Masses:                          //
     //-----------------------------------------------------------------------//
     // XXX: Similar to Stage3, "fuelLevel", "oxidLevel" and "h2o2Level" are
     // provided for debugging purposes only:
@@ -289,44 +283,61 @@ namespace SpaceBallistics
         LiqN2TankBtm.GetPropBulkME(liqN2Mass, liqN2MassDot, &liqN2Level);
     assert(IsPos(liqN2Level));
 
-    // GasN2:
+    // Gaseous N2:
     // Unlike Stage3, here we cannot neglect the effects  of the Tank Pressuri-
-    // sation Gases (in this case, N2), because their mass is reasonable large.
+    // sation Gases (in this case, N2), because their mass is relatively large.
     // N2 is NOT spent (exhausted), but its distribution within the Tanks chan-
     // ges over the time. Gasesous N2 is concentrated in the upper parts of the
     // Fuel and Oxid Tanks, gradually increasing in volume.
-    // The "complementary" ("CME") parts of the Fuel and Oxid bulks (which are
-    // actually filled with N2):
+    // The "complementary" ("CME") parts of the Fuel, Oxid and LiqN2 bulks
+    // (which are actually filled with Gaseous N2):
     //
-    ME   fuelCME   = FuelME  - fuelME;
-    ME   oxidCME   = OxidME  - oxidME;
-    ME   complME   = fuelCME + oxidCME;
+    Mass     gasN2Mass  = N2Mass - liqN2Mass;
+    assert  (GasN2Mass <= gasN2Mass && gasN2Mass < N2Mass - LiqN2Rem);
 
-    // Mass of the Gaseous N2:
-    Mass gasN2Mass = N2Mass - liqN2Mass;
-    assert(GasN2Mass0 <= gasN2Mass && gasN2Mass < N2Mass - LiqN2Rem);
-    ME   gasN2ME   =
-      ME::ProRateMass<true>(complME, double(gasN2Mass / complME.GetMass()));
-    /*
-    // Density of the Gaseous N2 (enable for debugging only):
-    Vol     gasN2Vol = complME.GetEnclVol();
-    Density gasN2Rho = gasN2Mass / gasN2Vol;
-    */
-    // Full = Empty + N2 + Fuel + Oxid + H2O2 + LiqN2 + GasN2:
+    MassRate gasN2MassDot = - liqN2ME.GetMassDot();
+    assert  (!IsNeg(gasN2MassDot));
+
+    ME gasN2ME =
+      TanksPressrn<LVSC::Soyuz21b>
+      (
+        FuelME,    fuelME,
+        OxidME,    oxidME,
+        gasN2Mass, gasN2MassDot
+      );
+    assert((liqN2ME.GetMass() + gasN2ME.GetMass()).ApproxEquals(N2Mass));
+
+    // We can now construct the FullME:
     ME fullME = EmptyME  + fuelME + oxidME + h2o2ME + liqN2ME + gasN2ME;
 
-    // Double-check the Masses:
-    assert(fullMass.ApproxEquals(fullME.GetMass()) &&
-           fuelMass.ApproxEquals(fuelME.GetMass()) &&
-           oxidMass.ApproxEquals(oxidME.GetMass()));
+    // Double-check the Masses and the MassRate:
+    assert(fuelME .GetMass   ().ApproxEquals(fuelMass));
+    assert(oxidME .GetMass   ().ApproxEquals(oxidMass));
+    assert(h2o2ME .GetMass   ().ApproxEquals(h2o2Mass));
+    assert(liqN2ME.GetMass   ().ApproxEquals(liqN2Mass));
+    assert(gasN2ME.GetMass   ().ApproxEquals(gasN2Mass));
+    assert(fullME .GetMass   ().ApproxEquals(fullMass));
+    assert(fuelME .GetMassDot().ApproxEquals(fuelMassDot));
+    assert(oxidME .GetMassDot().ApproxEquals(oxidMassDot));
+    assert(h2o2ME .GetMassDot().ApproxEquals(h2o2MassDot));
+    assert(liqN2ME.GetMassDot().ApproxEquals(liqN2MassDot));
+    assert(fullME .GetMassDot().ApproxEquals(fullMassDot));
 
-    // Extract the the CoM and the MoIs:
-    res.m_com     = fullME.GetCoM    ();
-    res.m_mois    = fullME.GetMoIs   ();
-    res.m_moiDots = fullME.GetMoIDots();
-
-    // All Done:
-    return res;
+    //-----------------------------------------------------------------------//
+    // Make the Result:                                                      //
+    //-----------------------------------------------------------------------//
+    return StageDynParams<LVSC::Soyuz21b>
+    {
+      .m_fullMass    = fullMass,
+      .m_fuelMass    = fuelMass,
+      .m_oxidMass    = oxidMass,
+      .m_fullMassDot = fullME.GetMassDot(),
+      .m_com         = fullME.GetCoM    (),
+      .m_comDots     = fullME.GetCoMDots(),
+      .m_mois        = fullME.GetMoIs   (),
+      .m_moiDots     = fullME.GetMoIDots(),
+      .m_thrust      = ForceVEmb<LVSC::Soyuz21b>(thrustX, thrustY, thrustZ)
+    };
   }
 }
 // End namespace SpaceBallistics

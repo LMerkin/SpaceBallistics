@@ -487,8 +487,11 @@ namespace SpaceBallistics
     // NB: This method is NOT "constexpr": it is intended to be called at Run-
     // Time (eg multiple times during Trajectory Integration):
     //
-    static StageDynParams<LVSC::Soyuz21b>
-    GetDynParams(Time a_t, ChamberDeflections const& a_chamber_defls);
+    static StageDynParams<LVSC::Soyuz21b> GetDynParams
+    (
+      Time                      a_t,
+      ChamberDeflections const& a_chamber_defls
+    );
   };
 }
 // End namespace SpaceBallistics

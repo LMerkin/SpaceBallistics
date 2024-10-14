@@ -12,10 +12,9 @@ namespace SpaceBallistics
   //=========================================================================//
   // "Soyuz21b_Stage3::GetDynParams":                                        //
   //=========================================================================//
-  // "a_t" is Flight Time since the "Contact Separation" event:
+  // "a_t" is the Flight Time since the LiftOff ("Contact Separation") event:
   //
-  StageDynParams<LVSC::Soyuz21b>
-  Soyuz21b_Stage3::GetDynParams
+  StageDynParams<LVSC::Soyuz21b> Soyuz21b_Stage3::GetDynParams
   (
     Time                      a_t,
     ChamberDeflections const& a_chamber_defls
@@ -23,8 +22,6 @@ namespace SpaceBallistics
   {
     // We currently do not allow any times prior to LiftOff:
     assert(!IsNeg(a_t));
-
-    StageDynParams<LVSC::Soyuz21b> res;   // XXX: Empty (all 0s) yet...
 
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
@@ -92,10 +89,7 @@ namespace SpaceBallistics
            OxidRem <= oxidMass  && oxidMass <= OxidMass &&
            !(IsPos(fuelMassDot) || IsPos(oxidMassDot)));
 
-    // If OK: Save the masses in the "res":
-    res.m_fullMass  = fullMass;
-    res.m_fuelMass  = fuelMass;
-    res.m_oxidMass  = oxidMass;
+    MassRate fullMassDot = fuelMassDot + oxidMassDot;
 
     //-----------------------------------------------------------------------//
     // Thrust Vector:                                                        //
@@ -135,10 +129,9 @@ namespace SpaceBallistics
         assert(false);
       }
     }
-    res.m_thrust = ME::ForceVE(thrustX, thrustY, thrustZ);
-
+    //
     //-----------------------------------------------------------------------//
-    // Moments of Inertia and Center of Masses:                              //
+    // Moments of Inertia and the Center of Masses:                          //
     //-----------------------------------------------------------------------//
     // NB:
     // (*) "fuelLevel" and "oxidLevel" are hooks provided for debugging purposes
@@ -195,18 +188,29 @@ namespace SpaceBallistics
     // Full = (Empty+Gases) + Fuel + Oxid:
     ME fullME = (a_t < AftJetTime ? EGBeforeME : EGAfterME) + fuelME + oxidME;
 
-    // Double-check the Masses:
-    assert(fullMass.ApproxEquals(fullME.GetMass()) &&
-           fuelMass.ApproxEquals(fuelME.GetMass()) &&
-           oxidMass.ApproxEquals(oxidME.GetMass()));
+    // Double-check the Masses and the MassRate:
+    assert(fullME.GetMass   ().ApproxEquals(fullMass)    &&
+           fuelME.GetMass   ().ApproxEquals(fuelMass)    &&
+           oxidME.GetMass   ().ApproxEquals(oxidMass)    &&
+           fullME.GetMassDot().ApproxEquals(fullMassDot) &&
+           fuelME.GetMassDot().ApproxEquals(fuelMassDot) &&
+           oxidME.GetMassDot().ApproxEquals(oxidMassDot));
 
-    // Extract the the CoM and the MoIs:
-    res.m_com     = fullME.GetCoM    ();
-    res.m_mois    = fullME.GetMoIs   ();
-    res.m_moiDots = fullME.GetMoIDots();
-
-    // All Done:
-    return res;
+    //-----------------------------------------------------------------------//
+    // Make the Result:                                                      //
+    //-----------------------------------------------------------------------//
+    return StageDynParams<LVSC::Soyuz21b>
+    {
+      .m_fullMass    = fullMass,
+      .m_fuelMass    = fuelMass,
+      .m_oxidMass    = oxidMass,
+      .m_fullMassDot = fullMassDot,
+      .m_com         = fullME.GetCoM    (),
+      .m_comDots     = fullME.GetCoMDots(),
+      .m_mois        = fullME.GetMoIs   (),
+      .m_moiDots     = fullME.GetMoIDots(),
+      .m_thrust      = ForceVEmb<LVSC::Soyuz21b>(thrustX, thrustY, thrustZ)
+    };
   }
 }
 // End namespace SpaceBallistics

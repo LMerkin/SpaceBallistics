@@ -216,28 +216,35 @@ namespace SpaceBallistics
     // "ProRateMass":                                                        //
     //=======================================================================//
     // Returns a new object (of any type derived from "MechElement") which diff-
-    // ers from the original one  by the Mass and MoIs being multiplied by the
-    // ScaleFactor.
-    // XXX:
-    // (*) it is assumed that any other flds of "Derived" are UNAFFECTED by this
-    //     scaling;
-    // (*) we also assume that this operation is only applicable to Fixed-Mass
-    //     "MechElement"s, so all Rates must be 0, and are not affected by the
-    //     scaling:
+    // ers from the original one  by the Mass, MoIs, MassDot and MoIDots being
+    // multiplied by the ScaleFactor.
+    // There are 2 distinct use cases of this function:
+    // (1) "a_der" is a Non-Final ME; "a_der" was obtained by "GetMassScale"
+    //     from a list of such Non-Final MEs (typically 2D Surfaces)  with a
+    //     known total mass and a 
+    // (2) "a_der" is a formally Final ME which  is a 3D Propellant Bulk; its
+    //     mass is scaled because the Propellant is being replaced by Pressu-
+    //     risation Gas; in this case,
     //
-    template<bool Force = false, typename Derived>
-    constexpr static  Derived ProRateMass(Derived const& a_der, double a_scale)
+    template<bool IsPressnGas = false, typename Derived>
+    constexpr static  Derived ProRateMass
+    (
+      Derived const& a_der,
+      double         a_scale,
+      DensRate       a_dens_dot = DensRate(0.0)
+    )
     {
       static_assert(std::is_base_of_v<MechElement, Derived>);
       assert(a_scale > 0.0);
+      assert(IsPressnGas || IsZero(a_dens_dot));
 
       // Create a copy of "a_der" using the Copy Ctor of Derived (which must
       // indeed be derived from "MechElement"):
       Derived copy(a_der);
 
       // Cannot adjust the Mass once it has been finalised, or if any Rates are
-      // non-0, unless the "Force" flag is set:
-      assert(Force ||
+      // non-0, unless this is the "PressnGas" case:
+      assert(IsPressnGas  ||
             (!copy.m_isFinal           && IsZero(copy.m_massDot)    &&
              IsZero(copy.m_MoIDots[0]) && IsZero(copy.m_MoIDots[1]) &&
              IsZero(copy.m_MoIDots[2])));
@@ -249,13 +256,25 @@ namespace SpaceBallistics
       copy.m_MoIs[2] *= a_scale;
       copy.m_isFinal  = true;
 
-      // If the "Force" flag is set, forcibly re-set all rates to 0:
-      if constexpr(Force)
+      if constexpr(IsPressnGas)
       {
-        copy.m_massDot    = MassRate(0.0);
-        copy.m_MoIDots[0] = MoIRate (0.0);
-        copy.m_MoIDots[1] = MoIRate (0.0);
-        copy.m_MoIDots[2] = MoIRate (0.0);
+        // Adjust the Mass and MoI Dots using "a_dens_dot".
+        // We use the fact that the Mass and MoIs are linear in Density, and
+        // the ME must have a non-0 volume:
+        assert(IsPos(copy.m_mass) && IsPos(copy.m_enclVol));
+        Density    dens  = copy.m_mass  /  copy.m_enclVol;
+
+        copy.m_massDot    *= a_scale;
+        copy.m_massDot    += copy.m_enclVol * a_dens_dot;
+
+        copy.m_MoIDots[0] *= a_scale;
+        copy.m_MoIDots[0] += copy.m_MoIs[0] * a_dens_dot / dens;
+
+        copy.m_MoIDots[1] *= a_scale;
+        copy.m_MoIDots[1] += copy.m_MoIs[1] * a_dens_dot / dens;
+
+        copy.m_MoIDots[2] *= a_scale;
+        copy.m_MoIDots[2] += copy.m_MoIs[2] * a_dens_dot / dens;
       }
       return copy;
     }
@@ -298,6 +317,12 @@ namespace SpaceBallistics
     {
       assert(m_isFinal);
       return m_MoIDots;
+    }
+
+    constexpr VelVE     const& GetCoMDots() const
+    {
+      assert(m_isFinal);
+      return m_CoMDots;
     }
 
     //=======================================================================//
@@ -363,8 +388,9 @@ namespace SpaceBallistics
       m_MoIDots[1] -= a_right.m_MoIDots[1];
       m_MoIDots[2] -= a_right.m_MoIDots[2];
 
-      // For the CoM, do the weighted avg (but the result mass must be non-0):
-      assert(IsPos(m_mass) && !IsNeg(m_enclVol));
+      // For the CoM, do the weighted avg (but the resulting mass and volume
+      // must be > 0):
+      assert(IsPos(m_mass) && IsPos(m_enclVol));
       double mu0  = double(m0             / m_mass);
       double mu1  = double(a_right.m_mass / m_mass);
       m_CoM[0]    = mu0 * m_CoM[0]  - mu1 * a_right.m_CoM[0];

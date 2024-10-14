@@ -19,13 +19,17 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   struct StageDynParams
   {
-    Mass                  m_fullMass;  // Curr full mass of a Stage
-    Mass                  m_fuelMass;  // Curr mass of Fuel
-    Mass                  m_oxidMass;  // Curr mass of Oxidiser
-    PosVEmb    <LVSCKind> m_com;       // Curr center of masses (x,  y,  z)
-    MoIVEmb    <LVSCKind> m_mois;      // Curr MoIs             (Jx, Jy, Jz)
-    MoIRateVEmb<LVSCKind> m_moiDots;   // Curr MoIRates         (  similar )
-    ForceVEmb  <LVSCKind> m_thrust;    // Curr engine thrust    (Fx, Fy, Fz)
+    // TODO: TimeInstant in some TimeScale...
+    Mass                  m_fullMass;     // Curr full mass of a Stage
+    Mass                  m_fuelMass;     // Curr mass of Fuel
+    Mass                  m_oxidMass;     // Curr mass of Oxidiser
+    MassRate              m_fullMassDot;  // Full Mass Time Derivative
+    PosVEmb    <LVSCKind> m_com;          // Curr center of masses (x,  y,  z)
+    VelVEmb    <LVSCKind> m_comDots;      // CoM  Embedded "Velocity"
+    MoIVEmb    <LVSCKind> m_mois;         // Curr MoIs             (Jx, Jy, Jz)
+    MoIRateVEmb<LVSCKind> m_moiDots;      // Curr MoIRates         (  similar )
+    ForceVEmb  <LVSCKind> m_thrust;       // Curr engine thrust    (Fx, Fy, Fz)
+    // TODO: Thrust Moment; AeroDynamic Forces and their Moments...
   };
 }
 // End namespace SpaceBallistics

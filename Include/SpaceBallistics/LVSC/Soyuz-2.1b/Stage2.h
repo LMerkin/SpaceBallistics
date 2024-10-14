@@ -197,9 +197,9 @@ namespace SpaceBallistics
     constexpr static Mass     FullMass      = EmptyMass + FuelMass + OxidMass +
                                               H2O2Mass  + N2Mass;
     // N2Mass is split into a Liquid and Gaseous Phases, the initial masses are:
-    constexpr static Mass     LiqN2Mass0    = 485.0_kg;
-    constexpr static Mass     GasN2Mass0    =  24.0_kg;
-    static_assert(LiqN2Mass0 + GasN2Mass0  == N2Mass);
+    constexpr static Mass     LiqN2Mass     = 485.0_kg;
+    constexpr static Mass     GasN2Mass     =  24.0_kg;
+    static_assert(LiqN2Mass + GasN2Mass == N2Mass);
 
     // UnSpendable Remnants of the Fuel and Oxidiser in Stage2 at the engine
     // cut-off time.   NB: The Remnants are about 1% of the corresp initial
@@ -309,7 +309,6 @@ namespace SpaceBallistics
     constexpr static Mass     OxidMass0       =
       OxidMass - OxidMR * IgnAdvance * IgnThrottlLevel;
 
-    constexpr static Mass     H2O2Mass0       = H2O2Mass;
     constexpr static Mass     FullMass0       =
       FullMass - ((FuelMass + OxidMass) - (FuelMass0 + OxidMass0));
     static_assert(FullMass0 < FullMass);
@@ -365,7 +364,7 @@ namespace SpaceBallistics
       VernMR4 * ShutDownThrottlLevel * OxidPart;
 
     //-----------------------------------------------------------------------//
-    // RD-108A BurnTimes:                                                    //
+    // RD-108A BurnTimes and Rates:                                          //
     //-----------------------------------------------------------------------//
     // Then the Max Duration at FullThrust is:
     constexpr static Time  MaxFullThrustDur  =
@@ -382,19 +381,21 @@ namespace SpaceBallistics
     // NB: In addition, there is a MassRate due to H2O2 burning   to drive the
     // TurboPumps; however, this MassRate does not formally participate in the
     // Thrust. We assume that H2O2 flow begins at FullThrust / LiftOff time
-    // and lasts for the whole "MaxBurnTime":
+    // and lasts for the whole "MaxBurnTime", with an exactly constant rate:
     //
-    constexpr static MassRate H2O2MR  = (H2O2Mass   - H2O2Rem)  / MaxBurnTime;
+    constexpr static MassRate H2O2MR  = (H2O2Mass - H2O2Rem) / MaxBurnTime;
     static_assert(IsPos(H2O2MR));
 
     // So  the total MassRate (at Full Thrust) is:
     constexpr static MassRate FullMR  = EngineMR + H2O2MR;
 
-    // We assume that vaporisation of LiqN2 is also linear over time. however,
+    // We assume that vaporisation of LiqN2 is also exactly  linear over time,
+    // from FullThrust/LiftOff to the MaxBurnTime, and that initially, all of
+    // N2 is in the Liquid form (XXX: which is not exactly correct).  However,
     // unlike H2O2, N2 is not exhaused, only re-distributed over the Tank vol-
     // umes becoming available:
     //
-    constexpr static MassRate LiqN2MR = (LiqN2Mass0 - LiqN2Rem) / MaxBurnTime;
+    constexpr static MassRate LiqN2MR = (LiqN2Mass - LiqN2Rem) / MaxBurnTime;
     static_assert(IsPos(LiqN2MR));
 
     // For testing: Minimal Mass of the Spent Stage2 (with all Remnants at their
@@ -409,8 +410,8 @@ namespace SpaceBallistics
       FuelMassM - FuelMRM * (CutOffTime - MainCutOffTime);
     constexpr static Mass     OxidMassC =
       OxidMassM - OxidMRM * (CutOffTime - MainCutOffTime);
-    constexpr static Mass    H2O2MassC  = H2O2Mass0  - H2O2MR  * CutOffTime;
-    constexpr static Mass    LiqN2MassC = LiqN2Mass0 - LiqN2MR * CutOffTime;
+    constexpr static Mass    H2O2MassC  = H2O2Mass  - H2O2MR  * CutOffTime;
+    constexpr static Mass    LiqN2MassC = LiqN2Mass - LiqN2MR * CutOffTime;
 
     // Checks:
     static_assert
@@ -840,13 +841,13 @@ namespace SpaceBallistics
     constexpr static Mass LiqN2TankMC = LiqN2TankTopMC     + LiqN2TankBtmMC;
 
     // Propellant Load Ratios (ActualMass / TheorMassCapacity):
-    constexpr static double OxidLoadRatio  = double(OxidMass   / OxidTankMC);
+    constexpr static double OxidLoadRatio  = double(OxidMass  / OxidTankMC);
     static_assert(OxidLoadRatio  < 1.0);
-    constexpr static double FuelLoadRatio  = double(FuelMass   / FuelTankMC);
+    constexpr static double FuelLoadRatio  = double(FuelMass  / FuelTankMC);
     static_assert(FuelLoadRatio  < 1.0);
-    constexpr static double H2O2LoadRatio  = double(H2O2Mass   / H2O2TankMC);
+    constexpr static double H2O2LoadRatio  = double(H2O2Mass  / H2O2TankMC);
     static_assert(H2O2LoadRatio  < 1.0);
-    constexpr static double LiqN2LoadRatio = double(LiqN2Mass0 / LiqN2TankMC);
+    constexpr static double LiqN2LoadRatio = double(LiqN2Mass / LiqN2TankMC);
     static_assert(LiqN2LoadRatio < 1.0);
 
   private:
@@ -876,13 +877,19 @@ namespace SpaceBallistics
 
     // For H2O2 and LiqN2, "Top" MEs are not required:
     // H2O2:
+    constexpr static ME H2O2TopME         = H2O2TankTop.GetPropBulkME();
     constexpr static ME H2O2MidME         = H2O2TankMid.GetPropBulkME();
     constexpr static ME H2O2BtmME         = H2O2TankBtm.GetPropBulkME();
     // Union:
     constexpr static ME H2O2BtmMidME      = H2O2BtmME      + H2O2MidME;
+    // The whole maximum H2O2 bulk:
+    constexpr static ME H2O2ME            = H2O2BtmMidME   + H2O2TopME;
 
     // LiqN2:
+    constexpr static ME LiqN2TopME        = LiqN2TankTop.GetPropBulkME();
     constexpr static ME LiqN2BtmME        = LiqN2TankBtm.GetPropBulkME();
+    // The whole maximum H2O2 bulk:
+    constexpr static ME LiqN2ME           = LiqN2TopME     + LiqN2BtmME;
 
   public:
     //=======================================================================//

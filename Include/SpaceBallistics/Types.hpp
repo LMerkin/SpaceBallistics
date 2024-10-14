@@ -42,6 +42,9 @@ namespace SpaceBallistics
   using Density  = decltype(Mass() / Vol (1.0));
   using SurfDens = decltype(Mass() / Area(1.0));
 
+  // For compressible gases: Rate of Density change:
+  using DensRate = decltype(Density() / 1.0_sec);
+
   // Moment of Inertia (kg*m^2):
   using MoI      = decltype(Mass() * Area(1.0));
 

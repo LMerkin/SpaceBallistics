@@ -54,14 +54,56 @@ int main()
   //-------------------------------------------------------------------------//
   // XXX: Currently assuming no Thrust Vector Control:
   //
-  S3::ChamberDeflections chamberDefls0;    // All 0s by default 
+  S3::ChamberDeflections const chamberDefls0; // All 0s by default
 
-  for (Time t = 250.0_sec; t <= 600.0_sec; t += 0.1_sec)
+  // To verify the validity of Mass and MoI "Dots", we integrate them and compa-
+  // re the results with the analytical Mass and MoIs:
+  Mass   integrMass;
+  MoI    integrMoIX;
+  MoI    integrMoIY;
+  double maxRelErrMass = 0.0;
+  double maxRelErrMoIX = 0.0;
+  double maxRelErrMoIY = 0.0;
+
+  constexpr Time   t0  = 250.0_sec;
+  constexpr Time   t1  = 600.0_sec;
+  constexpr Time   tau = 0.1_sec;
+  bool      willJump   = true;
+
+  for (Time t = t0; t <= t1; t += tau)
   {
     StageDynParams<LVSC::Soyuz21b> dp = S3::GetDynParams(t, chamberDefls0);
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
-           dp.m_mois[1]        == dp.m_mois[2]);
+           dp.m_mois      [1]  == dp.m_mois      [2]  &&
+           dp.m_moiDots   [1]  == dp.m_moiDots   [2]);
+
+    // XXX: Because the Mass and the MoIs experience a jump, we have to re-init
+    // our integration at that point:
+    if (t == t0 || (willJump && t >= S3::AftJetTime))
+    {
+      integrMass   = dp.m_fullMass;
+      integrMoIX   = dp.m_mois[0];
+      integrMoIY   = dp.m_mois[1];
+      if (t >= S3::AftJetTime)
+        willJump   = false;
+    }
+    else
+    {
+      // Update the integrals using the backward-looking "Dots":
+      integrMass  += tau * dp.m_fullMassDot;
+      integrMoIX  += tau * dp.m_moiDots[0];
+      integrMoIY  += tau * dp.m_moiDots[1];
+
+      // Compute the integration errors:
+      double integrMassErr = Abs(double(integrMass / dp.m_fullMass) - 1.0);
+      double integrMoIErrX = Abs(double(integrMoIX / dp.m_mois[0] ) - 1.0);
+      double integrMoIErrY = Abs(double(integrMoIY / dp.m_mois[1] ) - 1.0);
+
+      maxRelErrMass = std::max(maxRelErrMass, integrMassErr);
+      maxRelErrMoIX = std::max(maxRelErrMoIX, integrMoIErrX);
+      maxRelErrMoIY = std::max(maxRelErrMoIY, integrMoIErrY);
+    }
 
     cout << t.Magnitude  ()             << '\t'
          << dp.m_fullMass  .Magnitude() << '\t'
@@ -70,10 +112,12 @@ int main()
          << dp.m_com    [0].Magnitude() << '\t'
          << dp.m_mois   [0].Magnitude() << '\t'
          << dp.m_mois   [1].Magnitude() << '\t'
-         << dp.m_mois   [2].Magnitude() << '\t'
          << dp.m_moiDots[0].Magnitude() << '\t'
-         << dp.m_moiDots[1].Magnitude() << '\t'
-         << dp.m_moiDots[2].Magnitude() << endl;
+         << dp.m_moiDots[1].Magnitude() << endl;
   }
+  cout << "# MaxRelErrMass     : " << maxRelErrMass  << endl;
+  cout << "# MaxRelErrMoIX     : " << maxRelErrMoIX  << endl;
+  cout << "# MaxRelErrMoIY     : " << maxRelErrMoIY  << endl;
+
   return 0;
 }
