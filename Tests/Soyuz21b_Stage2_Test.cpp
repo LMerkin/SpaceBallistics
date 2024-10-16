@@ -70,9 +70,11 @@ int main()
   Mass   integrMass;
   MoI    integrMoIX;
   MoI    integrMoIY;
+  Len    integrCoMX;
   double maxRelErrMass = 0.0;
   double maxRelErrMoIX = 0.0;
   double maxRelErrMoIY = 0.0;
+  double maxRelErrCoMX = 0.0;
 
   constexpr Time   tau = 0.1_sec;
 
@@ -89,6 +91,7 @@ int main()
       integrMass   = dp.m_fullMass;
       integrMoIX   = dp.m_mois[0];
       integrMoIY   = dp.m_mois[1];
+      integrCoMX   = dp.m_com [0];
     }
     else
     {
@@ -96,15 +99,18 @@ int main()
       integrMass  += tau * dp.m_fullMassDot;
       integrMoIX  += tau * dp.m_moiDots[0];
       integrMoIY  += tau * dp.m_moiDots[1];
+      integrCoMX  += tau * dp.m_comDots[0];
 
       // Compute the integration errors:
       double integrMassErr = Abs(double(integrMass / dp.m_fullMass) - 1.0);
       double integrMoIErrX = Abs(double(integrMoIX / dp.m_mois[0] ) - 1.0);
       double integrMoIErrY = Abs(double(integrMoIY / dp.m_mois[1] ) - 1.0);
+      double integrCoMErrX = Abs(double(integrCoMX / dp.m_com [0] ) - 1.0);
 
       maxRelErrMass = std::max(maxRelErrMass, integrMassErr);
       maxRelErrMoIX = std::max(maxRelErrMoIX, integrMoIErrX);
       maxRelErrMoIY = std::max(maxRelErrMoIY, integrMoIErrY);
+      maxRelErrCoMX = std::max(maxRelErrCoMX, integrCoMErrX);
     }
 
     cout << t.Magnitude()               << '\t'
@@ -122,5 +128,6 @@ int main()
   cout << "# MaxRelErrMass       : " << maxRelErrMass  << endl;
   cout << "# MaxRelErrMoIX       : " << maxRelErrMoIX  << endl;
   cout << "# MaxRelErrMoIY       : " << maxRelErrMoIY  << endl;
+  cout << "# MaxRelErrCoMX       : " << maxRelErrCoMX  << endl;
   return 0;
 }

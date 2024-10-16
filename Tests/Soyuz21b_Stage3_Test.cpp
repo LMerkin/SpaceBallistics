@@ -61,9 +61,11 @@ int main()
   Mass   integrMass;
   MoI    integrMoIX;
   MoI    integrMoIY;
+  Len    integrCoMX;
   double maxRelErrMass = 0.0;
   double maxRelErrMoIX = 0.0;
   double maxRelErrMoIY = 0.0;
+  double maxRelErrCoMX = 0.0;
 
   constexpr Time   t0  = 250.0_sec;
   constexpr Time   t1  = 600.0_sec;
@@ -76,15 +78,17 @@ int main()
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois      [1]  == dp.m_mois      [2]  &&
-           dp.m_moiDots   [1]  == dp.m_moiDots   [2]);
+           dp.m_moiDots   [1]  == dp.m_moiDots   [2]  &&
+           IsZero(dp.m_comDots[1]) && IsZero(dp.m_comDots[2]));
 
-    // XXX: Because the Mass and the MoIs experience a jump, we have to re-init
+    // XXX: Because the Mass, MoIs and CoM experience a jump, we have to re-init
     // our integration at that point:
     if (t == t0 || (willJump && t >= S3::AftJetTime))
     {
       integrMass   = dp.m_fullMass;
       integrMoIX   = dp.m_mois[0];
       integrMoIY   = dp.m_mois[1];
+      integrCoMX   = dp.m_com [0];
       if (t >= S3::AftJetTime)
         willJump   = false;
     }
@@ -94,15 +98,18 @@ int main()
       integrMass  += tau * dp.m_fullMassDot;
       integrMoIX  += tau * dp.m_moiDots[0];
       integrMoIY  += tau * dp.m_moiDots[1];
+      integrCoMX  += tau * dp.m_comDots[0];
 
       // Compute the integration errors:
       double integrMassErr = Abs(double(integrMass / dp.m_fullMass) - 1.0);
       double integrMoIErrX = Abs(double(integrMoIX / dp.m_mois[0] ) - 1.0);
       double integrMoIErrY = Abs(double(integrMoIY / dp.m_mois[1] ) - 1.0);
+      double integrCoMErrX = Abs(double(integrCoMX / dp.m_com [0] ) - 1.0);
 
       maxRelErrMass = std::max(maxRelErrMass, integrMassErr);
       maxRelErrMoIX = std::max(maxRelErrMoIX, integrMoIErrX);
       maxRelErrMoIY = std::max(maxRelErrMoIY, integrMoIErrY);
+      maxRelErrCoMX = std::max(maxRelErrCoMX, integrCoMErrX);
     }
 
     cout << t.Magnitude  ()             << '\t'
@@ -118,6 +125,7 @@ int main()
   cout << "# MaxRelErrMass     : " << maxRelErrMass  << endl;
   cout << "# MaxRelErrMoIX     : " << maxRelErrMoIX  << endl;
   cout << "# MaxRelErrMoIY     : " << maxRelErrMoIY  << endl;
+  cout << "# MaxRelErrCoMX     : " << maxRelErrCoMX  << endl;
 
   return 0;
 }

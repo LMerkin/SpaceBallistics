@@ -338,27 +338,38 @@ namespace SpaceBallistics
       assert(m_isFinal && a_right.m_isFinal &&
              !(IsZero(m_mass) && IsZero(a_right.m_mass)));
 
+      // Memoise the orig Mass and MassDot -- required later:
+      Mass     m0    = m_mass;
+      MassRate m0dot = m_massDot;
+
       // Masses, SurfAreas, Vols and MoIs are directly-additive:
-      Mass      m0  = m_mass;
-      m_mass       += a_right.m_mass;
-      m_massDot    += a_right.m_massDot;
-      m_enclVol    += a_right.m_enclVol;
+      m_mass        += a_right.m_mass;
+      m_massDot     += a_right.m_massDot;
+      m_enclVol     += a_right.m_enclVol;
 
-      m_MoIs   [0] += a_right.m_MoIs   [0];
-      m_MoIs   [1] += a_right.m_MoIs   [1];
-      m_MoIs   [2] += a_right.m_MoIs   [2];
-
-      m_MoIDots[0] += a_right.m_MoIDots[0];
-      m_MoIDots[1] += a_right.m_MoIDots[1];
-      m_MoIDots[2] += a_right.m_MoIDots[2];
-
-      // For the CoM, do the weighted avg (but the total mass must be non-0):
+      // For the CoM and CoMDots, do the weighted avg (but the total mass must
+      // be non-0):
       assert(IsPos(m_mass));
-      double mu0  = double(m0             / m_mass);
-      double mu1  = double(a_right.m_mass / m_mass);
-      m_CoM[0]    = mu0 * m_CoM[0]  + mu1 * a_right.m_CoM[0];
-      m_CoM[1]    = mu0 * m_CoM[1]  + mu1 * a_right.m_CoM[1];
-      m_CoM[2]    = mu0 * m_CoM[2]  + mu1 * a_right.m_CoM[2];
+      double mu0  = double(m0 / m_mass);
+      assert(0.0 <= mu0 && mu0 <= 1.0);
+      double mu1  = 1.0 -  mu0;
+
+      // XXX: BEWARE that "mu0" and "mu1" may themselves be functions of time,
+      // which must be taken into account in "CoMDots" computation; obviously,
+      // mu1dot = - mu0dot:
+      auto mu0dot = (m0dot - mu0 * m_massDot) / m_mass;
+
+      for (int i = 0; i < 3; ++i)
+      {
+        m_MoIs   [i] += a_right.m_MoIs   [i];
+        m_MoIDots[i] += a_right.m_MoIDots[i];
+
+        // BEWARE: Modify "CoMDots" first, because they required the OLD vals
+        // of "CoM":
+        m_CoMDots[i]  = mu0 * m_CoMDots  [i] + mu1 * a_right.m_CoMDots[i] +
+                        mu0dot   * (m_CoM[i] -       a_right.m_CoM    [i]);
+        m_CoM    [i]  = mu0 * m_CoM      [i] + mu1 * a_right.m_CoM    [i];
+      }
       return *this;
     }
 
@@ -374,28 +385,39 @@ namespace SpaceBallistics
       assert(m_isFinal && a_right.m_isFinal &&
              !(IsZero(m_mass) && IsZero(a_right.m_mass)));
 
+      // Memoise the orig Mass and MassDot -- required later:
+      Mass     m0    = m_mass;
+      MassRate m0dot = m_massDot;
+
       // Masses, SurfAreas, Vols and MoIs are directly-additive:
-      Mass      m0  = m_mass;
-      m_mass       -= a_right.m_mass;
-      m_massDot    -= a_right.m_massDot;
-      m_enclVol    -= a_right.m_enclVol;
+      m_mass        -= a_right.m_mass;
+      m_massDot     -= a_right.m_massDot;
+      m_enclVol     -= a_right.m_enclVol;
 
-      m_MoIs   [0] -= a_right.m_MoIs   [0];
-      m_MoIs   [1] -= a_right.m_MoIs   [1];
-      m_MoIs   [2] -= a_right.m_MoIs   [2];
-
-      m_MoIDots[0] -= a_right.m_MoIDots[0];
-      m_MoIDots[1] -= a_right.m_MoIDots[1];
-      m_MoIDots[2] -= a_right.m_MoIDots[2];
-
-      // For the CoM, do the weighted avg (but the resulting mass and volume
-      // must be > 0):
+      // For the CoM and CoMDots, do the weighted avg (but the total mass and
+      // volume must be > 0):
+      // be non-0):
       assert(IsPos(m_mass) && IsPos(m_enclVol));
-      double mu0  = double(m0             / m_mass);
-      double mu1  = double(a_right.m_mass / m_mass);
-      m_CoM[0]    = mu0 * m_CoM[0]  - mu1 * a_right.m_CoM[0];
-      m_CoM[1]    = mu0 * m_CoM[1]  - mu1 * a_right.m_CoM[1];
-      m_CoM[2]    = mu0 * m_CoM[2]  - mu1 * a_right.m_CoM[2];
+      double mu0    = double(m0             / m_mass);
+      double mu1    = double(a_right.m_mass / m_mass);
+
+      // XXX: BEWARE that "mu0" and "mu1" may themselves be functions of time,
+      // which must be taken into account in "CoMDots" computation:
+      //
+      auto mu0dot = (m0dot             - mu0 * m_massDot) / m_mass;
+      auto mu1dot = (a_right.m_massDot - mu1 * m_massDot) / m_mass;
+
+      for (int i = 0; i < 3; ++i)
+      {
+        m_MoIs   [i] -= a_right.m_MoIs    [i];
+        m_MoIDots[i] -= a_right.m_MoIDots [i];
+
+        // Again, modify "CoMDots" first, because they require the OLD vals of
+        // "CoM":
+        m_CoMDots[i]  = mu0    * m_CoMDots[i] - mu1    * a_right.m_CoMDots[i] +
+                        mu0dot * m_CoM    [i] - mu1dot * a_right.m_CoM    [i];
+        m_CoM    [i]  = mu0    * m_CoM    [i] - mu1    * a_right.m_CoM    [i];
+      }
       return *this;
     }
 
