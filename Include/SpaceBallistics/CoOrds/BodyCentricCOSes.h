@@ -10,7 +10,7 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // "BodyCentricFixedCOS" Class:                                             //
+  // "BodyCentricFixedCOS" Class:                                            //
   //=========================================================================//
   // Origin: Normally, the center of the Body Ellipsoid.
   // Axes  : X       : Equinox(2000.0);

@@ -175,7 +175,8 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
   Src/LVSC/Soyuz-2.1b/Stage2.cpp
   Src/LVSC/Soyuz-2.1b/Stage3.cpp
   Src/PhysForces/GravityPotential-Earth.cpp
-  Src/PhysForces/GravityPotential-Moon.cpp)
+  Src/PhysForces/GravityPotential-Moon.cpp
+  Src/PhysForces/DE440T-Data.cpp)
 
 #=============================================================================#
 # Tests:                                                                      #

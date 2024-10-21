@@ -134,8 +134,8 @@ namespace SpaceBallistics
     Mass  h2o2Spent      = H2O2Mass  - h2o2Mass;
     assert(!(IsNeg(fuelSpent) || IsNeg(oxidSpent) || IsNeg(h2o2Spent)));
 
-    Mass     fullMass    = FullMass0   - (fuelSpent  + oxidSpent + h2o2Spent);
-    MassRate fullMassDot = fuelMassDot + oxidMassDot + h2o2MassDot;
+    Mass       fullMass  = FullMass0 - (fuelSpent  + oxidSpent   + h2o2Spent);
+    DEBUG_ONLY(MassRate fullMassDot  = fuelMassDot + oxidMassDot + h2o2MassDot;)
 
     // Check the Curr Masses and MassRates:
     assert(MinEndMass <= fullMass  && fullMass  <= FullMass0 &&
