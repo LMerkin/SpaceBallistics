@@ -30,7 +30,7 @@ namespace SpaceBallistics
     static_assert(To_Time(double(NR) * RecSpan) == To - From);
 
     // Size of each record in "double"s:
-    constexpr static int ND  = 1122;
+    constexpr static int ND   = 1122;
 
     //-----------------------------------------------------------------------//
     // Data Record Layout:                                                   //
@@ -38,38 +38,38 @@ namespace SpaceBallistics
     struct Record
     {
       // Time Span of this Record, JD_TDB:
-      Time_day    m_From;
-      Time_day    m_To;
+      Time_day const   m_From;
+      Time_day const   m_To;
 
       // Chebyshev Coeffs for 3D Planetary Positions, in the "BaryCentricCOS";
       // the last dim is [X, Y, Z]:
-      Len_km      m_Mercury       [4][14][3];
-      Len_km      m_Venus         [2][10][3];
-      Len_km      m_EMB           [2][13][3];  // Earth-Moon System BaryCenter
-      Len_km      m_Mars             [11][3];
-      Len_km      m_Jupiter           [8][3];
-      Len_km      m_Saturn            [7][3];
-      Len_km      m_Uranus            [6][3];
-      Len_km      m_Neptune           [6][3];
-      Len_km      m_Pluto             [6][3];
+      Len_km   const   m_Mercury      [4][14][3];
+      Len_km   const   m_Venus        [2][10][3];
+      Len_km   const   m_EMB          [2][13][3];  // Earth-Moon System BaryCnt
+      Len_km   const   m_Mars            [11][3];
+      Len_km   const   m_Jupiter          [8][3];
+      Len_km   const   m_Saturn           [7][3];
+      Len_km   const   m_Uranus           [6][3];
+      Len_km   const   m_Neptune          [6][3];
+      Len_km   const   m_Pluto            [6][3];
 
       // Chebyshev Coeffs for the 3D Moon Position, in the "GeoCentricFixedCOS";
       // the last dim is  [X, Y, Z]:
-      Len_km      m_MoonGeoC      [8][13][3];
+      Len_km   const   m_MoonGeoC     [8][13][3];
 
       // Chebyshev Coeffs for the Position of the Sun, in the "BaryCentricCOS":
-      Len_km      m_Sun           [2][11][3];
+      Len_km   const   m_Sun          [2][11][3];
 
       // Chebyshev Coeffs for Long-Period Earth Nutations:
       // the last dim is [d(psi), d(eps)]:
-      Angle       m_EarthNutation [4][10][2];
+      Angle    const   m_EarthNutation[4][10][2];
 
       // Chebyshev Coeffs for Lunar Mantle (Exterior) Librations:
       // the last dim is [phi, theta, psi]:
-      Angle       m_MoonLibration [4][10][3];
+      Angle    const   m_MoonLibration[4][10][3];
 
       // Chebyshev Coeffs for (TT-TDB):
-      Time        m_TTmTDB        [8][13];
+      Time     const  m_TTmTDB        [8][13];
     };
     // The size of the above "Record" is the same as that of "ND" "double"s:
     static_assert(sizeof(Record) == size_t(ND) * sizeof(double));
@@ -78,6 +78,12 @@ namespace SpaceBallistics
     // The Actual Data:                                                      //
     //-----------------------------------------------------------------------//
     static double const s_data[NR][ND];
+
+  public:
+    //-----------------------------------------------------------------------//
+    // "SelfTest" (for Temporal Continuity of Data):                         //
+    //-----------------------------------------------------------------------//
+    static void SelfTest();
 	};
 }
 // End namespace SpaceBallistics
