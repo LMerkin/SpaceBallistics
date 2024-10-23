@@ -191,6 +191,7 @@ SET(SB_TESTS
   AzimuthTest
   LagrangeNormTest
   LunarOrbiterTest
+  ChebyshevTest
   DE440T_Test)
 
 FOREACH(SB_TEST ${SB_TESTS})

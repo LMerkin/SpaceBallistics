@@ -2,7 +2,7 @@
 //===========================================================================//
 //                 "SpaceBallistics/PhysForces/GravityField.h":              //
 //===========================================================================//
-#pragma once
+#pragma  once
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"

@@ -4,9 +4,9 @@
 //===========================================================================//
 #include "SpaceBallistics/PhysForces/DE440T.h"
 
-namespace SpaceBallistics
+namespace SpaceBallistics::DE440T::Bits
 {  
-  double const DE440T::s_data[DE440T::NR][DE440T::ND]   
+  double const Data[NR][ND]   
   {
 #   include "SpaceBallistics/PhysForces/DE440T-1650-1750.hpp"
 #   include "SpaceBallistics/PhysForces/DE440T-1750-1850.hpp"
@@ -15,3 +15,4 @@ namespace SpaceBallistics
 #   include "SpaceBallistics/PhysForces/DE440T-2050-2150.hpp"
   };
 }
+// End namespace SpaceBallistics::DE440T::Bits

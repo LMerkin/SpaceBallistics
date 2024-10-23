@@ -34,8 +34,9 @@ namespace SpaceBallistics
     constexpr bool operator== (TT const&) const = default;
 
     //-----------------------------------------------------------------------//
-    // Non-Default Ctor: Constructs TT from UTC:                             //
+    // Non-Default Ctors:                                                    //
     //-----------------------------------------------------------------------//
+    // Constructing TT from UTC:
     constexpr TT
     (
       int     a_year,     //  Currently 1650 .. 2150 (for DE440T compatibility)
@@ -44,6 +45,19 @@ namespace SpaceBallistics
       int     a_hour,     //  0..23
       int     a_min,      //  0..59
       double  a_sec);     // [0..60) or [0..61) for Leap Seconds
+
+    // Directly constructing TT from JD or Seconds since the Epoch:
+    // XXX: USE WITH CARE!
+    constexpr TT  (Time_day a_jd_tt)
+    : m_JS     (To_Time_sec(a_jd_tt))
+    {}
+
+    constexpr TT  (Time a_js_tt)
+    : m_JS(a_js_tt)
+    {}
+
+    // Extracting the Time value (since the Epoch): XXX: USE WITH CARE!
+    constexpr Time GetTime() const { return m_JS; }
 
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //
@@ -98,8 +112,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // Solar System BaryCentric Time (Uniform, Relativistic). Used as the argument
   // in JPL Ephemerides (DE440T):
-  class DE440T;
-
+  //
   class TDB
   {
   private:
@@ -122,26 +135,26 @@ namespace SpaceBallistics
     constexpr bool  operator== (TDB const&) const = default;
     
     //-----------------------------------------------------------------------//
-    // Non-Default Ctor: Constructs TDB from TT:                             //
+    // Non-Default Ctors:                                                    //
     //-----------------------------------------------------------------------//
-    // The implementation is non-trivial, requires JPL Ephemerides:
+    // Constructing TDB from TT. The implementation is non-trivial, requires
+    // JPL Ephemerides (DE440T):
     //
     constexpr TDB(TT a_tt);
 
-  private:
-    //-----------------------------------------------------------------------//
-    // Directly constructing TDB from JD:                                    //
-    //-----------------------------------------------------------------------//
-    // XXX: To be used only within "DE440T", otherwise there could be a confus-
-    // ion about what a given JD value actually means ("TT" or "TDB"):
-    //
-    friend class DE440T;
-
+    // Directly constructing TDB from JD or Seconds since the Epoch:
+    // XXX: USE WITH CARE!
     constexpr TDB (Time_day a_jd_tdb)
     : m_JS     (To_Time_sec(a_jd_tdb))
     {}
 
-  public:
+    constexpr TDB (Time a_js_tdb)
+    : m_JS(a_js_tdb)
+    {}
+
+    // Extracting the Time value (since the Epoch): XXX: USE WITH CARE!
+    constexpr Time GetTime() const { return m_JS; }
+
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //
     //-----------------------------------------------------------------------//
