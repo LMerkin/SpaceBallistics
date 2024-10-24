@@ -52,6 +52,10 @@ namespace SpaceBallistics
   using Vel      = decltype(Len()  / 1.0_sec);
   using Acc      = decltype(Len()  / Sqr(1.0_sec));
 
+  // Using AstroDynamical Units (km, km/sec):
+  using LenK     = Len_km;
+  using VelK     = decltype(LenK() / 1.0_sec);
+
   // Force (N = kg*m/sec^2):
   using Force    = decltype(Mass() * Acc());
 
@@ -110,7 +114,8 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Mechanical Vectors:                                                     //
   //-------------------------------------------------------------------------//
-  // Macro for declaring a DimQ Vector (or a diagonal Tensor):
+  // Macro for declaring a DimQ Vector (or a diagonal Tensor). IMPORTANT: The
+  // Vectors are parameterised by the CoOrd System ("COS"):
 # ifdef DCL_VEC
 # undef DCL_VEC
 # endif
@@ -119,7 +124,9 @@ namespace SpaceBallistics
   using T##V = Vector3D<T, COS>;
 
   DCL_VEC(Len)      // Position Vector ("Radius-Vector")
+  DCL_VEC(LenK)     // Position Vector (AstroDynamical, km)
   DCL_VEC(Vel)      // Velocity Vector
+  DCL_VEC(VelK)     // Velocity Vector (AstroDynamical, km/sec)
   DCL_VEC(Acc)      // Acceleration Vector
   DCL_VEC(Force)    // Force Vector
   DCL_VEC(AngVel)   // Angular Velocity Vector
@@ -127,9 +134,12 @@ namespace SpaceBallistics
   DCL_VEC(AngMom)   // Angular ("Kinetic") Momentum Vector
   DCL_VEC(Torq)     // Rotational Moment of Force (Torque) Vector
 
-  // Alias for the Position vector: "LenV" -> "PosV":
-  template<typename COS>
-  using PosV = LenV<COS>;
+  // Alias for the Position vectors: "Len[K]V" -> "Pos[K]V":
+  template<typename   COS>
+  using PosV  = LenV <COS>;
+
+  template<typename   COS>
+  using PosKV = LenKV<COS>;
 
   // NB:  The MoI and its Rate of Change are in general not Vectors, but rather,
   // 3*3 Tensors. XXX: For the moment, we only consider those tensors in their

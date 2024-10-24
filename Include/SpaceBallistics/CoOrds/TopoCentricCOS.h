@@ -3,24 +3,31 @@
 //                "SpaceBallistics/CoOrds/TopoCentrticCOS.h":                //
 //                      Body-TopoCentric Co-Ord System                      //
 //===========================================================================//
-#pragma once
+#pragma  once
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/Locations.h"
+#include <type_traits>
 
 namespace SpaceBallistics
 {
   //=========================================================================//
   // "TopoCentricCOS" Class:                                                 //
   //=========================================================================//
-  // Origin: A point on the Body Surface given by "L";
-  // Axes  : (X=East, Y=North, Z=Zenith);
-  // NB    : This class just stands for itself;
-  //         no objects of it are to be created:
+  // Origin   : A point on the Body Surface given by "L";
+  // Axes     : (X=East, Y=North, Z=Zenith);
+  // TimeScale: TT for Earth, TDB otherwise;
+  // NB       : This class just stands for itself;
+  //            no objects of it are to be created:
   //
+  class TT;
+  class TDB;
+
   template<Body BodyName, Location<BodyName> const* L>
-  class TopoCentricCOS
+  struct TopoCentricCOS
   {
+    using  TimeScale = std::continional_t<BodyName == Body::Earth ? TT : TDB>;
+
     static_assert(L != nullptr);
     TopoCentricCOS() = delete;
   };
@@ -28,11 +35,13 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in this COS:                       //
   //-------------------------------------------------------------------------//
+  // NB: Using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
+  //
   template<Body BodyName, Location<BodyName> const* L>
-  using PosVTop     = PosV    <TopoCentricCOS<BodyName, L>>;
+  using PosKVTop    = PosKV   <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
-  using VelVTop     = VelV    <TopoCentricCOS<BodyName, L>>;
+  using VelKVTop    = VelKV   <TopoCentricCOS<BodyName, L>>;
 
   template<Body BodyName, Location<BodyName> const* L>
   using AccVTop     = AccV    <TopoCentricCOS<BodyName, L>>;
@@ -68,6 +77,7 @@ namespace SpaceBallistics
   template<Body BodyName, Location<BodyName> const* L>
   class AtmCOS
   {
+    using  TimeScale = std::continional_t<BodyName == Body::Earth ? TT : TDB>;
     static_assert(L != nullptr);
     AtmCOS() = delete;
   }

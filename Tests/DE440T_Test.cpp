@@ -28,7 +28,7 @@ int main()
     TT   tt    = DE440T::TTofTDB(tdb);
     Time delta = tt.GetTime()  - tdb.GetTime();
 
-    cout << tdb.GetTime().Magnitude() << '\t' << delta.Magnitude() << endl;
+    cout << (tdb - from).Magnitude() << '\t' << delta.Magnitude() << endl;
   }
   return 0;
 }

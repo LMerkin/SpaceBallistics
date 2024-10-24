@@ -42,13 +42,13 @@ namespace SpaceBallistics
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
     // Primary Body-detic (~Body-graphic) Co-Ords:
-    Angle             m_lambda;   // Longitide (rad)
-    Angle             m_phi;      // Latitude  (rad)
-    Len               m_h;        // Elevation (m)
+    Angle              m_lambda;   // Longitide (rad)
+    Angle              m_phi;      // Latitude  (rad)
+    Len                m_h;        // Elevation (m)
 
     // Derived Rectangular Co-Ords (in the BodyCentricRotatingCOS):
-    PosVRot<BodyName> m_r;        // (x, y, z)
-    Len               m_rho;      // Radius-vector from Body center
+    PosKVRot<BodyName> m_r;        // (x, y, z)
+    LenK               m_rho;      // Radius-vector from Body center
 
   public:
     //-----------------------------------------------------------------------//
@@ -90,10 +90,10 @@ namespace SpaceBallistics
       // (x,z) in the cross-section through the axis and the given point:
       Len    x   = a2  / d;
       Len    z   = bbt / d;
-      m_r[0]     = x * Cos(double(m_lambda));    // BodyCentric x
-      m_r[1]     = x * Sin(double(m_lambda));    // BodyCentric y
-      m_r[2]     = z;                            // BodyCentric z
-      m_rho      = SqRt(Sqr(a2) + Sqr(bbt)) / d; // BodyCentric Radius-Vector
+      m_r[0]     = To_Len_km(x * Cos(double(m_lambda)));    // BodyCentric x
+      m_r[1]     = To_Len_km(x * Sin(double(m_lambda)));    // BodyCentric y
+      m_r[2]     = To_Len_km(z);                            // BodyCentric z
+      m_rho      = To_Len_km(SqRt(Sqr(a2) + Sqr(bbt)) / d); // BodyCentric RV
     }
 
     //-----------------------------------------------------------------------//
@@ -109,13 +109,13 @@ namespace SpaceBallistics
     // Accessors:                                                            //
     //-----------------------------------------------------------------------//
     // Body-detic Co-Ords:
-    constexpr Angle                    Longitude() const { return m_lambda; }
-    constexpr Angle                    Latitude () const { return m_phi;    }
-    constexpr Len                      Elevation() const { return m_h;      }
+    constexpr Angle                     Longitude() const { return m_lambda; }
+    constexpr Angle                     Latitude () const { return m_phi;    }
+    constexpr Len                       Elevation() const { return m_h;      }
 
     // BodyCentric Rectangualar Co-Ords (in the BodyCentricRotatingCOS):
-    constexpr PosVRot<BodyName> const& PosV     () const { return m_r;      }
-    constexpr Len                      Rho      () const { return m_rho;    }
+    constexpr PosKVRot<BodyName> const& PosV     () const { return m_r;      }
+    constexpr LenK                      Rho      () const { return m_rho;    }
 
     //-----------------------------------------------------------------------//
     // Util: Azimuth(degs) computation from a Tangential Vector:             //

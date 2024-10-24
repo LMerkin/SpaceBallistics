@@ -5,9 +5,16 @@
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/Types.hpp"
+#include <type_traits>
 
 namespace SpaceBallistics
 {
+  //=========================================================================//
+  // Fwd Declarations:                                                       //
+  //=========================================================================//
+  class BaryCentricCOS;
+  class 
+
   //=========================================================================//
   // "StdKSV" Class:                                                         //
   //=========================================================================//
@@ -19,18 +26,19 @@ namespace SpaceBallistics
   template<typename COS>
   struct StdKSV
   {
-  public:
+    using TimeScale = typename COS::TimeScale;
+
     //-----------------------------------------------------------------------//
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
-    Time      const m_t;      // TODO: May depend on the COS
-    PosV<COS> const m_r;      // (x,y,z) co-ords of the fixed point
-    VelV<COS> const m_v;      // (x_dot,  y_dot,  z_dot) velocity components
+    TimeScale  const m_t;   // FIXME: May depend on the COS
+    PosKV<COS> const m_r;  // (x,y,z) co-ords of the fixed point
+    VelKV<COS> const m_v;  // (x_dot,  y_dot,  z_dot) velocity components
 
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
-    constexpr StdKSV(Time a_t, PosV<COS> const& a_r, VelV<COS> const& a_v)
+    constexpr StdKSV(TimeScale a_t, PosV<COS> const& a_r, VelV<COS> const& a_v)
     : m_t(a_t),
       m_r(a_r),
       m_v(a_v)
@@ -40,23 +48,23 @@ namespace SpaceBallistics
   //=========================================================================//
   // "RotKSV" Struct:                                                        //
   //=========================================================================//
-  // Kinematic State Vector for Rotational Motion (around some ax
-  // );  the COS is
+  // Kinematic State Vector for Rotational Motion (around some axis); the COS is
   // normally some "fixed" one, but it could also be a SnapShot of the Embedded
   // Co-Ords System (eg in the Control Theory problems).   XXX: Again, all data
   // flds are public, which is an easy-to-use but somewhat unsafe solution:
   //
   template<typename COS>
-  class RotKSV
+  struct RotKSV
   {
-  public:
+    using TimeScale = typename COS::TimeScale;
+
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
     // Euler's Angles: (Pitch, Yaw, Roll). NB: They do not make a vector in the
     // mathematical sense; sometimes they are not well-defined  (eg for a snap-
     // shot of the EmbeddedCOS, the current Euler's angles would normally be 0):
-    Time         const m_t;
+    TimeScale    const m_t;
     Angle        const m_pitch;
     Angle        const m_yaw;
     Angle        const m_roll;
@@ -88,7 +96,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     constexpr RotKSV
     (
-      Time                a_t,
+      TimeScale           a_t,
       Angle               a_pitch,
       Angle               a_yaw,
       Angle               a_roll,
@@ -132,7 +140,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     constexpr RotKSV
     (
-      Time      a_t,
+      TimeScale a_t,
       Angle     a_pitch,
       Angle     a_yaw,
       Angle     a_roll,
@@ -175,7 +183,7 @@ namespace SpaceBallistics
     // XXX: Although both parent classes have the "m_t" fld, we do not use the
     // virtual inheritance here for the sake of simplicity and "constexpr":
     //
-    using StdKSV<COS>::m_t;     // RotKSV<COS>::m_t must be the same
+    using StdKSV<COS>::m_t;     // RotKSV<COS>::m_t will be the same
     using StdKSV<COS>::m_r;
     using StdKSV<COS>::m_v;
     using StdKSV<COS>::m_acc;
@@ -202,7 +210,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     constexpr KSV6D
     (
-      Time                a_t,
+      TimeScale           a_t,
       PosV<COS>    const& a_r,
       VelV<COS>    const& a_v,
       Angle               a_pitch,
@@ -219,7 +227,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     constexpr KSV6D
     (
-      Time                a_t,
+      TimeScale           a_t,
       PosV<COS>    const& a_r,
       VelV<COS>    const& a_v,
       Angle               a_pitch,

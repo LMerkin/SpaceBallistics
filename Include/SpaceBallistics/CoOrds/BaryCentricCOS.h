@@ -12,21 +12,23 @@ namespace SpaceBallistics
   //=========================================================================//
   // Origin: Solar System BaryCenter
   // Axes  : ICRS/ICRF
+  // Obviously, using TDB as the assiciated TimeScale:
   //
-  class BaryCentricCOS
+  class  TDB;
+
+  struct BaryCentricCOS
   {
+    using TimeScale  = TDB;
+
     BaryCentricCOS() = delete;   // No objects construction at all!
   };
 
   //-------------------------------------------------------------------------//
-  // Position, Velocity and other Vectors and Tensors in this COS:           //
+  // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
-  using PosVBary    = PosV  <BaryCentricCOS>;
-  using VelVBary    = VelV  <BaryCentricCOS>;
-  using AccVBary    = AccV  <BaryCentricCOS>;
-  using ForceVBary  = ForceV<BaryCentricCOS>;
+  using PosKVBary = PosKV<BaryCentricCOS>;
+  using VelKVBary = VelKV<BaryCentricCOS>;
 
-  // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
-  // in this COS yet...
+  // XXX: Currently no need to consider over Vectors in this COS yet...
 }
 // End namespace SpaceBallistics

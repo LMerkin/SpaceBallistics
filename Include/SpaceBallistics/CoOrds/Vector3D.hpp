@@ -19,7 +19,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
-    DQ m_arr[3];
+    typedef DQ DQArr3[3];
+    DQArr3  m_arr;
 
   public:
     //-----------------------------------------------------------------------//
@@ -28,7 +29,7 @@ namespace SpaceBallistics
     // Default Ctor, Copy Ctor, Assignment and Equality:are auto-generated; us-
     // ing the Default Ctor of "DQ":
     //
-    constexpr Vector3D()                                = default;
+    constexpr Vector3D            ()                      = default;
     constexpr Vector3D            (Vector3D const&)       = default;
     constexpr Vector3D& operator= (Vector3D const&)       = default;
     constexpr bool      operator==(Vector3D const&) const = default;
@@ -112,6 +113,14 @@ namespace SpaceBallistics
 
     constexpr friend Vector3D operator* (double a_k, Vector3D const& a_right)
       { return a_right * a_k; }
+
+    //-----------------------------------------------------------------------//
+    // Direct Access to the Underlying Array:                                //
+    //-----------------------------------------------------------------------//
+    // XXX: FOR OPTIMISATION ONLY. USE WITH CARE. KNOW WHAT YOU ARE DOING:
+    //
+    DQArr3 const& GetArr() const { return m_arr; }
+    DQArr3&       GetArr()       { return m_arr; }
   };
 }
 // End namespace SpaceBallistics

@@ -34,15 +34,16 @@ namespace
   int ODERHS
   (
     double       a_t,
-    double const a_y    [ODEDim],
-    double       a_y_dot[ODEDim],
+    double const a_y    [ODEDim], // m
+    double       a_y_dot[ODEDim], // m/sec
     void*        // UNUSED
   )
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
     // Fixed COS:
-    PosVFix<Body::Moon> posF{Len(a_y[0]), Len(a_y[1]), Len(a_y[2])}; // m
-    Time    t   (a_t);                                               // sec
+    PosKVFix<Body::Moon> posF
+      {To_Len_km(Len(a_y[0])), To_Len_km(Len(a_y[1])), To_Len_km(Len(a_y[2]))};
+    Time t(a_t);
 
     // ("UnTyped") derivatives of those Co-Ords are the corresp Velocities:
     a_y_dot[0] = a_y[3];
@@ -64,7 +65,7 @@ namespace
     double         sinMRA = Sin(MRA);
 
     // Co-Ords in the Rotating system via those in the Fixed one:
-    PosVRot<Body::Moon> posR
+    PosKVRot<Body::Moon> posR
     (
       cosMRA * posF[0] + sinMRA * posF[1],
       cosMRA * posF[1] - sinMRA * posF[0],

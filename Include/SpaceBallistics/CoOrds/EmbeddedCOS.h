@@ -16,44 +16,52 @@ namespace SpaceBallistics
   // Axes  : Fixed physical axes (eg of symmetry) of the LV or SC
   // NB    : This type is templatised by the LV/SC Type. It is intended to just
   //         stand for itself (no objs of this class are to be created):
-  //
-  template<LVSC LVSCKind>
-  class EmbeddedCOS
+  // TimeScale:
+  //         XXX: This is debatable. Typically,  the EmbeddedCOS is used during
+  //         the LV Ascent-to-Orbit phase, in which case TT should be used. But
+  //         it could also be used for some "deep-space" SC operations, in which
+  //         case TDB is perhaps more appropriate.  So we use TT by default but
+  //         allow overriding it if really required:
+  class TT;
+  template<LVSC LVSCKind, typename TS = TT>
+  struct EmbeddedCOS
   {
+    using TimeScale = TS;
+
     EmbeddedCOS() = delete;	  // No objects construction at all!
   };
 
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors and Tensors in this COS:           //
   //-------------------------------------------------------------------------//
-  template<LVSC LVSCKind>
-  using PosVEmb     = PosV    <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using PosVEmb     = PosV    <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using VelVEmb     = VelV    <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using VelVEmb     = VelV    <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using AccVEmb     = AccV    <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using AccVEmb     = AccV    <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using ForceVEmb   = ForceV  <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using ForceVEmb   = ForceV  <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using AngVelVEmb  = AngVelV <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using AngVelVEmb  = AngVelV <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using AngAccVEmb  = AngAccV <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using AngAccVEmb  = AngAccV <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using AngMomVEmb  = AngMomV <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using AngMomVEmb  = AngMomV <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using TorqVEmb    = TorqV   <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using TorqVEmb    = TorqV   <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using MoIVEmb     = MoIV    <EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using MoIVEmb     = MoIV    <EmbeddedCOS<LVSCKind, TS>>;
 
-  template<LVSC LVSCKind>
-  using MoIRateVEmb = MoIRateV<EmbeddedCOS<LVSCKind>>;
+  template<LVSC LVSCKind, typename TS = TT>
+  using MoIRateVEmb = MoIRateV<EmbeddedCOS<LVSCKind, TS>>;
 }
 // End namespace SpaceBallistics
