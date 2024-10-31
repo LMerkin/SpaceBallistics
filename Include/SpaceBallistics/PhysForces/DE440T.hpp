@@ -93,7 +93,8 @@ namespace SpaceBallistics::DE440T
       assert((s == NSP)  == (a_dt == RecSpan));        // Special case...
 
       // Compute the offset "tau" from the beginning of the SubPeriod:
-      Time tau  =   a_dt - s1 * SP;
+      Time   tau  = a_dt - s1 * SP;
+      assert(tau <= a_dt);
 
       // In theory, we must have 0 <= tau <= SP, but there may be rounding
       // errors, so enforce this constraint:
@@ -145,74 +146,177 @@ namespace SpaceBallistics::DE440T
   // End namespace Bits
 
   //=========================================================================//
-  // "GetBaryPosVel":                                                        //
+  // "GetPlanet[s]BPV[s]":                                                   //
   //=========================================================================//
   //-------------------------------------------------------------------------//
   // With Compile-Time Object Selection:                                     //
   //-------------------------------------------------------------------------//
-  template<Object Obj>
-  void GetBaryPosVel
+  template<Body BodyName>
+  void GetPlanetBPV
   (
     TDB        a_tdb,
     PosKVBary* a_pos,    // Output (Position)
     VelKVBary* a_vel     // Output (Velocity); may be NULL
   )
   {
-    // This function is applicable to the following Objects only:
-    static_assert(Obj == Object::Mercury || Obj == Object::Venus   ||
-                  Obj == Object::EMB     || Obj == Object::Mars    ||
-                  Obj == Object::Jupiter || Obj == Object::Saturn  ||
-                  Obj == Object::Uranus  || Obj == Object::Neptune ||
-                  Obj == Object::Pluto   || Obj == Object::Sun);
+    // This is the generic case for the Sun and Planets except the Earth; the
+    // Moon is also not supported here (as we seldom need its BaryCentruc PV):
+    static_assert(BodyName != Body::Earth && BodyName != Body::Moon);
     assert(a_pos != nullptr);
 
-    // Get the data for a given TDB instant:
+    // Get the record data for a given TDB instant:
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
+    // Translate "Body" into "Object", they use consistent enumeration:
+    constexpr Bits::Object Obj = Bits::Object(int(BodyName));
+
     // Store the result ditrectly in the underlying arrays of "a_pos", "a_vel":
-    GetCoOrds<Obj>
-      (rec, dt, a_pos->GetArr(), a_vel != nullptr ? a_vel->GetArr() : nullptr);
+    Bits::GetCoOrds<Obj>
+    (
+      rec,
+      dt,
+      a_pos->GetArr(),
+      a_vel != nullptr ? a_vel->GetArr() : nullptr
+    );
   }
 
   //-------------------------------------------------------------------------//
-  // With Run-Time Object Selection:                                         //
+  // Specialisation for the Earth:                                           //
   //-------------------------------------------------------------------------//
-  void GetBaryPosVel
+  template<>
+  void GetPlanetBPV<Body::Earth>
   (
-    Object     a_obj,
     TDB        a_tdb,
     PosKVBary* a_pos,    // Output (Position)
     VelKVBary* a_vel     // Output (Velocity); may be NULL
   )
   {
-    switch (a_obj)
+    assert(a_pos != nullptr);
+
+    // Get the record data for a given TDB instant:
+    auto [rec, dt] = Bits::GetRecord(a_tdb);
+
+    // First, get the PV of the Earth-Moon System BaryCenter:
+    PosKVBary posEMB;
+    VelKVBary velEMB;
+    Bits::GetCoOrds<Bits::Object::EMB>
+    (
+      rec,
+      dt,
+      posEMB.GetArr(),
+      (a_vel != nullptr) ? velEMB.GetArr()  : nullptr
+    );
+
+    // Now get the GeoCentric PV of the Moon:
+    PosKVGeoF posMoon;
+    VelKVGeoF velMoon;
+    Bits::GetCoOrds<Bits::Object::Moon>
+    (
+      rec,
+      dt,
+      posMoon.GetArr(),
+      (a_vel != nullptr) ? velMoon.GetArr() : nullptr
+    );
+
+    // The GeoCentric  PV of the EMB: Proportional to those of the Moon:
+    constexpr double mu = 1.0 / (Bits::EMRat + 1.0);
+
+    // So  the BaryCentric PV of the Earth will be:
+    (*a_pos)[0]   = posEMB[0] - mu * posMoon[0];
+    (*a_pos)[1]   = posEMB[1] - mu * posMoon[1];
+    (*a_pos)[2]   = posEMB[2] - mu * posMoon[2];
+
+    if (a_vel != nullptr)
     {
-#   ifdef  DE440T_OBJ_CASE
-#   undef  DE440T_OBJ_CASE
+      (*a_vel)[0] = velEMB[0] - mu * velMoon[0];
+      (*a_vel)[1] = velEMB[1] - mu * velMoon[1];
+      (*a_vel)[2] = velEMB[2] - mu * velMoon[2];
+    }
+  }
+
+  //-------------------------------------------------------------------------//
+  // With Run-Time Body Selection:                                           //
+  //-------------------------------------------------------------------------//
+  void GetPlanetBPV
+  (
+    Body       a_body,
+    TDB        a_tdb,
+    PosKVBary* a_pos,    // Output (Position)
+    VelKVBary* a_vel     // Output (Velocity); may be NULL
+  )
+  {
+    switch (a_body)
+    {
+#   ifdef  DE440T_BODY_CASE
+#   undef  DE440T_BODY_CASE
 #   endif
-#   define DE440T_OBJ_CASE(ObjName) \
-      case Object::ObjName: \
-           GetBaryPosVel<Object::ObjName>(a_tdb, a_pos, a_vel); \
+#   define DE440T_BODY_CASE(BodyName) \
+      case Body::BodyName: \
+           GetPlanetBPV<Body::BodyName>(a_tdb, a_pos, a_vel); \
            break;
-      DE440T_OBJ_CASE(Mercury)
-      DE440T_OBJ_CASE(Venus)
-      DE440T_OBJ_CASE(EMB)
-      DE440T_OBJ_CASE(Mars)
-      DE440T_OBJ_CASE(Jupiter)
-      DE440T_OBJ_CASE(Saturn)
-      DE440T_OBJ_CASE(Uranus)
-      DE440T_OBJ_CASE(Neptune)
-      DE440T_OBJ_CASE(Pluto)
-      DE440T_OBJ_CASE(Sun)
-#   undef  DE440T_OBJ_CASE
+      DE440T_BODY_CASE(Sun)
+      DE440T_BODY_CASE(Mercury)
+      DE440T_BODY_CASE(Venus)
+      DE440T_BODY_CASE(Earth)
+      DE440T_BODY_CASE(Mars)
+      DE440T_BODY_CASE(Jupiter)
+      DE440T_BODY_CASE(Saturn)
+      DE440T_BODY_CASE(Uranus)
+      DE440T_BODY_CASE(Neptune)
+      DE440T_BODY_CASE(Pluto)
+#   undef  DE440T_BODY_CASE
     default:
       assert(false);
     }
   }
 
   //-------------------------------------------------------------------------//
-  // Forr All 10 Objects Simultaneously:                                     //
+  // For the 10 Objects Simultaneously:                                      //
   //-------------------------------------------------------------------------//
+  // Since the primary use case of this function is to compute the planetary po-
+  // sitions for integration of Minor Solar System Bodies' Orbits,  it produces
+  // the co-ords of EMB rather than Earth and Moon separately. The output array
+  // is (same enumeration as that of "Object"s):
+  //
+  // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
+  //  6: Saturn, 7: Uranus,  8: Neptune, 9: Pluto]:
+  //
+  void GetPlanetsBPVs
+  (
+    TDB        a_tdb,
+    PosKVBary  a_poss[10], // Output
+    VelKVBary  a_vels[10]  // Output (again, may be NULL)
+  )
+  {
+    // Optimisation: The Record is fetched just once for all Objects:
+    auto [rec, dt] = Bits::GetRecord(a_tdb);
+
+#   ifdef  DE440T_OBJ_PV
+#   undef  DE440T_OBJ_PV
+#   endif
+#   define DE440T_OBJ_PV(ObjName) \
+    { \
+      Bits::GetCoOrds<Bits::Object::ObjName> \
+        (rec, \
+         dt,  \
+         a_poss  [int(Bits::Object::ObjName)].GetArr(), \
+         ( a_vels != nullptr ) \
+         ? a_vels[int(Bits::Object::ObjName)].GetArr()  \
+         : nullptr \
+      ); \
+    }
+    DE440T_OBJ_PV(Sun)
+    DE440T_OBJ_PV(Mercury)
+    DE440T_OBJ_PV(Venus)
+    DE440T_OBJ_PV(EMB)
+    DE440T_OBJ_PV(Mars)
+    DE440T_OBJ_PV(Jupiter)
+    DE440T_OBJ_PV(Saturn)
+    DE440T_OBJ_PV(Uranus)
+    DE440T_OBJ_PV(Neptune)
+    DE440T_OBJ_PV(Pluto)
+#   undef DE440T_OBJ_PV
+  }
 
   //=========================================================================//
   // "TTofTDB":                                                              //
@@ -222,8 +326,8 @@ namespace SpaceBallistics::DE440T
     // Get the data for a given TDB instant:
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
-    Time  diff[1];  // 1 CoOrd only
-    Bits::GetCoOrds<Object::TT_TDB>(rec, dt, diff);
+    Time  diff[1];   // 1 CoOrd only
+    Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff);
 
     return TT(a_tdb.GetTime() + diff[0]);
   }

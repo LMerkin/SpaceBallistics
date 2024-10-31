@@ -37,16 +37,17 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases: Proper Names of some "BodyCentricFixedCOS"es:                  //
   //-------------------------------------------------------------------------//
-  using GeoCentricFixedCOS     = BodyCentricFixedCOS<Body::Earth>;
-  using SelenoCentricFixedCOS  = BodyCentricFixedCOS<Body::Moon>;
   using HelioCentricFixedCOS   = BodyCentricFixedCOS<Body::Sun>;
   using HermeoCentricFixedCOS  = BodyCentricFixedCOS<Body::Mercury>;
   using CytheroCentricFixedCOS = BodyCentricFixedCOS<Body::Venus>;
+  using GeoCentricFixedCOS     = BodyCentricFixedCOS<Body::Earth>;
+  using SelenoCentricFixedCOS  = BodyCentricFixedCOS<Body::Moon>;
   using AreoCentricFixedCOS    = BodyCentricFixedCOS<Body::Mars>;
   using ZenoCentricFixedCOS    = BodyCentricFixedCOS<Body::Jupiter>;
   using CronoCentricFixedCOS   = BodyCentricFixedCOS<Body::Saturn>;
   using UranoCentricFixedCOS   = BodyCentricFixedCOS<Body::Uranus>;
   using PoseidoCentricFixedCOS = BodyCentricFixedCOS<Body::Neptune>;
+  using HadeoCentricFixedCOS   = BodyCentricFixedCOS<Body::Pluto>;
 
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in a "BodyCentricFixedCOS":        //
@@ -54,19 +55,33 @@ namespace SpaceBallistics
   // NB: Pos and Vel Vectors use "Len_km" ("K"), but other Vectors use "Len_m":
   //
   template<Body BodyName>
-  using PosKVFix   = PosKV  <BodyCentricFixedCOS<BodyName>>;
+  using PosKVFix   = PosKV <BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using VelKVFix   = VelKV  <BodyCentricFixedCOS<BodyName>>;
+  using VelKVFix   = VelKV <BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using AccVFix    = AccV   <BodyCentricFixedCOS<BodyName>>;
+  using AccVFix    = AccV  <BodyCentricFixedCOS<BodyName>>;
 
   template<Body BodyName>
-  using ForceVFix  = ForceV <BodyCentricFixedCOS<BodyName>>;
+  using ForceVFix  = ForceV<BodyCentricFixedCOS<BodyName>>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
+
+  // Aliases for GeoCentric Position and Velocity Vectors (in the FixedCOS
+  // only):
+  using PosKVGeoF   = PosKVFix <Body::Earth>;
+  using VelKVGeoF   = VelKVFix <Body::Earth>;
+  using AccVGeoF    = AccVFix  <Body::Earth>;
+  using ForceVGeoF  = ForceVFix<Body::Earth>;
+
+  // Aliases for HelioCentric Position and Velocity Vectors (again, in the
+  // FixedCOS only):
+  using PosKVHelF   = PosKVFix <Body::Sun>;
+  using VelKVHelF   = VelKVFix <Body::Sun>;
+  using AccVHelF    = AccVFix  <Body::Sun>;
+  using ForceVHelF  = ForceVFix<Body::Sun>;
 
   //=========================================================================//
   // "BodyCentricRotatingCOS" Class:                                         //
@@ -94,16 +109,17 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases: Proper Names of some "BodyCentricRotatingCOS"es:               //
   //-------------------------------------------------------------------------//
-  using GeoCentricRotatingCOS     = BodyCentricRotatingCOS<Body::Earth>;
-  using SelenoCentricRotatingCOS  = BodyCentricRotatingCOS<Body::Moon>;
   using HelioCentricRotatingCOS   = BodyCentricRotatingCOS<Body::Sun>;
   using HermeoCentricRotatingCOS  = BodyCentricRotatingCOS<Body::Mercury>;
   using CytheroCentricRotatingCOS = BodyCentricRotatingCOS<Body::Venus>;
+  using GeoCentricRotatingCOS     = BodyCentricRotatingCOS<Body::Earth>;
+  using SelenoCentricRotatingCOS  = BodyCentricRotatingCOS<Body::Moon>;
   using AreoCentricRotatingCOS    = BodyCentricRotatingCOS<Body::Mars>;
   using ZenoCentricRotatingCOS    = BodyCentricRotatingCOS<Body::Jupiter>;
   using CronoCentricRotatingCOS   = BodyCentricRotatingCOS<Body::Saturn>;
   using UranoCentricRotatingCOS   = BodyCentricRotatingCOS<Body::Uranus>;
   using PoseidoCentricRotatingCOS = BodyCentricRotatingCOS<Body::Neptune>;
+  using HadeoCentricRotatingCOS   = BodyCentricRotatingCOS<Body::Pluto>;
 
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in a "BodyCentricRotatingCOS":     //
@@ -111,16 +127,16 @@ namespace SpaceBallistics
   // Again, using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
   //
   template<Body BodyName>
-  using PosKVRot   = PosKV  <BodyCentricRotatingCOS<BodyName>>;
+  using PosKVRot   = PosKV <BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using VelKVRot   = VelKV  <BodyCentricRotatingCOS<BodyName>>;
+  using VelKVRot   = VelKV <BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using AccVRot    = AccV   <BodyCentricRotatingCOS<BodyName>>;
+  using AccVRot    = AccV  <BodyCentricRotatingCOS<BodyName>>;
 
   template<Body BodyName>
-  using ForceVRot  = ForceV <BodyCentricRotatingCOS<BodyName>>;
+  using ForceVRot  = ForceV<BodyCentricRotatingCOS<BodyName>>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...

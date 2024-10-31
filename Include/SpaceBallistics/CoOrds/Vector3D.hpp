@@ -7,6 +7,9 @@
 
 namespace SpaceBallistics
 {
+  //=========================================================================//
+  // "Vector3D" Class:                                                       //
+  //=========================================================================//
   // The Vectors are  just arrays of size 3 of "DQ"s  which are assumed to be
   // instances of "DimQ"  (XXX: this is not enforced;  vectors of other types
   // are also allowed w/o any safety risks). IN ADDITION, the "Vector3D" type

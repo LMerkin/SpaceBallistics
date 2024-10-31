@@ -4,6 +4,9 @@
 //                  Integration of the Lunar Orbiter Motion                  //
 //                    in an Irregualr Gravitational Field                    //
 //===========================================================================//
+// FIXME: This implementation uses a GPL integrator which is NOT DimTypes-
+// aware. Must be replaced by our own DimTypes-based integrator:
+//
 #include "SpaceBallistics/PhysForces/GravityField.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
@@ -34,8 +37,8 @@ namespace
   int ODERHS
   (
     double       a_t,
-    double const a_y    [ODEDim], // m
-    double       a_y_dot[ODEDim], // m/sec
+    double const a_y    [ODEDim], // km
+    double       a_y_dot[ODEDim], // km/sec
     void*        // UNUSED
   )
   {
@@ -137,11 +140,11 @@ int main()
   // phi=0), at the altitude "h", moving North:
   //
   constexpr Time t0     = 0.0_sec;
-  constexpr Len  h0     = To_Len(20.0_km);
-  constexpr Len  ReMoon = Location    <Body::Moon>::Re;
-  constexpr GM   KMoon  = GravityField<Body::Moon>::K;
-  constexpr Len  r0     = ReMoon     + h0;
-  constexpr Vel  V0     = SqRt(KMoon / r0);
+  constexpr LenK h0     = 20.0_km;
+  constexpr LenK ReMoon = Location    <Body::Moon>::Re;
+  constexpr GMK  KMoon  = GravityField<Body::Moon>::K;
+  constexpr LenK r0     = ReMoon     + h0;
+  constexpr VelK V0     = SqRt(KMoon / r0);
 
   // "UnTyped" initial state vector for GSL:
   double y[ODEDim]
@@ -154,7 +157,7 @@ int main()
   constexpr Time   tau     = 10.0_sec;
   constexpr Time   T       = t0 + To_Time(365.25_day);
   // Absolute Precision:
-  constexpr Len    AbsPrec = 1.0_m;
+  constexpr LenK   AbsPrec = To_Len_km(1.0_m);
   // Relative Precision:
   constexpr double RelPrec = 1e-9;
   // Observation Time Step:
@@ -179,8 +182,7 @@ int main()
       break;
     }
     // Output the current Altitude:
-    Len_km  h =
-      To_Len_km(Len(SqRt(Sqr(y[0]) + Sqr(y[1]) + Sqr(y[2]))) - ReMoon);
+    LenK    h = LenK(SqRt(Sqr(y[0]) + Sqr(y[1]) + Sqr(y[2]))) - ReMoon;
     cout << t << "  " << h << endl;
   }
 

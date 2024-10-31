@@ -27,10 +27,10 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
   public:
     // Equatorial Radius:
-    constexpr static Len Re = BodyData<BodyName>::Re;
+    constexpr static LenK Re = BodyData<BodyName>::Re;
 
     // Polar Radius:
-    constexpr static Len Rp = BodyData<BodyName>::Rp;
+    constexpr static LenK Rp = BodyData<BodyName>::Rp;
     static_assert(Rp <= Re);
 
     // Flattening:
@@ -82,18 +82,18 @@ namespace SpaceBallistics
       // Derived Rectangular Co-Ords (in the BodyCentricRotatingCOS):
       // a = Re, b = Rp:
       // XXX: We do NOT apply any simplifications in the case Flat==0 here:
-      Area   a2  = Sqr(Re);
-      Len    bt  = Rp * Tan(double(m_phi));
-      Area   bt2 = Sqr(bt);
-      Area   bbt = Rp * bt;
-      Len    d   = SqRt(a2 + bt2);
+      auto   a2  = Sqr(Re);
+      LenK   bt  = Rp * Tan(double(m_phi));
+      auto   bt2 = Sqr(bt);
+      auto   bbt = Rp * bt;
+      LenK   d   = SqRt(a2 + bt2);
       // (x,z) in the cross-section through the axis and the given point:
-      Len    x   = a2  / d;
-      Len    z   = bbt / d;
-      m_r[0]     = To_Len_km(x * Cos(double(m_lambda)));    // BodyCentric x
-      m_r[1]     = To_Len_km(x * Sin(double(m_lambda)));    // BodyCentric y
-      m_r[2]     = To_Len_km(z);                            // BodyCentric z
-      m_rho      = To_Len_km(SqRt(Sqr(a2) + Sqr(bbt)) / d); // BodyCentric RV
+      LenK   x   = a2  / d;
+      LenK   z   = bbt / d;
+      m_r[0]     = x * Cos(double(m_lambda));    // BodyCentric x
+      m_r[1]     = x * Sin(double(m_lambda));    // BodyCentric y
+      m_r[2]     = z;                            // BodyCentric z
+      m_rho      = SqRt(Sqr(a2) + Sqr(bbt)) / d; // BodyCentric RV
     }
 
     //-----------------------------------------------------------------------//

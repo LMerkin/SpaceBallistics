@@ -28,10 +28,10 @@ namespace SpaceBallistics
     //=======================================================================//
     // Equatorial Radius of the Body (used in the Gravitational Potential exp-
     // ansion):
-    constexpr static Len Re = BodyData<BodyName>::Re;
+    constexpr static LenK Re = BodyData<BodyName>::Re;
 
     // Gravitational Field Constant of the Body:
-    constexpr static GM  K  = BodyData<BodyName>::K;
+    constexpr static GMK  K  = BodyData<BodyName>::K;
 
     //=======================================================================//
     // Model Coeffs:                                                         //
@@ -104,12 +104,12 @@ namespace SpaceBallistics
       // The Rectangular and Spherical CoOrds:                               //
       //---------------------------------------------------------------------//
       // (In BodyCentricRotatingCOS):
-      Len  x       = To_Len(a_pos[0]);
-      Len  y       = To_Len(a_pos[1]);
-      Len  z       = To_Len(a_pos[2]);
-      Len2 r2xy    = Sqr(x) + Sqr(y);
-      Len2 r2      = r2xy   + Sqr(z);
-      Len  r       = SqRt(r2);
+      LenK x       = a_pos[0];
+      LenK y       = a_pos[1];
+      LenK z       = a_pos[2];
+      auto r2xy    = Sqr(x) + Sqr(y);
+      auto r2      = r2xy   + Sqr(z);
+      LenK r       = SqRt(r2);
 
       if (UNLIKELY(r <= Re))
       {
@@ -120,17 +120,17 @@ namespace SpaceBallistics
         double const lambda  =
           IsZero(r2xy) ? 0.0 : ATan2(x.Magnitude(), y.Magnitude());
 
-        throw ImpactExn{ a_t, r - Re, Angle(lambda), Angle(phi) };
+        throw ImpactExn{ a_t, To_Len(r - Re), Angle(lambda), Angle(phi) };
       }
 
       // If OK: Main part of the Gravitational Acceleration:
-      Acc  mainAcc = K / r2;
+      Acc  mainAcc = To_Len_m(K / r2);
 
       if (a_n == 0)
       {
         // Trivial Case: Spherically-Symmetric Gravitational Field:
         for (int i = 0; i < 3; ++i)
-          (*a_acc)[i] = - mainAcc * To_Len(a_pos[i]) / r;
+          (*a_acc)[i] = - mainAcc * double(a_pos[i] / r);
         return;
       }
       //---------------------------------------------------------------------//

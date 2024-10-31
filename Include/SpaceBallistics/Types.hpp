@@ -78,8 +78,8 @@ namespace SpaceBallistics
   // MoI Change Rate (kg*m^2 / sec):
   using MoIRate  = decltype(MoI()  / 1.0_sec);
 
-  // Gravitational Field Constant:
-  using GM       = decltype(Cube(1.0_m) / Sqr(1.0_sec));
+  // Gravitational Field Constant (NB: km^3/sec^2):
+  using GMK      = decltype(Cube(1.0_km) / Sqr(1.0_sec));
 
   // Energy:
   using Energy   = decltype(Force(1.0) * 1.0_m);
