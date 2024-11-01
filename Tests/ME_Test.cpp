@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                            "Tests/METest.cpp":                            //
+//                            "Tests/ME_Test.cpp":                           //
 //                      Tests of the "MechElement" Class                     //
 //===========================================================================//
 #include "SpaceBallistics/ME/TrConeSpherSegm.hpp"

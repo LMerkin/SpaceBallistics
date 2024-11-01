@@ -183,7 +183,7 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
 # Tests:                                                                      #
 #=============================================================================#
 SET(SB_TESTS
-  METest
+  ME_Test
   Soyuz21b_Stage1_Booster_Test
   Soyuz21b_Stage2_Test
   Soyuz21b_Stage3_Test
@@ -192,7 +192,8 @@ SET(SB_TESTS
   LagrangeNormTest
   LunarOrbiterTest
   ChebyshevTest
-  DE440T_Test)
+  DE440T_Test
+  TAI_Test)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)

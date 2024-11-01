@@ -64,6 +64,10 @@ namespace SpaceBallistics::DE440T
 
       // We can now extract the Record:
       Record const* rec = reinterpret_cast<Record const*>(&(Data[r][0]));
+
+      // The Record must indeed contain the required TDB period:
+      assert(TDB(rec->m_From) <= a_tdb && a_tdb <= TDB(rec->m_To));
+
       return std::make_pair(rec, dt);
     }
 
@@ -329,8 +333,12 @@ namespace SpaceBallistics::DE440T
     Time  diff[1];   // 1 CoOrd only
     Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff);
 
-    return TT(a_tdb.GetTime() + diff[0]);
+    return TT() + (a_tdb.GetTime() + diff[0]);
   }
+
+  //=========================================================================//
+  // "TDBofTT":                                                              //
+  //=========================================================================//
 
   //=========================================================================//
   // "SelfTest":                                                             //
