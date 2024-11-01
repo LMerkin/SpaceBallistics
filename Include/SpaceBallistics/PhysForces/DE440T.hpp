@@ -22,52 +22,55 @@ namespace SpaceBallistics::DE440T
     //
     std::pair<Record const*, Time> GetRecord(TDB a_tdb)
     {
+      // XXX: Protection against out-of-range "a_tdb" (this may sometimes happen
+      // due to rounding errors):
       assert(From <= a_tdb && a_tdb <= To);
 
-      // XXX: Be careful to prevent accidential big rounding-down errors!
-      // If "a_tdb" is close enough to a node, return that node, otherwise take
-      // the Floor:
       Time   off = a_tdb - From;
       assert(!IsNeg(off));
 
-      double  r0  = double(off / RecSpan);
-      double  r1  = std::round(r0);
-      Time    dt;   // Initially 0
-      int     r   = INT_MAX;
+      double r0  = double(off / RecSpan);
+      double rf  = std::floor(r0);
+      int    r   = int(rf);
+      Time   dt  = off - rf * RecSpan;
 
-      if (UNLIKELY(Abs(r0 - r1) < 5e-12))
-      {
-        r  = int(r1);
-        assert(IsZero(dt));
-
-        // In this case, we may get r==NR, so adjust it:
-        assert(0 <= r && r <= NR);
-        if (r == NR)
-        {
-          --r;
-          dt = RecSpan;
-        }
-      }
-      else
-      {
-        double   r2 = std::floor(r0);
-        r  = int(r2);
-        dt = off - r2 * RecSpan;
-
-        // In this case, the following must hold:
-        assert(0 <= r && r < NR && IsPos(dt) && dt <  RecSpan);
-      }
-
-      // Once again: The over-all check:
-      assert(0  <= r && r < NR && !IsNeg(dt));
-      assert(dt < RecSpan      || (dt == RecSpan && r == NR-1));
+      // The following must hold:
+      assert(0 <= r && r < NR && !IsNeg(dt) && dt < RecSpan);
 
       // We can now extract the Record:
       Record const* rec = reinterpret_cast<Record const*>(&(Data[r][0]));
 
-      // The Record must indeed contain the required TDB period:
-      assert(TDB(rec->m_From) <= a_tdb && a_tdb <= TDB(rec->m_To));
+      // XXX: "rec" should indeed contain the required TDB period, BUT it might
+      // happen (due to rounding error in the above computations) that it is off
+      // by 1 record:
+      //
+      TDB from(rec->m_From);
+      TDB to  (rec->m_To);
+      if (UNLIKELY(a_tdb < from))
+      {
+        // Move to the left:
+        assert(r > 0);
+        --rec;
+        from = TDB(rec->m_From);
+        to   = TDB(rec->m_To);
+      }
+      else
+      if (UNLIKELY(a_tdb > to))
+      {
+        // Move to the right:
+        assert(r < NR-1);
+        ++rec;
+        from = TDB(rec->m_From);
+        to   = TDB(rec->m_To);
+      }
+      // Re-check the "a_tdb" range:
+      assert(from <= a_tdb && a_tdb < to);
 
+      // In any case, re-calculate "dt" for higher precision:
+      dt = a_tdb - from;
+      assert(!IsNeg(dt) && dt < RecSpan);
+
+      // The result:
       return std::make_pair(rec, dt);
     }
 
@@ -83,41 +86,24 @@ namespace SpaceBallistics::DE440T
       ArrDT<Obj>    a_vel               // May be NULL
     )
     {
-      assert(a_record != nullptr && !IsNeg(a_dt) && a_dt <= RecSpan &&
+      assert(a_record != nullptr && !IsNeg(a_dt) && a_dt < RecSpan &&
              a_pos    != nullptr);
 
       // Initially "a_dt" is the temporal offset within the whole RecSpan; find
       // the corresp SubPeriod Index ("s1"):
       constexpr int  NSP = NSPs[int(Obj)];
-      constexpr Time SP  = RecSpan     / double(NSP);  // SubPeriod
+      constexpr Time SP  = RecSpan     / double(NSP);  // SubPeriod Length
       double         s0  = double(a_dt / SP);
-      double         s1  = std::floor(s0);
-      int            s   = int       (s1);
-      assert( 0 <=   s   &&  s    <= NSP);
-      assert((s == NSP)  == (a_dt == RecSpan));        // Special case...
+      double         sf  = std::floor(s0);
+      int            s   = int       (sf);
+      assert( 0 <=   s   &&  s    <  NSP);
 
       // Compute the offset "tau" from the beginning of the SubPeriod:
-      Time   tau  = a_dt - s1 * SP;
+      Time   tau  = a_dt - sf * SP;
       assert(tau <= a_dt);
 
-      // In theory, we must have 0 <= tau <= SP, but there may be rounding
-      // errors, so enforce this constraint:
-      tau = std::min(std::max(tau, 0.0_sec), SP);
-
-      // NB: s==NSP can only happen when a_dt == RecSpan (asserted above), in
-      // which case we need an adjustment:
-      if (UNLIKELY(s == NSP))
-      {
-        // This means that "tau" is 0, but again, beware of rounding errors:
-        assert(tau.ApproxEquals(0.0_sec));
-
-        // Adjust "s" and "tau" to the previous sub-period (always exists):
-        --s;
-        assert(s >= 0);
-        tau = SP;
-      }
       // In any case, we must get valid "s" and "tau":
-      assert(0 <= s && s < NSP && !IsNeg(tau) && tau <= SP);
+      assert(0 <= s && s < NSP && !IsNeg(tau) && tau < SP && tau <= a_dt);
 
       // Compute the argument "x" of Chebyshev Polynomials, in [-1..1]:
       double  x = 2.0 * double(tau / SP) - 1.0;
@@ -133,8 +119,14 @@ namespace SpaceBallistics::DE440T
       // [0 .. NCC<Obj>-1]:
       for (int i = 0; i < NCO<Obj>; ++i)
       {
-        CT<Obj> const* coeffsI = coeffsBase     + i * NCC<Obj>;
-        a_pos[i] =   Chebyshev::Sum1T<double, CT<Obj>>(NCC<Obj>-1, coeffsI, x);
+        CT<Obj> const* coeffsI = coeffsBase + i * NCC<Obj>;
+
+        // XXX: BEWARE: The function "Chebyshev::Sum1T" takes the 0th coeff with
+        //      factor 0.5, whereas DE440T expansions assume factor 1.0, so this
+        //      is corrected explicitly. For "Chebyshev::SumDT", there is no di-
+        //      screpancy:
+        a_pos[i] =   Chebyshev::Sum1T<double, CT<Obj>>(NCC<Obj>-1, coeffsI, x)
+                     + 0.5 * coeffsI[0];
 
         if (a_vel != nullptr)
           // Provide the Dots (Velocities) as well. They are NOT stored  in the
@@ -339,6 +331,39 @@ namespace SpaceBallistics::DE440T
   //=========================================================================//
   // "TDBofTT":                                                              //
   //=========================================================================//
+  TDB TDBofTT(TT a_tt)
+  {
+    // Solve iteratively:     tdb = tt - TT_TDB(tdb),
+    // with the initial cond: tdb = tt ;
+    // iterations should converge fairly quickly:
+    //
+    TDB tdb(TDB() + a_tt.GetTime());
+
+    constexpr int MaxIters = 10;
+    int    i = 0;
+    for (; i < MaxIters; ++i)
+    {
+      // Get the data for a given TDB instant. XXX: In general, if we are near
+      // a node, the "rec" may change during iterations:
+      auto [rec, dt] = Bits::GetRecord(tdb);
+
+      Time  diff[1];   // 1 CoOrd only
+      Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff);
+
+      TT    tt1(TT() + tdb.GetTime()  + diff[0]);
+
+      // For extra safety, we require a nanosecond precision:
+      if (Abs(tt1 - a_tt) < Time(1e-9))
+        // This "tdb" is good enough:
+        break;
+
+      // Otherwise, update "tdb" and continue:
+      tdb  = TDB()   + (a_tt.GetTime() - diff[0]);
+    }
+    // Check for (unlikely) divergence:
+    assert(i < MaxIters);
+    return tdb;
+  }
 
   //=========================================================================//
   // "SelfTest":                                                             //

@@ -275,7 +275,9 @@ namespace SpaceBallistics::DE440T
     //-----------------------------------------------------------------------//
     // Internal Utils:                                                       //
     //-----------------------------------------------------------------------//
-    // TDB -> (Record, TimeOffset witin that Record):
+    // TDB ->  (Record, TimeOffset witin that Record):
+    // Returns (NULL, 0.0_sec) if the corresp Record was not found:
+    //
     std::pair<Record const*, Time> GetRecord(TDB a_t);
 
     // (Object, Record, TimeOffset within that Record) -> CoOrds:

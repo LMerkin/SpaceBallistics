@@ -171,6 +171,7 @@ LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
 # The Target Library:                                                         #
 #=============================================================================#
 ADD_LIBRARY(${PROJECT_NAME} STATIC
+  Src/CoOrds/TimeScales.cpp
   Src/LVSC/Soyuz-2.1b/Stage1.cpp
   Src/LVSC/Soyuz-2.1b/Stage2.cpp
   Src/LVSC/Soyuz-2.1b/Stage3.cpp

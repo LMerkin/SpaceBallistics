@@ -355,9 +355,8 @@ namespace SpaceBallistics
     // Non-Default Ctors:                                                    //
     //-----------------------------------------------------------------------//
     // Constructing TDB from TT. The implementation is non-trivial, requires
-    // the JPL Ephemerides (DE440T):
-    //
-    constexpr TDB(TT a_tt);
+    // the JPL Ephemerides (DE440T), so it is not a "constexpr":
+    TDB(TT a_tt);
 
     // Directly constructing TDB from JD_TDB:
     constexpr TDB (Time_day a_jd_tdb)

@@ -70,7 +70,7 @@ int main()
     TT tt1(utc1);
 
     // They should be separated by (almost) exactly 1 second:
-    Time   diff = tt1 - tt0;
+    DEBUG_ONLY(Time   diff = tt1 - tt0;)
     assert(diff.ApproxEquals(1.0_sec));
   }
 }
