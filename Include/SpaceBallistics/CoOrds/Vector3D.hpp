@@ -117,6 +117,12 @@ namespace SpaceBallistics
     constexpr friend Vector3D operator* (double a_k, Vector3D const& a_right)
       { return a_right * a_k; }
 
+    // Vector Length:
+    // Implemented simply as conversion to the underlying type:
+    //
+    constexpr operator DQ() const
+      { return SqRt(Sqr(m_arr[0]) + Sqr(m_arr[1]) + Sqr(m_arr[2])); }
+
     //-----------------------------------------------------------------------//
     // Direct Access to the Underlying Array:                                //
     //-----------------------------------------------------------------------//

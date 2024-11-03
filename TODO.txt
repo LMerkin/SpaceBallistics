@@ -1,5 +1,7 @@
 -- Complete DE440T
 -- Complete TimeScales (implement FlightTime)
+-- Earth Rotation Model
+-- Transforms between different COSes...
 -- Atmosphere model(s), at least for Earth
 -- AeroFin controls
 -- Complete the Soyuz-2.1b model

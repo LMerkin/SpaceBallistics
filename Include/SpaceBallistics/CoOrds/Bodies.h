@@ -3,7 +3,9 @@
 //                     "SpaceBallistics/CoOrds/Bodies.h":                    //
 // Nomenclature of Bodies endowed with Gravitational Field Models and COSes  //
 //===========================================================================//
-#pragma once
+#pragma  once
+#include <string_view>
+#include <cassert>
 
 namespace SpaceBallistics
 {
@@ -15,16 +17,68 @@ namespace SpaceBallistics
     Sun     = 0,
     Mercury = 1,
     Venus   = 2,
-    Earth   = 3,
-    Mars    = 4,
-    Jupiter = 5,
-    Saturn  = 6,
-    Uranus  = 7,
-    Neptune = 8,
-    Pluto   = 9,
+    Earth   = 3,   // Earth alone, w/o the Moon!
+    Mars    = 4,   // Mars    and its moons
+    Jupiter = 5,   // Jupiter and its moons
+    Saturn  = 6,   // Saturn  and its moons
+    Uranus  = 7,   // Uranus  and its moons
+    Neptune = 8,   // Neptune and its moons
+    Pluto   = 9,   // Pluto   and its moons
+
+    // We also provide EMB, the Earth-Moon System BaryCenter, for compatibility
+    // with DE440T and for convenience of interplanetray trajectores integrati-
+    // on:
+    EMB     = 10,
+
     // We place the Moon at the end to preserve the classical numbering sequence
     // for the Sun and Planets:
-    Moon    = 10
+    Moon    = 11
   };
+
+  //-------------------------------------------------------------------------//
+  // Conversion To/From Strings:                                             //
+  //-------------------------------------------------------------------------//
+  // XXX: This could be done automatically, eg using "MagicEnum", but we do not
+  // want to introduce extra external dependencies:
+  //
+  constexpr char const* ToString(Body a_body)
+  {
+    switch (a_body)
+    {
+      case Body::Sun     : return "Sun";
+      case Body::Mercury : return "Mercury";
+      case Body::Venus   : return "Venus";
+      case Body::Earth   : return "Earth";
+      case Body::Mars    : return "Mars";
+      case Body::Jupiter : return "Jupiter";
+      case Body::Saturn  : return "Saturn";
+      case Body::Uranus  : return "Uranus";
+      case Body::Neptune : return "Neptune";
+      case Body::Pluto   : return "Pluto";
+      case Body::EMB     : return "EMB";
+      case Body::Moon    : return "Moon";
+      default            : assert(false); return nullptr;
+    }
+  }
+
+  constexpr Body ToBody(char const* a_body_str)
+  {
+    assert(a_body_str != nullptr);
+    std::string_view bsv(a_body_str);
+    return
+      (bsv == "Sun")     ? Body::Sun     :
+      (bsv == "Mercury") ? Body::Mercury :
+      (bsv == "Venus")   ? Body::Venus   :
+      (bsv == "Earth")   ? Body::Earth   :
+      (bsv == "Mars")    ? Body::Mars    :
+      (bsv == "Jupiter") ? Body::Jupiter :
+      (bsv == "Saturn")  ? Body::Saturn  :
+      (bsv == "Uranus")  ? Body::Uranus  :
+      (bsv == "Neptune") ? Body::Neptune :
+      (bsv == "Pluto")   ? Body::Pluto   :
+      (bsv == "EMB")     ? Body::EMB     :
+      (bsv == "Moon")    ? Body::Moon    :
+      throw "Invalid BodyName";
+  }
 }
 // End namespace SpaceBallistics

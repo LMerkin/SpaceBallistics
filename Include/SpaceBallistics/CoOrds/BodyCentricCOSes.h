@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
 //                "SpaceBallistics/CoOrds/BodyCentricCOSes.h":               //
-//        Body-Centric Fixed (ICRF Axes) and Rotating Co-Ords Systems        //
+//            Body-Centric Fixed-Axes and Rotating Co-Ords Systems           //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
@@ -17,6 +17,7 @@ namespace SpaceBallistics
   // Axes  : X       : Equinox(2000.0);
   //         XY Plane: Body's Equator(2000.0);
   //         Z       : Body's North Pole
+  // In particular, the axes of GeoCentricFixedCOS are exactly those of ICRF.
   // TimeScale       : TT for Earth, TDB otherwise
   // This, the axes of this COS are fixed in the ICRF, but the Origin is moving
   // in the inertial space, so this COS is not fully-inertial; it may sometimes

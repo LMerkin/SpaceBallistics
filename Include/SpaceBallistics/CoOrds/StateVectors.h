@@ -10,12 +10,6 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // Fwd Declarations:                                                       //
-  //=========================================================================//
-  class BaryCentricCOS;
-  class 
-
-  //=========================================================================//
   // "StdKSV" Class:                                                         //
   //=========================================================================//
   // Kinematic State Vector for Steady Motion  (of some fixed embedded point or
@@ -31,8 +25,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
-    TimeScale  const m_t;   // FIXME: May depend on the COS
-    PosKV<COS> const m_r;  // (x,y,z) co-ords of the fixed point
+    TimeScale  const m_t;
+    PosKV<COS> const m_r;  // (x,y,z) co-ords of the "fixed point" (eg CoM)
     VelKV<COS> const m_v;  // (x_dot,  y_dot,  z_dot) velocity components
 
     //-----------------------------------------------------------------------//

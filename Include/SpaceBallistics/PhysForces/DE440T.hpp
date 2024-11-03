@@ -7,6 +7,7 @@
 #include "SpaceBallistics/PhysForces/DE440T.h"
 #include "SpaceBallistics/Maths/Chebyshev.hpp"
 #include <cmath>
+#include <utility>
 #include <cassert>
 
 namespace SpaceBallistics::DE440T
@@ -14,13 +15,229 @@ namespace SpaceBallistics::DE440T
   namespace Bits
   {
     //=======================================================================//
+    // Objects Provided by DE440T:                                           //
+    //=======================================================================//
+    // NB: The nomenclature and enumeration of "Object"s is the same as that of
+    // "Body"s, with addition of Nutations, Librations and TT_TDB difference,
+    // and w/o Earth which is not represented in DE440T directly:
+    //
+    enum class Object: int
+    {
+      Sun             = int(Body::Sun),
+      Mercury         = int(Body::Mercury),
+      Venus           = int(Body::Venus),
+      Mars            = int(Body::Mars),
+      Jupiter         = int(Body::Jupiter),
+      Saturn          = int(Body::Saturn),
+      Uranus          = int(Body::Uranus),
+      Neptune         = int(Body::Neptune),
+      Pluto           = int(Body::Pluto),
+      EMB             = int(Body::EMB),
+      Moon            = int(Body::Moon),
+      EarthNutations  = int(Body::Moon) + 1, // [d(psi),  d(eps)]
+      MoonLibrations  = int(Body::Moon) + 2, // [phi, theta, psi]
+      TT_TDB          = int(Body::Moon) + 3  // [TT-TDB], sec
+    };
+    constexpr inline int NObjs = int(Object::TT_TDB) + 1;
+
+    //=======================================================================//
+    // Implementation Details:                                               //
+    //=======================================================================//
+    //-----------------------------------------------------------------------//
+    // Chebyshev Coeffs Layout for each Object:                              //
+    //-----------------------------------------------------------------------//
+    // XXX: IMPORTANT: Earth is not represented directly in DE440T data, so we
+    // put 0s in the corresp positions below:
+    //
+    // Dim1 (Outer): The Number of SubPeriods per RecSpan:
+    template<Object Obj>
+    int NSP;
+
+    template<> constexpr inline int NSP<Object::Sun>            = 2;
+    template<> constexpr inline int NSP<Object::Mercury>        = 4;
+    template<> constexpr inline int NSP<Object::Venus>          = 2;
+    template<> constexpr inline int NSP<Object::EMB>            = 2;
+    template<> constexpr inline int NSP<Object::Mars>           = 1;
+    template<> constexpr inline int NSP<Object::Jupiter>        = 1;
+    template<> constexpr inline int NSP<Object::Saturn>         = 1;
+    template<> constexpr inline int NSP<Object::Uranus>         = 1;
+    template<> constexpr inline int NSP<Object::Neptune>        = 1;
+    template<> constexpr inline int NSP<Object::Pluto>          = 1;
+    template<> constexpr inline int NSP<Object::Moon>           = 8;
+    template<> constexpr inline int NSP<Object::EarthNutations> = 4;
+    template<> constexpr inline int NSP<Object::MoonLibrations> = 4;
+    template<> constexpr inline int NSP<Object::TT_TDB>         = 8;
+
+    // Dim2 (Mid):   The Number of CoOrds. It is 3 in most cases, with the
+    // exceptions listed below:
+    template<Object Obj>
+    constexpr inline int NCO = 3;
+
+    template<> constexpr inline int NCO<Object::EarthNutations> = 2;
+    template<> constexpr inline int NCO<Object::TT_TDB>         = 1;
+
+    // Dim3 (Inner): The Number of Chebyshev Coeffs per CoOrd:
+    template<Object Obj>
+    int NCC;
+
+    template<> constexpr inline int NCC<Object::Sun>            = 11;
+    template<> constexpr inline int NCC<Object::Mercury>        = 14;
+    template<> constexpr inline int NCC<Object::Venus>          = 10;
+    template<> constexpr inline int NCC<Object::EMB>            = 13;
+    template<> constexpr inline int NCC<Object::Mars>           = 11;
+    template<> constexpr inline int NCC<Object::Jupiter>        =  8;
+    template<> constexpr inline int NCC<Object::Saturn>         =  7;
+    template<> constexpr inline int NCC<Object::Uranus>         =  6;
+    template<> constexpr inline int NCC<Object::Neptune>        =  6;
+    template<> constexpr inline int NCC<Object::Pluto>          =  6;
+    template<> constexpr inline int NCC<Object::Moon>           = 13;
+    template<> constexpr inline int NCC<Object::EarthNutations> = 10;
+    template<> constexpr inline int NCC<Object::MoonLibrations> = 10;
+    template<> constexpr inline int NCC<Object::TT_TDB>         = 13;
+
+    //-----------------------------------------------------------------------//
+    // Types of Chebyshev Coeffs (and CoOrds) for different "Object"s:       //
+    //-----------------------------------------------------------------------//
+    // In most cases, it is "Len_km", but there are some exceptions. We also
+    // provide the types for Time Derivatives ("Dots") of the Coeffs,    and
+    // the corresp Array Types:
+    //
+    template<Object Obj>
+    struct CTypes
+    {
+      using T    = Len_km;
+      using D    = decltype(T() / 1.0_sec);
+      using ArrT = T[3];        // 3D!
+      using ArrD = D[3];        // ditto
+    };
+
+    template<>
+    struct CTypes<Object::EarthNutations>
+    {
+      using T    = Angle;
+      using D    = AngVel;
+      // There are 2 Nutation Angles:
+      using ArrT = T[NCO<Object::EarthNutations>];
+      using ArrD = D[NCO<Object::EarthNutations>];
+    };
+
+    template<>
+    struct CTypes<Object::MoonLibrations>
+    {
+      using T    = Angle;
+      using D    = AngVel;
+      // There are 3 Libration Angles:
+      using ArrT = T[NCO<Object::MoonLibrations>];
+      using ArrD = D[NCO<Object::MoonLibrations>];
+    };
+
+    template<>
+    struct CTypes<Object::TT_TDB>
+    {
+      using T    = Time;
+      using D    = decltype(T() / 1.0_sec); // Actually DimLess!
+      // TT_TDB are 1D data:
+      using ArrT = T[1];
+      using ArrD = D[1];
+    };
+
+    // The Short-Cuts:
+    template<Object Obj>
+    using CT    = CTypes<Obj>::T;
+
+    template<Object Obj>
+    using DT    = CTypes<Obj>::D;
+
+    template<Object Obj>
+    using ArrCT = CTypes<Obj>::ArrT;
+
+    template<Object Obj>
+    using ArrDT = CTypes<Obj>::ArrD;
+
+    //-----------------------------------------------------------------------//
+    // Data Record Layout:                                                   //
+    //-----------------------------------------------------------------------//
+    struct Record
+    {
+      // Time Span of this Record, JD_TDB:
+      Time_day const     m_From;
+      Time_day const     m_To;
+
+#     ifdef  MK_DE440T_REC_ENTRY
+#     undef  MK_DE440T_REC_ENTRY
+#     endif
+#     define MK_DE440T_REC_ENTRY(ObjName) \
+      /* Chebyshev Coeffs: */   \
+      CT<Object::ObjName> const m_##ObjName \
+        [NSP<Object::ObjName>]  \
+        [NCO<Object::ObjName>]  \
+        [NCC<Object::ObjName>];
+
+      // So: Chebyshev Coeffs for all Objects, in the following order (which is
+      // NOT the same as enumeration of "Object"s  -- Sun comes after the Moon,
+      // not before everyone else). HERE THE ORDER IS IMPORTANT!
+      MK_DE440T_REC_ENTRY(Mercury)
+      MK_DE440T_REC_ENTRY(Venus)
+      MK_DE440T_REC_ENTRY(EMB)
+      MK_DE440T_REC_ENTRY(Mars)
+      MK_DE440T_REC_ENTRY(Jupiter)
+      MK_DE440T_REC_ENTRY(Saturn)
+      MK_DE440T_REC_ENTRY(Uranus)
+      MK_DE440T_REC_ENTRY(Neptune)
+      MK_DE440T_REC_ENTRY(Pluto)
+      MK_DE440T_REC_ENTRY(Moon)
+      MK_DE440T_REC_ENTRY(Sun)
+      MK_DE440T_REC_ENTRY(EarthNutations)
+      MK_DE440T_REC_ENTRY(MoonLibrations)
+      MK_DE440T_REC_ENTRY(TT_TDB)
+#     undef MK_DE440T_REC_ENTRY
+    };
+    // The size of the above "Record" is the same as that of "ND" "double"s:
+    static_assert(sizeof(Record) == size_t(ND) * sizeof(double));
+
+    //-----------------------------------------------------------------------//
+    // Accessors for the Chebyshev Coeffs:                                   //
+    //-----------------------------------------------------------------------//
+    // Templated Accessor (implemented below by specialisation):
+    // "a_s" is the sub-period index:
+    template<Object Obj>
+    CT<Obj> const* GetChebyshevCoeffs(Record const* a_rec, int a_s);
+
+#   ifdef  MK_DE440T_GET_COEFFS
+#   undef  MK_DE440T_GET_COEFFS
+#   endif
+#   define MK_DE440T_GET_COEFFS(ObjName)       \
+    template<> \
+    inline CT<Object::ObjName> const*          \
+    GetChebyshevCoeffs<Object::ObjName>(Record const* a_rec, int a_s)     \
+    { \
+      assert(a_rec != nullptr && 0 <= a_s && a_s < NSP<Object::ObjName>); \
+      return &(a_rec->m_##ObjName[a_s][0][0]); \
+    }
+    MK_DE440T_GET_COEFFS(Sun)
+    MK_DE440T_GET_COEFFS(Mercury)
+    MK_DE440T_GET_COEFFS(Venus)
+    MK_DE440T_GET_COEFFS(EMB)
+    MK_DE440T_GET_COEFFS(Mars)
+    MK_DE440T_GET_COEFFS(Jupiter)
+    MK_DE440T_GET_COEFFS(Saturn)
+    MK_DE440T_GET_COEFFS(Uranus)
+    MK_DE440T_GET_COEFFS(Neptune)
+    MK_DE440T_GET_COEFFS(Pluto)
+    MK_DE440T_GET_COEFFS(Moon)
+    MK_DE440T_GET_COEFFS(EarthNutations)
+    MK_DE440T_GET_COEFFS(MoonLibrations)
+    MK_DE440T_GET_COEFFS(TT_TDB)
+#   undef  MK_DE440T_GET_COEFFS
+
+    //=======================================================================//
     // "GetRecord":                                                          //
     //=======================================================================//
     // Internal Util. Returns the pair:
     //   (Record Ptr corresponding to the given TDB instant,
     //    Time Offset within the Record):
     //
-    std::pair<Record const*, Time> GetRecord(TDB a_tdb)
+    inline std::pair<Record const*, Time> GetRecord(TDB a_tdb)
     {
       // XXX: Protection against out-of-range "a_tdb" (this may sometimes happen
       // due to rounding errors):
@@ -77,6 +294,10 @@ namespace SpaceBallistics::DE440T
     //=======================================================================//
     // "GetCoOrds":                                                          //
     //=======================================================================//
+    // XXX: For internal use only.   The output "a_pos" and "a_vel" are arrays,
+    // not vectors, so this function is also suitable for Nutaions, Librations
+    // and TT_TDB diffs:
+    //
     template<Object Obj>
     void GetCoOrds
     (
@@ -91,19 +312,18 @@ namespace SpaceBallistics::DE440T
 
       // Initially "a_dt" is the temporal offset within the whole RecSpan; find
       // the corresp SubPeriod Index ("s1"):
-      constexpr int  NSP = NSPs[int(Obj)];
-      constexpr Time SP  = RecSpan     / double(NSP);  // SubPeriod Length
+      constexpr Time SP  = RecSpan     / double(NSP<Obj>);  // SubPeriod Length
       double         s0  = double(a_dt / SP);
       double         sf  = std::floor(s0);
       int            s   = int       (sf);
-      assert( 0 <=   s   &&  s    <  NSP);
+      assert( 0 <=   s   &&  s    <  NSP<Obj>);
 
       // Compute the offset "tau" from the beginning of the SubPeriod:
       Time   tau  = a_dt - sf * SP;
       assert(tau <= a_dt);
 
       // In any case, we must get valid "s" and "tau":
-      assert(0 <= s && s < NSP && !IsNeg(tau) && tau < SP && tau <= a_dt);
+      assert(0 <= s && s < NSP<Obj> && !IsNeg(tau) && tau < SP && tau <= a_dt);
 
       // Compute the argument "x" of Chebyshev Polynomials, in [-1..1]:
       double  x = 2.0 * double(tau / SP) - 1.0;
@@ -125,8 +345,8 @@ namespace SpaceBallistics::DE440T
         //      factor 0.5, whereas DE440T expansions assume factor 1.0, so this
         //      is corrected explicitly. For "Chebyshev::SumDT", there is no di-
         //      screpancy:
-        a_pos[i] =   Chebyshev::Sum1T<double, CT<Obj>>(NCC<Obj>-1, coeffsI, x)
-                     + 0.5 * coeffsI[0];
+        a_pos[i] = Chebyshev::Sum1T<double, CT<Obj>>(NCC<Obj>-1, coeffsI, x)
+                 + 0.5 * coeffsI[0];
 
         if (a_vel != nullptr)
           // Provide the Dots (Velocities) as well. They are NOT stored  in the
@@ -136,27 +356,51 @@ namespace SpaceBallistics::DE440T
           a_vel[i] = Chebyshev::SumDT<double, CT<Obj>>(NCC<Obj>-1, coeffsI, x)
                    * dxdt;
       }
-      // All Done!
+    }
+
+    //=======================================================================//
+    // "TemporalConsistencyTest":                                            //
+    //=======================================================================//
+    void TemporalConsistencyTest()
+    {
+      TDB expFrom = From;
+      TDB expTo;    // Empty as yet
+
+      for (int r = 0; r < NR; ++r)
+      {
+        Record const* rec = reinterpret_cast<Record const*>(&(Data[r][0]));
+
+        TDB from(rec->m_From);
+        TDB to  (rec->m_To);
+        expTo  = from + RecSpan;
+
+        assert(from == expFrom && to == expTo);
+        expFrom = to;
+      }
+      assert(expTo == To);
     }
   }
   // End namespace Bits
 
   //=========================================================================//
-  // "GetPlanet[s]BPV[s]":                                                   //
+  // "GetPlanet[s]BEqPV[s]":                                                 //
   //=========================================================================//
+  // In the "BaryCentricEqCOS", ie in the ICRF axes:
   //-------------------------------------------------------------------------//
   // With Compile-Time Object Selection:                                     //
   //-------------------------------------------------------------------------//
   template<Body BodyName>
-  void GetPlanetBPV
+  void GetPlanetBEqPV
   (
     TDB        a_tdb,
-    PosKVBary* a_pos,    // Output (Position)
-    VelKVBary* a_vel     // Output (Velocity); may be NULL
+    PosKVBEq*  a_pos,   // Output (Position)
+    VelKVBEq*  a_vel    // Output (Velocity); may be NULL
   )
   {
-    // This is the generic case for the Sun and Planets except the Earth; the
-    // Moon is also not supported here (as we seldom need its BaryCentruc PV):
+    // This is the generic case for the Sun and Planets except the Earth (which
+    // requires a specialised implementations); Moon is also not supported here
+    // (as we seldom need its BaryCentric PV); however, EMB is OK here:
+    //
     static_assert(BodyName != Body::Earth && BodyName != Body::Moon);
     assert(a_pos != nullptr);
 
@@ -165,8 +409,11 @@ namespace SpaceBallistics::DE440T
 
     // Translate "Body" into "Object", they use consistent enumeration:
     constexpr Bits::Object Obj = Bits::Object(int(BodyName));
+    static_assert(Bits::Object::Sun <= Obj && Obj <= Bits::Object::EMB &&
+                  Obj != Bits::Object::Moon);
 
-    // Store the result ditrectly in the underlying arrays of "a_pos", "a_vel":
+    // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
+    // yield the PV in the BaryCentric Equatorial co-ords directly:
     Bits::GetCoOrds<Obj>
     (
       rec,
@@ -180,11 +427,11 @@ namespace SpaceBallistics::DE440T
   // Specialisation for the Earth:                                           //
   //-------------------------------------------------------------------------//
   template<>
-  void GetPlanetBPV<Body::Earth>
+  void GetPlanetBEqPV<Body::Earth>
   (
     TDB        a_tdb,
-    PosKVBary* a_pos,    // Output (Position)
-    VelKVBary* a_vel     // Output (Velocity); may be NULL
+    PosKVBEq*  a_pos,   // Output (Position)
+    VelKVBEq*  a_vel    // Output (Velocity); may be NULL
   )
   {
     assert(a_pos != nullptr);
@@ -192,53 +439,55 @@ namespace SpaceBallistics::DE440T
     // Get the record data for a given TDB instant:
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
-    // First, get the PV of the Earth-Moon System BaryCenter:
-    PosKVBary posEMB;
-    VelKVBary velEMB;
+    // First, get the PV of the Earth-Moon System BaryCenter, in the BaryCentric
+    // Equatorial System (according to the DE440T convention):
+    LenK posEMB[3];
+    VelK velEMB[3];
     Bits::GetCoOrds<Bits::Object::EMB>
     (
       rec,
       dt,
-      posEMB.GetArr(),
-      (a_vel != nullptr) ? velEMB.GetArr()  : nullptr
+      posEMB,
+      (a_vel != nullptr) ? velEMB  : nullptr
     );
 
-    // Now get the GeoCentric PV of the Moon:
-    PosKVGeoF posMoon;
-    VelKVGeoF velMoon;
+    // Now get the GeoCentric PV of the Moon, in the GeoCentric Equatorial sys-
+    // tem (again, according to the DE440T convention):
+    LenK posM[3];
+    VelK velM[3];
     Bits::GetCoOrds<Bits::Object::Moon>
     (
       rec,
       dt,
-      posMoon.GetArr(),
-      (a_vel != nullptr) ? velMoon.GetArr() : nullptr
+      posM,
+      (a_vel != nullptr) ? velM : nullptr
     );
 
     // The GeoCentric  PV of the EMB: Proportional to those of the Moon:
-    constexpr double mu = 1.0 / (Bits::EMRat + 1.0);
+    constexpr double mu = 1.0 / (EMRat + 1.0);
 
-    // So  the BaryCentric PV of the Earth will be:
-    (*a_pos)[0]   = posEMB[0] - mu * posMoon[0];
-    (*a_pos)[1]   = posEMB[1] - mu * posMoon[1];
-    (*a_pos)[2]   = posEMB[2] - mu * posMoon[2];
+    // So the BaryCentric Equatorial PV of the Earth will be:
+    a_pos->x() = posEMB[0] - mu * posM[0];
+    a_pos->y() = posEMB[1] - mu * posM[1];
+    a_pos->z() = posEMB[2] - mu * posM[2];
 
     if (a_vel != nullptr)
     {
-      (*a_vel)[0] = velEMB[0] - mu * velMoon[0];
-      (*a_vel)[1] = velEMB[1] - mu * velMoon[1];
-      (*a_vel)[2] = velEMB[2] - mu * velMoon[2];
+      a_vel->x() = velEMB[0] - mu * velM[0];
+      a_vel->y() = velEMB[1] - mu * velM[1];
+      a_vel->z() = velEMB[2] - mu * velM[2];
     }
   }
 
   //-------------------------------------------------------------------------//
   // With Run-Time Body Selection:                                           //
   //-------------------------------------------------------------------------//
-  void GetPlanetBPV
+  void GetPlanetBEqPV
   (
     Body       a_body,
     TDB        a_tdb,
-    PosKVBary* a_pos,    // Output (Position)
-    VelKVBary* a_vel     // Output (Velocity); may be NULL
+    PosKVBEq*  a_pos,    // Output (Position)
+    VelKVBEq*  a_vel     // Output (Velocity); may be NULL
   )
   {
     switch (a_body)
@@ -248,7 +497,7 @@ namespace SpaceBallistics::DE440T
 #   endif
 #   define DE440T_BODY_CASE(BodyName) \
       case Body::BodyName: \
-           GetPlanetBPV<Body::BodyName>(a_tdb, a_pos, a_vel); \
+           GetPlanetBEqPV<Body::BodyName>(a_tdb, a_pos, a_vel); \
            break;
       DE440T_BODY_CASE(Sun)
       DE440T_BODY_CASE(Mercury)
@@ -260,78 +509,84 @@ namespace SpaceBallistics::DE440T
       DE440T_BODY_CASE(Uranus)
       DE440T_BODY_CASE(Neptune)
       DE440T_BODY_CASE(Pluto)
+      DE440T_BODY_CASE(EMB)
 #   undef  DE440T_BODY_CASE
     default:
       assert(false);
     }
   }
 
+  //=========================================================================//
+  // "GetPlanet[s]BEclPV[s]":                                                //
+  //=========================================================================//
   //-------------------------------------------------------------------------//
-  // For the 10 Objects Simultaneously:                                      //
+  // With Compile-Time Body Selection:                                       //
   //-------------------------------------------------------------------------//
-  // Since the primary use case of this function is to compute the planetary po-
-  // sitions for integration of Minor Solar System Bodies' Orbits,  it produces
-  // the co-ords of EMB rather than Earth and Moon separately. The output array
-  // is (same enumeration as that of "Object"s):
-  //
-  // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
-  //  6: Saturn, 7: Uranus,  8: Neptune, 9: Pluto]:
-  //
-  void GetPlanetsBPVs
+  template<Body BodyName>
+  void GetPlanetBEclPV
   (
     TDB        a_tdb,
-    PosKVBary  a_poss[10], // Output
-    VelKVBary  a_vels[10]  // Output (again, may be NULL)
+    PosKVBEcl* a_pos,      // Output (Position)
+    VelKVBEcl* a_vel       // Output (Velocity); may be NULL
   )
   {
-    // Optimisation: The Record is fetched just once for all Objects:
-    auto [rec, dt] = Bits::GetRecord(a_tdb);
+    // Not for the Moon; but Sun, Planets and EMB are OK:
+    static_assert(Body::Sun <= BodyName && BodyName <= Body::EMB &&
+                  BodyName  != Body::Moon);
 
-#   ifdef  DE440T_OBJ_PV
-#   undef  DE440T_OBJ_PV
-#   endif
-#   define DE440T_OBJ_PV(ObjName) \
-    { \
-      Bits::GetCoOrds<Bits::Object::ObjName> \
-        (rec, \
-         dt,  \
-         a_poss  [int(Bits::Object::ObjName)].GetArr(), \
-         ( a_vels != nullptr ) \
-         ? a_vels[int(Bits::Object::ObjName)].GetArr()  \
-         : nullptr \
-      ); \
-    }
-    DE440T_OBJ_PV(Sun)
-    DE440T_OBJ_PV(Mercury)
-    DE440T_OBJ_PV(Venus)
-    DE440T_OBJ_PV(EMB)
-    DE440T_OBJ_PV(Mars)
-    DE440T_OBJ_PV(Jupiter)
-    DE440T_OBJ_PV(Saturn)
-    DE440T_OBJ_PV(Uranus)
-    DE440T_OBJ_PV(Neptune)
-    DE440T_OBJ_PV(Pluto)
-#   undef DE440T_OBJ_PV
+    // First, compute the PV in the BaryCentric Equatorial Co-Ords:
+    PosKVBEq posEq;
+    VelKVBEq velEq;
+    GetPlanetBEqPV<BodyName>
+      (a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
+
+    // Then convert the results into the BaryCentric Ecliptical Co-Ords:
+    ToEcl(posEq, a_pos);
+    if (a_vel != nullptr)
+      ToEcl(velEq, a_vel);
+  }
+
+  //-------------------------------------------------------------------------//
+  // With Run-Time Body selection:                                           //
+  //-------------------------------------------------------------------------//
+  void GetPlanetBEclPV
+  (
+    Body       a_body,     // Same constraints for "a_obj" as above
+    TDB        a_tdb,
+    PosKVBEcl* a_pos,      // Output (Position)
+    VelKVBEcl* a_vel       // Output (Velocity); may be NULL
+  )
+  {
+    // First, compute the PV in the BaryCentric Equatorial Co-Ords:
+    PosKVBEq posEq;
+    VelKVBEq velEq;
+    GetPlanetBEqPV
+      (a_body, a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
+
+    // Then convert the results into the BaryCentric Ecliptical Co-Ords:
+    ToEcl(posEq, a_pos);
+    if (a_vel != nullptr)
+      ToEcl(velEq, a_vel);
   }
 
   //=========================================================================//
-  // "TTofTDB":                                                              //
+  // "ToTT":                                                                 //
   //=========================================================================//
-  TT TTofTDB(TDB a_tdb)
+  TT ToTT(TDB a_tdb)
   {
     // Get the data for a given TDB instant:
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
     Time  diff[1];   // 1 CoOrd only
-    Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff);
+    Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff, nullptr);
 
     return TT() + (a_tdb.GetTime() + diff[0]);
   }
 
   //=========================================================================//
-  // "TDBofTT":                                                              //
+  // "ToTDB":                                                                //
   //=========================================================================//
-  TDB TDBofTT(TT a_tt)
+  TDB ToTDB(TT a_tt)
   {
     // Solve iteratively:     tdb = tt - TT_TDB(tdb),
     // with the initial cond: tdb = tt ;
@@ -348,7 +603,7 @@ namespace SpaceBallistics::DE440T
       auto [rec, dt] = Bits::GetRecord(tdb);
 
       Time  diff[1];   // 1 CoOrd only
-      Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff);
+      Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff, nullptr);
 
       TT    tt1(TT() + tdb.GetTime()  + diff[0]);
 
@@ -363,30 +618,6 @@ namespace SpaceBallistics::DE440T
     // Check for (unlikely) divergence:
     assert(i < MaxIters);
     return tdb;
-  }
-
-  //=========================================================================//
-  // "SelfTest":                                                             //
-  //=========================================================================//
-  void SelfTest()
-  {
-    // Verify the Temporal Continuity of DE440T Data:
-    TDB expFrom = Bits::From;
-    TDB expTo;    // Empty as yet
-
-    for (int r = 0; r < Bits::NR; ++r)
-    {
-      Bits::Record const* rec =
-        reinterpret_cast<Bits::Record const*>(&(Bits::Data[r][0]));
-
-      TDB from(rec->m_From);
-      TDB to  (rec->m_To);
-      expTo   = from + Bits::RecSpan;
-
-      assert(from == expFrom && to == expTo);
-      expFrom = to;
-    }
-    assert(expTo == Bits::To);
   }
 }
 // End namespace SpaceBallistics

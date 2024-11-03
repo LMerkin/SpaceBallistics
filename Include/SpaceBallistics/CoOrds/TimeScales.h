@@ -123,7 +123,8 @@ namespace SpaceBallistics
   //=========================================================================//
   // Terrestrial Time (Uniform, Relativistic), implemented via TAI (with an
   // offset):
-  //
+  class TDB;
+
   class TT
   {
   private:
@@ -153,8 +154,9 @@ namespace SpaceBallistics
     constexpr static Time     TT_TAI = 32.184_sec;
 
     //-----------------------------------------------------------------------//
-    // Constructing TT from UTC:                                             //
+    // Non-Default Ctors:                                                    //
     //-----------------------------------------------------------------------//
+    // From UTC:
     constexpr TT(UTC const& a_utc)
     {
       // Compute the TAI components:
@@ -169,7 +171,12 @@ namespace SpaceBallistics
     : m_MJS    (To_Time_sec(a_jd_tt - Epoch))
     {}
 
-    // Extracting the Time value (since the Epoch): XXX: USE WITH CARE!
+    // From TDB (not "constexpr", as DE440T is required):
+    TT(TDB const& a_tdb);
+
+    //-----------------------------------------------------------------------//
+    // Extracting the Time value (since the Epoch): XXX: USE WITH CARE!      //
+    //-----------------------------------------------------------------------//
     constexpr Time GetTime() const { return m_MJS; }
 
     //-----------------------------------------------------------------------//
@@ -356,14 +363,16 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Constructing TDB from TT. The implementation is non-trivial, requires
     // the JPL Ephemerides (DE440T), so it is not a "constexpr":
-    TDB(TT a_tt);
+    TDB(TT const& a_tt);
 
     // Directly constructing TDB from JD_TDB:
     constexpr TDB (Time_day a_jd_tdb)
     : m_MJS    (To_Time_sec(a_jd_tdb - Epoch))
     {}
 
-    // Extracting the Time value (since the Epoch): XXX: USE WITH CARE!
+    //-----------------------------------------------------------------------//
+    // Extracting the Time value (since the Epoch): XXX: USE WITH CARE!      //
+    //-----------------------------------------------------------------------//
     constexpr Time GetTime() const { return m_MJS; }
 
     //-----------------------------------------------------------------------//
