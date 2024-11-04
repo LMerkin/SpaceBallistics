@@ -17,9 +17,9 @@ namespace SpaceBallistics
   //   XY plane: Ecliptic     of J2000.0
   //             (ie NOT ICRF, which is Equatorial, and NOT the Laplace plane
   //             of the Solar System, which is the plane orthogonal to the
-  //             MoI vector
+  //             angular momentum vector of the whole Solar System)
   //   Y, Z    : Derived from the above
-  // Obviously, using TDB as the assiciated TimeScale.
+  // Obviously, using TDB as the associated TimeScale.
   // This definition is consistent with the conventions of the JPL Horizon eph-
   // emerides:
   //
@@ -62,60 +62,5 @@ namespace SpaceBallistics
   using VelKVBEq  = VelKV<BaryCentricEqCOS>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
-
-  //=========================================================================//
-  // Transformations of Vectors between Equatorial and Ecliptic Co-Ords:     //
-  //=========================================================================//
-  // J2000.0 Obliquity of the Ecliptic to the ICRF Equator, from IAU76:
-  //
-  constexpr inline Angle     Obliq2000 = To_Angle(Angle_arcSec(84381.448));
-  constexpr inline double CosObliq2000 = Cos(double(Obliq2000));
-  constexpr inline double SinObliq2000 = Sin(double(Obliq2000));
-
-  //-------------------------------------------------------------------------//
-  // Eq -> Ecl:                                                              //
-  //-------------------------------------------------------------------------//
-  template<typename DQ>
-  constexpr void  ToEcl
-    (Vector3D<DQ, BaryCentricEqCOS> const& a_eq,
-     Vector3D<DQ, BaryCentricEclCOS>*      a_ecl)
-  {
-    assert(a_ecl != nullptr);
-    a_ecl->x() =  a_eq.x();
-    a_ecl->y() =  CosObliq2000 * a_eq.y() + SinObliq2000 * a_eq.z();
-    a_ecl->z() = -SinObliq2000 * a_eq.y() + CosObliq2000 * a_eq.z();
-  }
-
-  template<typename DQ>
-  constexpr Vector3D<DQ, BaryCentricEclCOS> ToEcl
-           (Vector3D<DQ, BaryCentricEqCOS> const& a_eq)
-  {
-    Vector3D<DQ, BaryCentricEclCOS> ecl;
-    ToEcl(a_eq,  &ecl);
-    return ecl;
-  }
-
-  //-------------------------------------------------------------------------//
-  // Ecl -> Eq:                                                              //
-  //-------------------------------------------------------------------------//
-  template<typename DQ>
-  constexpr void  ToEq
-    (Vector3D<DQ, BaryCentricEclCOS> const& a_ecl,
-     Vector3D<DQ, BaryCentricEqCOS>*        a_eq)
-  {
-    assert(a_eq != nullptr);
-    a_eq->x() =  a_ecl.x();
-    a_eq->y() =  CosObliq2000 * a_ecl.y() - SinObliq2000 * a_ecl.z();
-    a_eq->z() =  SinObliq2000 * a_ecl.y() + CosObliq2000 * a_ecl.z();
-  }
-
-  template<typename DQ>
-  constexpr Vector3D<DQ, BaryCentricEclCOS> ToEq
-           (Vector3D<DQ, BaryCentricEqCOS> const& a_ecl)
-  {
-    Vector3D<DQ, BaryCentricEclCOS> eq;
-    ToEq(a_ecl,  &eq);
-    return eq;
-  }
 }
 // End namespace SpaceBallistics

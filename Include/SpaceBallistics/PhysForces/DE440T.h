@@ -86,9 +86,9 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   void GetMoonGPV
   (
-    TDB         a_tdb,
-    PosKVGeoF*  a_pos,
-    VelKVGeoF*  a_vel
+    TDB            a_tdb,
+    PosKVGeoEqFix* a_pos,
+    VelKVGeoEqFix* a_vel
   );
 
   //-------------------------------------------------------------------------//

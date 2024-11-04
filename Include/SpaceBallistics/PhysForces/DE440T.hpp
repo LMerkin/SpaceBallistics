@@ -6,6 +6,7 @@
 #pragma  once
 #include "SpaceBallistics/PhysForces/DE440T.h"
 #include "SpaceBallistics/Maths/Chebyshev.hpp"
+#include "SpaceBallistics/CoOrds/EqEcl.hpp"
 #include <cmath>
 #include <utility>
 #include <cassert>

@@ -75,8 +75,8 @@ namespace SpaceBallistics
     // The function ADDS the components of the gravitational  acceleration vec-
     // tor to the output vector "acc",  so the latter must be properly initial-
     // ised (eg zeroed-out) before calling this function.
-    // NB: "pos" and "acc" are in the BodyCentricRotatingCOS (which is embedded
-    // in the Body is and rotating with it):
+    // NB: "pos" and "acc" are in the "BodyCentricRotCOS" (which is embedded in
+    // the Body is and rotating with it):
     //
     static void GravAcc
     (
@@ -103,7 +103,7 @@ namespace SpaceBallistics
       //---------------------------------------------------------------------//
       // The Rectangular and Spherical CoOrds:                               //
       //---------------------------------------------------------------------//
-      // (In BodyCentricRotatingCOS):
+      // (In the "BodyCentricRotCOS"):
       LenK x       = a_pos[0];
       LenK y       = a_pos[1];
       LenK z       = a_pos[2];

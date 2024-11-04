@@ -43,8 +43,8 @@ namespace
   )
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
-    // Fixed COS:
-    PosKVFix<Body::Moon> posF
+    // Equatorial Fixed-Axes COS ("EqFixCOS"):
+    PosKVEqFix<Body::Moon> posF
       {To_Len_km(Len(a_y[0])), To_Len_km(Len(a_y[1])), To_Len_km(Len(a_y[2]))};
     Time t(a_t);
 
@@ -55,7 +55,7 @@ namespace
 
     // Now compute the Accelerations. To that end, we need to convert "posF"
     // into the Rotating COS, compute the accelerations there,  and  convert
-    // them back into the Fixed COS.
+    // them back into the EqFixCOS.
     // We assume that at t=0, the instantaneous ("snap-shot") Rotating COS
     // coincides with the Fixed one; then apply the Moon Rotation Angle  :
 
@@ -93,8 +93,8 @@ namespace
            << To_Angle_deg(exn.m_phi)    << endl;
       return GSL_EBADFUNC;
     }
-    // If OK: Convert "accR"  back into the Fixed COS:
-    AccVFix<Body::Moon> accF
+    // If OK: Convert "accR"  back into the EqFixCOS:
+    AccVEqFix<Body::Moon> accF
     (
       cosMRA * accR[0] - sinMRA * accR[1],
       sinMRA * accR[0] + cosMRA * accR[1],
