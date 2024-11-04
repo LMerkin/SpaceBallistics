@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
 //                "SpaceBallistics/CoOrds/BodyCentricCOSes.h":               //
-//            Body-Centric Fixed-Axes and EqRot Co-Ords Systems           //
+//           Body-Centric Fixed-Axes and Rotating Co-Ords Systems            //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
@@ -17,7 +17,7 @@ namespace SpaceBallistics
   class TDB;
 
   //=========================================================================//
-  // "BodyCentricEqFixCOS" Class:                                            //
+  // "BodyCentricEqCOS" Class:                                               //
   //=========================================================================//
   // BodyCentric Equatorial Fixed-Axes COS:
   // Origin: Normally, the center of Body's Ellipsoid
@@ -153,11 +153,11 @@ namespace SpaceBallistics
   //=========================================================================//
   // "BodyCentricRotCOS" Class:                                              //
   //=========================================================================//
-  // BodyCentric Rotating-Axes COS:
+  // BodyCentric Rotating-Axes COS (obviously Equatorial):
   // This COS is "embedded" in the Body and is rotating in the inertial space
   // along with the Body.
   // Origin: Normally, the center of the Body Ellipsoid.
-  // Axes  : XY Plane: Body's CURRENT Equator
+  // Axes  : XY Plane: Body's CURRENT Equator (NOT J2000.0 Equator!)
   //         X       : To (lambda=0, phi=0) in the corresp BodyGraphic COS
   //         Z       : Body's North Pole
   // TimeScale       : Same convention as for BodyCentricFixCOS.

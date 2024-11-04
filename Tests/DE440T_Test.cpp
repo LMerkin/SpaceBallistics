@@ -71,9 +71,24 @@ int main(int argc, char* argv[])
              tt.GetTime().Magnitude(), tdb1.GetTime().Magnitude());
     }
     else
-    if (body != Body::Moon)
+    if (body == Body::Moon)
     {
-      // It's Sun or a Planet, or EMB: Get the BaryCentric Ecliptical CoOrds:
+      // For the Moon, get the GeoCentrix Fixed-Axes Ecliptical CoOrds:
+      PosKVGeoEclFix pos;
+      VelKVGeoEclFix vel;
+      DE440T::GetMoonGEclPV(tdb, &pos, &vel);
+
+      // Output:
+      printf("%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\n",
+             pos.x().Magnitude(), pos.y().Magnitude(), pos.z().Magnitude(),
+             LenK(pos).Magnitude(),
+             vel.x().Magnitude(), vel.y().Magnitude(), vel.z().Magnitude(),
+             VelK(vel).Magnitude());
+    }
+    else
+    {
+      // Any other Body: It's Sun or a Planet, or EMB:
+      // Get the BaryCentric Ecliptical CoOrds:
       PosKVBEcl pos;
       VelKVBEcl vel;
       DE440T::GetPlanetBEclPV(body, tdb, &pos, &vel);

@@ -571,6 +571,54 @@ namespace SpaceBallistics::DE440T
   }
 
   //=========================================================================//
+  // "GetMoonG{Eq,Ecl}PV":                                                   //
+  //=========================================================================//
+  // In the GeoCentric Equatorial Fixed-Axes (ICRF) COS:
+  void GetMoonGEqPV
+  (
+    TDB            a_tdb,
+    PosKVGeoEqFix* a_pos,
+    VelKVGeoEqFix* a_vel
+  )
+  {
+    assert(a_pos != nullptr);
+    
+    // Get the record data for a given TDB instant:
+    auto [rec, dt] = Bits::GetRecord(a_tdb);
+      
+    // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
+    // yield the PV in the GeoCentric Equatorial  Fixed-Axes (ICRF)  co-ords
+    // directly:
+    Bits::GetCoOrds<Bits::Object::Moon>
+    (
+      rec,
+      dt,
+      a_pos->GetArr(),
+      a_vel != nullptr ? a_vel->GetArr() : nullptr
+    );
+  }
+
+  // In the GeoCentric Ecliptical Fixed-Axes COS (compatible with JPL Horizons):
+  void GetMoonGEclPV
+  (
+    TDB             a_tdb,
+    PosKVGeoEclFix* a_pos,
+    VelKVGeoEclFix* a_vel
+  )
+  {
+    // First, compute the PV in the GeoCentric Equatorial Fixed-Axes (ICRF)
+    // Co-Ords:
+    PosKVGeoEqFix   posEq;
+    VelKVGeoEqFix   velEq;
+    GetMoonGEqPV(a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
+
+    // Then convert the results into the GeoCentric Ecliptical Co-Ords:
+    ToEcl(posEq, a_pos);
+    if (a_vel != nullptr)
+      ToEcl(velEq, a_vel);
+  }
+
+  //=========================================================================//
   // "ToTT":                                                                 //
   //=========================================================================//
   TT ToTT(TDB a_tdb)
