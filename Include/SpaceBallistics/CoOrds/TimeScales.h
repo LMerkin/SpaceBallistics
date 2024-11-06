@@ -175,9 +175,14 @@ namespace SpaceBallistics
     TT(TDB const& a_tdb);
 
     //-----------------------------------------------------------------------//
-    // Extracting the Time value (since the Epoch): XXX: USE WITH CARE!      //
+    // Extracting the Time value (since the Epoch) or JD_TT val:             //
     //-----------------------------------------------------------------------//
-    constexpr Time GetTime() const { return m_MJS; }
+    // XXX: USE WITH CARE, as TimeScale info is then lost:
+    //
+    constexpr Time     GetTime() const { return m_MJS; }
+
+    // Extracting the JD_TDB:
+    constexpr Time_day GetJD  () const { return Epoch + To_Time_day(m_MJS); }
 
     //-----------------------------------------------------------------------//
     // "MkTAI":                                                              //
@@ -371,9 +376,14 @@ namespace SpaceBallistics
     {}
 
     //-----------------------------------------------------------------------//
-    // Extracting the Time value (since the Epoch): XXX: USE WITH CARE!      //
+    // Extracting the Time value (since the Epoch) or JD_TDB val:            //
     //-----------------------------------------------------------------------//
-    constexpr Time GetTime() const { return m_MJS; }
+    // XXX: USE WITH CARE, as TimeScale info is then lost:
+    //
+    constexpr Time     GetTime() const { return m_MJS; }
+
+    // Extracting the JD_TDB:
+    constexpr Time_day GetJD  () const { return Epoch + To_Time_day(m_MJS); }
 
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //

@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                         "Tests/DE440T_Test.cpp":                          //
+//                         "Tests/DE440T_Test0.cpp":                         //
 //===========================================================================//
 #include <cstdio>
 #include <cstdlib>
@@ -94,7 +94,10 @@ int main(int argc, char* argv[])
       DE440T::GetPlanetBEclPV(body, tdb, &pos, &vel);
 
       // Output:
-      printf("%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\n",
+      printf("%.2f\t"
+             "%.16e\t%.16e\t%.16e\t%.16e\t"
+             "%.16e\t%.16e\t%.16e\t%.16e\n",
+             tdb.GetJD().Magnitude(),
              pos.x().Magnitude(), pos.y().Magnitude(), pos.z().Magnitude(),
              LenK(pos).Magnitude(),
              vel.x().Magnitude(), vel.y().Magnitude(), vel.z().Magnitude(),

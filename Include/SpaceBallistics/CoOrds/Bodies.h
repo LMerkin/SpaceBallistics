@@ -23,16 +23,16 @@ namespace SpaceBallistics
     Saturn  = 6,   // Saturn  and its moons
     Uranus  = 7,   // Uranus  and its moons
     Neptune = 8,   // Neptune and its moons
-    Pluto   = 9,   // Pluto   and its moons
+    PlutoB  = 9,   // Pluto System BaryCenter
 
-    // We also provide EMB, the Earth-Moon System BaryCenter, for compatibility
-    // with DE440T and for convenience of interplanetray trajectores integrati-
-    // on:
-    EMB     = 10,
+    // We place the Moon after PlutoB to preserve the classical numbering sequ-
+    // ence for the Sun and Major Planets:
+    Moon    = 10,
 
-    // We place the Moon at the end to preserve the classical numbering sequence
-    // for the Sun and Planets:
-    Moon    = 11
+    // We also provide a "virtual Body"  EMB, the Earth-Moon System BaryCenter,
+    // for compatibility with DE440T and for convenience of interplanetray traj-
+    // ectores integration:
+    EMB     = 11
   };
 
   //-------------------------------------------------------------------------//
@@ -54,9 +54,9 @@ namespace SpaceBallistics
       case Body::Saturn  : return "Saturn";
       case Body::Uranus  : return "Uranus";
       case Body::Neptune : return "Neptune";
-      case Body::Pluto   : return "Pluto";
-      case Body::EMB     : return "EMB";
+      case Body::PlutoB  : return "PlutoB";
       case Body::Moon    : return "Moon";
+      case Body::EMB     : return "EMB";
       default            : assert(false); return nullptr;
     }
   }
@@ -75,9 +75,9 @@ namespace SpaceBallistics
       (bsv == "Saturn")  ? Body::Saturn  :
       (bsv == "Uranus")  ? Body::Uranus  :
       (bsv == "Neptune") ? Body::Neptune :
-      (bsv == "Pluto")   ? Body::Pluto   :
-      (bsv == "EMB")     ? Body::EMB     :
+      (bsv == "PlutoB")  ? Body::PlutoB  :
       (bsv == "Moon")    ? Body::Moon    :
+      (bsv == "EMB")     ? Body::EMB     :
       throw "Invalid BodyName";
   }
 }

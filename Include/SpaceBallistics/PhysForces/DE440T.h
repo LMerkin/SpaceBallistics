@@ -34,7 +34,7 @@ namespace SpaceBallistics::DE440T
   template<> constexpr inline GMK K<Body::Saturn>  = GMK(    37940584.8418  );
   template<> constexpr inline GMK K<Body::Uranus>  = GMK(     5794556.4     );
   template<> constexpr inline GMK K<Body::Neptune> = GMK(     6836527.10058 );
-  template<> constexpr inline GMK K<Body::Pluto>   = GMK(         975.5     );
+  template<> constexpr inline GMK K<Body::PlutoB>  = GMK(         975.5     );
 
   // Earth/Moon Mass Ratio:
   constexpr  inline double EMRat      = 81.3005682214972154;
@@ -79,6 +79,30 @@ namespace SpaceBallistics::DE440T
     TDB        a_tdb,
     PosKVBEcl* a_pos,      // Output (Position)
     VelKVBEcl* a_vel       // Output (Velocity); may be NULL
+  );
+
+  // A slightly optimised version for the Sun and all Planets:
+  // Since the primary use case of this function is to compute the planetary po-
+  // sitions for integration of Minor Solar System Bodies' Orbits,  it produces
+  // the co-ords of EMB rather than Earth and Moon separately. The output array
+  // is:
+  // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
+  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlutoB]:
+  //
+  // Again, both Equatorial (J2000.0) and Ecliptical (J2000.0) versions are av-
+  // ailable:
+  void GetPlanetsBEqPVs
+  (
+    TDB        a_tdb,
+    PosKVBEq   a_poss[10], // Output
+    VelKVBEq   a_vels[10]  // Output (again, may be NULL)
+  );
+
+  void GetPlanetsBEclPVs
+  (
+    TDB        a_tdb,
+    PosKVBEcl  a_poss[10], // Output
+    VelKVBEcl  a_vels[10]  // Output (again, may be NULL)
   );
 
   //-------------------------------------------------------------------------//

@@ -193,8 +193,9 @@ SET(SB_TESTS
   LagrangeNormTest
   LunarOrbiterTest
   ChebyshevTest
-  DE440T_Test
-  TAI_Test)
+  TAI_Test
+  DE440T_Test0
+  DE440T_Test1)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)

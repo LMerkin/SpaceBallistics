@@ -53,7 +53,7 @@ namespace SpaceBallistics
   using CronoCentricEqFixCOS   = BodyCentricEqFixCOS<Body::Saturn>;
   using UranoCentricEqFixCOS   = BodyCentricEqFixCOS<Body::Uranus>;
   using PoseidoCentricEqFixCOS = BodyCentricEqFixCOS<Body::Neptune>;
-  using HadeoCentricEqFixCOS   = BodyCentricEqFixCOS<Body::Pluto>;
+  using HadeoCentricEqFixCOS   = BodyCentricEqFixCOS<Body::PlutoB>;
 
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in a "BodyCentricEqFixCOS":        //
@@ -112,7 +112,7 @@ namespace SpaceBallistics
   using CronoCentricEclFixCOS   = BodyCentricEclFixCOS<Body::Saturn>;
   using UranoCentricEclFixCOS   = BodyCentricEclFixCOS<Body::Uranus>;
   using PoseidoCentricEclFixCOS = BodyCentricEclFixCOS<Body::Neptune>;
-  using HadeoCentricEclFixCOS   = BodyCentricEclFixCOS<Body::Pluto>;
+  using HadeoCentricEclFixCOS   = BodyCentricEclFixCOS<Body::PlutoB>;
 
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in a "BodyCentricEclFixCOS":       //
@@ -187,7 +187,7 @@ namespace SpaceBallistics
   using CronoCentricRotCOS   = BodyCentricRotCOS<Body::Saturn>;
   using UranoCentricRotCOS   = BodyCentricRotCOS<Body::Uranus>;
   using PoseidoCentricRotCOS = BodyCentricRotCOS<Body::Neptune>;
-  using HadeoCentricRotCOS   = BodyCentricRotCOS<Body::Pluto>;
+  using HadeoCentricRotCOS   = BodyCentricRotCOS<Body::PlutoB>;
 
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in a "BodyCentricRotCOS":          //

@@ -27,13 +27,13 @@ namespace SpaceBallistics::DE440T
       Sun             = int(Body::Sun),
       Mercury         = int(Body::Mercury),
       Venus           = int(Body::Venus),
+      EMB             = int(Body::Earth),     // BEWARE: EMB in place of Earth!
       Mars            = int(Body::Mars),
       Jupiter         = int(Body::Jupiter),
       Saturn          = int(Body::Saturn),
       Uranus          = int(Body::Uranus),
       Neptune         = int(Body::Neptune),
-      Pluto           = int(Body::Pluto),
-      EMB             = int(Body::EMB),
+      PlutoB          = int(Body::PlutoB),
       Moon            = int(Body::Moon),
       EarthNutations  = int(Body::Moon) + 1, // [d(psi),  d(eps)]
       MoonLibrations  = int(Body::Moon) + 2, // [phi, theta, psi]
@@ -63,7 +63,7 @@ namespace SpaceBallistics::DE440T
     template<> constexpr inline int NSP<Object::Saturn>         = 1;
     template<> constexpr inline int NSP<Object::Uranus>         = 1;
     template<> constexpr inline int NSP<Object::Neptune>        = 1;
-    template<> constexpr inline int NSP<Object::Pluto>          = 1;
+    template<> constexpr inline int NSP<Object::PlutoB>         = 1;
     template<> constexpr inline int NSP<Object::Moon>           = 8;
     template<> constexpr inline int NSP<Object::EarthNutations> = 4;
     template<> constexpr inline int NSP<Object::MoonLibrations> = 4;
@@ -90,7 +90,7 @@ namespace SpaceBallistics::DE440T
     template<> constexpr inline int NCC<Object::Saturn>         =  7;
     template<> constexpr inline int NCC<Object::Uranus>         =  6;
     template<> constexpr inline int NCC<Object::Neptune>        =  6;
-    template<> constexpr inline int NCC<Object::Pluto>          =  6;
+    template<> constexpr inline int NCC<Object::PlutoB>         =  6;
     template<> constexpr inline int NCC<Object::Moon>           = 13;
     template<> constexpr inline int NCC<Object::EarthNutations> = 10;
     template<> constexpr inline int NCC<Object::MoonLibrations> = 10;
@@ -185,7 +185,7 @@ namespace SpaceBallistics::DE440T
       MK_DE440T_REC_ENTRY(Saturn)
       MK_DE440T_REC_ENTRY(Uranus)
       MK_DE440T_REC_ENTRY(Neptune)
-      MK_DE440T_REC_ENTRY(Pluto)
+      MK_DE440T_REC_ENTRY(PlutoB)
       MK_DE440T_REC_ENTRY(Moon)
       MK_DE440T_REC_ENTRY(Sun)
       MK_DE440T_REC_ENTRY(EarthNutations)
@@ -224,7 +224,7 @@ namespace SpaceBallistics::DE440T
     MK_DE440T_GET_COEFFS(Saturn)
     MK_DE440T_GET_COEFFS(Uranus)
     MK_DE440T_GET_COEFFS(Neptune)
-    MK_DE440T_GET_COEFFS(Pluto)
+    MK_DE440T_GET_COEFFS(PlutoB)
     MK_DE440T_GET_COEFFS(Moon)
     MK_DE440T_GET_COEFFS(EarthNutations)
     MK_DE440T_GET_COEFFS(MoonLibrations)
@@ -400,7 +400,7 @@ namespace SpaceBallistics::DE440T
   {
     // This is the generic case for the Sun and Planets except the Earth (which
     // requires a specialised implementations); Moon is also not supported here
-    // (as we seldom need its BaryCentric PV); however, EMB is OK here:
+    // (as we seldom need its BaryCentric PV);  however, EMB is OK here:
     //
     static_assert(BodyName != Body::Earth && BodyName != Body::Moon);
     assert(a_pos != nullptr);
@@ -408,10 +408,12 @@ namespace SpaceBallistics::DE440T
     // Get the record data for a given TDB instant:
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
-    // Translate "Body" into "Object", they use consistent enumeration:
-    constexpr Bits::Object Obj = Bits::Object(int(BodyName));
-    static_assert(Bits::Object::Sun <= Obj && Obj <= Bits::Object::EMB &&
-                  Obj != Bits::Object::Moon);
+    // Translate "Body" into "Object", they use consistent enumeration EXCEPT
+    // for EMB:
+    constexpr Bits::Object Obj =
+      (BodyName == Body::EMB) ? Bits::Object::EMB : Bits::Object(int(BodyName));
+
+    static_assert(Bits::Object::Sun <= Obj && Obj <= Bits::Object::PlutoB);
 
     // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
     // yield the PV in the BaryCentric Equatorial co-ords directly:
@@ -483,6 +485,8 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // With Run-Time Body Selection:                                           //
   //-------------------------------------------------------------------------//
+  // This is just a mutiplexor of the above version:
+  //
   void GetPlanetBEqPV
   (
     Body       a_body,
@@ -509,12 +513,59 @@ namespace SpaceBallistics::DE440T
       DE440T_BODY_CASE(Saturn)
       DE440T_BODY_CASE(Uranus)
       DE440T_BODY_CASE(Neptune)
-      DE440T_BODY_CASE(Pluto)
+      DE440T_BODY_CASE(PlutoB)
       DE440T_BODY_CASE(EMB)
 #   undef  DE440T_BODY_CASE
     default:
       assert(false);
     }
+  }
+
+  //-------------------------------------------------------------------------//
+  // A slightly optimised version for the Sun and all Major Planets:         //
+  //-------------------------------------------------------------------------//
+  // Since the primary use case of this function is to compute the planetary po-
+  // sitions for integration of Minor Solar System Bodies' Orbits,  it produces
+  // the co-ords of EMB rather than Earth and Moon separately. The output array
+  // is:
+  // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
+  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlutoB]:
+  //
+  void GetPlanetsBEqPVs
+  (
+    TDB        a_tdb,
+    PosKVBEq   a_poss[10], // Output
+    VelKVBEq   a_vels[10]  // Output (again, may be NULL)
+  )
+  {
+    // Optimisation: The Record is fetched JUST ONCE for all Objects:
+    auto [rec, dt] = Bits::GetRecord(a_tdb);
+
+#   ifdef  DE440T_OBJ_PV
+#   undef  DE440T_OBJ_PV
+#   endif
+#   define DE440T_OBJ_PV(ObjName) \
+    { \
+      Bits::GetCoOrds<Bits::Object::ObjName> \
+        (rec, \
+         dt,  \
+         a_poss  [int(Bits::Object::ObjName)].GetArr(), \
+         ( a_vels != nullptr ) \
+         ? a_vels[int(Bits::Object::ObjName)].GetArr()  \
+         : nullptr \
+      ); \
+    }
+    DE440T_OBJ_PV(Sun)
+    DE440T_OBJ_PV(Mercury)
+    DE440T_OBJ_PV(Venus)
+    DE440T_OBJ_PV(EMB)
+    DE440T_OBJ_PV(Mars)
+    DE440T_OBJ_PV(Jupiter)
+    DE440T_OBJ_PV(Saturn)
+    DE440T_OBJ_PV(Uranus)
+    DE440T_OBJ_PV(Neptune)
+    DE440T_OBJ_PV(PlutoB)
+#   undef DE440T_OBJ_PV
   }
 
   //=========================================================================//
@@ -570,10 +621,41 @@ namespace SpaceBallistics::DE440T
       ToEcl(velEq, a_vel);
   }
 
+  //-------------------------------------------------------------------------//
+  // A slightly optimised version for the Sun and all Major Planets:         //
+  //-------------------------------------------------------------------------//
+  // Similar to "GetPlanetsBEqPVs", but for the BaruCentric Ecliptical PVs. The
+  // output arrays are for:
+  // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
+  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlutoB]:
+  //
+  void GetPlanetsBEclPVs
+  (
+    TDB        a_tdb,
+    PosKVBEcl  a_poss[10], // Output
+    VelKVBEcl  a_vels[10]  // Output (again, may be NULL)
+  )
+  {
+    // First, get the PVs in the BaryCentric Equatorial Co-Ords:
+    PosKVBEq possEq[10];
+    VelKVBEq velsEq[10];
+    GetPlanetsBEqPVs(a_tdb, possEq, (a_vels != nullptr) ? velsEq : nullptr);
+
+    // Then convert the results into the BaryCentric Ecliptical Co-Ords:
+    for (int i = 0; i < 10; ++i)
+    {
+      ToEcl(possEq[i], a_poss + i);
+      if (a_vels != nullptr)
+        ToEcl(velsEq[i], a_vels + i);
+    }
+  }
+
   //=========================================================================//
   // "GetMoonG{Eq,Ecl}PV":                                                   //
   //=========================================================================//
-  // In the GeoCentric Equatorial Fixed-Axes (ICRF) COS:
+  //-------------------------------------------------------------------------//
+  // In the GeoCentric Equatorial Fixed-Axes (ICRF) COS:                     //
+  //-------------------------------------------------------------------------//
   void GetMoonGEqPV
   (
     TDB            a_tdb,
@@ -582,10 +664,10 @@ namespace SpaceBallistics::DE440T
   )
   {
     assert(a_pos != nullptr);
-    
+
     // Get the record data for a given TDB instant:
     auto [rec, dt] = Bits::GetRecord(a_tdb);
-      
+
     // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
     // yield the PV in the GeoCentric Equatorial  Fixed-Axes (ICRF)  co-ords
     // directly:
@@ -598,7 +680,9 @@ namespace SpaceBallistics::DE440T
     );
   }
 
-  // In the GeoCentric Ecliptical Fixed-Axes COS (compatible with JPL Horizons):
+  //-------------------------------------------------------------------------//
+  // In the GeoCentric Ecliptical Fixed-Axes COS (JPL Horizons-compatible):  //
+  //-------------------------------------------------------------------------//
   void GetMoonGEclPV
   (
     TDB             a_tdb,
@@ -629,7 +713,7 @@ namespace SpaceBallistics::DE440T
     Time  diff[1];   // 1 CoOrd only
     Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff, nullptr);
 
-    return TT() + (a_tdb.GetTime() + diff[0]);
+    return TT() + (a_tdb.GetTime() + diff[0]);     // A hack to set the rep...
   }
 
   //=========================================================================//
@@ -641,7 +725,7 @@ namespace SpaceBallistics::DE440T
     // with the initial cond: tdb = tt ;
     // iterations should converge fairly quickly:
     //
-    TDB tdb(TDB() + a_tt.GetTime());
+    TDB tdb(TDB() + a_tt.GetTime());     // A hack to set the rep directly...
 
     constexpr int MaxIters = 10;
     int    i = 0;
@@ -654,7 +738,7 @@ namespace SpaceBallistics::DE440T
       Time  diff[1];   // 1 CoOrd only
       Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff, nullptr);
 
-      TT    tt1(TT() + tdb.GetTime()  + diff[0]);
+      TT    tt1(TT() + tdb.GetTime()  + diff[0]);           // A hack again...
 
       // For extra safety, we require a nanosecond precision:
       if (Abs(tt1 - a_tt) < Time(1e-9))
@@ -662,7 +746,7 @@ namespace SpaceBallistics::DE440T
         break;
 
       // Otherwise, update "tdb" and continue:
-      tdb  = TDB()   + (a_tt.GetTime() - diff[0]);
+      tdb  = TDB()   + (a_tt.GetTime() - diff[0]);         // A hack again...
     }
     // Check for (unlikely) divergence:
     assert(i < MaxIters);
