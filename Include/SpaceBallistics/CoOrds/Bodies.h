@@ -23,9 +23,9 @@ namespace SpaceBallistics
     Saturn  = 6,   // Saturn  and its moons
     Uranus  = 7,   // Uranus  and its moons
     Neptune = 8,   // Neptune and its moons
-    PlutoB  = 9,   // Pluto System BaryCenter
+    PlChB   = 9,   // Pluto-Charon System BaryCenter
 
-    // We place the Moon after PlutoB to preserve the classical numbering sequ-
+    // We place the Moon after PlChB to preserve the classical numbering sequ-
     // ence for the Sun and Major Planets:
     Moon    = 10,
 
@@ -54,7 +54,7 @@ namespace SpaceBallistics
       case Body::Saturn  : return "Saturn";
       case Body::Uranus  : return "Uranus";
       case Body::Neptune : return "Neptune";
-      case Body::PlutoB  : return "PlutoB";
+      case Body::PlChB   : return "PlChB";
       case Body::Moon    : return "Moon";
       case Body::EMB     : return "EMB";
       default            : assert(false); return nullptr;
@@ -75,7 +75,7 @@ namespace SpaceBallistics
       (bsv == "Saturn")  ? Body::Saturn  :
       (bsv == "Uranus")  ? Body::Uranus  :
       (bsv == "Neptune") ? Body::Neptune :
-      (bsv == "PlutoB")  ? Body::PlutoB  :
+      (bsv == "PlChB")   ? Body::PlChB   :
       (bsv == "Moon")    ? Body::Moon    :
       (bsv == "EMB")     ? Body::EMB     :
       throw "Invalid BodyName";

@@ -63,8 +63,8 @@ namespace SpaceBallistics
   using Pressure = decltype(Force() / Area(1.0));
 
   // Angular Velocity and Angular Acceleration:
-  using AngVel   = decltype(1.0    / 1.0_sec);
-  using AngAcc   = decltype(1.0    / Sqr(1.0_sec));
+  using AngVel   = decltype(Angle() / 1.0_sec);
+  using AngAcc   = decltype(Angle() / Sqr(1.0_sec));
 
   // Angular ("Kinetic") Momentum:
   using AngMom   = decltype(MoI()  * AngVel());

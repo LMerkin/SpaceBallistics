@@ -33,7 +33,7 @@ namespace SpaceBallistics::DE440T
       Saturn          = int(Body::Saturn),
       Uranus          = int(Body::Uranus),
       Neptune         = int(Body::Neptune),
-      PlutoB          = int(Body::PlutoB),
+      PlChB           = int(Body::PlChB),     // Pluto-Charon BaryCenter
       Moon            = int(Body::Moon),
       EarthNutations  = int(Body::Moon) + 1, // [d(psi),  d(eps)]
       MoonLibrations  = int(Body::Moon) + 2, // [phi, theta, psi]
@@ -63,7 +63,7 @@ namespace SpaceBallistics::DE440T
     template<> constexpr inline int NSP<Object::Saturn>         = 1;
     template<> constexpr inline int NSP<Object::Uranus>         = 1;
     template<> constexpr inline int NSP<Object::Neptune>        = 1;
-    template<> constexpr inline int NSP<Object::PlutoB>         = 1;
+    template<> constexpr inline int NSP<Object::PlChB>          = 1;
     template<> constexpr inline int NSP<Object::Moon>           = 8;
     template<> constexpr inline int NSP<Object::EarthNutations> = 4;
     template<> constexpr inline int NSP<Object::MoonLibrations> = 4;
@@ -90,7 +90,7 @@ namespace SpaceBallistics::DE440T
     template<> constexpr inline int NCC<Object::Saturn>         =  7;
     template<> constexpr inline int NCC<Object::Uranus>         =  6;
     template<> constexpr inline int NCC<Object::Neptune>        =  6;
-    template<> constexpr inline int NCC<Object::PlutoB>         =  6;
+    template<> constexpr inline int NCC<Object::PlChB>          =  6;
     template<> constexpr inline int NCC<Object::Moon>           = 13;
     template<> constexpr inline int NCC<Object::EarthNutations> = 10;
     template<> constexpr inline int NCC<Object::MoonLibrations> = 10;
@@ -117,9 +117,10 @@ namespace SpaceBallistics::DE440T
     {
       using T    = Angle;
       using D    = AngVel;
-      // There are 2 Nutation Angles:
-      using ArrT = T[NCO<Object::EarthNutations>];
-      using ArrD = D[NCO<Object::EarthNutations>];
+      // There are 2 Nutation Angles:  [d(psi), d(eps)]:
+      static_assert(NCO<Object::EarthNutations> == 2);
+      using ArrT = T[2];
+      using ArrD = D[2];
     };
 
     template<>
@@ -127,9 +128,10 @@ namespace SpaceBallistics::DE440T
     {
       using T    = Angle;
       using D    = AngVel;
-      // There are 3 Libration Angles:
-      using ArrT = T[NCO<Object::MoonLibrations>];
-      using ArrD = D[NCO<Object::MoonLibrations>];
+      // There are 3 Libration Angles: [phi, theta, psi]:
+      static_assert(NCO<Object::MoonLibrations> == 3);
+      using ArrT = T[3];
+      using ArrD = D[3];
     };
 
     template<>
@@ -138,6 +140,7 @@ namespace SpaceBallistics::DE440T
       using T    = Time;
       using D    = decltype(T() / 1.0_sec); // Actually DimLess!
       // TT_TDB are 1D data:
+      static_assert(NCO<Object::TT_TDB> == 1);
       using ArrT = T[1];
       using ArrD = D[1];
     };
@@ -185,7 +188,7 @@ namespace SpaceBallistics::DE440T
       MK_DE440T_REC_ENTRY(Saturn)
       MK_DE440T_REC_ENTRY(Uranus)
       MK_DE440T_REC_ENTRY(Neptune)
-      MK_DE440T_REC_ENTRY(PlutoB)
+      MK_DE440T_REC_ENTRY(PlChB)
       MK_DE440T_REC_ENTRY(Moon)
       MK_DE440T_REC_ENTRY(Sun)
       MK_DE440T_REC_ENTRY(EarthNutations)
@@ -224,7 +227,7 @@ namespace SpaceBallistics::DE440T
     MK_DE440T_GET_COEFFS(Saturn)
     MK_DE440T_GET_COEFFS(Uranus)
     MK_DE440T_GET_COEFFS(Neptune)
-    MK_DE440T_GET_COEFFS(PlutoB)
+    MK_DE440T_GET_COEFFS(PlChB)
     MK_DE440T_GET_COEFFS(Moon)
     MK_DE440T_GET_COEFFS(EarthNutations)
     MK_DE440T_GET_COEFFS(MoonLibrations)
@@ -413,7 +416,7 @@ namespace SpaceBallistics::DE440T
     constexpr Bits::Object Obj =
       (BodyName == Body::EMB) ? Bits::Object::EMB : Bits::Object(int(BodyName));
 
-    static_assert(Bits::Object::Sun <= Obj && Obj <= Bits::Object::PlutoB);
+    static_assert(Bits::Object::Sun <= Obj && Obj <= Bits::Object::PlChB);
 
     // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
     // yield the PV in the BaryCentric Equatorial co-ords directly:
@@ -513,7 +516,7 @@ namespace SpaceBallistics::DE440T
       DE440T_BODY_CASE(Saturn)
       DE440T_BODY_CASE(Uranus)
       DE440T_BODY_CASE(Neptune)
-      DE440T_BODY_CASE(PlutoB)
+      DE440T_BODY_CASE(PlChB)
       DE440T_BODY_CASE(EMB)
 #   undef  DE440T_BODY_CASE
     default:
@@ -529,7 +532,7 @@ namespace SpaceBallistics::DE440T
   // the co-ords of EMB rather than Earth and Moon separately. The output array
   // is:
   // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
-  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlutoB]:
+  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlChB]:
   //
   void GetPlanetsBEqPVs
   (
@@ -564,7 +567,7 @@ namespace SpaceBallistics::DE440T
     DE440T_OBJ_PV(Saturn)
     DE440T_OBJ_PV(Uranus)
     DE440T_OBJ_PV(Neptune)
-    DE440T_OBJ_PV(PlutoB)
+    DE440T_OBJ_PV(PlChB)
 #   undef DE440T_OBJ_PV
   }
 
@@ -627,7 +630,7 @@ namespace SpaceBallistics::DE440T
   // Similar to "GetPlanetsBEqPVs", but for the BaruCentric Ecliptical PVs. The
   // output arrays are for:
   // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
-  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlutoB]:
+  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlChB]:
   //
   void GetPlanetsBEclPVs
   (
@@ -751,6 +754,30 @@ namespace SpaceBallistics::DE440T
     // Check for (unlikely) divergence:
     assert(i < MaxIters);
     return tdb;
+  }
+
+  //=========================================================================//
+  // Earth Nutations (Long-Period Only):                                     //
+  //=========================================================================//
+  //                                      [d(psi),  d(eps)]
+  void GetEarthNutations(TDB a_tdb, Angle a_nuts[2])
+  {
+    assert(a_nuts != nullptr);
+    auto [rec, dt] = Bits::GetRecord(a_tdb);
+    Bits::GetCoOrds <Bits::Object::EarthNutations>(rec, dt, a_nuts, nullptr);
+  }
+
+  //=========================================================================//
+  // Moon Librations:                                                        //
+  //=========================================================================//
+  //                                      [phi, theta, psi]  ...
+  void GetMoonLibrations(TDB a_tdb, Angle a_librs[3], AngVel a_libr_dots[3])
+  {
+    assert(a_librs != nullptr);     // "a_libr_dots" may be NULL
+    auto [rec, dt] = Bits::GetRecord(a_tdb);
+
+    Bits::GetCoOrds <Bits::Object::MoonLibrations>
+      (rec, dt, a_librs, a_libr_dots);
   }
 }
 // End namespace SpaceBallistics

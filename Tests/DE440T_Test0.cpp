@@ -30,15 +30,30 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  // Initialisation:
-  Body body = Body::Sun;
-  bool isTT = false;
+  Body body   = Body::Sun;    // Just to initialise...
+  bool isNut  = false;
+  bool isLibr = false;
+  bool isTT   = false;
 
+  if (strcmp(argv[1], "EarthNutations") == 0)
+    isNut  = true;
+  else
+  if (strcmp(argv[1], "MoonLibrations") == 0)
+    isLibr = true;
+  else
   if (strcmp(argv[1], "TT_TDB") == 0)
     isTT = true;
   else
+  try
+  {
     // Get the actual Body:
     body = ToBody(argv[1]);
+  }
+  catch (...)
+  {
+    cerr << "ERROR: Invalid Body: " << argv[1] << endl;
+    return 1;
+  }
 
   // Get the JD_TDB:
   TDB  from    {Time_day(atof(argv[2]))};
@@ -54,6 +69,29 @@ int main(int argc, char* argv[])
 
   // Generate the Ephemerides:
   for (TDB tdb = from; tdb <= to; tdb += step)
+    if (isNut)
+    {
+      Angle   nuts[2];
+      DE440T::GetEarthNutations(tdb, nuts);
+
+      printf("%.2lf\t%.16e\t%.16e\n",
+             tdb.GetJD().Magnitude(), double(nuts[0]), double(nuts[1]));
+    }
+    else
+    if (isLibr)
+    {
+      Angle   librs   [3];
+      AngVel  librDots[3];
+      DE440T::GetMoonLibrations(tdb, librs, librDots);
+
+      printf("%.2lf\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\n",
+             tdb.GetJD().Magnitude(),
+             double(librs[0]),        double(librs[1]),
+             double(librs[2]),
+             librDots[0].Magnitude(), librDots[1].Magnitude(),
+             librDots[2].Magnitude());
+    }
+    else
     if (isTT)
     {
       TT   tt(tdb);
@@ -65,7 +103,8 @@ int main(int argc, char* argv[])
       Time err   = Abs(tdb1 - tdb);
       assert(err < Time(1e-9));
 
-      printf("%.1lf\t%.6lf\t%.6lf\t%.1lf\t%.6lf\t%.6lf\n",
+      printf("%.2lf\t%.1lf\t%.6lf\t%.6lf\t%.1lf\t%.6lf\t%.6lf\n",
+             tdb.GetJD() .Magnitude(),
              (tdb - from).Magnitude(),  delta.Magnitude(),
              err.Magnitude(),          tdb .GetTime().Magnitude(),
              tt.GetTime().Magnitude(), tdb1.GetTime().Magnitude());
@@ -73,13 +112,14 @@ int main(int argc, char* argv[])
     else
     if (body == Body::Moon)
     {
-      // For the Moon, get the GeoCentrix Fixed-Axes Ecliptical CoOrds:
+      // For the Moon, get the GeoCentric Fixed-Axes Ecliptical CoOrds:
       PosKVGeoEclFix pos;
       VelKVGeoEclFix vel;
       DE440T::GetMoonGEclPV(tdb, &pos, &vel);
 
       // Output:
-      printf("%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\n",
+      printf("%.2lf\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\n",
+             tdb.GetJD().Magnitude(),
              pos.x().Magnitude(), pos.y().Magnitude(), pos.z().Magnitude(),
              LenK(pos).Magnitude(),
              vel.x().Magnitude(), vel.y().Magnitude(), vel.z().Magnitude(),
@@ -94,7 +134,7 @@ int main(int argc, char* argv[])
       DE440T::GetPlanetBEclPV(body, tdb, &pos, &vel);
 
       // Output:
-      printf("%.2f\t"
+      printf("%.2lf\t"
              "%.16e\t%.16e\t%.16e\t%.16e\t"
              "%.16e\t%.16e\t%.16e\t%.16e\n",
              tdb.GetJD().Magnitude(),

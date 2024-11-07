@@ -234,7 +234,7 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Pluto:                                                                  //
   //-------------------------------------------------------------------------//
-  // XXX: No model for Pluto yet, as in DE440T we only got data for the Pluto
-  // System BaryCenter, not for Pluto itself...
+  // FIXME: No model for Pluto yet, as in DE440T we only got data for the PlChB
+  // (Pluto-Charon System BaryCenter), not for Pluto itself...
 }
 // End namespace SpaceBallistics

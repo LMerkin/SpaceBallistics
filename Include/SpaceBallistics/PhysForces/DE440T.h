@@ -34,7 +34,7 @@ namespace SpaceBallistics::DE440T
   template<> constexpr inline GMK K<Body::Saturn>  = GMK(    37940584.8418  );
   template<> constexpr inline GMK K<Body::Uranus>  = GMK(     5794556.4     );
   template<> constexpr inline GMK K<Body::Neptune> = GMK(     6836527.10058 );
-  template<> constexpr inline GMK K<Body::PlutoB>  = GMK(         975.5     );
+  template<> constexpr inline GMK K<Body::PlChB>   = GMK(         975.5     );
 
   // Earth/Moon Mass Ratio:
   constexpr  inline double EMRat      = 81.3005682214972154;
@@ -87,7 +87,7 @@ namespace SpaceBallistics::DE440T
   // the co-ords of EMB rather than Earth and Moon separately. The output array
   // is:
   // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
-  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlutoB]:
+  //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlChB]:
   //
   // Again, both Equatorial (J2000.0) and Ecliptical (J2000.0) versions are av-
   // ailable:
@@ -109,25 +109,23 @@ namespace SpaceBallistics::DE440T
   // GeoCentric Equatorial Position and Velocity of the Moon:                //
   //-------------------------------------------------------------------------//
   // In the GeoCentric Equatorial Fixed-Axes (ICRF) COS:
-  void GetMoonGEqPV
-  (
-    TDB            a_tdb,
-    PosKVGeoEqFix* a_pos,
-    VelKVGeoEqFix* a_vel
-  );
+  //
+  void GetMoonGEqPV (TDB a_tdb, PosKVGeoEqFix* a_pos,  VelKVGeoEqFix* a_vel);
 
   // In the GeoCentric Ecliptical Fixed-Axes COS (compatible with JPL Horizons):
-  void GetMoonGEclPV
-  (
-    TDB             a_tdb,
-    PosKVGeoEclFix* a_pos,
-    VelKVGeoEclFix* a_vel
-  );
+  //
+  void GetMoonGEclPV(TDB a_tdb, PosKVGeoEclFix* a_pos, VelKVGeoEclFix* a_vel);
 
   //-------------------------------------------------------------------------//
   // Earth Nutations (Long-Period Only) and Moon Librations:                 //
   //-------------------------------------------------------------------------//
-  // TODO: Not implemented yet. Currently not required...
+  // The time derivatives of Nutations are considered to be negligible in this
+  // case:                                [d(psi),  d(eps)]
+  void GetEarthNutations(TDB a_tdb, Angle a_nuts [2]);
+
+  // For Moon Librations, time derivatives may still be needed (but may be NULL
+  // as well):                            [phi, theta, psi]  ...
+  void GetMoonLibrations(TDB a_tdb, Angle a_librs[3], AngVel a_libr_dots[3]);
 
   //-------------------------------------------------------------------------//
   // TDB <-> TT Conversions:                                                 //
