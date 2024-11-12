@@ -401,9 +401,9 @@ namespace SpaceBallistics::DE440T
     VelKVBEq*  a_vel    // Output (Velocity); may be NULL
   )
   {
-    // This is the generic case for the Sun and Planets except the Earth (which
-    // requires a specialised implementations); Moon is also not supported here
-    // (as we seldom need its BaryCentric PV);  however, EMB is OK here:
+    // This is the generic case for the Sun and Planets except Earth (which re-
+    // uires a specialised implementations); Moon is also not supported here as
+    // we seldom need its BaryCentric PV; however, EMB is OK here:
     //
     static_assert(BodyName != Body::Earth && BodyName != Body::Moon);
     assert(a_pos != nullptr);
@@ -430,7 +430,7 @@ namespace SpaceBallistics::DE440T
   }
 
   //-------------------------------------------------------------------------//
-  // Specialisation for the Earth:                                           //
+  // Specialisation for Earth:                                               //
   //-------------------------------------------------------------------------//
   template<>
   void GetPlanetBEqPV<Body::Earth>
@@ -472,7 +472,7 @@ namespace SpaceBallistics::DE440T
     // The GeoCentric  PV of the EMB: Proportional to those of the Moon:
     constexpr double mu = 1.0 / (EMRat + 1.0);
 
-    // So the BaryCentric Equatorial PV of the Earth will be:
+    // So the BaryCentric Equatorial PV of Earth will be:
     a_pos->x() = posEMB[0] - mu * posM[0];
     a_pos->y() = posEMB[1] - mu * posM[1];
     a_pos->z() = posEMB[2] - mu * posM[2];

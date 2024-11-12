@@ -79,5 +79,50 @@ namespace SpaceBallistics
 
     return (sign == '-') ? (-rads) : rads;
   }
+
+  //=========================================================================//
+  // "ToDMS":                                                                //
+  //=========================================================================//
+  // Conversion of an Angle in Radians into (sign, degs, arcMins, arcSecs), for
+  // astronomical applications (eg Declination output):
+  //
+  constexpr inline std::tuple<double, Angle_deg, Angle_arcMin, Angle_arcSec>
+    ToDMS(Angle a_angle)
+  {
+    // NB: Rounding is towards 0:
+    double       sign = IsNeg(a_angle) ? -1.0 : IsPos(a_angle) ? 1.0 : 0.0;
+    Angle_deg    degs = To_Angle_deg(Abs(a_angle));
+    Angle_deg    d    = Floor(degs);
+    Angle_arcMin mins = To_Angle_arcMin(degs - d);
+    Angle_arcMin m    = Floor(mins);
+    Angle_arcSec secs = To_Angle_arcSec(mins - m);
+
+    assert(!(IsNeg(d) || IsNeg(m) || IsNeg(secs)));
+    return std::make_tuple(sign, d, m, secs);
+  }
+
+  //=========================================================================//
+  // "ToHMS":                                                                //
+  //=========================================================================//
+  // Conversion of an Angle in Radians into the range [0 .. 2*Pi), and then into
+  // (hh, mm, ss), for astronomical applications (eg RightAscention output):
+  //
+  constexpr inline std::tuple<Angle_hh, Angle_mm, Angle_ss>
+    ToHMS(Angle a_angle)
+  {
+    // Bring "a_angle" into [0 .. 2*Pi):
+    Angle inRange = a_angle - Floor(a_angle / TwoPi<double>) * TwoPi<double>;
+
+    // XXX: Is the following always true, even in the presence of rounding errs?
+    assert(!IsNeg(inRange) && inRange < Angle(TwoPi<double>));
+
+    Angle_hh  hours = To_Angle_hh(inRange);
+    Angle_hh  hh    = Floor(hours);
+    Angle_mm  mins  = To_Angle_mm(hours - hh);
+    Angle_mm  mm    = Floor(mins);
+    Angle_ss  ss    = To_Angle_ss(mins  - mm);
+
+    return std::make_tuple(hh, mm, ss);
+  }
 }
 // End namespace SpaceBallistics

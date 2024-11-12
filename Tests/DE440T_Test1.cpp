@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                         "Tests/DE440T_Test0.cpp":                         //
+//                         "Tests/DE440T_Test1.cpp":                         //
 //===========================================================================//
 #include <cstdio>
 #include <cstdlib>
@@ -36,23 +36,24 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  // Generate the Ephemerides:
+  // Generate the Ephemerides for the 10 Major Planets (incl the Sun, with EMB
+  // instead of Earth, PlChB instead of Pluto):
   for (TDB tdb = from; tdb <= to; tdb += step)
   {
-      PosKVBEcl poss[10];
-      VelKVBEcl vels[10];
-      DE440T::GetPlanetsBEclPVs(tdb, poss, vels);
+    PosKVBEcl poss[10];
+    VelKVBEcl vels[10];
+    DE440T::GetPlanetsBEclPVs(tdb, poss, vels);
 
-      // Output:
-      printf("%.2f\n", tdb.GetJD().Magnitude());
-      for (int i = 0; i < 10; ++i)
-         printf("%d\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\n",
-                i,
-                poss[i].x().Magnitude(), poss[i].y()  .Magnitude(),
-                poss[i].z().Magnitude(), LenK(poss[i]).Magnitude(),
-                vels[i].x().Magnitude(), vels[i].y()  .Magnitude(),
-                vels[i].z().Magnitude(), VelK(vels[i]).Magnitude());
-    }
+    // Output:
+    printf("%.2lf\n", tdb.GetJD().Magnitude());
+    for (int i = 0; i < 10; ++i)
+      printf("%d\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\t%.16e\n",
+             i,
+             poss[i].x().Magnitude(), poss[i].y()  .Magnitude(),
+             poss[i].z().Magnitude(), LenK(poss[i]).Magnitude(),
+             vels[i].x().Magnitude(), vels[i].y()  .Magnitude(),
+             vels[i].z().Magnitude(), VelK(vels[i]).Magnitude());
+  }
   // All Done!
   return 0;
 }

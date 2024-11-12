@@ -157,7 +157,7 @@ namespace SpaceBallistics
     // Non-Default Ctors:                                                    //
     //-----------------------------------------------------------------------//
     // From UTC:
-    constexpr TT(UTC const& a_utc)
+    constexpr explicit TT(UTC const& a_utc)
     {
       // Compute the TAI components:
       auto [JD_UTC, DeltaAT]  = MkTAI(a_utc);
@@ -167,12 +167,12 @@ namespace SpaceBallistics
     }
 
     // Directly constructing TT from JD_TT:
-    constexpr TT  (Time_day a_jd_tt)
+    constexpr explicit TT(Time_day a_jd_tt)
     : m_MJS    (To_Time_sec(a_jd_tt - Epoch))
     {}
 
     // From TDB (not "constexpr", as DE440T is required):
-    TT(TDB const& a_tdb);
+    explicit TT(TDB const& a_tdb);
 
     //-----------------------------------------------------------------------//
     // Extracting the Time value (since the Epoch) or JD_TT val:             //
@@ -368,10 +368,10 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Constructing TDB from TT. The implementation is non-trivial, requires
     // the JPL Ephemerides (DE440T), so it is not a "constexpr":
-    TDB(TT const& a_tt);
+    explicit TDB(TT const& a_tt);
 
     // Directly constructing TDB from JD_TDB:
-    constexpr TDB (Time_day a_jd_tdb)
+    constexpr explicit TDB (Time_day a_jd_tdb)
     : m_MJS    (To_Time_sec(a_jd_tdb - Epoch))
     {}
 

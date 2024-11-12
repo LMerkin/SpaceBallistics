@@ -1,4 +1,3 @@
--- Complete DE440T
 -- Complete TimeScales (implement FlightTime)
 -- Earth Rotation Model
 -- Transforms between different COSes...

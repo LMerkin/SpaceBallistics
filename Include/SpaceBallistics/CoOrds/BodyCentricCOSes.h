@@ -17,19 +17,20 @@ namespace SpaceBallistics
   class TDB;
 
   //=========================================================================//
-  // "BodyCentricEqCOS" Class:                                               //
+  // "BodyCentricEqFixCOS" Class:                                            //
   //=========================================================================//
   // BodyCentric Equatorial Fixed-Axes COS:
   // Origin: Normally, the center of Body's Ellipsoid
-  // Axes  : X       : Body's Equinox(2000.0), ie the Ascending Node of the
-  //                   Ecliptic over Body's Equator
-  //         XY Plane: Body's Equator(2000.0)
+  // Axes  : X       : Typically, Body's Vernal Equinox(J2000.0) = the Ascending
+  //                   Node of the Sun orbit over Body's Equator  (ie Body's
+  //                   Ecliptic) = the Descending Node of Body's  orbit over
+  //                   Body's Equator
+  //         XY Plane: Body's Equator(J2000.0)
   //         Z       : Body's North Pole
   // IN PARTICULAR, the axes of "GeoCentricEqFixCOS" are exactly those of ICRF!
   // TimeScale       : TT for Earth, TDB otherwise
   // This, the axes of this COS are fixed in the ICRF, but the Origin is moving
-  // in the inertial space, so this COS is not fully-inertial; it may sometimes
-  // be considered "quasi-inertial".
+  // in the inertial space, so this COS is not fully-inertial
   // NB    : This class stands for itself; no objects of it can be created
   //
   template<Body BodyName>
@@ -46,7 +47,7 @@ namespace SpaceBallistics
   using HelioCentricEqFixCOS   = BodyCentricEqFixCOS<Body::Sun>;
   using HermeoCentricEqFixCOS  = BodyCentricEqFixCOS<Body::Mercury>;
   using CytheroCentricEqFixCOS = BodyCentricEqFixCOS<Body::Venus>;
-  using GeoCentricEqFixCOS     = BodyCentricEqFixCOS<Body::Earth>;
+  using GeoCentricEqFixCOS     = BodyCentricEqFixCOS<Body::Earth>;   // GCRS !!!
   using SelenoCentricEqFixCOS  = BodyCentricEqFixCOS<Body::Moon>;
   using AreoCentricEqFixCOS    = BodyCentricEqFixCOS<Body::Mars>;
   using ZenoCentricEqFixCOS    = BodyCentricEqFixCOS<Body::Jupiter>;
@@ -87,9 +88,18 @@ namespace SpaceBallistics
   // "BodyCentricEclFixCOS":                                                 //
   //=========================================================================//
   // BodyCentric Ecliptical Fixed-Axes COS:
-  // Similar to "BodyCentricEqFixCOS" above, but the XY plane is the Ecliptic
-  // (rather than the Body's Equator) @ J2000.0.  NB: It's the Earth Ecliptic,
-  // NOT Body's orbital plane!
+  // Origin: Normally, the center of Body's Ellipsoid
+  // Axes  : X       : Same as the X axis of the corresp "BodyCentricEqFixCOS"
+  //         XY Plane: Body's Mean Orbital Plane(J2000.0)
+  //         Z       : "North Orbital Pole"
+  // TimeScale       : TT for Earth, TDB otherwise
+  // Again, the axes of this COS are fixed in the ICRF, but the Origin is moving
+  // in the inertial space, so this COS is also not fully-inertial
+  // NB    : This class stands for itself; no objects of it can be created
+  //
+  // Similar to "BodyCentricEqFixCOS" above, but the XY plane is Body's Orbital
+  // Plane (rather than Body's Equator) @ J2000.0. XXX: Again, is this convent-
+  // ion optimal for extraterrestrial Bodies?
   //
   template<Body BodyName>
   struct   BodyCentricEclFixCOS
@@ -157,13 +167,13 @@ namespace SpaceBallistics
   // This COS is "embedded" in the Body and is rotating in the inertial space
   // along with the Body.
   // Origin: Normally, the center of the Body Ellipsoid.
-  // Axes  : XY Plane: Body's CURRENT Equator (NOT J2000.0 Equator!)
+  // Axes  : XY Plane: Body's CURRENT Equator (NOT the J2000.0 Equator!)
   //         X       : To (lambda=0, phi=0) in the corresp BodyGraphic COS
   //         Z       : Body's North Pole
-  // TimeScale       : Same convention as for BodyCentricFixCOS.
+  // TimeScale       : Same convention as for BodyCentric{Eq,Ecl}FixCOS.
   // This, the axes of this COS are rotating in the inertial (eg ICRF) space,
   // the rotation axis may precess  in the inertial space,  and the origin is
-  // moving as well, so this system is definitely NON-INERTIAL.
+  // moving as well, so this system is STRONGLY NON-INERTIAL.
   // NB    : This class stands for itself; no objects of it cane be created :
   //
   template<Body BodyName>
@@ -180,14 +190,14 @@ namespace SpaceBallistics
   using HelioCentricRotCOS   = BodyCentricRotCOS<Body::Sun>;
   using HermeoCentricRotCOS  = BodyCentricRotCOS<Body::Mercury>;
   using CytheroCentricRotCOS = BodyCentricRotCOS<Body::Venus>;
-  using GeoCentricRotCOS     = BodyCentricRotCOS<Body::Earth>;
+  using GeoCentricRotCOS     = BodyCentricRotCOS<Body::Earth>;    // ITRS !!!
   using SelenoCentricRotCOS  = BodyCentricRotCOS<Body::Moon>;
   using AreoCentricRotCOS    = BodyCentricRotCOS<Body::Mars>;
   using ZenoCentricRotCOS    = BodyCentricRotCOS<Body::Jupiter>;
   using CronoCentricRotCOS   = BodyCentricRotCOS<Body::Saturn>;
   using UranoCentricRotCOS   = BodyCentricRotCOS<Body::Uranus>;
   using PoseidoCentricRotCOS = BodyCentricRotCOS<Body::Neptune>;
-  using HadeoCentricRotCOS   = BodyCentricRotCOS<Body::PlChB>;       // XXX ???
+  using HadeoCentricRotCOS   = BodyCentricRotCOS<Body::PlChB>;    // XXX ???
 
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in a "BodyCentricRotCOS":          //

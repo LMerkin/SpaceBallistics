@@ -25,9 +25,14 @@ namespace SpaceBallistics
     // Angles: When expressed in "rad", angles are directly convertible to a
     // dimension-less "double";  other units must first be converted into "rad":
     (Angle,    rad,                       // Radians
+      // (deg, min, sec):
       (deg,    Pi<double> / 180.0   ),    // Degrees
       (arcMin, Pi<double> / 10800.0 ),    // Arc-Minutes
-      (arcSec, Pi<double> / 648000.0)     // Arc-Seconds
+      (arcSec, Pi<double> / 648000.0),    // Arc-Seconds
+      // (hh,  mm,  ss):
+      (hh,     Pi<double> / 12.0    ),    // Time-Hours   as Angles
+      (mm,     Pi<double> / 720.0   ),    // Time-Minutes as Angles
+      (ss,     Pi<double> / 43200.0 ),    // Time-Seconds as Angles
     )
   )
 
