@@ -129,9 +129,9 @@ int main(int argc, char* argv[])
     {
       // Any other Body: It's Sun or a Planet, or EMB:
       // Get the BaryCentric Ecliptical CoOrds:
-      PosKVBEcl pos;
-      VelKVBEcl vel;
-      DE440T::GetPlanetBEclPV(body, tdb, &pos, &vel);
+      PosKVBarEcl pos;
+      VelKVBarEcl vel;
+      DE440T::GetPlanetBarEclPV(body, tdb, &pos, &vel);
 
       // Output:
       printf("%.2lf\t"

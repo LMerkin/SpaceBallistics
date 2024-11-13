@@ -27,17 +27,20 @@ namespace SpaceBallistics
   //                   Body's Equator
   //         XY Plane: Body's Equator(J2000.0)
   //         Z       : Body's North Pole
-  // IN PARTICULAR, the axes of "GeoCentricEqFixCOS" are exactly those of ICRF!
+  // IN PARTICULAR, the axes of "GeoCentricEqFixCOS" are exactly those of ICRS!
   // TimeScale       : TT for Earth, TDB otherwise
-  // This, the axes of this COS are fixed in the ICRF, but the Origin is moving
+  // This, the axes of this COS are fixed in the ICRS, but the Origin is moving
   // in the inertial space, so this COS is not fully-inertial
-  // NB    : This class stands for itself; no objects of it can be created
   //
   template<Body BodyName>
   struct   BodyCentricEqFixCOS
   {
+    constexpr static   Body BaseBody       = BodyName;
+    constexpr static   bool HasFixedAxes   = true;
+    constexpr static   bool HasFixedOrigin = false;
     using  TimeScale = std::conditional_t<BodyName == Body::Earth, TT, TDB>;
 
+    // This struct stands for itself; no objects of it can be created:
     BodyCentricEqFixCOS() = delete;
   };
 
@@ -93,9 +96,8 @@ namespace SpaceBallistics
   //         XY Plane: Body's Mean Orbital Plane(J2000.0)
   //         Z       : "North Orbital Pole"
   // TimeScale       : TT for Earth, TDB otherwise
-  // Again, the axes of this COS are fixed in the ICRF, but the Origin is moving
+  // Again, the axes of this COS are fixed in the ICRS, but the Origin is moving
   // in the inertial space, so this COS is also not fully-inertial
-  // NB    : This class stands for itself; no objects of it can be created
   //
   // Similar to "BodyCentricEqFixCOS" above, but the XY plane is Body's Orbital
   // Plane (rather than Body's Equator) @ J2000.0. XXX: Again, is this convent-
@@ -104,8 +106,12 @@ namespace SpaceBallistics
   template<Body BodyName>
   struct   BodyCentricEclFixCOS
   {
+    constexpr static   Body BaseBody       = BodyName;
+    constexpr static   bool HasFixedAxes   = true;
+    constexpr static   bool HasFixedOrigin = false;
     using  TimeScale = std::conditional_t<BodyName == Body::Earth, TT, TDB>;
 
+    // This struct stands for itself; no objects of it can be created:
     BodyCentricEclFixCOS() = delete;
   };
 
@@ -171,16 +177,19 @@ namespace SpaceBallistics
   //         X       : To (lambda=0, phi=0) in the corresp BodyGraphic COS
   //         Z       : Body's North Pole
   // TimeScale       : Same convention as for BodyCentric{Eq,Ecl}FixCOS.
-  // This, the axes of this COS are rotating in the inertial (eg ICRF) space,
+  // This, the axes of this COS are rotating in the inertial (eg ICRS) space,
   // the rotation axis may precess  in the inertial space,  and the origin is
-  // moving as well, so this system is STRONGLY NON-INERTIAL.
-  // NB    : This class stands for itself; no objects of it cane be created :
+  // moving as well, so this system is STRONGLY NON-INERTIAL:
   //
   template<Body BodyName>
   struct BodyCentricRotCOS
   {
+    constexpr static   Body BaseBody       = BodyName;
+    constexpr static   bool HasFixedAxes   = false;
+    constexpr static   bool HasFixedOrigin = false;
     using  TimeScale = std::conditional_t<BodyName == Body::Earth, TT, TDB>;
 
+    // This struct stands for itself; no objects of it can be created:
     BodyCentricRotCOS() = delete;
   };
 

@@ -10,12 +10,12 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // "EmbeddedCOS" Class:                                                    //
+  // "EmbeddedCOS" Struct:                                                   //
   //=========================================================================//
   // Origin: A fixed physical point               in the LV or SC
   // Axes  : Fixed physical axes (eg of symmetry) of the LV or SC
   // NB    : This type is templatised by the LV/SC Type. It is intended to just
-  //         stand for itself (no objs of this class are to be created):
+  //         stand for itself (no objs of this struct are to be created):
   // TimeScale:
   //         XXX: This is debatable. Typically,  the EmbeddedCOS is used during
   //         the LV Ascent-to-Orbit phase, in which case TT should be used. But
@@ -23,9 +23,12 @@ namespace SpaceBallistics
   //         case TDB is perhaps more appropriate.  So we use TT by default but
   //         allow overriding it if really required:
   class TT;
+
   template<LVSC LVSCKind, typename TS = TT>
   struct EmbeddedCOS
   {
+    constexpr static bool HasFixedAxes   = false;
+    constexpr static bool HasFixedOrigin = false;
     using TimeScale = TS;
 
     EmbeddedCOS() = delete;	  // No objects construction at all!

@@ -1,11 +1,12 @@
 // vim:ts=2:et
 //===========================================================================//
-//               "SpaceBallistics/CoOrds/SpherEllipsPVs.hpp":                //
+//                    "SpaceBallistics/CoOrds/SpherPV.hpp":                  //
 //            Spherical and Ellipsoidal Positions and Velocities             //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
+#include "SpaceBallistics/CoOrds/TopoCentricCOSes.h"
 
 namespace SpaceBallistics
 {
@@ -22,24 +23,38 @@ namespace SpaceBallistics
   //     ing the PV data (Position and Velocity) as input or output only...
   //
   //=========================================================================//
-  // "BodyCentricSpherPV":                                                   //
+  // "SpherPV" Class:                                                        //
   //=========================================================================//
-  // Body-Centric Equatorial Spherical Co-Ords, corresp to "BodyCentricEqFixCOS"
-  // (with Body's Equator and Body's Orbital Plane @J2000.0). For the GeoCentric
-  // system, is used  to  represent the GeoCentric Right Ascention, Declination,
-  // Radius-Vector and their "dots" for a given object:
+  // BodyCentric or Body-TopoCentric Spherical Co-Ords,    corresp to
+  // "BodyCentric{Eq,Ecl}FixCOS" or "TopoCentric{Eq,Ecl}FixCOS", res.
+  // and Body's Orbital Plane @J2000.0).
+  // For the GeoCentric or Geo-TopoCentric Equatorial system, it represents the
+  // classical astronomical Right Ascention, Declination, Radius-Vector and
+  // their "Dots" of an Object.
+  // This class provides TYPE SAFETY OF APPARENT CO-ORDS (RA and Decl), as it
+  // specifies "from where they are apparent"!
+  // It is normally used for Equatorial COSes, but Ecliptical ones can also be
+  // used, in which case "alpha" is an Ecliptical Longitude and "delta" is an
+  // Ecliptical Latitude:
   //
-  template<Body BodyName>
-  class BodyCentricSpherPV
+  template<typename COS>
+  class SpherPV
   {
   private:
+    //-----------------------------------------------------------------------//
+    // Checks on the "COS":                                                  //
+    //-----------------------------------------------------------------------//
+    // The "COS" must have Fixed Axes (non-Rotating), though its Origin does
+    // not need to be Fixed:
+    static_assert(COS::HasFixedAxes);
+
     //-----------------------------------------------------------------------//
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
     // Position:
-    Angle  m_alpha;     // Right Ascention
-    Angle  m_delta;     // Declination
-    LenK   m_rho;       // Body-Centric Radius-Vector
+    Angle  m_alpha;     // Right Ascention or Ecliptical Longitude
+    Angle  m_delta;     // Declination     or Ecliptical Latitude
+    LenK   m_rho;       // Distance (Radius-Vector)
 
     // Velocities:
     AngVel m_alphaDot;
@@ -47,24 +62,24 @@ namespace SpaceBallistics
     VelK   m_rhoDot;    // Radial Velocity
 
   public:
-    // Default Ctor,  Copy Ctor, Assignment and Equality are auto-generated
-    // In particular, the Default Ctor initialises all flds to 0:
-    BodyCentricSpherPV            ()                                = default;
-    BodyCentricSpherPV            (BodyCentricSpherPV const&)       = default;
-    BodyCentricSpherPV& operator= (BodyCentricSpherPV const&)       = default;
-    bool                operator==(BodyCentricSpherPV const&) const = default;
+    // Default Ctor,  Copy Ctor, Assignment and Equality are auto-generated;
+    // in particular, the Default Ctor initialises all flds to 0:
+    SpherPV             ()                     = default;
+    SpherPV             (SpherPV const&)       = default;
+    SpherPV& operator=  (SpherPV const&)       = default;
+    bool     operator== (SpherPV const&) const = default;
 
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
-    // Constructing "BodyCentricSpherPV" from the Rectangular PV Vectors:
+    // Constructing "SpherPV" from the Rectangular PV Vectors:
     //
-    constexpr BodyCentricSpherPV
+    constexpr SpherPV
     (
-      PosKV<BodyCentricEqFixCOS<BodyName>> const& a_pos, // Must be non-0
-      VelKV<BodyCentricEqFixCOS<BodyName>> const& a_vel  // May  be 0
+      PosKV<COS> const& a_pos, // Must be non-0
+      VelKV<COS> const& a_vel  // May  be 0
     )
-    : BodyCentricSpherPV()            // Zero-out all components by default
+    : SpherPV()                // Zero-out all components by default
     {
       // Position:
       m_rho      = LenK(a_pos);
@@ -122,18 +137,19 @@ namespace SpaceBallistics
   };
 
   //-------------------------------------------------------------------------//
-  // Aliases:                                                                //
+  // Aliases (for Body-Centric Equatorial "SpherPV"s only):                  //
   //-------------------------------------------------------------------------//
-  using HelioCentricSpherPV   = BodyCentricSpherPV<Body::Sun>;
-  using HermeoCentricSpherPV  = BodyCentricSpherPV<Body::Mercury>;
-  using CytheroCentricSpherPV = BodyCentricSpherPV<Body::Venus>;
-  using GeoCentricSpherPV     = BodyCentricSpherPV<Body::Earth>;
-  using SelenoCentricSpherPV  = BodyCentricSpherPV<Body::Moon>;
-  using AreoCentricSpherPV    = BodyCentricSpherPV<Body::Mars>;
-  using ZenoCentricSpherPV    = BodyCentricSpherPV<Body::Jupiter>;
-  using CronoCentricSpherPV   = BodyCentricSpherPV<Body::Saturn>;
-  using UranoCentricSpherPV   = BodyCentricSpherPV<Body::Uranus>;
-  using PoseidoCentricSpherPV = BodyCentricSpherPV<Body::Neptune>;
-  using HadeoCentricSpherPV   = BodyCentricSpherPV<Body::PlChB>;
+  // XXX: Currently, they are provided for Body-Centric Equatorial COSes only:
+  using HelioCentricEqSpherPV   = SpherPV<HelioCentricEqFixCOS>;
+  using HermeoCentricEqSpherPV  = SpherPV<HermeoCentricEqFixCOS>;
+  using CytheroCentricEqSpherPV = SpherPV<CytheroCentricEqFixCOS>;
+  using GeoCentricEqSpherPV     = SpherPV<GeoCentricEqFixCOS>;
+  using SelenoCentricEqSpherPV  = SpherPV<SelenoCentricEqFixCOS>;
+  using AreoCentricEqSpherPV    = SpherPV<AreoCentricEqFixCOS>;
+  using ZenoCentricEqSpherPV    = SpherPV<ZenoCentricEqFixCOS>;
+  using CronoCentricEqSpherPV   = SpherPV<CronoCentricEqFixCOS>;
+  using UranoCentricEqSpherPV   = SpherPV<UranoCentricEqFixCOS>;
+  using PoseidoCentricEqSpherPV = SpherPV<PoseidoCentricEqFixCOS>;
+  using HadeoCentricEqSpherPV   = SpherPV<HadeoCentricEqFixCOS>;
 }
 // End namespace SpaceBallistics

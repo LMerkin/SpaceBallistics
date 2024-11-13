@@ -11,9 +11,13 @@ namespace SpaceBallistics
   //=========================================================================//
   // "Soyuz2_LaunchPad" Class:                                               //
   //=========================================================================//
-  // "Azimuth" is the azimuth (0..360 degs, from the North, Clock-Wise) of the
-  // Main Axis of the Pad (ie pointing towards the Far Edge of the Pad).  Then
-  // the initial Yaw (at the Launch Pad) can be taken as (Pi/4 - Azimuth):
+  // "Azimuth" is the Pad Orientation Azimuth, is the angle (0..360 degs, from
+  // the North, Clock-Wise) of the Main Axis of the Pad (ie pointing towards
+  // the Far Edge of the Pad).
+  // Then the initial LV Yaw  (at  the Launch Pad, counter-clock-wise)  can be
+  // taken as (Pi/4 - Azimuth), in the "TopoCentricRotCOS".
+  // However, in the "TopoCentricLauchCOS" the initial Yaw depends on the Launch
+  // Azimuth, not on the Pad Orientation Azimuth...
   //
   class Soyuz2_LaunchPad: public Location<Body::Earth>
   {
@@ -21,8 +25,7 @@ namespace SpaceBallistics
     // Data Fld(s):                                                          //
     //-----------------------------------------------------------------------//
   private:
-    Angle   m_azimuth;
-    Angle   m_yaw0;
+    Angle   m_padAzimuth;
 
   public:
     //-----------------------------------------------------------------------//
@@ -36,15 +39,13 @@ namespace SpaceBallistics
       Angle_deg                    a_azimuth  // Azimuth of the Main Pad Axis
     )
     : Location<Body::Earth>(a_location),
-      m_azimuth            (To_Angle             (a_azimuth)),
-      m_yaw0               (Angle(Pi_4<double>) - m_azimuth)
+      m_padAzimuth         (To_Angle(a_azimuth))
     {}
 
     //-----------------------------------------------------------------------//
     // Accessors:                                                            //
     //-----------------------------------------------------------------------//
-    constexpr Angle Azimuth() const { return m_azimuth; }
-    constexpr Angle Yaw0   () const { return m_yaw0;    }
+    constexpr Angle PadAzimuth() const { return m_padAzimuth; }
   };
 
   //=========================================================================//

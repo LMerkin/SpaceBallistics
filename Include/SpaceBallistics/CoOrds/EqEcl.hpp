@@ -17,7 +17,7 @@ namespace SpaceBallistics
   //------------------------------------------------------------------------//
   // For the Earth Ecliptic, Equator and Equinox of J2000.0:                //
   //------------------------------------------------------------------------//
-  // J2000.0 Obliquity of Ecliptic to the ICRF Equator, from the IAU76 model:
+  // J2000.0 Obliquity of Ecliptic to the ICRS Equator, from the IAU76 model:
   //
   constexpr inline Angle     Obliq2000 = To_Angle(Angle_arcSec(84381.448));
   constexpr inline double CosObliq2000 = Cos(double(Obliq2000));

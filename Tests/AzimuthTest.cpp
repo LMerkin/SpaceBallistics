@@ -11,16 +11,16 @@ int main()
   using namespace std;
 
   cout << "Pad_Plesetsk_43_3: Azimuth="
-       << To_Angle_deg(Pad_Plesetsk_43_3.Azimuth()) << endl;
+       << To_Angle_deg(Pad_Plesetsk_43_3.PadAzimuth()) << endl;
 
   cout << "Pad_Plesetsk_43_4: Azimuth="
-       << To_Angle_deg(Pad_Plesetsk_43_4.Azimuth()) << endl;
+       << To_Angle_deg(Pad_Plesetsk_43_4.PadAzimuth()) << endl;
 
   cout << "Pad_Baykonur_31_6: Azimuth="
-       << To_Angle_deg(Pad_Baykonur_31_6.Azimuth()) << endl;
+       << To_Angle_deg(Pad_Baykonur_31_6.PadAzimuth()) << endl;
 
   cout << "Pad_Vostochny_1S : Azimuth="
-       << To_Angle_deg(Pad_Vostochny_1S .Azimuth()) << endl;
+       << To_Angle_deg(Pad_Vostochny_1S .PadAzimuth()) << endl;
 
   return 0;
 }

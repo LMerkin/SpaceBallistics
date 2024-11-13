@@ -49,36 +49,36 @@ namespace SpaceBallistics::DE440T
   // In the BaryCentric Equatorial COS:
   //
   template<Body BodyName>
-  void GetPlanetBEqPV
+  void GetPlanetBarEqPV
   (
-    TDB        a_tdb,
-    PosKVBEq*  a_pos,      // Output (Position)
-    VelKVBEq*  a_vel       // Output (Velocity); may be NULL
+    TDB         a_tdb,
+    PosKVBarEq* a_pos,      // Output (Position)
+    VelKVBarEq* a_vel       // Output (Velocity); may be NULL
   );
 
-  void GetPlanetBEqPV
+  void GetPlanetBarEqPV
   (
-    Body       a_body,     // Same constraints for "a_obj" as above
-    TDB        a_tdb,
-    PosKVBEq*  a_pos,      // Output (Position)
-    VelKVBEq*  a_vel       // Output (Velocity); may be NULL
+    Body        a_body,     // Same constraints for "a_obj" as above
+    TDB         a_tdb,
+    PosKVBarEq* a_pos,      // Output (Position)
+    VelKVBarEq* a_vel       // Output (Velocity); may be NULL
   );
 
   // In the BaryCentric Ecliptical COS (compatible with JPL Horizons):
   template<Body BodyName>
-  void GetPlanetBEclPV
+  void GetPlanetBarEclPV
   (
-    TDB        a_tdb,
-    PosKVBEcl* a_pos,      // Output (Position)
-    VelKVBEcl* a_vel       // Output (Velocity); may be NULL
+    TDB          a_tdb,
+    PosKVBarEcl* a_pos,      // Output (Position)
+    VelKVBarEcl* a_vel       // Output (Velocity); may be NULL
   );
 
-  void GetPlanetBEclPV
+  void GetPlanetBarEclPV
   (
-    Body       a_body,     // Same constraints for "a_obj" as above
-    TDB        a_tdb,
-    PosKVBEcl* a_pos,      // Output (Position)
-    VelKVBEcl* a_vel       // Output (Velocity); may be NULL
+    Body         a_body,     // Same constraints for "a_obj" as above
+    TDB          a_tdb,
+    PosKVBarEcl* a_pos,      // Output (Position)
+    VelKVBarEcl* a_vel       // Output (Velocity); may be NULL
   );
 
   // A slightly optimised version for the Sun and all Planets:
@@ -91,29 +91,27 @@ namespace SpaceBallistics::DE440T
   //
   // Again, both Equatorial (J2000.0) and Ecliptical (J2000.0) versions are av-
   // ailable:
-  void GetPlanetsBEqPVs
+  void GetPlanetsBarEqPVs
   (
-    TDB        a_tdb,
-    PosKVBEq   a_poss[10], // Output
-    VelKVBEq   a_vels[10]  // Output (again, may be NULL)
+    TDB         a_tdb,
+    PosKVBarEq  a_poss[10], // Output
+    VelKVBarEq  a_vels[10]  // Output (again, may be NULL)
   );
 
-  void GetPlanetsBEclPVs
+  void GetPlanetsBarEclPVs
   (
-    TDB        a_tdb,
-    PosKVBEcl  a_poss[10], // Output
-    VelKVBEcl  a_vels[10]  // Output (again, may be NULL)
+    TDB         a_tdb,
+    PosKVBarEcl a_poss[10], // Output
+    VelKVBarEcl a_vels[10]  // Output (again, may be NULL)
   );
 
   //-------------------------------------------------------------------------//
   // GeoCentric Equatorial Position and Velocity of the Moon:                //
   //-------------------------------------------------------------------------//
-  // In the GeoCentric Equatorial Fixed-Axes (ICRF) COS:
-  //
+  // In the GeoCentric Equatorial Fixed-Axes (ICRS) COS:
   void GetMoonGEqPV (TDB a_tdb, PosKVGeoEqFix* a_pos,  VelKVGeoEqFix* a_vel);
 
   // In the GeoCentric Ecliptical Fixed-Axes COS (compatible with JPL Horizons):
-  //
   void GetMoonGEclPV(TDB a_tdb, PosKVGeoEclFix* a_pos, VelKVGeoEclFix* a_vel);
 
   //-------------------------------------------------------------------------//

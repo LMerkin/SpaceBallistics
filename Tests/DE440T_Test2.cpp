@@ -10,7 +10,7 @@
 #undef NDEBUG
 #endif
 #include "SpaceBallistics/PhysForces/DE440T.h"
-#include "SpaceBallistics/CoOrds/SpherEllipsPVs.hpp"
+#include "SpaceBallistics/CoOrds/SpherPV.hpp"
 #include "SpaceBallistics/Utils.hpp"
 
 int main(int argc, char* argv[])
@@ -40,10 +40,10 @@ int main(int argc, char* argv[])
   {
     TDB tdb(tt);
 
-    PosKVBEq posE, posS;
-    VelKVBEq velE, velS;
-    DE440T::GetPlanetBEqPV<Body::Earth>(tdb, &posE, &velE);
-    DE440T::GetPlanetBEqPV<Body::Sun>  (tdb, &posS, &velS);
+    PosKVBarEq posE, posS;
+    VelKVBarEq velE, velS;
+    DE440T::GetPlanetBarEqPV<Body::Earth>(tdb, &posE, &velE);
+    DE440T::GetPlanetBarEqPV<Body::Sun>  (tdb, &posS, &velS);
 
     // Compute the GeoEq PV vectors of the Sun:
     PosKVGeoEqFix posES
@@ -51,8 +51,8 @@ int main(int argc, char* argv[])
     VelKVGeoEqFix velES
       (velS.x() - velE.x(), velS.y() - velE.y(), velS.z() - velE.z());
 
-    // Compute the Spherical Eq CoOrds:
-    GeoCentricSpherPV spherPVS(posES, velES);
+    // Compute the GeoCentric Spherical Eq CoOrds:
+    GeoCentricEqSpherPV spherPVS(posES, velES);
 
     auto hms = ToHMS(spherPVS.GetRA  ());
     auto dms = ToDMS(spherPVS.GetDecl());

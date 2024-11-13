@@ -40,9 +40,9 @@ int main(int argc, char* argv[])
   // instead of Earth, PlChB instead of Pluto):
   for (TDB tdb = from; tdb <= to; tdb += step)
   {
-    PosKVBEcl poss[10];
-    VelKVBEcl vels[10];
-    DE440T::GetPlanetsBEclPVs(tdb, poss, vels);
+    PosKVBarEcl poss[10];
+    VelKVBarEcl vels[10];
+    DE440T::GetPlanetsBarEclPVs(tdb, poss, vels);
 
     // Output:
     printf("%.2lf\n", tdb.GetJD().Magnitude());

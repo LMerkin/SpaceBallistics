@@ -1,9 +1,12 @@
 -- Complete TimeScales (implement FlightTime)
 -- Earth Rotation Model
 -- Transforms between different COSes...
+-- Optionally, Vector3D is to be templated by the Object it characterises,
+   not only by the COS
 -- Atmosphere model(s), at least for Earth
 -- AeroFin controls
 -- Complete the Soyuz-2.1b model
+-- ODEs of Motion, incl Non-Inertial Frames and Coriolis Forces
 -- DimQ-aware integrator
 -- DimQ-aware AutoDiff (***)
 

@@ -7,15 +7,18 @@
 
 namespace SpaceBallistics
 {
+  // Fwd Decls:
+  class  TDB;
+
   //=========================================================================//
-  // "BaryCentricEclCOS" Class:                                              //
+  // "BaryCentricEclCOS" Struct:                                             //
   //=========================================================================//
   // BaryCentric Ecliptical COS:
   // Origin: Solar System BaryCenter
   // Axes  :
-  //   X       : ICRF Equinox of J2000.0
+  //   X       : ICRS Equinox of J2000.0
   //   XY plane: Ecliptic     of J2000.0
-  //             (ie NOT ICRF, which is Equatorial, and NOT the Laplace plane
+  //             (ie NOT ICRS, which is Equatorial, and NOT the Laplace plane
   //             of the Solar System, which is the plane orthogonal to the
   //             angular momentum vector of the whole Solar System)
   //   Y, Z    : Derived from the above
@@ -23,43 +26,44 @@ namespace SpaceBallistics
   // This definition is consistent with the conventions of the JPL Horizon eph-
   // emerides:
   //
-  class  TDB;
-
   struct BaryCentricEclCOS
   {
-    using TimeScale  = TDB;
-
-    BaryCentricEclCOS() = delete;   // No objects construction at all!
+    constexpr static bool HasFixedAxes   = true;
+    constexpr static bool HasFixedOrigin = true;
+    using TimeScale                      = TDB;
+    BaryCentricEclCOS() = delete;  // No objects construction at all!
   };
 
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
-  using PosKVBEcl = PosKV<BaryCentricEclCOS>;
-  using VelKVBEcl = VelKV<BaryCentricEclCOS>;
+  using PosKVBarEcl = PosKV<BaryCentricEclCOS>;
+  using VelKVBarEcl = VelKV<BaryCentricEclCOS>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 
   //=========================================================================//
-  // "BaryCentricEqCOS" Class:                                               //
+  // "BaryCentricEqCOS" Struct:                                              //
   //=========================================================================//
   // BaryCentric Equatorial COS:
   // As "BaryCentricEclCOS" above, but the XY plane is the Earth Equator of
-  // J2000.0. Thus, the axes of this COS coincide with the ICRF. Might   be
+  // J2000.0. Thus, the axes of this COS coincide with the ICRS. Might   be
   // useful eg for integration of GeoCentric trajectories, with perturbations
   // from the Moon and the Sun:
   //
   struct BaryCentricEqCOS
   {
-    using TimeScale    = TDB;
-    BaryCentricEqCOS() = delete;
+    constexpr static bool HasFixedAxes   = true;
+    constexpr static bool HasFixedOrigin = true;
+    using TimeScale                      = TDB;
+    BaryCentricEqCOS() = delete;   // No objects construction at all!
   };
 
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
-  using PosKVBEq  = PosKV<BaryCentricEqCOS>;
-  using VelKVBEq  = VelKV<BaryCentricEqCOS>;
+  using PosKVBarEq  = PosKV<BaryCentricEqCOS>;
+  using VelKVBarEq  = VelKV<BaryCentricEqCOS>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 }
