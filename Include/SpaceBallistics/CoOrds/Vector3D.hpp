@@ -37,9 +37,13 @@ namespace SpaceBallistics
     constexpr Vector3D& operator= (Vector3D const&)       = default;
     constexpr bool      operator==(Vector3D const&) const = default;
 
-    // Non-Default Ctor:
+    // Non-Default Ctors:
     constexpr Vector3D(DQ a_x, DQ a_y, DQ a_z)
     : m_arr{ a_x, a_y, a_z }
+    {}
+
+    constexpr Vector3D(DQArr3 const& a_arr)
+    : m_arr{ a_arr[0], a_arr[1], a_arr[2] }
     {}
 
     //-----------------------------------------------------------------------//

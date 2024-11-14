@@ -10,7 +10,7 @@
 #undef NDEBUG
 #endif
 #include "SpaceBallistics/PhysForces/DE440T.h"
-#include "SpaceBallistics/CoOrds/SpherPV.hpp"
+#include "SpaceBallistics/CoOrds/SphericalPV.hpp"
 #include "SpaceBallistics/Utils.hpp"
 
 int main(int argc, char* argv[])
@@ -54,19 +54,35 @@ int main(int argc, char* argv[])
     // Compute the GeoCentric Spherical Eq CoOrds:
     GeoCentricEqSpherPV spherPVS(posES, velES);
 
-    auto hms = ToHMS(spherPVS.GetRA  ());
-    auto dms = ToDMS(spherPVS.GetDecl());
+    auto hms = ToHMS(spherPVS.GetAlpha());
+    auto dms = ToDMS(spherPVS.GetDelta());
+
+    // Compute the RA and Decl "Dots" (in Seconds / ArcSeconds per Day):
+    auto alphaDot = To_Time_day(To_Angle_ss    (spherPVS.GetAlphaDot()));
+    auto deltaDot = To_Time_day(To_Angle_arcSec(spherPVS.GetDeltaDot()));
 
     // Output:
     printf("%.4lf\t"
              "%02.0lf:%02.0lf:%02.3lf\t"
-           "%c%02.0lf %02.0lf %02.3lf\n",
+           "%c%02.0lf %02.0lf %02.3lf\t"
+             "%.2lf\t%.2lf\t%.3lf\n",
            tt.GetJD() .Magnitude(),
            get<0>(hms).Magnitude(), get<1>(hms).Magnitude(),
            get<2>(hms).Magnitude(),
            get<0>(dms) < 0  ? '-' : get<0>(dms) > 0 ? '+' : ' ',
            get<1>(dms).Magnitude(), get<2>(dms).Magnitude(),
-           get<3>(dms).Magnitude());
+           get<3>(dms).Magnitude(),
+           alphaDot.Magnitude(),    deltaDot.Magnitude(),
+           spherPVS.GetRadVel().Magnitude());
+
+    // Get back to the GeoEq PV vectors:
+    auto  [posES1, velES1] = spherPVS.GetPVVectors();
+    assert(posES1.x().ApproxEquals(posES.x()) &&
+           posES1.y().ApproxEquals(posES.y()) &&
+           posES1.z().ApproxEquals(posES.z()) &&
+           velES1.x().ApproxEquals(velES.x()) &&
+           velES1.y().ApproxEquals(velES.y()) &&
+           velES1.z().ApproxEquals(velES.z()));
   }
   // All Done!
   return 0;

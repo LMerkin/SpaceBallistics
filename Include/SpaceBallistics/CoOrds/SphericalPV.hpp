@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
-//                    "SpaceBallistics/CoOrds/SpherPV.hpp":                  //
-//            Spherical and Ellipsoidal Positions and Velocities             //
+//                   "SpaceBallistics/CoOrds/SphericalPV.hpp":               //
+//                      Spherical Positions and Velocities                   //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/CoOrds/Bodies.h"
@@ -10,7 +10,9 @@
 
 namespace SpaceBallistics
 {
-  // NB:
+  //-------------------------------------------------------------------------//
+  // RATIONALE:                                                              //
+  //-------------------------------------------------------------------------//
   // (*) For Rectangular CoOrds, we use separate types for the COS and for the
   //     dimensioned "Vector3D"s (Pos, Vel, Acc, Force etc) in that COS.
   // (*) However, for Spherical and Ellipsoidal co-ords,   we define types for
@@ -23,37 +25,24 @@ namespace SpaceBallistics
   //     ing the PV data (Position and Velocity) as input or output only...
   //
   //=========================================================================//
-  // "SpherPV" Class:                                                        //
+  // "SphericalPV" Class:                                                    //
   //=========================================================================//
-  // BodyCentric or Body-TopoCentric Spherical Co-Ords,    corresp to
-  // "BodyCentric{Eq,Ecl}FixCOS" or "TopoCentric{Eq,Ecl}FixCOS", res.
-  // and Body's Orbital Plane @J2000.0).
-  // For the GeoCentric or Geo-TopoCentric Equatorial system, it represents the
-  // classical astronomical Right Ascention, Declination, Radius-Vector and
-  // their "Dots" of an Object.
-  // This class provides TYPE SAFETY OF APPARENT CO-ORDS (RA and Decl), as it
-  // specifies "from where they are apparent"!
-  // It is normally used for Equatorial COSes, but Ecliptical ones can also be
-  // used, in which case "alpha" is an Ecliptical Longitude and "delta" is an
-  // Ecliptical Latitude:
+  // Position and Velicity in the Spherical Co-Ords corresponding to the given
+  // rectangular COS.
+  // In particular, for the GeoCentric  or Geo-TopoCentric Equatorial COS,  it
+  // represents the classical astronomical Right Ascention, Declination, Radius-
+  // Vector and their "Dots" of an Object:
   //
   template<typename COS>
-  class SpherPV
+  class SphericalPV
   {
   private:
-    //-----------------------------------------------------------------------//
-    // Checks on the "COS":                                                  //
-    //-----------------------------------------------------------------------//
-    // The "COS" must have Fixed Axes (non-Rotating), though its Origin does
-    // not need to be Fixed:
-    static_assert(COS::HasFixedAxes);
-
     //-----------------------------------------------------------------------//
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
     // Position:
-    Angle  m_alpha;     // Right Ascention or Ecliptical Longitude
-    Angle  m_delta;     // Declination     or Ecliptical Latitude
+    Angle  m_alpha;     // Right Ascention or Longitude
+    Angle  m_delta;     // Declination     or Latitude
     LenK   m_rho;       // Distance (Radius-Vector)
 
     // Velocities:
@@ -64,22 +53,22 @@ namespace SpaceBallistics
   public:
     // Default Ctor,  Copy Ctor, Assignment and Equality are auto-generated;
     // in particular, the Default Ctor initialises all flds to 0:
-    SpherPV             ()                     = default;
-    SpherPV             (SpherPV const&)       = default;
-    SpherPV& operator=  (SpherPV const&)       = default;
-    bool     operator== (SpherPV const&) const = default;
+    SphericalPV             ()                         = default;
+    SphericalPV             (SphericalPV const&)       = default;
+    SphericalPV& operator=  (SphericalPV const&)       = default;
+    bool         operator== (SphericalPV const&) const = default;
 
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
-    // Constructing "SpherPV" from the Rectangular PV Vectors:
+    // Constructing "SphericalPV" from the Rectangular PV Vectors:
     //
-    constexpr SpherPV
+    constexpr SphericalPV
     (
       PosKV<COS> const& a_pos, // Must be non-0
       VelKV<COS> const& a_vel  // May  be 0
     )
-    : SpherPV()                // Zero-out all components by default
+    : SphericalPV()            // Zero-out all components by default
     {
       // Position:
       m_rho      = LenK(a_pos);
@@ -128,28 +117,60 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Accessors:                                                            //
     //-----------------------------------------------------------------------//
-    constexpr Angle  GetRA     () const { return m_alpha;    } // Right Ascentn
-    constexpr Angle  GetDecl   () const { return m_delta;    } // Declination
-    constexpr LenK   GetDist   () const { return m_rho;      } // Distance (RV)
-    constexpr VelK   GetRadVel () const { return m_rhoDot;   } // Radial Vel
-    constexpr AngVel GetRADot  () const { return m_alphaDot; }
-    constexpr AngVel GetDeclDot() const { return m_deltaDot; }
+    constexpr Angle  GetAlpha   () const { return m_alpha;    }
+    constexpr Angle  GetDelta   () const { return m_delta;    }
+    constexpr LenK   GetDist    () const { return m_rho;      }
+    constexpr VelK   GetRadVel  () const { return m_rhoDot;   }
+    constexpr AngVel GetAlphaDot() const { return m_alphaDot; }
+    constexpr AngVel GetDeltaDot() const { return m_deltaDot; }
+
+    //-----------------------------------------------------------------------//
+    // Other Way Round: Pos and Vel Vectors from "SphericalPV":              //
+    //-----------------------------------------------------------------------//
+    // Returning both vectors together is more efficient:
+    //
+    constexpr std::pair<PosKV<COS>, VelKV<COS>> GetPVVectors() const
+    {
+      double cA = Cos(double(m_alpha));
+      double sA = Sin(double(m_alpha));
+      double cD = Cos(double(m_delta));
+      double sD = Sin(double(m_delta));
+
+      LenK   pos[3] { m_rho * cD * cA, m_rho * cD * sA, m_rho * sD };
+      assert(Sqr(m_rho).ApproxEquals (Sqr(pos[0]) + Sqr(pos[1]) + Sqr(pos[2])));
+
+      VelK   vel[3]
+      {
+        m_rhoDot * cD * cA - m_rho * sD * cA * m_deltaDot / 1.0_rad
+                           - m_rho * cD * sA * m_alphaDot / 1.0_rad,
+        m_rhoDot * cD * sA - m_rho * sD * sA * m_deltaDot / 1.0_rad
+                           + m_rho * cD * cA * m_alphaDot / 1.0_rad,
+        m_rhoDot * sD      + m_rho * cD      * m_deltaDot / 1.0_rad
+      };
+      DEBUG_ONLY
+      (
+        auto V2 = Sqr(m_rhoDot) + Sqr(m_rho * cD * m_alphaDot / 1.0_rad) +
+                                  Sqr(m_rho *      m_deltaDot / 1.0_rad);
+        assert(V2.ApproxEquals(Sqr(vel[0])  + Sqr(vel[1]) + Sqr(vel[2])));
+      )
+      return std::make_pair(PosKV<COS>(pos), VelKV<COS>(vel));
+    }
   };
 
   //-------------------------------------------------------------------------//
   // Aliases (for Body-Centric Equatorial "SpherPV"s only):                  //
   //-------------------------------------------------------------------------//
   // XXX: Currently, they are provided for Body-Centric Equatorial COSes only:
-  using HelioCentricEqSpherPV   = SpherPV<HelioCentricEqFixCOS>;
-  using HermeoCentricEqSpherPV  = SpherPV<HermeoCentricEqFixCOS>;
-  using CytheroCentricEqSpherPV = SpherPV<CytheroCentricEqFixCOS>;
-  using GeoCentricEqSpherPV     = SpherPV<GeoCentricEqFixCOS>;
-  using SelenoCentricEqSpherPV  = SpherPV<SelenoCentricEqFixCOS>;
-  using AreoCentricEqSpherPV    = SpherPV<AreoCentricEqFixCOS>;
-  using ZenoCentricEqSpherPV    = SpherPV<ZenoCentricEqFixCOS>;
-  using CronoCentricEqSpherPV   = SpherPV<CronoCentricEqFixCOS>;
-  using UranoCentricEqSpherPV   = SpherPV<UranoCentricEqFixCOS>;
-  using PoseidoCentricEqSpherPV = SpherPV<PoseidoCentricEqFixCOS>;
-  using HadeoCentricEqSpherPV   = SpherPV<HadeoCentricEqFixCOS>;
+  using HelioCentricEqSpherPV   = SphericalPV<HelioCentricEqFixCOS>;
+  using HermeoCentricEqSpherPV  = SphericalPV<HermeoCentricEqFixCOS>;
+  using CytheroCentricEqSpherPV = SphericalPV<CytheroCentricEqFixCOS>;
+  using GeoCentricEqSpherPV     = SphericalPV<GeoCentricEqFixCOS>;
+  using SelenoCentricEqSpherPV  = SphericalPV<SelenoCentricEqFixCOS>;
+  using AreoCentricEqSpherPV    = SphericalPV<AreoCentricEqFixCOS>;
+  using ZenoCentricEqSpherPV    = SphericalPV<ZenoCentricEqFixCOS>;
+  using CronoCentricEqSpherPV   = SphericalPV<CronoCentricEqFixCOS>;
+  using UranoCentricEqSpherPV   = SphericalPV<UranoCentricEqFixCOS>;
+  using PoseidoCentricEqSpherPV = SphericalPV<PoseidoCentricEqFixCOS>;
+  using HadeoCentricEqSpherPV   = SphericalPV<HadeoCentricEqFixCOS>;
 }
 // End namespace SpaceBallistics
