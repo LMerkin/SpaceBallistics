@@ -21,7 +21,8 @@ namespace SpaceBallistics
   // "TopoCentricEqFixCOS" Struct:                                           //
   //=========================================================================//
   // The Axes are as in "BodyCentricEqFixCOS" (in particular, for Earth they are
-  // ICRS), but the Origin is a Location ("L") on the Body, not the Body Center.
+  // ICRS/GCRS), but the Origin is a Location ("L") on the Body,  NOT the Body
+  // Center.
   // Suitable for computation of TopoCentric Ephemerides in astronomical appls.
   // The Origin of this COS is rotating (and otherwise moving) in the inertial
   // space, but the Axes are fixed:

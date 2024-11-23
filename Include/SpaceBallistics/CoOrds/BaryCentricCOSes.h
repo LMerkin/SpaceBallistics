@@ -16,13 +16,13 @@ namespace SpaceBallistics
   // BaryCentric Ecliptical COS:
   // Origin: Solar System BaryCenter
   // Axes  :
-  //   X       : ICRS Equinox of J2000.0
-  //   XY plane: Ecliptic     of J2000.0
-  //             (ie NOT ICRS, which is Equatorial, and NOT the Laplace plane
-  //             of the Solar System, which is the plane orthogonal to the
-  //             angular momentum vector of the whole Solar System)
-  //   Y, Z    : Derived from the above
-  // Obviously, using TDB as the associated TimeScale.
+  //   X       : ICRS/BCRS ~ Dynamic Equinox  of J2000.0;
+  //   XY plane: ICRS/BCSR ~ Dynamic Ecliptic of J2000.0;
+  //             (ie NOT ICRS/BCRS itself, which is Equatorial, and NOT the La-
+  //             place plane of the Solar System, which is the plane orthogonal
+  //             to the angular momentum vector of the whole Solar System);
+  //   Y, Z    : Derived from the above;
+  // Obviously, using TDB as the associated TimeScale;
   // This definition is consistent with the conventions of the JPL Horizon eph-
   // emerides:
   //
@@ -46,10 +46,8 @@ namespace SpaceBallistics
   // "BaryCentricEqCOS" Struct:                                              //
   //=========================================================================//
   // BaryCentric Equatorial COS:
-  // As "BaryCentricEclCOS" above, but the XY plane is the Earth Equator of
-  // J2000.0. Thus, the axes of this COS coincide with the ICRS. Might   be
-  // useful eg for integration of GeoCentric trajectories, with perturbations
-  // from the Moon and the Sun:
+  // As "BaryCentricEclCOS" above, but the XY plane is ~ the Mean Earth Equator
+  // of J2000.0. Thus, this COS is the ICRS/BCRS itself:
   //
   struct BaryCentricEqCOS
   {

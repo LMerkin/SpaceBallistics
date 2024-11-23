@@ -108,7 +108,7 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // GeoCentric Equatorial Position and Velocity of the Moon:                //
   //-------------------------------------------------------------------------//
-  // In the GeoCentric Equatorial Fixed-Axes (ICRS) COS:
+  // In the GeoCentric Equatorial Fixed-Axes (ICRS/GCRS) COS:
   void GetMoonGEqPV (TDB a_tdb, PosKVGeoEqFix* a_pos,  VelKVGeoEqFix* a_vel);
 
   // In the GeoCentric Ecliptical Fixed-Axes COS (compatible with JPL Horizons):

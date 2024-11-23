@@ -1,12 +1,10 @@
 // vim:ts=2:et
 //===========================================================================//
-//                   "SpaceBallistics/CoOrds/SphericalPV.hpp":               //
-//                      Spherical Positions and Velocities                   //
+//                  "SpaceBallistics/CoOrds/SphericalPV.hpp":                //
+//                     Spherical Positions and Velocities                    //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
-#include "SpaceBallistics/CoOrds/TopoCentricCOSes.h"
 
 namespace SpaceBallistics
 {
@@ -136,31 +134,39 @@ namespace SpaceBallistics
       double cD = Cos(double(m_delta));
       double sD = Sin(double(m_delta));
 
-      LenK   pos[3] { m_rho * cD * cA, m_rho * cD * sA, m_rho * sD };
-      assert(Sqr(m_rho).ApproxEquals (Sqr(pos[0]) + Sqr(pos[1]) + Sqr(pos[2])));
+      LenK   x  = m_rho * cD * cA;
+      LenK   y  = m_rho * cD * sA;
+      LenK   z  = m_rho * sD;
+      assert(Sqr(m_rho).ApproxEquals(Sqr(x) + Sqr(y) + Sqr(z)));
 
-      VelK   vel[3]
-      {
-        m_rhoDot * cD * cA - m_rho * sD * cA * m_deltaDot / 1.0_rad
-                           - m_rho * cD * sA * m_alphaDot / 1.0_rad,
-        m_rhoDot * cD * sA - m_rho * sD * sA * m_deltaDot / 1.0_rad
-                           + m_rho * cD * cA * m_alphaDot / 1.0_rad,
-        m_rhoDot * sD      + m_rho * cD      * m_deltaDot / 1.0_rad
-      };
+      VelK   Vx = m_rhoDot   * cD * cA
+                - m_rho * sD * cA * m_deltaDot / 1.0_rad
+                - m_rho * cD * sA * m_alphaDot / 1.0_rad;
+
+      VelK   Vy = m_rhoDot   * cD * sA
+                - m_rho * sD * sA * m_deltaDot / 1.0_rad
+                + m_rho * cD * cA * m_alphaDot / 1.0_rad;
+
+      VelK   Vz = m_rhoDot * sD
+                + m_rho * cD      * m_deltaDot / 1.0_rad;
+
       DEBUG_ONLY
       (
         auto V2 = Sqr(m_rhoDot) + Sqr(m_rho * cD * m_alphaDot / 1.0_rad) +
                                   Sqr(m_rho *      m_deltaDot / 1.0_rad);
-        assert(V2.ApproxEquals(Sqr(vel[0])  + Sqr(vel[1]) + Sqr(vel[2])));
+        assert(V2.ApproxEquals(Sqr(Vx) + Sqr(Vy) + Sqr(Vz)));
       )
-      return std::make_pair(PosKV<COS>(pos), VelKV<COS>(vel));
+      return std::make_pair(PosKV<COS>(x, y, z), VelKV<COS>(Vx, Vy, Vz));
     }
   };
 
   //-------------------------------------------------------------------------//
   // Aliases (for Body-Centric Equatorial "SpherPV"s only):                  //
   //-------------------------------------------------------------------------//
-  // XXX: Currently, they are provided for Body-Centric Equatorial COSes only:
+  // XXX: Currently, they are provided for Body-Centric Equatorial COSes only.
+  // In particular, "GeoCentricEqSpherPV" provides GeoCentric Right Ascentions,
+  // Declinations and Distances:
+  //
   using HelioCentricEqSpherPV   = SphericalPV<HelioCentricEqFixCOS>;
   using HermeoCentricEqSpherPV  = SphericalPV<HermeoCentricEqFixCOS>;
   using CytheroCentricEqSpherPV = SphericalPV<CytheroCentricEqFixCOS>;

@@ -12,11 +12,11 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
-  // Vector Transformations between Equatorial and Ecliptical J2000.0 COSes: //
+  // Vector Transformations between Equatorial and Ecliptical ~J2000 COSes:  //
   //=========================================================================//
-  //------------------------------------------------------------------------//
-  // For the Earth Ecliptic, Equator and Equinox of J2000.0:                //
-  //------------------------------------------------------------------------//
+  //-------------------------------------------------------------------------//
+  // For the Earth Ecliptic, Equator and Equinox of ~J2000.0:                //
+  //-------------------------------------------------------------------------//
   // J2000.0 Obliquity of Ecliptic to the ICRS Equator, from the IAU76 model:
   //
   constexpr inline Angle     Obliq2000 = To_Angle(Angle_arcSec(84381.448));

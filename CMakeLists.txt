@@ -196,7 +196,8 @@ SET(SB_TESTS
   TAI_Test
   DE440T_Test0
   DE440T_Test1
-  DE440T_Test2)
+  DE440T_Test2
+  DE440T_Test3)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)

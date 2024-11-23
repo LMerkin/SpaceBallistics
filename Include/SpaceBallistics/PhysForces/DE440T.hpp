@@ -389,7 +389,7 @@ namespace SpaceBallistics::DE440T
   //=========================================================================//
   // "GetPlanet[s]BarEqPV[s]":                                               //
   //=========================================================================//
-  // In the "BaryCentricEqCOS", ie in the ICRS axes:
+  // In the "BaryCentricEqCOS", ie in the ICRS/BCRS axes:
   //-------------------------------------------------------------------------//
   // With Compile-Time Object Selection:                                     //
   //-------------------------------------------------------------------------//
@@ -547,27 +547,28 @@ namespace SpaceBallistics::DE440T
 #   ifdef  DE440T_OBJ_PV
 #   undef  DE440T_OBJ_PV
 #   endif
-#   define DE440T_OBJ_PV(ObjName) \
+#   define DE440T_OBJ_PV(I, ObjName) \
     { \
+      static_assert(I == int(Bits::Object::ObjName)); \
       Bits::GetCoOrds<Bits::Object::ObjName> \
         (rec, \
          dt,  \
-         a_poss  [int(Bits::Object::ObjName)].GetArr(), \
+         a_poss  [I].GetArr(), \
          ( a_vels != nullptr ) \
-         ? a_vels[int(Bits::Object::ObjName)].GetArr()  \
+         ? a_vels[I].GetArr()  \
          : nullptr \
       ); \
     }
-    DE440T_OBJ_PV(Sun)
-    DE440T_OBJ_PV(Mercury)
-    DE440T_OBJ_PV(Venus)
-    DE440T_OBJ_PV(EMB)
-    DE440T_OBJ_PV(Mars)
-    DE440T_OBJ_PV(Jupiter)
-    DE440T_OBJ_PV(Saturn)
-    DE440T_OBJ_PV(Uranus)
-    DE440T_OBJ_PV(Neptune)
-    DE440T_OBJ_PV(PlChB)
+    DE440T_OBJ_PV(0, Sun)
+    DE440T_OBJ_PV(1, Mercury)
+    DE440T_OBJ_PV(2, Venus)
+    DE440T_OBJ_PV(3, EMB)
+    DE440T_OBJ_PV(4, Mars)
+    DE440T_OBJ_PV(5, Jupiter)
+    DE440T_OBJ_PV(6, Saturn)
+    DE440T_OBJ_PV(7, Uranus)
+    DE440T_OBJ_PV(8, Neptune)
+    DE440T_OBJ_PV(9, PlChB)
 #   undef DE440T_OBJ_PV
   }
 
@@ -657,7 +658,7 @@ namespace SpaceBallistics::DE440T
   // "GetMoonG{Eq,Ecl}PV":                                                   //
   //=========================================================================//
   //-------------------------------------------------------------------------//
-  // In the GeoCentric Equatorial Fixed-Axes (ICRS) COS:                     //
+  // In the GeoCentric Equatorial Fixed-Axes (ICRS/GCRS) COS:                //
   //-------------------------------------------------------------------------//
   void GetMoonGEqPV
   (
@@ -672,8 +673,8 @@ namespace SpaceBallistics::DE440T
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
     // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
-    // yield the PV in the GeoCentric Equatorial  Fixed-Axes (ICRS)  co-ords
-    // directly:
+    // yield the PV in the GeoCentric Equatorial  Fixed-Axes (ICRS/GCRS) co-
+    // ords directly:
     Bits::GetCoOrds<Bits::Object::Moon>
     (
       rec,
@@ -693,7 +694,7 @@ namespace SpaceBallistics::DE440T
     VelKVGeoEclFix* a_vel
   )
   {
-    // First, compute the PV in the GeoCentric Equatorial Fixed-Axes (ICRS)
+    // First, compute the PV in the GeoCentric Equatorial Fixed-Axes (ICRS/GCRS)
     // Co-Ords:
     PosKVGeoEqFix   posEq;
     VelKVGeoEqFix   velEq;
