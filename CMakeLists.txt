@@ -7,8 +7,8 @@
 #=============================================================================#
 # Export flags for convenience when using Vim's YCM plugin:
 #
-CMAKE_MINIMUM_REQUIRED(VERSION 3.23)
-CMAKE_POLICY(          VERSION 3.23)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.30)
+CMAKE_POLICY(          VERSION 3.30)
 
 IF (NOT UNIX)
   MESSAGE(FATAL_ERROR "Non-UNIX platforms are not supported")
@@ -197,7 +197,7 @@ SET(SB_TESTS
   DE440T_Test0
   DE440T_Test1
   DE440T_Test2
-  DE440T_Test3)
+  ERM_Test)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)

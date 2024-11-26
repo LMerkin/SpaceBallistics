@@ -1,9 +1,11 @@
 // vim:ts=2:et
 //===========================================================================//
-//                        "Tests/DE440T_Test3.cpp":                          //
-//            "Ground Track" of the Moon on Ellipsoidal Earth                //
+//                            "Tests/ERM_Test.cpp":                          //
+//               "Ground Track" of the Moon on Ellipsoidal Earth             //
+//                     using EarthRotationModel and DE440T                   //
 //===========================================================================//
 #include "SpaceBallistics/CoOrds/EllipsoidalPV.hpp"
+#include "SpaceBallistics/PhysForces/EarthRotationModel.h"
 
 int main()
 {

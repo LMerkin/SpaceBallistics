@@ -18,8 +18,16 @@ namespace SpaceBallistics
   (
     double,,
     (Mass,     kg),                       // Mass
-    (Len,      m,   (km,     1000.0)),    // Length
-    (Time,     sec, (day,   86400.0)),    // Time
+    (Len,      m,     (km,  1000.0)),     // Length
+
+    // Time:
+    (Time,     sec,
+      (day,    86400.0),
+      (tyr,    31'556'925.9747),          // Tropical Year 1900 (CGPM 1960) ~=
+                                          //   365.2422_day
+      (jyr,    31'557'600.0)              // Julian   Year = 365.25_day
+    ),
+
     (AbsTemp,  K),                        // Absolute Temperature
 
     // Angles: When expressed in "rad", angles are directly convertible to a
