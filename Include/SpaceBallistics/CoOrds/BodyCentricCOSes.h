@@ -20,18 +20,17 @@ namespace SpaceBallistics
   // "BodyCentricEqFixCOS" Class:                                            //
   //=========================================================================//
   // BodyCentric Equatorial Fixed-Axes COS:
-  // Origin: Normally, the center of Body's Ellipsoid
+  // Origin: Normally, the center of Body's Ellipsoid;
   // Axes  : X       : Typically, ~ Body's Dynamic Vernal Equinox(J2000.0)  =
   //                   the Ascending Node of the Sun orbit over Body's Equator
   //                   (ie "Body's Ecliptic") = the Descending Node of Body's
   //                   orbit over Body's Equator;
   //         XY Plane: ~ Body's Mean Equator(J2000.0);
   //         Z       : ~ Body's North Pole;
-  // IN PARTICULAR, the axes of "GeoCentricEqFixCOS" are exactly those of ICRS/
-  //                   GCRS!
   // TimeScale       : TT for Earth, TDB otherwise (FIXME: It would be better
-  // to provide Body-centric relativistic TimeScales for all Bodies, not just
-  // for Earth).
+  //                   to provide Body-centric relativistic TimeScales for all
+  //                   Bodies, not just for Earth).
+  // For Earth, this is exactly the GCRS!
   // This, the axes of this COS are fixed in the ICRS, but the Origin is moving
   // in the inertial space, so this COS is not fully-inertial:
   //
@@ -69,16 +68,16 @@ namespace SpaceBallistics
   // NB: Pos and Vel Vectors use "Len_km" ("K"), but other Vectors use "Len_m":
   //
   template<Body BodyName>
-  using PosKVEqFix      = PosKV <BodyCentricEqFixCOS<BodyName>>;
+  using PosKVEqFix  = PosKV <BodyCentricEqFixCOS<BodyName>>;
 
   template<Body BodyName>
-  using VelKVEqFix      = VelKV <BodyCentricEqFixCOS<BodyName>>;
+  using VelKVEqFix  = VelKV <BodyCentricEqFixCOS<BodyName>>;
 
   template<Body BodyName>
-  using AccVEqFix       = AccV  <BodyCentricEqFixCOS<BodyName>>;
+  using AccVEqFix   = AccV  <BodyCentricEqFixCOS<BodyName>>;
 
   template<Body BodyName>
-  using ForceVEqFix     = ForceV<BodyCentricEqFixCOS<BodyName>>;
+  using ForceVEqFix = ForceV<BodyCentricEqFixCOS<BodyName>>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
@@ -86,19 +85,20 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases for Vectors in the "GeoCentricEqFixCOS":                        //
   //-------------------------------------------------------------------------//
-  using PosKVGeoEqFix   = PosKVEqFix <Body::Earth>;
-  using VelKVGeoEqFix   = VelKVEqFix <Body::Earth>;
-  using AccVGeoEqFix    = AccVEqFix  <Body::Earth>;
-  using ForceVGeoEqFix  = ForceVEqFix<Body::Earth>;
+  using PosKV_GCRS  = PosKVEqFix <Body::Earth>;
+  using VelKV_GCRS  = VelKVEqFix <Body::Earth>;
+  using AccV_GCRS   = AccVEqFix  <Body::Earth>;
+  using ForceV_GCRS = ForceVEqFix<Body::Earth>;
 
   //=========================================================================//
   // "BodyCentricEclFixCOS":                                                 //
   //=========================================================================//
   // BodyCentric Ecliptical Fixed-Axes COS:
-  // Origin: Normally, the center of Body's Ellipsoid
+  // Origin: Normally, the center of Body's Ellipsoid;
   // Axes  : X       : Same as the X axis of the corresp "BodyCentricEqFixCOS"
-  //         XY Plane: Body's Mean Orbital Plane(J2000.0)
-  //         Z       : "North Orbital Pole"
+  //         XY Plane: Body's Mean Orbital Plane(J2000.0); for Earth, Ecliptic
+  //                   is defined as the Mean Earth Orbital Plane;
+  //         Z       : "North Orbital Pole";
   // TimeScale       : TT for Earth, TDB otherwise (FIXME: again, it would be
   //                   better to provide relativistic Body-centric TimeScales
   //                   for all Bodies, not just for Earth);
@@ -177,18 +177,16 @@ namespace SpaceBallistics
   // BodyCentric Rotating-Axes COS (obviously Equatorial):
   // This COS is "embedded" in the Body and is rotating in the inertial space
   // along with the Body.
-  // Origin: Normally, the center of the Body Ellipsoid.
-  // Axes  : XY Plane: Body's CURRENT Equator (NOT the J2000.0 Equator!);
-  //                   in case of Earth (ITRS), it is the plane orthogonal to
-  //                   the Celestial Intermediate Pole (CIP);
+  // Origin: Normally, the center of the Body Ellipsoid;
+  // Axes  : XY Plane: Body's CURRENT Dynamical Equator (NOT the J2000.0 Equator
+  //                   and NOT the Mean Equator of the date!);
   //         X       : To (lambda=0, phi=0) in the corresp BodyGraphic COS;
-  //                   in case of Earth (ITRS), it is Celestial Intermediate
-  //                   Origin (CIO);
-  //         Z       : Body's North Pole; in case of Earth (ITRS), it is CIP;
+  //         Z       : Body's North Pole;
   // TimeScale       : Same convention as for BodyCentric{Eq,Ecl}FixCOS.
   // This, the axes of this COS are rotating in the inertial (eg ICRS) space,
   // the rotation axis may precess  in the inertial space,  and the origin is
-  // moving as well, so this system is STRONGLY NON-INERTIAL:
+  // moving as well, so this system is STRONGLY NON-INERTIAL.
+  // For Earth, this is exactly the ITRS!
   //
   template<Body BodyName>
   struct BodyCentricRotCOS
@@ -224,16 +222,16 @@ namespace SpaceBallistics
   // Again, using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
   //
   template<Body BodyName>
-  using PosKVRot     = PosKV <BodyCentricRotCOS<BodyName>>;
+  using PosKVRot    = PosKV <BodyCentricRotCOS<BodyName>>;
 
   template<Body BodyName>
-  using VelKVRot     = VelKV <BodyCentricRotCOS<BodyName>>;
+  using VelKVRot    = VelKV <BodyCentricRotCOS<BodyName>>;
 
   template<Body BodyName>
-  using AccVRot      = AccV  <BodyCentricRotCOS<BodyName>>;
+  using AccVRot     = AccV  <BodyCentricRotCOS<BodyName>>;
 
   template<Body BodyName>
-  using ForceVRot    = ForceV<BodyCentricRotCOS<BodyName>>;
+  using ForceVRot   = ForceV<BodyCentricRotCOS<BodyName>>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
@@ -241,9 +239,9 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases for Vectors in the "GeoCentricEqRotCOS":                        //
   //-------------------------------------------------------------------------//
-  using PosKVGeoRot  = PosKVRot <Body::Earth>;
-  using VelKVGeoRot  = VelKVRot <Body::Earth>;
-  using AccVGeoRot   = AccVRot  <Body::Earth>;
-  using ForceVGeoRot = ForceVRot<Body::Earth>;
+  using PosKV_ITRS  = PosKVRot <Body::Earth>;
+  using VelKV_ITRS  = VelKVRot <Body::Earth>;
+  using AccV_ITRS   = AccVRot  <Body::Earth>;
+  using ForceV_ITRS = ForceVRot<Body::Earth>;
 }
 // End namespace SpaceBallistics

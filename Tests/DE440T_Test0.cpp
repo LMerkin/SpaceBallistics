@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
     if (isTT)
     {
       TT   tt(tdb);
-      Time delta = tt.GetTime()  - tdb.GetTime();
+      Time delta = tt.GetTimeSinceEpoch() - tdb.GetTimeSinceEpoch();
 
       // Compute and verify the inverse.
       // We should achieve at least a nanosecond precision:
@@ -106,9 +106,12 @@ int main(int argc, char* argv[])
 
       printf("%.2lf\t%.1lf\t%.6lf\t%.6lf\t%.1lf\t%.6lf\t%.6lf\n",
              tdb.GetJD() .Magnitude(),
-             (tdb - from).Magnitude(),  delta.Magnitude(),
-             err.Magnitude(),          tdb .GetTime().Magnitude(),
-             tt.GetTime().Magnitude(), tdb1.GetTime().Magnitude());
+             (tdb - from).Magnitude(),
+             delta.Magnitude(),
+             err  .Magnitude(),
+             tdb  .GetTimeSinceEpoch().Magnitude(),
+             tt   .GetTimeSinceEpoch().Magnitude(),
+             tdb1 .GetTimeSinceEpoch().Magnitude());
     }
     else
     if (body == Body::Moon)

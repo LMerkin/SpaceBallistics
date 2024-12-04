@@ -12,13 +12,11 @@ namespace SpaceBallistics
   //=========================================================================//
   // "TT"  Ctor: From "TDB":                                                 //
   //=========================================================================//
-  TT::TT(TDB const& a_tdb)
-    { *this = DE440T::ToTT(a_tdb); }
+  TT::TT(TDB const& a_tdb) { *this = DE440T::ToTT(a_tdb); }
 
   //=========================================================================//
   // "TDB" Ctor: From "TT":                                                  //
   //=========================================================================//
-  TDB::TDB(TT const& a_tt)
-    { *this = DE440T::ToTDB(a_tt); }
+  TDB::TDB(TT const& a_tt) { *this = DE440T::ToTDB(a_tt); }
 }
 // End namespace SpaceBallistics

@@ -148,7 +148,8 @@ namespace SpaceBallistics
     constexpr bool operator== (TT const&) const = default;
 
     // The J2000.0 Epoch = 2000 Jan 1.5, in TT:
-    constexpr static Time_day Epoch  = 2451545.0_day;
+    constexpr static Time_day Epoch    = 2451545.0_day;
+    constexpr static Time_jyr EpochJYr = Time_jyr(2000.0 + 0.5 / 365.25);
 
     // Fixed TT-TAI offset:
     constexpr static Time     TT_TAI = 32.184_sec;
@@ -171,6 +172,14 @@ namespace SpaceBallistics
     : m_MJS    (To_Time_sec(a_jd_tt - Epoch))
     {}
 
+    // Directly constructing from JYear_TT. XXX: In this case we assume that
+    // the Epoch is 2000.0 exactly. XXX: This is for "low-precision" computa-
+    // tions such as Precession Matrices:
+    //
+    constexpr explicit TT(Time_jyr a_jyr_tt)
+    : m_MJS    (To_Time_sec( a_jyr_tt - EpochJYr))
+    {}
+
     // From TDB (not "constexpr", as DE440T is required):
     explicit TT(TDB const& a_tdb);
 
@@ -179,10 +188,15 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // XXX: USE WITH CARE, as TimeScale info is then lost:
     //
-    constexpr Time     GetTime() const { return m_MJS; }
+    constexpr Time     GetTimeSinceEpoch() const
+      { return m_MJS; }
+
+    constexpr Time_day GetJDsSinceEpoch () const
+      { return To_Time_day(m_MJS); }
 
     // Extracting the JD_TDB:
-    constexpr Time_day GetJD  () const { return Epoch + To_Time_day(m_MJS); }
+    constexpr Time_day GetJD            () const
+      { return Epoch + To_Time_day(m_MJS); }
 
     //-----------------------------------------------------------------------//
     // "MkTAI":                                                              //
@@ -380,10 +394,15 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // XXX: USE WITH CARE, as TimeScale info is then lost:
     //
-    constexpr Time     GetTime() const { return m_MJS; }
+    constexpr Time     GetTimeSinceEpoch() const
+      { return m_MJS; }
+
+    constexpr Time_day GetJDsSinceEpoch () const
+      { return To_Time_day(m_MJS); }
 
     // Extracting the JD_TDB:
-    constexpr Time_day GetJD  () const { return Epoch + To_Time_day(m_MJS); }
+    constexpr Time_day GetJD            () const
+      { return Epoch + To_Time_day(m_MJS); }
 
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //

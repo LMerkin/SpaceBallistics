@@ -178,7 +178,8 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
   Src/PhysForces/GravityPotential-Earth.cpp
   Src/PhysForces/GravityPotential-Moon.cpp
   Src/PhysForces/DE440T.cpp
-  Src/PhysForces/DE440T-Data.cpp)
+  Src/PhysForces/DE440T-Data.cpp
+  Src/PhysForces/EarthRotationModel.cpp)
 
 #=============================================================================#
 # Tests:                                                                      #

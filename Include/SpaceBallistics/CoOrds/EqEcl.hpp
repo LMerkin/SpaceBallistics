@@ -7,6 +7,7 @@
 #include "SpaceBallistics/CoOrds/Vector3D.hpp"
 #include "SpaceBallistics/CoOrds/BaryCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
+#include "SpaceBallistics/PhysForces/EarthRotationModel.h"
 #include <type_traits>
 
 namespace SpaceBallistics
@@ -19,7 +20,7 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // J2000.0 Obliquity of Ecliptic to the ICRS Equator, from the IAU76 model:
   //
-  constexpr inline Angle     Obliq2000 = To_Angle(Angle_arcSec(84381.448));
+  constexpr inline Angle     Obliq2000 = To_Angle(EarthRotationModel::Eps0);
   constexpr inline double CosObliq2000 = Cos(double(Obliq2000));
   constexpr inline double SinObliq2000 = Sin(double(Obliq2000));
 

@@ -662,9 +662,9 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   void GetMoonGEqPV
   (
-    TDB            a_tdb,
-    PosKVGeoEqFix* a_pos,
-    VelKVGeoEqFix* a_vel
+    TDB         a_tdb,
+    PosKV_GCRS* a_pos,
+    VelKV_GCRS* a_vel
   )
   {
     assert(a_pos != nullptr);
@@ -696,8 +696,8 @@ namespace SpaceBallistics::DE440T
   {
     // First, compute the PV in the GeoCentric Equatorial Fixed-Axes (ICRS/GCRS)
     // Co-Ords:
-    PosKVGeoEqFix   posEq;
-    VelKVGeoEqFix   velEq;
+    PosKV_GCRS   posEq;
+    VelKV_GCRS   velEq;
     GetMoonGEqPV(a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
     // Then convert the results into the GeoCentric Ecliptical Co-Ords:
@@ -717,7 +717,8 @@ namespace SpaceBallistics::DE440T
     Time  diff[1];   // 1 CoOrd only
     Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff, nullptr);
 
-    return TT() + (a_tdb.GetTime() + diff[0]);     // A hack to set the rep...
+    // A hack to set the TT rep directly:
+    return TT() + (a_tdb.GetTimeSinceEpoch() + diff[0]);
   }
 
   //=========================================================================//
@@ -729,7 +730,8 @@ namespace SpaceBallistics::DE440T
     // with the initial cond: tdb = tt ;
     // iterations should converge fairly quickly:
     //
-    TDB tdb(TDB() + a_tt.GetTime());     // A hack to set the rep directly...
+    // A hack to set the TDB rep directly:
+    TDB tdb(TDB() + a_tt.GetTimeSinceEpoch());
 
     constexpr int MaxIters = 10;
     int    i = 0;
@@ -742,15 +744,16 @@ namespace SpaceBallistics::DE440T
       Time  diff[1];   // 1 CoOrd only
       Bits::GetCoOrds<Bits::Object::TT_TDB>(rec, dt, diff, nullptr);
 
-      TT    tt1(TT() + tdb.GetTime()  + diff[0]);           // A hack again...
+      // A hack again:
+      TT    tt1(TT() + tdb.GetTimeSinceEpoch() + diff[0]);
 
       // For extra safety, we require a nanosecond precision:
       if (Abs(tt1 - a_tt) < Time(1e-9))
         // This "tdb" is good enough:
         break;
 
-      // Otherwise, update "tdb" and continue:
-      tdb  = TDB()   + (a_tt.GetTime() - diff[0]);         // A hack again...
+      // Otherwise, update "tdb" and continue. A hack again:
+      tdb  = TDB() + (a_tt.GetTimeSinceEpoch() - diff[0]);
     }
     // Check for (unlikely) divergence:
     assert(i < MaxIters);

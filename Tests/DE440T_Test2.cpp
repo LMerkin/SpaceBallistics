@@ -47,9 +47,9 @@ int main(int argc, char* argv[])
     DE440T::GetPlanetBarEqPV<Body::Sun>  (tdb, &posS, &velS);
 
     // Compute the GeoEq PV vectors of the Sun:
-    PosKVGeoEqFix posES
+    PosKV_GCRS posES
       (posS.x() - posE.x(), posS.y() - posE.y(), posS.z() - posE.z());
-    VelKVGeoEqFix velES
+    VelKV_GCRS velES
       (velS.x() - velE.x(), velS.y() - velE.y(), velS.z() - velE.z());
 
     // Compute the GeoCentric Spherical Eq CoOrds:
