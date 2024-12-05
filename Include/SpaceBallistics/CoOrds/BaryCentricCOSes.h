@@ -3,7 +3,8 @@
 //              "SpaceBallistics/CoOrds/BaryCentricCOSes.h":                 //
 //                    The Inertial Co-Ordinate System                        //
 //===========================================================================//
-#pragma once
+#pragma  once
+#include "SpaceBallistics/CoOrds/Vector3D.hpp"
 
 namespace SpaceBallistics
 {
@@ -37,8 +38,11 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
-  using PosKVBarEcl = PosKV<BaryCentricEclCOS>;
-  using VelKVBarEcl = VelKV<BaryCentricEclCOS>;
+  template<Body B   = Body::UNDEFINED>
+  using PosKVBarEcl = PosKV<BaryCentricEclCOS, B>;
+
+  template<Body B   = Body::UNDEFINED>
+  using VelKVBarEcl = VelKV<BaryCentricEclCOS, B>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 
@@ -60,8 +64,11 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
-  using PosKVBarEq  = PosKV<BaryCentricEqCOS>;
-  using VelKVBarEq  = VelKV<BaryCentricEqCOS>;
+  template<Body B   = Body::UNDEFINED>
+  using PosKVBarEq  = PosKV<BaryCentricEqCOS, B>;
+
+  template<Body B   = Body::UNDEFINED>
+  using VelKVBarEq  = VelKV<BaryCentricEqCOS, B>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 }

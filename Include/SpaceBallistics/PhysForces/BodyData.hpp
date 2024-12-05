@@ -13,7 +13,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // "BodyData" Struct: Defined by Specialisations:                          //
   //=========================================================================//
-  template<Body BodyName>
+  template<Body B>
   struct   BodyData;
 
   //-------------------------------------------------------------------------//
@@ -39,9 +39,6 @@ namespace SpaceBallistics
 
     // EGM2008 truncated:
     constexpr static int MaxSpherHarmDegreeAndOrder = 600;
-
-    // Axial Rotation Angular Velocity Vector, for a given Epoch, in the ICRS/
-    // BCRS: TODO:
   };
 
   //-------------------------------------------------------------------------//

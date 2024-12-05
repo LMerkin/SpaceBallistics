@@ -10,74 +10,41 @@ namespace SpaceBallistics::DE440T
   //=========================================================================//
   // Force compilation of the following template functions:                  //
   //=========================================================================//
+# ifdef  INST_BAR
+# undef  INST_BAR
+# endif
+# define INST_BAR(EE, B) \
+  template void GetPlanetBar##EE##PV<Body::B> \
+    (TDB a_tdb, PosKVBar##EE<Body::B>* a_pos, VelKVBar##EE<Body::B>* a_vel);
+
   //-------------------------------------------------------------------------//
   // "GetPlanetBarEqPV":                                                     //
   //-------------------------------------------------------------------------//
-  template void GetPlanetBarEqPV<Body::Sun>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
-  template void GetPlanetBarEqPV<Body::Mercury>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
-  template void GetPlanetBarEqPV<Body::Venus>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
+  INST_BAR(Eq,  Mercury)
+  INST_BAR(Eq,  Venus)
   // NB: "Earth" is specialised, no need to instantiate it explicitly...
-
-  template void GetPlanetBarEqPV<Body::Mars>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
-  template void GetPlanetBarEqPV<Body::Jupiter>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
-  template void GetPlanetBarEqPV<Body::Saturn>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
-  template void GetPlanetBarEqPV<Body::Uranus>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
-  template void GetPlanetBarEqPV<Body::Neptune>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
-  template void GetPlanetBarEqPV<Body::PlChB>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
-
-  template void GetPlanetBarEqPV<Body::EMB>
-                (TDB a_tdb, PosKVBarEq* a_pos,  VelKVBarEq* a_vel);
+  INST_BAR(Eq,  Mars)
+  INST_BAR(Eq,  Jupiter)
+  INST_BAR(Eq,  Saturn)
+  INST_BAR(Eq,  Uranus)
+  INST_BAR(Eq,  Neptune)
+  INST_BAR(Eq,  PlChB)
+  INST_BAR(Eq,  EMB)
 
   //-------------------------------------------------------------------------//
   // "GetPlanetBarEclPV":                                                    //
   //-------------------------------------------------------------------------//
-  template void GetPlanetBarEclPV<Body::Sun>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
-  template void GetPlanetBarEclPV<Body::Mercury>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
-  template void GetPlanetBarEclPV<Body::Venus>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
+  INST_BAR(Ecl, Mercury)
+  INST_BAR(Ecl, Venus)
   // NB: "Earth" is specialised, no need to instantiate it explicitly...
+  INST_BAR(Ecl, Mars)
+  INST_BAR(Ecl, Jupiter)
+  INST_BAR(Ecl, Saturn)
+  INST_BAR(Ecl, Uranus)
+  INST_BAR(Ecl, Neptune)
+  INST_BAR(Ecl, PlChB)
+  INST_BAR(Ecl, EMB)
 
-  template void GetPlanetBarEclPV<Body::Mars>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
-  template void GetPlanetBarEclPV<Body::Jupiter>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
-  template void GetPlanetBarEclPV<Body::Saturn>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
-  template void GetPlanetBarEclPV<Body::Uranus>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
-  template void GetPlanetBarEclPV<Body::Neptune>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
-  template void GetPlanetBarEclPV<Body::PlChB>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
-
-  template void GetPlanetBarEclPV<Body::EMB>
-                (TDB a_tdb, PosKVBarEcl* a_pos, VelKVBarEcl* a_vel);
+# undef INST_BAR
 }
 // End namespace SpaceBallistics::DE440T

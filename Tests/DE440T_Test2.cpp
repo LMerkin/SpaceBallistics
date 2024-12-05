@@ -3,16 +3,16 @@
 //                        "Tests/DE440T_Test2.cpp":                          //
 //       Equatorial (J2000.0) Ephemerides of the Sun in (alpha, delta)       //
 //===========================================================================//
-#include <cstdio>
-#include <cstdlib>
-
 // Asserts must be enabled for this test:
-#ifdef NDEBUG
-#undef NDEBUG
+#ifdef   NDEBUG
+#undef   NDEBUG
 #endif
 #include "SpaceBallistics/PhysForces/DE440T.h"
 #include "SpaceBallistics/CoOrds/SphericalPV.hpp"
 #include "SpaceBallistics/Utils.hpp"
+#include <cstdio>
+#include <cstdlib>
+#include <cassert>
 
 int main(int argc, char* argv[])
 {
@@ -41,19 +41,20 @@ int main(int argc, char* argv[])
   {
     TDB tdb(tt);
 
-    PosKVBarEq posE, posS;
-    VelKVBarEq velE, velS;
+    PosKVBarEq<Body::Earth> posE;
+    PosKVBarEq<Body::Sun>   posS;
+    VelKVBarEq<Body::Earth> velE;
+    VelKVBarEq<Body::Sun>   velS;
     DE440T::GetPlanetBarEqPV<Body::Earth>(tdb, &posE, &velE);
     DE440T::GetPlanetBarEqPV<Body::Sun>  (tdb, &posS, &velS);
 
     // Compute the GeoEq PV vectors of the Sun:
-    PosKV_GCRS posES
-      (posS.x() - posE.x(), posS.y() - posE.y(), posS.z() - posE.z());
-    VelKV_GCRS velES
-      (velS.x() - velE.x(), velS.y() - velE.y(), velS.z() - velE.z());
+    // FIXME: Replace the following with type-safe vector subtractions!
+    PosKV_GCRS<Body::Sun> posES = posS - posE;
+    VelKV_GCRS<Body::Sun> velES = velS - velE;
 
     // Compute the GeoCentric Spherical Eq CoOrds:
-    GeoCentricEqSpherPV spherPVS(posES, velES);
+    GeoCentricEqSpherPV<Body::Sun> spherPVS(posES, velES);
 
     auto hms = ToHMS(spherPVS.GetAlpha());
     auto dms = ToDMS(spherPVS.GetDelta());
@@ -76,6 +77,11 @@ int main(int argc, char* argv[])
            alphaDot.Magnitude(),    deltaDot.Magnitude(),
            spherPVS.GetRadVel().Magnitude());
 
+    // XXX: Although we explicitly reset the NDEBUG flag at the beginning, in
+    // CLang it may still be set (???), so use the following guard to prevent
+    // compile-time warnings.   However, this will prevent the following test
+    // from being done:
+#   ifndef NDEBUG
     // Get back to the GeoEq PV vectors:
     auto  [posES1, velES1] = spherPVS.GetPVVectors();
     assert(posES1.x().ApproxEquals(posES.x()) &&
@@ -84,6 +90,7 @@ int main(int argc, char* argv[])
            velES1.x().ApproxEquals(velES.x()) &&
            velES1.y().ApproxEquals(velES.y()) &&
            velES1.z().ApproxEquals(velES.z()));
+#   endif
   }
   // All Done!
   return 0;

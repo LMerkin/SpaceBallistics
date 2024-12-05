@@ -5,13 +5,7 @@
 #pragma  once
 #include "SpaceBallistics/PhysForces/EarthRotationModel.h"
 #include "SpaceBallistics/PhysForces/DE440T.h"
-#include "SpaceBallistics/Maths/RotationMatrices.hpp"
 #include "SpaceBallistics/CoOrds/TimeScales.h"
-
-namespace
-{
-  //=========================================================================//
-}
 
 namespace SpaceBallistics
 {
@@ -71,7 +65,7 @@ namespace SpaceBallistics
 
     MkMtsR1(-eps,     R1mEps,  R1pEps);
     MkMtsR3(-dPsi,    R3mDPsi, R3pDPsi);
-    MkMtsR1( epsA,    R1pEps,  R1mEps);
+    MkMtsR1( epsA,    R1pEpsA, R1mEpsA);
 
     MtxMult3(R1mEps,  R3mDPsi, Tmp0);
     MtxMult3(Tmp0,    R1pEpsA, N);
@@ -203,48 +197,6 @@ namespace SpaceBallistics
 
     // Finally, GAST = ERA + Ee:
     return ERA + m_Ee;
-  }
-
-  //=========================================================================//
-  // ITRS -> GCRS Conversion:                                                //
-  //=========================================================================//
-  template<typename  DQ>
-  Vector3D<DQ, GCRS> EarthRotationModel::ToGCRS
-    (TT a_tt,  Vector3D<DQ, ITRS> const& a_terr)
-  const
-  {
-    // res = m_M * R3(-GAST) * a_terr:
-    Angle    gast   =  GAST(a_tt);
-    double   T[3][3];
-    MkMtsR3(-gast, T, nullptr);
-
-    DQ       tmp[3];
-    MVMult3(T,   a_terr.GetArr(), tmp);
-
-    Vector3D<DQ, GCRS> res;
-    MVMult3(m_M, tmp,  res.GetArr());
-    return  res;
-  }
-
-  //=========================================================================//
-  // GCRS -> ITRS Conversion:                                                //
-  //=========================================================================//
-  template<typename  DQ>
-  Vector3D<DQ, ITRS> EarthRotationModel::ToITRS
-    (TT a_tt,  Vector3D<DQ, GCRS> const& a_geo)
-  const
-  {
-    // res = R3(GAST) * m_invM * a_geo:
-    Angle   gast   =  GAST(a_tt);
-    double  T[3][3];
-    MkMtsR3(gast, T, nullptr);
-
-    DQ      tmp [3];
-    MVMult3(m_invM,  a_geo.GetArr(), tmp);
-
-    Vector3D<DQ, ITRS> res;
-    MVMult3(T, tmp,  res.GetArr());
-    return  res;
   }
 }
 // End namespace SpaceBallistics

@@ -27,19 +27,33 @@ namespace SpaceBallistics::DE440T
       Sun             = int(Body::Sun),
       Mercury         = int(Body::Mercury),
       Venus           = int(Body::Venus),
-      EMB             = int(Body::Earth),     // BEWARE: EMB in place of Earth!
+      EMB             = int(Body::Earth),    // BEWARE: EMB in place of Earth!
       Mars            = int(Body::Mars),
       Jupiter         = int(Body::Jupiter),
       Saturn          = int(Body::Saturn),
       Uranus          = int(Body::Uranus),
       Neptune         = int(Body::Neptune),
-      PlChB           = int(Body::PlChB),     // Pluto-Charon BaryCenter
+      PlChB           = int(Body::PlChB),    // Pluto-Charon BaryCenter
       Moon            = int(Body::Moon),
       EarthNutations  = int(Body::Moon) + 1, // [d(psi),  d(eps)]
       MoonLibrations  = int(Body::Moon) + 2, // [phi, theta, psi]
       TT_TDB          = int(Body::Moon) + 3  // [TT-TDB], sec
     };
     constexpr inline int NObjs = int(Object::TT_TDB) + 1;
+
+    //-----------------------------------------------------------------------//
+    // "Object" from a "Body":                                               //
+    //-----------------------------------------------------------------------//
+    constexpr Object ObjectOfBody(Body B)
+    {
+      // NB: Body::Earth is not directly translatable!
+      assert(Body::Sun <= B && B <= Body::EMB && B != Body::Earth);
+      return
+        (B != Body::EMB)
+        ? // Then a direct re-interpretation is possible, see "Object" above:
+          Object(int(B))
+        : Object::EMB;
+    }
 
     //=======================================================================//
     // Implementation Details:                                               //
@@ -393,29 +407,25 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // With Compile-Time Object Selection:                                     //
   //-------------------------------------------------------------------------//
-  template<Body BodyName>
+  template<Body B>
   void GetPlanetBarEqPV
   (
-    TDB         a_tdb,
-    PosKVBarEq* a_pos,   // Output (Position)
-    VelKVBarEq* a_vel    // Output (Velocity); may be NULL
+    TDB             a_tdb,
+    PosKVBarEq<B>*  a_pos,  // Output (Position)
+    VelKVBarEq<B>*  a_vel   // Output (Velocity); may be NULL
   )
   {
     // This is the generic case for the Sun and Planets except Earth (which re-
     // uires a specialised implementations); Moon is also not supported here as
     // we seldom need its BaryCentric PV; however, EMB is OK here:
     //
-    static_assert(BodyName != Body::Earth && BodyName != Body::Moon);
+    static_assert(B != Body::Earth && B != Body::Moon);
     assert(a_pos != nullptr);
 
     // Get the record data for a given TDB instant:
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
-    // Translate "Body" into "Object", they use consistent enumeration EXCEPT
-    // for EMB:
-    constexpr Bits::Object Obj =
-      (BodyName == Body::EMB) ? Bits::Object::EMB : Bits::Object(int(BodyName));
-
+    constexpr     Bits::Object  Obj  = Bits::ObjectOfBody(B);
     static_assert(Bits::Object::Sun <= Obj && Obj <= Bits::Object::PlChB);
 
     // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
@@ -435,9 +445,9 @@ namespace SpaceBallistics::DE440T
   template<>
   void GetPlanetBarEqPV<Body::Earth>
   (
-    TDB         a_tdb,
-    PosKVBarEq* a_pos,   // Output (Position)
-    VelKVBarEq* a_vel    // Output (Velocity); may be NULL
+    TDB                      a_tdb,
+    PosKVBarEq<Body::Earth>* a_pos,  // Output (Position)
+    VelKVBarEq<Body::Earth>* a_vel   // Output (Velocity); may be NULL
   )
   {
     assert(a_pos != nullptr);
@@ -488,14 +498,15 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // With Run-Time Body Selection:                                           //
   //-------------------------------------------------------------------------//
-  // This is just a mutiplexor of the above version:
+  // This is just a mutiplexor of the above version, The output verctors have
+  // the generic Body::UNDEFINED param:
   //
   void GetPlanetBarEqPV
   (
-    Body        a_body,
-    TDB         a_tdb,
-    PosKVBarEq* a_pos,    // Output (Position)
-    VelKVBarEq* a_vel     // Output (Velocity); may be NULL
+    Body          a_body,
+    TDB           a_tdb,
+    PosKVBarEq<>* a_pos,    // Output (Position)
+    VelKVBarEq<>* a_vel     // Output (Velocity); may be NULL
   )
   {
     switch (a_body)
@@ -503,9 +514,11 @@ namespace SpaceBallistics::DE440T
 #   ifdef  DE440T_BODY_CASE
 #   undef  DE440T_BODY_CASE
 #   endif
-#   define DE440T_BODY_CASE(BodyName) \
-      case Body::BodyName: \
-           GetPlanetBarEqPV<Body::BodyName>(a_tdb, a_pos, a_vel); \
+#   define DE440T_BODY_CASE(B) \
+      case Body::B: \
+           /* NB: Have to Generic Vector ptrs into Body-Specific ones: */     \
+           GetPlanetBarEqPV<Body::B> \
+             (a_tdb, ToSpecific<Body::B>(a_pos), ToSpecific<Body::B>(a_vel)); \
            break;
       DE440T_BODY_CASE(Sun)
       DE440T_BODY_CASE(Mercury)
@@ -530,15 +543,15 @@ namespace SpaceBallistics::DE440T
   // Since the primary use case of this function is to compute the planetary po-
   // sitions for integration of Minor Solar System Bodies' Orbits,  it produces
   // the co-ords of EMB rather than Earth and Moon separately. The output array
-  // is:
-  // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
+  // (of Generic vectors) is:
+  // [0: Sun,    1: Mercury, 2: Venus,   3: EMB,  4: Mars, 5: Jupiter,
   //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlChB]:
   //
   void GetPlanetsBarEqPVs
   (
-    TDB        a_tdb,
-    PosKVBarEq a_poss[10], // Output
-    VelKVBarEq a_vels[10]  // Output (again, may be NULL)
+    TDB           a_tdb,
+    PosKVBarEq<>  a_poss[10], // Output
+    VelKVBarEq<>  a_vels[10]  // Output (again, may be NULL)
   )
   {
     // Optimisation: The Record is fetched JUST ONCE for all Objects:
@@ -578,22 +591,21 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // With Compile-Time Body Selection:                                       //
   //-------------------------------------------------------------------------//
-  template<Body BodyName>
+  template<Body B>
   void GetPlanetBarEclPV
   (
-    TDB           a_tdb,
-    PosKVBarEcl*  a_pos,    // Output (Position)
-    VelKVBarEcl*  a_vel     // Output (Velocity); may be NULL
+    TDB             a_tdb,
+    PosKVBarEcl<B>* a_pos,    // Output (Position)
+    VelKVBarEcl<B>* a_vel     // Output (Velocity); may be NULL
   )
   {
-    // Not for the Moon; but Sun, Planets and EMB are OK:
-    static_assert(Body::Sun <= BodyName && BodyName <= Body::EMB &&
-                  BodyName  != Body::Moon);
+    // Not for the Moon;  but Sun, Planets and EMB are OK:
+    static_assert(Body::Sun <= B && B <= Body::EMB && B != Body::Moon);
 
     // First, compute the PV in the BaryCentric Equatorial Co-Ords:
-    PosKVBarEq    posEq;
-    VelKVBarEq    velEq;
-    GetPlanetBarEqPV<BodyName>
+    PosKVBarEq<B>    posEq;
+    VelKVBarEq<B>    velEq;
+    GetPlanetBarEqPV<B>
       (a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
     // Then convert the results into the BaryCentric Ecliptical Co-Ords:
@@ -607,15 +619,15 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   void GetPlanetBarEclPV
   (
-    Body          a_body,   // Same constraints for "a_obj" as above
-    TDB           a_tdb,
-    PosKVBarEcl*  a_pos,    // Output (Position)
-    VelKVBarEcl*  a_vel     // Output (Velocity); may be NULL
+    Body            a_body,   // Same constraints for "a_obj" as above
+    TDB             a_tdb,
+    PosKVBarEcl<>*  a_pos,    // Output (Position)
+    VelKVBarEcl<>*  a_vel     // Output (Velocity); may be NULL
   )
   {
     // First, compute the PV in the BaryCentric Equatorial Co-Ords:
-    PosKVBarEq    posEq;
-    VelKVBarEq    velEq;
+    PosKVBarEq<>    posEq;
+    VelKVBarEq<>    velEq;
     GetPlanetBarEqPV
       (a_body, a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
@@ -629,20 +641,20 @@ namespace SpaceBallistics::DE440T
   // A slightly optimised version for the Sun and all Major Planets:         //
   //-------------------------------------------------------------------------//
   // Similar to "GetPlanetsBarEqPVs", but for the BaruCentric Ecliptical PVs.
-  // The output arrays are for:
+  // The output arrays (of Generic vectors) are for:
   // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
   //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlChB]:
   //
   void GetPlanetsBarEclPVs
   (
-    TDB         a_tdb,
-    PosKVBarEcl a_poss[10], // Output
-    VelKVBarEcl a_vels[10]  // Output (again, may be NULL)
+    TDB             a_tdb,
+    PosKVBarEcl<>   a_poss[10], // Output
+    VelKVBarEcl<>   a_vels[10]  // Output (again, may be NULL)
   )
   {
     // First, get the PVs in the BaryCentric Equatorial Co-Ords:
-    PosKVBarEq  possEq[10];
-    VelKVBarEq  velsEq[10];
+    PosKVBarEq<>    possEq[10];
+    VelKVBarEq<>    velsEq[10];
     GetPlanetsBarEqPVs(a_tdb, possEq, (a_vels != nullptr) ? velsEq : nullptr);
 
     // Then convert the results into the BaryCentric Ecliptical Co-Ords:
@@ -662,9 +674,9 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   void GetMoonGEqPV
   (
-    TDB         a_tdb,
-    PosKV_GCRS* a_pos,
-    VelKV_GCRS* a_vel
+    TDB                     a_tdb,
+    PosKV_GCRS<Body::Moon>* a_pos,
+    VelKV_GCRS<Body::Moon>* a_vel
   )
   {
     assert(a_pos != nullptr);
@@ -689,15 +701,16 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   void GetMoonGEclPV
   (
-    TDB             a_tdb,
-    PosKVGeoEclFix* a_pos,
-    VelKVGeoEclFix* a_vel
+    TDB                         a_tdb,
+    PosKVGeoEclFix<Body::Moon>* a_pos,
+    VelKVGeoEclFix<Body::Moon>* a_vel
   )
   {
     // First, compute the PV in the GeoCentric Equatorial Fixed-Axes (ICRS/GCRS)
     // Co-Ords:
-    PosKV_GCRS   posEq;
-    VelKV_GCRS   velEq;
+    PosKV_GCRS<Body::Moon> posEq;
+    VelKV_GCRS<Body::Moon> velEq;
+
     GetMoonGEqPV(a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
     // Then convert the results into the GeoCentric Ecliptical Co-Ords:

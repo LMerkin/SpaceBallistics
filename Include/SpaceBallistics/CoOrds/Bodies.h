@@ -14,25 +14,26 @@ namespace SpaceBallistics
   //=========================================================================//
   enum class Body: int
   {
-    Sun     = 0,
-    Mercury = 1,
-    Venus   = 2,
-    Earth   = 3,   // Earth alone, w/o the Moon!
-    Mars    = 4,   // Mars    and its moons
-    Jupiter = 5,   // Jupiter and its moons
-    Saturn  = 6,   // Saturn  and its moons
-    Uranus  = 7,   // Uranus  and its moons
-    Neptune = 8,   // Neptune and its moons
-    PlChB   = 9,   // Pluto-Charon System BaryCenter
+    UNDEFINED = -1,
+    Sun       = 0,
+    Mercury   = 1,
+    Venus     = 2,
+    Earth     = 3,   // Earth alone, w/o the Moon!
+    Mars      = 4,   // Mars    and its moons
+    Jupiter   = 5,   // Jupiter and its moons
+    Saturn    = 6,   // Saturn  and its moons
+    Uranus    = 7,   // Uranus  and its moons
+    Neptune   = 8,   // Neptune and its moons
+    PlChB     = 9,   // Pluto-Charon System BaryCenter
 
     // We place the Moon after PlChB to preserve the classical numbering sequ-
     // ence for the Sun and Major Planets:
-    Moon    = 10,
+    Moon      = 10,
 
     // We also provide a "virtual Body"  EMB, the Earth-Moon System BaryCenter,
     // for compatibility with DE440T and for convenience of interplanetray traj-
     // ectores integration:
-    EMB     = 11
+    EMB       = 11
   };
 
   //-------------------------------------------------------------------------//
@@ -78,7 +79,7 @@ namespace SpaceBallistics
       (bsv == "PlChB")   ? Body::PlChB   :
       (bsv == "Moon")    ? Body::Moon    :
       (bsv == "EMB")     ? Body::EMB     :
-      throw "Invalid BodyName";
+      throw "Invalid Body";
   }
 }
 // End namespace SpaceBallistics

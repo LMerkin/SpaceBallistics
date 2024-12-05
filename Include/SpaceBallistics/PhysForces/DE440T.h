@@ -19,7 +19,7 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // Gravitational and Mass Params of Bodies:                                //
   //-------------------------------------------------------------------------//
-  template<Body BodyName>
+  template<Body B>
   constexpr GMK K;
 
   template<> constexpr inline GMK K<Body::Sun>     = GMK(132712440041.279419);
@@ -48,37 +48,40 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // In the BaryCentric Equatorial COS:
   //
-  template<Body BodyName>
+  template<Body B>
   void GetPlanetBarEqPV
   (
-    TDB         a_tdb,
-    PosKVBarEq* a_pos,      // Output (Position)
-    VelKVBarEq* a_vel       // Output (Velocity); may be NULL
+    TDB             a_tdb,
+    PosKVBarEq<B>*  a_pos,  // Output (Position)
+    VelKVBarEq<B>*  a_vel   // Output (Velocity); may be NULL
   );
 
+  template<Body B>
   void GetPlanetBarEqPV
   (
-    Body        a_body,     // Same constraints for "a_obj" as above
-    TDB         a_tdb,
-    PosKVBarEq* a_pos,      // Output (Position)
-    VelKVBarEq* a_vel       // Output (Velocity); may be NULL
+    Body            a_body, // Same constraints for "a_obj" as above
+    TDB             a_tdb,
+    PosKVBarEq<B>*  a_pos,  // Output (Position)
+    VelKVBarEq<B>*  a_vel   // Output (Velocity); may be NULL
   );
 
   // In the BaryCentric Ecliptical COS (compatible with JPL Horizons):
-  template<Body BodyName>
+  template<Body B>
   void GetPlanetBarEclPV
   (
-    TDB          a_tdb,
-    PosKVBarEcl* a_pos,      // Output (Position)
-    VelKVBarEcl* a_vel       // Output (Velocity); may be NULL
+    TDB             a_tdb,
+    PosKVBarEcl<B>* a_pos,  // Output (Position)
+    VelKVBarEcl<B>* a_vel   // Output (Velocity); may be NULL
   );
 
+  // XXX: In case of run-time Body selection, the output vectors have the gene-
+  // tic (UNDEFINED) Body param:
   void GetPlanetBarEclPV
   (
-    Body         a_body,     // Same constraints for "a_obj" as above
-    TDB          a_tdb,
-    PosKVBarEcl* a_pos,      // Output (Position)
-    VelKVBarEcl* a_vel       // Output (Velocity); may be NULL
+    Body            a_body, // Same constraints for "a_obj" as above
+    TDB             a_tdb,
+    PosKVBarEcl<>*  a_pos,  // Output (Position)
+    VelKVBarEcl<>*  a_vel   // Output (Velocity); may be NULL
   );
 
   // A slightly optimised version for the Sun and all Planets:
@@ -89,30 +92,44 @@ namespace SpaceBallistics::DE440T
   // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
   //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlChB]:
   //
+  // XXX: Since the outputs are arrays of Vectors,   we have to use the generic
+  // (UNDEFINED) Body param in all those Vectors. As an alternative, once could
+  // provide ptrs to the individually-typed Body's Vectors, but this is cumber-
+  // some.
   // Again, both Equatorial (J2000.0) and Ecliptical (J2000.0) versions are av-
   // ailable:
   void GetPlanetsBarEqPVs
   (
-    TDB         a_tdb,
-    PosKVBarEq  a_poss[10], // Output
-    VelKVBarEq  a_vels[10]  // Output (again, may be NULL)
+    TDB             a_tdb,
+    PosKVBarEq<>    a_poss[10], // Output
+    VelKVBarEq<>    a_vels[10]  // Output (again, may be NULL)
   );
 
   void GetPlanetsBarEclPVs
   (
-    TDB         a_tdb,
-    PosKVBarEcl a_poss[10], // Output
-    VelKVBarEcl a_vels[10]  // Output (again, may be NULL)
+    TDB             a_tdb,
+    PosKVBarEcl<>   a_poss[10], // Output
+    VelKVBarEcl<>   a_vels[10]  // Output (again, may be NULL)
   );
 
   //-------------------------------------------------------------------------//
   // GeoCentric Equatorial Position and Velocity of the Moon:                //
   //-------------------------------------------------------------------------//
   // In the GeoCentric Equatorial Fixed-Axes (GCRS) COS:
-  void GetMoonGEqPV (TDB a_tdb, PosKV_GCRS*     a_pos, VelKV_GCRS*     a_vel);
+  void GetMoonGEqPV
+  (
+    TDB                         a_tdb,
+    PosKV_GCRS<Body::Moon>*     a_pos,
+    VelKV_GCRS<Body::Moon>*     a_vel
+  );
 
   // In the GeoCentric Ecliptical Fixed-Axes COS (compatible with JPL Horizons):
-  void GetMoonGEclPV(TDB a_tdb, PosKVGeoEclFix* a_pos, VelKVGeoEclFix* a_vel);
+  void GetMoonGEclPV
+  (
+    TDB                         a_tdb,
+    PosKVGeoEclFix<Body::Moon>* a_pos,
+    VelKVGeoEclFix<Body::Moon>* a_vel
+  );
 
   //-------------------------------------------------------------------------//
   // Earth Nutations (Long-Period Only) and Moon Librations:                 //

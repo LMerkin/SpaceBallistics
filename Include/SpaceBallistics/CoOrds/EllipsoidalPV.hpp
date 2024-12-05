@@ -21,7 +21,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // "EllipsoidalPV" Class:                                                  //
   //=========================================================================//
-  template<Body BodyName>
+  template<Body BBody, Body B = Body::UNDEFINED>
   class EllipsoidalPV
   {
   private:
@@ -32,11 +32,11 @@ namespace SpaceBallistics
     // Ellipsoidal Surface:
     //
     // Equatorial Radius:
-    constexpr static LenK   Re    = BodyData<BodyName>::Re;
+    constexpr static LenK   Re    = BodyData<BBody>::Re;
     constexpr static auto   Re2   = Sqr(Re);
 
     // Polar Radius:
-    constexpr static LenK   Rp    = BodyData<BodyName>::Rp;
+    constexpr static LenK   Rp    = BodyData<BBody>::Rp;
     constexpr static auto   Rp2   = Sqr(Rp);
     static_assert(Rp <= Re);
 
@@ -72,8 +72,8 @@ namespace SpaceBallistics
     //
     constexpr EllipsoidalPV
     (
-      PosKVRot<BodyName> const& a_pos, // Must be non-0
-      VelKVRot<BodyName> const& a_vel  // May  be 0
+      PosKVRot<BBody, B> const& a_pos, // Must be non-0
+      VelKVRot<BBody, B> const& a_vel  // May  be 0
     )
     : EllipsoidalPV()         // Zero-out all components by default
     {
@@ -95,7 +95,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Returning both vectors together is more efficient:
     //
-    constexpr std::pair<PosKVRot<BodyName>, VelKVRot<BodyName>>
+    constexpr std::pair<PosKVRot<BBody, B>, VelKVRot<BBody>, B>
     GetPVVectors() const
     {
       double   cosL  = Cos(double(m_lambda));
@@ -113,10 +113,10 @@ namespace SpaceBallistics
       // given point:
       LenK     X     = Re2 / d  + m_h * cosP;
       LenK     Z     = RT2 / d  + m_h * sinP;
-      PosKVRot<BodyName> pos(X * cosL, X  * sinL, Z);
+      PosKVRot<BBody, B> pos(X * cosL, X  * sinL, Z);
 
       // Velocity:
-      VelKVRot<BodyName> vel;   // Initially, all 0s
+      VelKVRot<BBody, B> vel;   // Initially, all 0s
       if (!(IsZero(m_lambdaDot) && IsZero(m_phiDot) && IsZero(m_hDot)))
       {
         double t2d   =   tanP * (1.0 + tanP2);
@@ -141,16 +141,36 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases:                                                                //
   //-------------------------------------------------------------------------//
-  using HelioCentricEllipsPV   = EllipsoidalPV<Body::Sun>;
-  using HermeoCentricEllipsPV  = EllipsoidalPV<Body::Mercury>;
-  using CytheroCentricEllipsPV = EllipsoidalPV<Body::Venus>;
-  using GeoCentricEllipsPV     = EllipsoidalPV<Body::Earth>;
-  using SelenoCentricEllipsPV  = EllipsoidalPV<Body::Moon>;
-  using AreoCentricEllipsPV    = EllipsoidalPV<Body::Mars>;
-  using ZenoCentricEllipsrPV   = EllipsoidalPV<Body::Jupiter>;
-  using CronoCentricEllipsPV   = EllipsoidalPV<Body::Saturn>;
-  using UranoCentricEllipsPV   = EllipsoidalPV<Body::Uranus>;
-  using PoseidoCentricEllipsPV = EllipsoidalPV<Body::Neptune>;
+  template<Body B = Body::UNDEFINED>
+  using HelioCentricEllipsPV   = EllipsoidalPV<Body::Sun,     B>;
+
+  template<Body B = Body::UNDEFINED>
+  using HermeoCentricEllipsPV  = EllipsoidalPV<Body::Mercury, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using CytheroCentricEllipsPV = EllipsoidalPV<Body::Venus,   B>;
+
+  template<Body B = Body::UNDEFINED>
+  using GeoCentricEllipsPV     = EllipsoidalPV<Body::Earth,   B>;
+
+  template<Body B = Body::UNDEFINED>
+  using SelenoCentricEllipsPV  = EllipsoidalPV<Body::Moon>,   B;
+
+  template<Body B = Body::UNDEFINED>
+  using AreoCentricEllipsPV    = EllipsoidalPV<Body::Mars,    B>;
+
+  template<Body B = Body::UNDEFINED>
+  using ZenoCentricEllipsrPV   = EllipsoidalPV<Body::Jupiter, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using CronoCentricEllipsPV   = EllipsoidalPV<Body::Saturn,  B>;
+
+  template<Body B = Body::UNDEFINED>
+  using UranoCentricEllipsPV   = EllipsoidalPV<Body::Uranus,  B>;
+
+  template<Body B = Body::UNDEFINED>
+  using PoseidoCentricEllipsPV = EllipsoidalPV<Body::Neptune, B>;
+
   // XXX: No Ellipsoid data for Pluto, hence no EllipsoidalPV...
 }
 // End namespace SpaceBallistics

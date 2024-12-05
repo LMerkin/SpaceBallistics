@@ -4,6 +4,8 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
+#include "SpaceBallistics/CoOrds/TimeScales.h"
+#include "SpaceBallistics/Maths/RotationMatrices.hpp"
 #include "SpaceBallistics/Utils.hpp"
 
 namespace SpaceBallistics
@@ -66,13 +68,55 @@ namespace SpaceBallistics
     EarthRotationModel(Time_jyr a_epoch);
 
     //-----------------------------------------------------------------------//
-    // GTRS <-> GCRS Conversions (of any "Vector3D"):                        //
+    // ITRS -> GCRS Conversion (of any "Vector3D"):                          //
     //-----------------------------------------------------------------------//
-    template<typename DQ>
-    Vector3D<DQ, GCRS> ToGCRS(TT a_tt, Vector3D<DQ, ITRS> const& a_terr) const;
+    template<typename  DQ, Body B = Body::UNDEFINED>
+    Vector3D<DQ, GCRS, B>  ToGCRS
+    (
+      TT                           a_tt,
+      Vector3D<DQ, ITRS, B> const& a_terr
+    )
+    const
+    {
+      // NB: We must use GAST, not just ERA, because the former is consistent
+      // with the origin of RA (Dynamic Equinox of "a_epoch"):
+      // res = m_M * R3(-GAST) * a_terr:
+      Angle    gast   =  GAST(a_tt);
+      double   T[3][3];
+      MkMtsR3(-gast, T, nullptr);
 
-    template<typename DQ>
-    Vector3D<DQ, ITRS> ToITRS(TT a_tt, Vector3D<DQ, GCRS> const& a_geo)  const;
+      DQ       tmp[3];
+      MVMult3(T,   a_terr.GetArr(), tmp);
+
+      Vector3D<DQ, GCRS, B> res;
+      MVMult3(m_M, tmp,  res.GetArr());
+      return  res;
+    }
+
+    //-----------------------------------------------------------------------//
+    // GCRS <-> ITRS Conversion (of any "Vector3D"):                         //
+    //-----------------------------------------------------------------------//
+    template<typename  DQ, Body B = Body::UNDEFINED>
+    Vector3D<DQ, ITRS, B>  ToITRS
+    (
+      TT                           a_tt,
+      Vector3D<DQ, GCRS, B> const& a_geo
+    )
+    const
+    {
+      // NB: Again, using GAST:
+      // res = R3(GAST) * m_invM * a_geo:
+      Angle   gast   =  GAST(a_tt);
+      double  T[3][3];
+      MkMtsR3(gast, T, nullptr);
+
+      DQ      tmp [3];
+      MVMult3(m_invM,  a_geo.GetArr(), tmp);
+
+      Vector3D<DQ, ITRS, B> res;
+      MVMult3(T, tmp,  res.GetArr());
+      return  res;
+    }
 
     //-----------------------------------------------------------------------//
     // Auxiliary Function: GAST (Greenwich Apparent Siderial Time) from TT:  //

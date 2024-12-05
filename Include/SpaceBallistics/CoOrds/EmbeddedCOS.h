@@ -4,7 +4,7 @@
 //       Embedded Co-Ords System (Bound to the Physical Axes of LV/SC)       //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/Types.hpp"
+#include "SpaceBallistics/CoOrds/Vector3D.hpp"
 #include "SpaceBallistics/LVSC/LVSC.h"
 
 namespace SpaceBallistics
@@ -37,6 +37,10 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors and Tensors in this COS:           //
   //-------------------------------------------------------------------------//
+  // XXX: Since the Origin is an LVSC here, there is probably no need to provide
+  // a template param for the Body which is characterised by those Vectors: it
+  // is typically the same LVSC, ie "Body::UNDEFINED":
+  //
   template<LVSC LVSCKind, typename TS = TT>
   using PosVEmb     = PosV    <EmbeddedCOS<LVSCKind, TS>>;
 

@@ -19,7 +19,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // XXX: The Body is assumed to be an Ellipsoid of Rotation:
   //
-  template<Body BodyName>
+  template<Body BBody>
   class Location
   {
     //-----------------------------------------------------------------------//
@@ -27,10 +27,10 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
   public:
     // Equatorial Radius:
-    constexpr static LenK Re = BodyData<BodyName>::Re;
+    constexpr static LenK Re = BodyData<BBody>::Re;
 
     // Polar Radius:
-    constexpr static LenK Rp = BodyData<BodyName>::Rp;
+    constexpr static LenK Rp = BodyData<BBody>::Rp;
     static_assert(Rp <= Re);
 
     // Flattening:
@@ -42,13 +42,13 @@ namespace SpaceBallistics
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
     // Primary Body-detic (~Body-graphic) Co-Ords:
-    Angle              m_lambda;   // Longitide (rad)
-    Angle              m_phi;      // Latitude  (rad)
-    Len                m_h;        // Elevation (m)
+    Angle           m_lambda;   // Longitide (rad)
+    Angle           m_phi;      // Latitude  (rad)
+    Len             m_h;        // Elevation (m)
 
     // Derived Rectangular Co-Ords (in the BodyCentricRotatingCOS):
-    PosKVRot<BodyName> m_r;        // (x, y, z)
-    LenK               m_rho;      // Radius-vector from Body center
+    PosKVRot<BBody> m_r;        // (x, y, z)
+    LenK            m_rho;      // Radius-vector from Body center
 
   public:
     //-----------------------------------------------------------------------//
@@ -109,13 +109,15 @@ namespace SpaceBallistics
     // Accessors:                                                            //
     //-----------------------------------------------------------------------//
     // Body-detic Co-Ords:
-    constexpr Angle                     Longitude() const { return m_lambda; }
-    constexpr Angle                     Latitude () const { return m_phi;    }
-    constexpr Len                       Elevation() const { return m_h;      }
+    constexpr Angle                  Longitude() const { return m_lambda; }
+    constexpr Angle                  Latitude () const { return m_phi;    }
+    constexpr Len                    Elevation() const { return m_h;      }
 
     // BodyCentric Rectangualar Co-Ords (in the BodyCentricRotatingCOS):
-    constexpr PosKVRot<BodyName> const& PosV     () const { return m_r;      }
-    constexpr LenK                      Rho      () const { return m_rho;    }
+    // The object itself characterised by a "Location" is NOT a Body, hence
+    // "Body::UNDEFINED" in its "PosKVRot":
+    constexpr PosKVRot<BBody> const& PosKV    () const { return m_r;      }
+    constexpr LenK                   RhoK     () const { return m_rho;    }
 
     //-----------------------------------------------------------------------//
     // Util: Azimuth(degs) computation from a Tangential Vector:             //
@@ -170,6 +172,11 @@ namespace SpaceBallistics
         // Both dLambda and dPhi are ~0, so the Azimuth is undefined:
         return Angle_deg(NaN<double>);
     }
+
+    //-----------------------------------------------------------------------//
+    // Origin: Long=0, Lat=0, h=0: The most well-known "Location":           //
+    //-----------------------------------------------------------------------//
+    constexpr static Location Origin = Location{0.0_rad, 0.0_rad, 0.0_m};
   };
 }
 // End namespace SpaceBallistics

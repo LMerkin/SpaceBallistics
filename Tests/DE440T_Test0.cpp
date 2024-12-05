@@ -117,8 +117,8 @@ int main(int argc, char* argv[])
     if (body == Body::Moon)
     {
       // For the Moon, get the GeoCentric Fixed-Axes Ecliptical CoOrds:
-      PosKVGeoEclFix pos;
-      VelKVGeoEclFix vel;
+      PosKVGeoEclFix<Body::Moon> pos;
+      VelKVGeoEclFix<Body::Moon> vel;
       DE440T::GetMoonGEclPV(tdb, &pos, &vel);
 
       // Output:
@@ -133,8 +133,8 @@ int main(int argc, char* argv[])
     {
       // Any other Body: It's Sun or a Planet, or EMB:
       // Get the BaryCentric Ecliptical CoOrds:
-      PosKVBarEcl pos;
-      VelKVBarEcl vel;
+      PosKVBarEcl<> pos;
+      VelKVBarEcl<> vel;
       DE440T::GetPlanetBarEclPV(body, tdb, &pos, &vel);
 
       // Output:

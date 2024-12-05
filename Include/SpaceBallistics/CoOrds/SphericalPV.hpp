@@ -8,9 +8,9 @@
 
 namespace SpaceBallistics
 {
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // RATIONALE:                                                              //
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // (*) For Rectangular CoOrds, we use separate types for the COS and for the
   //     dimensioned "Vector3D"s (Pos, Vel, Acc, Force etc) in that COS.
   // (*) However, for Spherical and Ellipsoidal co-ords,   we define types for
@@ -31,7 +31,7 @@ namespace SpaceBallistics
   // represents the classical astronomical Right Ascention, Declination, Radius-
   // Vector and their "Dots" of an Object:
   //
-  template<typename COS>
+  template<typename COS, Body B = Body::UNDEFINED>
   class SphericalPV
   {
   private:
@@ -63,10 +63,10 @@ namespace SpaceBallistics
     //
     constexpr SphericalPV
     (
-      PosKV<COS> const& a_pos, // Must be non-0
-      VelKV<COS> const& a_vel  // May  be 0
+      PosKV<COS, B> const& a_pos, // Must be non-0
+      VelKV<COS, B> const& a_vel  // May  be 0
     )
-    : SphericalPV()            // Zero-out all components by default
+    : SphericalPV()               // Zero-out all components by default
     {
       // Position:
       m_rho      = LenK(a_pos);
@@ -127,7 +127,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Returning both vectors together is more efficient:
     //
-    constexpr std::pair<PosKV<COS>, VelKV<COS>> GetPVVectors() const
+    constexpr std::pair<PosKV<COS, B>, VelKV<COS, B>> GetPVVectors() const
     {
       double cA = Cos(double(m_alpha));
       double sA = Sin(double(m_alpha));
@@ -156,7 +156,7 @@ namespace SpaceBallistics
                                   Sqr(m_rho *      m_deltaDot / 1.0_rad);
         assert(V2.ApproxEquals(Sqr(Vx) + Sqr(Vy) + Sqr(Vz)));
       )
-      return std::make_pair(PosKV<COS>(x, y, z), VelKV<COS>(Vx, Vy, Vz));
+      return std::make_pair(PosKV<COS, B>(x, y, z), VelKV<COS, B>(Vx, Vy, Vz));
     }
   };
 
@@ -167,16 +167,37 @@ namespace SpaceBallistics
   // In particular, "GeoCentricEqSpherPV" provides GeoCentric Right Ascentions,
   // Declinations and Distances:
   //
-  using HelioCentricEqSpherPV   = SphericalPV<HelioCentricEqFixCOS>;
-  using HermeoCentricEqSpherPV  = SphericalPV<HermeoCentricEqFixCOS>;
-  using CytheroCentricEqSpherPV = SphericalPV<CytheroCentricEqFixCOS>;
-  using GeoCentricEqSpherPV     = SphericalPV<GeoCentricEqFixCOS>;
-  using SelenoCentricEqSpherPV  = SphericalPV<SelenoCentricEqFixCOS>;
-  using AreoCentricEqSpherPV    = SphericalPV<AreoCentricEqFixCOS>;
-  using ZenoCentricEqSpherPV    = SphericalPV<ZenoCentricEqFixCOS>;
-  using CronoCentricEqSpherPV   = SphericalPV<CronoCentricEqFixCOS>;
-  using UranoCentricEqSpherPV   = SphericalPV<UranoCentricEqFixCOS>;
-  using PoseidoCentricEqSpherPV = SphericalPV<PoseidoCentricEqFixCOS>;
-  using HadeoCentricEqSpherPV   = SphericalPV<HadeoCentricEqFixCOS>;
+  template<Body B = Body::UNDEFINED>
+  using HelioCentricEqSpherPV   = SphericalPV<HelioCentricEqFixCOS,   B>;
+
+  template<Body B = Body::UNDEFINED>
+  using HermeoCentricEqSpherPV  = SphericalPV<HermeoCentricEqFixCOS,  B>;
+
+  template<Body B = Body::UNDEFINED>
+  using CytheroCentricEqSpherPV = SphericalPV<CytheroCentricEqFixCOS, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using GeoCentricEqSpherPV     = SphericalPV<GeoCentricEqFixCOS,     B>;
+
+  template<Body B = Body::UNDEFINED>
+  using SelenoCentricEqSpherPV  = SphericalPV<SelenoCentricEqFixCOS,  B>;
+
+  template<Body B = Body::UNDEFINED>
+  using AreoCentricEqSpherPV    = SphericalPV<AreoCentricEqFixCOS,    B>;
+
+  template<Body B = Body::UNDEFINED>
+  using ZenoCentricEqSpherPV    = SphericalPV<ZenoCentricEqFixCOS,    B>;
+
+  template<Body B = Body::UNDEFINED>
+  using CronoCentricEqSpherPV   = SphericalPV<CronoCentricEqFixCOS,   B>;
+
+  template<Body B = Body::UNDEFINED>
+  using UranoCentricEqSpherPV   = SphericalPV<UranoCentricEqFixCOS,   B>;
+
+  template<Body B = Body::UNDEFINED>
+  using PoseidoCentricEqSpherPV = SphericalPV<PoseidoCentricEqFixCOS, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using HadeoCentricEqSpherPV   = SphericalPV<HadeoCentricEqFixCOS,   B>;
 }
 // End namespace SpaceBallistics

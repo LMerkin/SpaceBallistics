@@ -41,8 +41,8 @@ int main(int argc, char* argv[])
   // instead of Earth, PlChB instead of Pluto):
   for (TDB tdb = from; tdb <= to; tdb += step)
   {
-    PosKVBarEcl poss[10];
-    VelKVBarEcl vels[10];
+    PosKVBarEcl<> poss[10];
+    VelKVBarEcl<> vels[10];
     DE440T::GetPlanetsBarEclPVs(tdb, poss, vels);
 
     // Output:

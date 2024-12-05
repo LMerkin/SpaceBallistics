@@ -17,6 +17,9 @@ namespace SpaceBallistics
   // specified COS. Can be used on its own if no Rotation Motion is considered,
   // or as part of a full 6D StateVector:
   //
+  // XXX: It is currently assumed that StateVectors are NOT for Major Bodies,
+  // so in all Vectors here "Body::UNDEFINED" is assumed by default:
+  //
   template<typename COS>
   struct StdKSV
   {
@@ -45,7 +48,8 @@ namespace SpaceBallistics
   // Kinematic State Vector for Rotational Motion (around some axis); the COS is
   // normally some "fixed" one, but it could also be a SnapShot of the Embedded
   // Co-Ords System (eg in the Control Theory problems).   XXX: Again, all data
-  // flds are public, which is an easy-to-use but somewhat unsafe solution:
+  // flds are public, which is an easy-to-use but somewhat unsafe solution.
+  // Again, "Body::UNDEFINED" is assumed throughout:
   //
   template<typename COS>
   struct RotKSV

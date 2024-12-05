@@ -55,8 +55,14 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Is this year a Gregorian Leap Year?
     //
-    constexpr bool IsLeapYear() const
-      { return  m_year % 4 == 0 && (m_year % 100 != 0 || m_year % 400 == 0); }
+    constexpr static bool IsLeapYear(int a_year)
+    {
+      // It is assumed that the Gregorian Calendar is extended indefinitely into
+      // the past (and into the future) across all jurisdictions. Yet for techn-
+      // ical reasons we need the Year to be positive:
+      assert(a_year > 0);
+      return a_year % 4 == 0 && (a_year % 100 != 0 || a_year % 400 == 0);
+    }
 
     //-----------------------------------------------------------------------//
     // "HasLeapSecond":                                                      //
@@ -73,26 +79,33 @@ namespace SpaceBallistics
     }
 
     //-----------------------------------------------------------------------//
+    // "DaysInMonth":                                                        //
+    //-----------------------------------------------------------------------//
+    constexpr static int DaysInMonth(int a_year, int a_month)
+    {
+      assert(1 <= a_month && a_month <= 12);
+      return
+        (a_month == 4 || a_month == 6 || a_month == 9 || a_month == 11)
+        ? 30 :
+        (a_month == 2)
+        ? (IsLeapYear(a_year) ? 29 : 28)
+        : 31;
+    }
+
+    //-----------------------------------------------------------------------//
     // "IsValid": Over-All UTC Validation:                                   //
     //-----------------------------------------------------------------------//
     constexpr bool IsValid() const
     {
-      int daysInMonth =
-          (m_month == 4 || m_month == 6 || m_month == 9 || m_month == 11)
-          ? 30 :
-          (m_month == 2)
-          ? (IsLeapYear() ? 29 : 28)
-          : 31;
-
       double secsInMin = HasLeapSecond() ? 61.0 : 60.0;
 
       // NB: We currently require m_year > 0:
       return
-        0   <  m_year                            &&
-        1   <= m_month && m_month <= 12          &&
-        1   <= m_day   && m_day   <= daysInMonth &&
-        0   <= m_hour  && m_hour  <= 23          &&
-        0   <= m_min   && m_min   <= 59          &&
+        0   <  m_year                                             &&
+        1   <= m_month && m_month <= 12                           &&
+        1   <= m_day   && m_day   <= DaysInMonth(m_year, m_month) &&
+        0   <= m_hour  && m_hour  <= 23                           &&
+        0   <= m_min   && m_min   <= 59                           &&
         0.0 <= m_sec   && m_sec   <  secsInMin;
     }
 

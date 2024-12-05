@@ -19,6 +19,7 @@ ReleaseMode=0
 UnCheckedMode=0
 ToolChain="GCC"
 Jobs=$(nproc)
+CountSrcLines=0
 
 function usage
 {
@@ -34,10 +35,11 @@ function usage
   echo "-u: (use with -c|-C): Configure in the UnChecked mode"
   echo "-v: Verbose output"
   echo "-q: Quiet mode (no stdout output)"
+  echo "-l: Count the Eligible Source Code Lines"
   exit 1
 }
 
-while getopts ":t:j:cCbdruvq" opt
+while getopts ":t:j:cCbdruvlq" opt
 do
   case $opt in
     t) ToolChain="$OPTARG";;
@@ -50,6 +52,7 @@ do
     q) Verbose=0;;
     v) Verbose=1;;
     j) Jobs="$OPTARG";;
+    l) CountSrcLines=1;;
     *) usage $OPTARG;;
   esac
 done
@@ -113,6 +116,20 @@ LibDir="$BldTop/lib"
 mkdir -p $BldDir
 mkdir -p $BinDir
 mkdir -p $LibDir
+
+#-----------------------------------------------------------------------------#
+# Count the Lines in Non-Auto-Generated Src Files:                            #
+#-----------------------------------------------------------------------------#
+if [ $CountSrcLines -eq 1 ]
+then
+  EligFiles=$(find  . -type f    | \
+              grep -v  Docs      | \
+              grep -v  .git      | \
+              grep -v  __BUILD__ | \
+              grep -v  DE440T-   | \
+              grep -v GravityPotential- )
+  echo $(wc -l $EligFiles | grep total)
+fi
 
 #-----------------------------------------------------------------------------#
 # Configure:                                                                  #

@@ -5,7 +5,6 @@
 //===========================================================================//
 #pragma  once
 #include <DimTypes/DimTypes.hpp>
-#include <SpaceBallistics/CoOrds/Vector3D.hpp>
 
 namespace SpaceBallistics
 {
@@ -123,44 +122,6 @@ namespace SpaceBallistics
 
   // Specific Gas Constant for Dry Air (J/K):
   constexpr inline auto     Rair = 287.0528 * Energy(1.0) / 1.0_K;
-
-  //-------------------------------------------------------------------------//
-  // Mechanical Vectors:                                                     //
-  //-------------------------------------------------------------------------//
-  // Macro for declaring a DimQ Vector (or a diagonal Tensor). IMPORTANT: The
-  // Vectors are parameterised by the CoOrd System ("COS"):
-# ifdef DCL_VEC
-# undef DCL_VEC
-# endif
-# define DCL_VEC(T) \
-  template<typename COS> \
-  using T##V = Vector3D<T, COS>;
-
-  DCL_VEC(Len)      // Position Vector ("Radius-Vector")
-  DCL_VEC(LenK)     // Position Vector (AstroDynamical, km)
-  DCL_VEC(Vel)      // Velocity Vector
-  DCL_VEC(VelK)     // Velocity Vector (AstroDynamical, km/sec)
-  DCL_VEC(Acc)      // Acceleration Vector
-  DCL_VEC(Force)    // Force Vector
-  DCL_VEC(AngVel)   // Angular Velocity Vector
-  DCL_VEC(AngAcc)   // Angular Acceleration Vector
-  DCL_VEC(AngMom)   // Angular ("Kinetic") Momentum Vector
-  DCL_VEC(Torq)     // Rotational Moment of Force (Torque) Vector
-
-  // Alias for the Position vectors: "Len[K]V" -> "Pos[K]V":
-  template<typename   COS>
-  using PosV  = LenV <COS>;
-
-  template<typename   COS>
-  using PosKV = LenKV<COS>;
-
-  // NB:  The MoI and its Rate of Change are in general not Vectors, but rather,
-  // 3*3 Tensors. XXX: For the moment, we only consider those tensors in their
-  // principal axes, so they have a diagonal form  and represented by Vectors:
-  //
-  DCL_VEC(MoI)      // Moments of Inertia
-  DCL_VEC(MoIRate)  // MoI Change Rates
-# undef DCL_VEC
 
   //=========================================================================//
   // Computation Tolerances:                                                 //

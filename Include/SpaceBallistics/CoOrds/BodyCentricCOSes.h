@@ -4,8 +4,8 @@
 //           Body-Centric Fixed-Axes and Rotating Co-Ords Systems            //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/Types.hpp"
-#include "SpaceBallistics/CoOrds/Bodies.h"
+#include "SpaceBallistics/CoOrds/Vector3D.hpp"
+#include "SpaceBallistics/CoOrds/BaryCentricCOSes.h"
 #include <type_traits>
 
 namespace SpaceBallistics
@@ -34,13 +34,13 @@ namespace SpaceBallistics
   // This, the axes of this COS are fixed in the ICRS, but the Origin is moving
   // in the inertial space, so this COS is not fully-inertial:
   //
-  template<Body BodyName>
+  template<Body Origin>
   struct   BodyCentricEqFixCOS
   {
-    constexpr static   Body BaseBody       = BodyName;
+    constexpr static   Body BaseBody       = Origin;
     constexpr static   bool HasFixedAxes   = true;
     constexpr static   bool HasFixedOrigin = false;
-    using  TimeScale = std::conditional_t<BodyName == Body::Earth, TT, TDB>;
+    using  TimeScale = std::conditional_t<Origin == Body::Earth, TT, TDB>;
 
     // This struct stands for itself; no objects of it can be created:
     BodyCentricEqFixCOS() = delete;
@@ -62,22 +62,22 @@ namespace SpaceBallistics
   using PoseidoCentricEqFixCOS = BodyCentricEqFixCOS<Body::Neptune>;
   using HadeoCentricEqFixCOS   = BodyCentricEqFixCOS<Body::PlChB>;   // XXX ???
 
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // Position, Velocity and other Vectors in a "BodyCentricEqFixCOS":        //
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // NB: Pos and Vel Vectors use "Len_km" ("K"), but other Vectors use "Len_m":
   //
-  template<Body BodyName>
-  using PosKVEqFix  = PosKV <BodyCentricEqFixCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using PosKVEqFix  = PosKV <BodyCentricEqFixCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using VelKVEqFix  = VelKV <BodyCentricEqFixCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using VelKVEqFix  = VelKV <BodyCentricEqFixCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using AccVEqFix   = AccV  <BodyCentricEqFixCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using AccVEqFix   = AccV  <BodyCentricEqFixCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using ForceVEqFix = ForceV<BodyCentricEqFixCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using ForceVEqFix = ForceV<BodyCentricEqFixCOS<Origin>, B>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
@@ -85,10 +85,53 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases for Vectors in the "GeoCentricEqFixCOS":                        //
   //-------------------------------------------------------------------------//
-  using PosKV_GCRS  = PosKVEqFix <Body::Earth>;
-  using VelKV_GCRS  = VelKVEqFix <Body::Earth>;
-  using AccV_GCRS   = AccVEqFix  <Body::Earth>;
-  using ForceV_GCRS = ForceVEqFix<Body::Earth>;
+  template<Body B = Body::UNDEFINED>
+  using PosKV_GCRS  = PosKVEqFix <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using VelKV_GCRS  = VelKVEqFix <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using AccV_GCRS   = AccVEqFix  <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using ForceV_GCRS = ForceVEqFix<Body::Earth, B>;
+
+  //-------------------------------------------------------------------------//
+  // Translation of Origins between ICRS/BCRS and GCRS:                      //
+  //-------------------------------------------------------------------------//
+  // The orientation of axes is the same, so:
+  // (Bary,  Earth) + (Earth, Body) => (Bary, Body ):
+  //
+  template<typename DQ,     Body B>
+  Vector3D<DQ, BaryCentricEqCOS, B> operator+
+  (
+    Vector3D<DQ, BaryCentricEqCOS,   Body::Earth> const& a_earth,
+    Vector3D<DQ, GeoCentricEqFixCOS, B>           const& a_geo
+  )
+  {
+    return Vector3D<DQ, BaryCentricEqCOS, B>
+           { a_earth.x() + a_geo.x(),
+             a_earth.y() + a_geo.y(),
+             a_earth.z() + a_geo.z()
+           };
+  }
+
+  // (Bary,  Body) - (Bary, Earth) = (Earth, Body):
+  //
+  template<typename DQ,      Body  B>
+  Vector3D<DQ, GeoCentricEqFixCOS, B> operator-
+  (
+    Vector3D<DQ, BaryCentricEqCOS, B>           const& a_body,
+    Vector3D<DQ, BaryCentricEqCOS, Body::Earth> const& a_earth
+  )
+  {
+    return Vector3D<DQ, GeoCentricEqFixCOS, B>
+           { a_body.x() - a_earth.x(),
+             a_body.y() - a_earth.y(),
+             a_body.z() - a_earth.z()
+           };
+  }
 
   //=========================================================================//
   // "BodyCentricEclFixCOS":                                                 //
@@ -108,13 +151,13 @@ namespace SpaceBallistics
   // Similar to "BodyCentricEqFixCOS" above, but the XY plane is ~ Body's Dyna-
   // mic Orbital Plane (rather than Body's Equator) @ J2000.0:
   //
-  template<Body BodyName>
+  template<Body Origin>
   struct   BodyCentricEclFixCOS
   {
-    constexpr static   Body BaseBody       = BodyName;
+    constexpr static   Body BaseBody       = Origin;
     constexpr static   bool HasFixedAxes   = true;
     constexpr static   bool HasFixedOrigin = false;
-    using  TimeScale = std::conditional_t<BodyName == Body::Earth, TT, TDB>;
+    using  TimeScale = std::conditional_t<Origin == Body::Earth, TT, TDB>;
 
     // This struct stands for itself; no objects of it can be created:
     BodyCentricEclFixCOS() = delete;
@@ -140,17 +183,17 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // NB: Pos and Vel Vectors use "Len_km" ("K"), but other Vectors use "Len_m":
   //
-  template<Body BodyName>
-  using PosKVEclFix     = PosKV <BodyCentricEclFixCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using PosKVEclFix     = PosKV <BodyCentricEclFixCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using VelKVEclFix     = VelKV <BodyCentricEclFixCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using VelKVEclFix     = VelKV <BodyCentricEclFixCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using AccVEclFix      = AccV  <BodyCentricEclFixCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using AccVEclFix      = AccV  <BodyCentricEclFixCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using ForceVEclFix    = ForceV<BodyCentricEclFixCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using ForceVEclFix    = ForceV<BodyCentricEclFixCOS<Origin>, B>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
@@ -158,18 +201,68 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases for Vectors in the "GeoCentricEclFixCOS":                       //
   //-------------------------------------------------------------------------//
-  using PosKVGeoEclFix  = PosKVEclFix <Body::Earth>;
-  using VelKVGeoEclFix  = VelKVEclFix <Body::Earth>;
-  using AccVGeoEclFix   = AccVEclFix  <Body::Earth>;
-  using ForceVGeoEclFix = ForceVEclFix<Body::Earth>;
+  template<Body B = Body::UNDEFINED>
+  using PosKVGeoEclFix  = PosKVEclFix <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using VelKVGeoEclFix  = VelKVEclFix <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using AccVGeoEclFix   = AccVEclFix  <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using ForceVGeoEclFix = ForceVEclFix<Body::Earth, B>;
 
   //-------------------------------------------------------------------------//
   // Aliases for Vectors in the "HelioCentricEclFixCOS":                     //
   //-------------------------------------------------------------------------//
-  using PosKVHelEclFix  = PosKVEclFix <Body::Sun>;
-  using VelKVHelEclFix  = VelKVEclFix <Body::Sun>;
-  using AccVHelEclFix   = AccVEclFix  <Body::Sun>;
-  using ForceVHelEclFix = ForceVEclFix<Body::Sun>;
+  template<Body B = Body::UNDEFINED>
+  using PosKVHelEclFix  = PosKVEclFix <Body::Sun, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using VelKVHelEclFix  = VelKVEclFix <Body::Sun, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using AccVHelEclFix   = AccVEclFix  <Body::Sun, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using ForceVHelEclFix = ForceVEclFix<Body::Sun, B>;
+
+  //-------------------------------------------------------------------------//
+  // Translation of Origins between Ecliptical {Bari,Geo}Centric COSes:      //
+  //-------------------------------------------------------------------------//
+  // The orientation of axes is the same, so:
+  // (Bary,  Earth) + (Earth, Body) => (Bary, Body ):
+  //
+  template<typename DQ,      Body B>
+  Vector3D<DQ, BaryCentricEclCOS, B> operator+
+  (
+    Vector3D<DQ, BaryCentricEclCOS,   Body::Earth> const& a_earth,
+    Vector3D<DQ, GeoCentricEclFixCOS, B>           const& a_geo
+  )
+  {
+    return Vector3D<DQ, BaryCentricEclCOS, B>
+           { a_earth.x() + a_geo.x(),
+             a_earth.y() + a_geo.y(),
+             a_earth.z() + a_geo.z()
+           };
+  }
+
+  // (Bary,  Body) - (Bary, Earth) = (Earth, Body):
+  //
+  template<typename DQ,       Body  B>
+  Vector3D<DQ, GeoCentricEclFixCOS, B> operator-
+  (
+    Vector3D<DQ, BaryCentricEclCOS, B>           const& a_body,
+    Vector3D<DQ, BaryCentricEclCOS, Body::Earth> const& a_earth
+  )
+  {
+    return Vector3D<DQ, GeoCentricEclFixCOS, B>
+           { a_body.x() - a_earth.x(),
+             a_body.y() - a_earth.y(),
+             a_body.z() - a_earth.z()
+           };
+  }
 
   //=========================================================================//
   // "BodyCentricRotCOS" Class:                                              //
@@ -188,13 +281,13 @@ namespace SpaceBallistics
   // moving as well, so this system is STRONGLY NON-INERTIAL.
   // For Earth, this is exactly the ITRS!
   //
-  template<Body BodyName>
+  template<Body Origin>
   struct BodyCentricRotCOS
   {
-    constexpr static   Body BaseBody       = BodyName;
+    constexpr static   Body BaseBody       = Origin;
     constexpr static   bool HasFixedAxes   = false;
     constexpr static   bool HasFixedOrigin = false;
-    using  TimeScale = std::conditional_t<BodyName == Body::Earth, TT, TDB>;
+    using  TimeScale = std::conditional_t<Origin == Body::Earth, TT, TDB>;
 
     // This struct stands for itself; no objects of it can be created:
     BodyCentricRotCOS() = delete;
@@ -221,17 +314,17 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Again, using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
   //
-  template<Body BodyName>
-  using PosKVRot    = PosKV <BodyCentricRotCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using PosKVRot    = PosKV <BodyCentricRotCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using VelKVRot    = VelKV <BodyCentricRotCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using VelKVRot    = VelKV <BodyCentricRotCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using AccVRot     = AccV  <BodyCentricRotCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using AccVRot     = AccV  <BodyCentricRotCOS<Origin>, B>;
 
-  template<Body BodyName>
-  using ForceVRot   = ForceV<BodyCentricRotCOS<BodyName>>;
+  template<Body Origin, Body B = Body::UNDEFINED>
+  using ForceVRot   = ForceV<BodyCentricRotCOS<Origin>, B>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
@@ -239,9 +332,16 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases for Vectors in the "GeoCentricEqRotCOS":                        //
   //-------------------------------------------------------------------------//
-  using PosKV_ITRS  = PosKVRot <Body::Earth>;
-  using VelKV_ITRS  = VelKVRot <Body::Earth>;
-  using AccV_ITRS   = AccVRot  <Body::Earth>;
-  using ForceV_ITRS = ForceVRot<Body::Earth>;
+  template<Body B = Body::UNDEFINED>
+  using PosKV_ITRS  = PosKVRot <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using VelKV_ITRS  = VelKVRot <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using AccV_ITRS   = AccVRot  <Body::Earth, B>;
+
+  template<Body B = Body::UNDEFINED>
+  using ForceV_ITRS = ForceVRot<Body::Earth, B>;
 }
 // End namespace SpaceBallistics
