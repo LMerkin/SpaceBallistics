@@ -156,8 +156,10 @@ namespace SpaceBallistics::DE440T
     //-----------------------------------------------------------------------//
     // The Temporal Range of Data Provided (in TDB):                         //
     //-----------------------------------------------------------------------//
-    constexpr inline TDB From(Time_day(2'323'696.5)); // 1649-12-18.0
-    constexpr inline TDB To  (Time_day(2'506'320.5)); // 2149-12-21.0
+    constexpr inline TDB      From(Time_day(2'323'696.5)); // 1649-12-18.0
+    constexpr inline TDB      To  (Time_day(2'506'320.5)); // 2149-12-21.0
+    constexpr inline Time_jyr FromY = 1650.0_jyr;
+    constexpr inline Time_jyr ToY   = 2149.0_jyr;
 
     // The Number of DE440T Data Records:
     constexpr inline int NR  = 5707;

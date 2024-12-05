@@ -22,7 +22,8 @@ int main()
   EarthRotationModel ERM { Time_jyr(double(Year) + 0.5) };
 
   // TopoCentricRotCOS of our Observer's position (long=0, lat=0, h=0):
-  using TCOS0 = TopoCentricRotCOS<Body::Earth, &Location<Body::Earth>::Origin>;
+  constexpr static  Location<Body::Earth>   Observer(0.0_rad, 0.0_rad, 0.0_m);
+  using     TCOS0 = TopoCentricRotCOS<Body::Earth, &Observer>;
 
   int dc = 0;
   for (int m = 1; m <= 12; ++m)
@@ -57,8 +58,7 @@ int main()
     // ITRS position of the Sun, via the ERM:
     PosKV_ITRS<Body::Sun>    itrsSun = ERM.ToITRS(tt, geoSun);
 
-    // Observer's Location on Earth: Assume it to be the Origin.
-    // So the TopoCentric (with ITRS Axes)  position of the Sun:
+    // The TopoCentric (with ITRS Axes) position of the Sun:
     PosKV<TCOS0, Body::Sun>  topSun  = ToTopoC<TCOS0>(itrsSun);
 
     // Convert the "topSun" co-ords into Spgerical ones: For the moment, we only

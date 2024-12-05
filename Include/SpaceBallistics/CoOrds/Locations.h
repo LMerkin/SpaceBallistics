@@ -172,11 +172,6 @@ namespace SpaceBallistics
         // Both dLambda and dPhi are ~0, so the Azimuth is undefined:
         return Angle_deg(NaN<double>);
     }
-
-    //-----------------------------------------------------------------------//
-    // Origin: Long=0, Lat=0, h=0: The most well-known "Location":           //
-    //-----------------------------------------------------------------------//
-    constexpr static Location Origin = Location{0.0_rad, 0.0_rad, 0.0_m};
   };
 }
 // End namespace SpaceBallistics

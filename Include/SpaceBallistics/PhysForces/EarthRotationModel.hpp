@@ -45,42 +45,54 @@ namespace SpaceBallistics
     MtxMult3(Tmp1,          R3mChiA, invP);
 
     //-----------------------------------------------------------------------//
-    // Nutation: Use DE440T data:                                            //
+    // Nutation:                                                             //
     //-----------------------------------------------------------------------//
-    // Strictly speaking, we must interpret "a_epoch" as TT and convert it to
-    // TDB:
-    TDB tdb{TT{a_epoch}};
-    Angle   nutAngles[2];       // [dPsi, dEps]
-    DE440T::GetEarthNutations(tdb, nutAngles);
+    // Use DE440T data if available, otherwise assume N=Id.
+    //
+    Angle  epsA  =  To_Angle(Eps0 - 46.836769_arcSec * T);  // T2 term is tiny
+    Angle  dPsi,    dEps;         // Initially 0; properly inited below
+    double N[3][3], invN[3][3];   // Initialised below
 
-    Angle dPsi = nutAngles[0];
-    Angle dEps = nutAngles[1];
-    Angle epsA = To_Angle(Eps0 - 46.836769_arcSec * T);  // T2 term is tiny...
-    Angle eps  = epsA + dEps;
+    if (DE440T::Bits::FromY <= a_epoch && a_epoch < DE440T::Bits::ToY)
+    {
+      // Strictly speaking, we must interpret "a_epoch" as TT and convert it to
+      // TDB:
+      TDB     tdb{TT{a_epoch}};
+      Angle   nutAngles[2];       // [dPsi, dEps]
+      DE440T::GetEarthNutations(tdb, nutAngles);
 
-    // N    = R1(-eps) * R3(-dPsi) * R1(epsA);
-    double R1mEps[3][3], R3mDPsi[3][3], R1pEpsA[3][3],
-           R1pEps[3][3], R3pDPsi[3][3], R1mEpsA[3][3],
-           N     [3][3], invN   [3][3];
+      dPsi      = nutAngles[0];
+      dEps      = nutAngles[1];
+      Angle eps = epsA + dEps;
 
-    MkMtsR1(-eps,     R1mEps,  R1pEps);
-    MkMtsR3(-dPsi,    R3mDPsi, R3pDPsi);
-    MkMtsR1( epsA,    R1pEpsA, R1mEpsA);
+      // N    = R1(-eps) * R3(-dPsi) * R1(epsA);
+      double R1mEps[3][3], R3mDPsi[3][3], R1pEpsA[3][3],
+             R1pEps[3][3], R3pDPsi[3][3], R1mEpsA[3][3];
 
-    MtxMult3(R1mEps,  R3mDPsi, Tmp0);
-    MtxMult3(Tmp0,    R1pEpsA, N);
+      MkMtsR1(-eps,     R1mEps,  R1pEps);
+      MkMtsR3(-dPsi,    R3mDPsi, R3pDPsi);
+      MkMtsR1( epsA,    R1pEpsA, R1mEpsA);
 
-    // invN = R1(-epsA) * R3(dPsi) * R1(eps):
-    MtxMult3(R1mEpsA, R3pDPsi, Tmp0);
-    MtxMult3(Tmp0,    R1pEps,  invN);
+      MtxMult3(R1mEps,  R3mDPsi, Tmp0);
+      MtxMult3(Tmp0,    R1pEpsA, N);
+
+      // invN = R1(-epsA) * R3(dPsi) * R1(eps):
+      MtxMult3(R1mEpsA, R3pDPsi, Tmp0);
+      MtxMult3(Tmp0,    R1pEps,  invN);
+    }
+    else
+      // N = invN = Id:
+      for (int i = 0; i < 3; ++i)
+      for (int j = 0; j < 3; ++j)
+        N[i][j] = invN[i][j] = (i==j) ? 1.0 : 0.0;
 
     //-----------------------------------------------------------------------//
     // Over-All:                                                             //
     //-----------------------------------------------------------------------//
     // XXX: Bias Correction and Polar Motion are considered to be too small,
     // and not used. Thus:
-    MtxMult3(P,       N,       m_M);
-    MtxMult3(invN,    invP,    m_invM);
+    MtxMult3(P,    N,    m_M);
+    MtxMult3(invN, invP, m_invM);
 
     // Check:
     DEBUG_ONLY
@@ -94,8 +106,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // An Approximate Equation of the Origins Ee = ERA - GAST:               //
     //-----------------------------------------------------------------------//
-    double cosEpsA = R1pEps[2][2];
-    m_Ee           = dPsi * cosEpsA / 15.0;
+    m_Ee = dPsi * Cos(double(epsA)) / 15.0;
 
     //-----------------------------------------------------------------------//
     // DeltaT = TT - UT1:                                                    //

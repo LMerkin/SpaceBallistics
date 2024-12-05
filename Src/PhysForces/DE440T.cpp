@@ -20,6 +20,7 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // "GetPlanetBarEqPV":                                                     //
   //-------------------------------------------------------------------------//
+  INST_BAR(Eq,  Sun)
   INST_BAR(Eq,  Mercury)
   INST_BAR(Eq,  Venus)
   // NB: "Earth" is specialised, no need to instantiate it explicitly...
@@ -34,6 +35,7 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // "GetPlanetBarEclPV":                                                    //
   //-------------------------------------------------------------------------//
+  INST_BAR(Ecl, Sun)
   INST_BAR(Ecl, Mercury)
   INST_BAR(Ecl, Venus)
   // NB: "Earth" is specialised, no need to instantiate it explicitly...
