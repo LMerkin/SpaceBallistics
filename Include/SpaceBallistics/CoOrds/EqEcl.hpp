@@ -20,13 +20,13 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // J2000.0 Obliquity of Ecliptic to the ICRS Equator, from the IAU76 model:
   //
-  constexpr inline Angle     Obliq2000 = To_Angle(EarthRotationModel::Eps0);
-  constexpr inline double CosObliq2000 = Cos(double(Obliq2000));
-  constexpr inline double SinObliq2000 = Sin(double(Obliq2000));
+  constexpr inline Angle     EObliq2000 = To_Angle(EarthRotationModel::Eps0);
+  constexpr inline double CosEObliq2000 = Cos(double(EObliq2000));
+  constexpr inline double SinEObliq2000 = Sin(double(EObliq2000));
 
   //-------------------------------------------------------------------------//
-  // BaryCentrocEqCOS   -> BaryCentricEclCOS:                                //
-  // GeoCentricEqFixCOS -> GeoCentricEclFixCOS:                              //
+  // BaryCEqCOS   -> BaryCEclCOS:                                            //
+  // GeoCEqFixCOS -> GeoCEclFixCOS:                                          //
   //-------------------------------------------------------------------------//
   template
   <typename DQ, typename EqCOS, typename EclCOS, Body B = Body::UNDEFINED>
@@ -35,24 +35,24 @@ namespace SpaceBallistics
     Vector3D<DQ, EqCOS,  B> const& a_eq,
     Vector3D<DQ, EclCOS, B>*       a_ecl
   )
-  requires((std::is_same_v<EqCOS,  BaryCentricEqCOS>   &&
-            std::is_same_v<EclCOS, BaryCentricEclCOS>) ||
-           (std::is_same_v<EqCOS,  GeoCentricEqFixCOS> &&
-            std::is_same_v<EclCOS, GeoCentricEclFixCOS>))
+  requires((std::is_same_v<EqCOS,  BaryCEqCOS>   &&
+            std::is_same_v<EclCOS, BaryCEclCOS>) ||
+           (std::is_same_v<EqCOS,  GeoCEqFixCOS> &&
+            std::is_same_v<EclCOS, GeoCEclFixCOS>))
   {
     assert(a_ecl != nullptr);
     a_ecl->x() =  a_eq.x();
-    a_ecl->y() =  CosObliq2000 * a_eq.y() + SinObliq2000 * a_eq.z();
-    a_ecl->z() = -SinObliq2000 * a_eq.y() + CosObliq2000 * a_eq.z();
+    a_ecl->y() =  CosEObliq2000 * a_eq.y() + SinEObliq2000 * a_eq.z();
+    a_ecl->z() = -SinEObliq2000 * a_eq.y() + CosEObliq2000 * a_eq.z();
   }
 
   template
   <typename  DQ, typename EqCOS, typename EclCOS, Body B = Body::UNDEFINED>
   constexpr Vector3D<DQ, EclCOS, B> ToEcl(Vector3D<DQ, EqCOS, B> const& a_eq)
-  requires((std::is_same_v<EqCOS,  BaryCentricEqCOS>   &&
-            std::is_same_v<EclCOS, BaryCentricEclCOS>) ||
-           (std::is_same_v<EqCOS,  GeoCentricEqFixCOS> &&
-            std::is_same_v<EclCOS, GeoCentricEclFixCOS>))
+  requires((std::is_same_v<EqCOS,  BaryCEqCOS>   &&
+            std::is_same_v<EclCOS, BaryCEclCOS>) ||
+           (std::is_same_v<EqCOS,  GeoCEqFixCOS> &&
+            std::is_same_v<EclCOS, GeoCEclFixCOS>))
   {
     Vector3D<DQ, EclCOS, B> ecl;
     ToEcl(a_eq, &ecl);
@@ -60,8 +60,8 @@ namespace SpaceBallistics
   }
 
   //-------------------------------------------------------------------------//
-  // BaryCentricEclCOS   -> BaryCentricEqCOS:                                //
-  // GeoCentricEclFixCOS -> GeoCentricEclFixCOS:                             //
+  // BaryCEclCOS   -> BaryCEqCOS:                                            //
+  // GeoCEclFixCOS -> GeoCEclFixCOS:                                         //
   //-------------------------------------------------------------------------//
   template
   <typename DQ, typename EclCOS, typename EqCOS, Body B = Body::UNDEFINED>
@@ -70,24 +70,24 @@ namespace SpaceBallistics
     Vector3D<DQ, EclCOS, B> const& a_ecl,
     Vector3D<DQ, EqCOS,  B>*       a_eq
   )
-  requires((std::is_same_v<EqCOS,  BaryCentricEqCOS>   &&
-            std::is_same_v<EclCOS, BaryCentricEclCOS>) ||
-           (std::is_same_v<EqCOS,  GeoCentricEqFixCOS> &&
-            std::is_same_v<EclCOS, GeoCentricEclFixCOS>))
+  requires((std::is_same_v<EqCOS,  BaryCEqCOS>   &&
+            std::is_same_v<EclCOS, BaryCEclCOS>) ||
+           (std::is_same_v<EqCOS,  GeoCEqFixCOS> &&
+            std::is_same_v<EclCOS, GeoCEclFixCOS>))
   {
     assert(a_eq != nullptr);
     a_eq->x() =  a_ecl.x();
-    a_eq->y() =  CosObliq2000 * a_ecl.y() - SinObliq2000 * a_ecl.z();
-    a_eq->z() =  SinObliq2000 * a_ecl.y() + CosObliq2000 * a_ecl.z();
+    a_eq->y() =  CosEObliq2000 * a_ecl.y() - SinEObliq2000 * a_ecl.z();
+    a_eq->z() =  SinEObliq2000 * a_ecl.y() + CosEObliq2000 * a_ecl.z();
   }
 
   template
   <typename  DQ, typename  EclCOS, typename EqCOS, Body B = Body::UNDEFINED>
   constexpr Vector3D<DQ, EqCOS, B> ToEq(Vector3D<DQ, EclCOS, B> const& a_ecl)
-  requires((std::is_same_v<EqCOS,  BaryCentricEqCOS>   &&
-            std::is_same_v<EclCOS, BaryCentricEclCOS>) ||
-           (std::is_same_v<EqCOS,  GeoCentricEqFixCOS> &&
-            std::is_same_v<EclCOS, GeoCentricEclFixCOS>))
+  requires((std::is_same_v<EqCOS,  BaryCEqCOS>   &&
+            std::is_same_v<EclCOS, BaryCEclCOS>) ||
+           (std::is_same_v<EqCOS,  GeoCEqFixCOS> &&
+            std::is_same_v<EclCOS, GeoCEclFixCOS>))
   {
     Vector3D<DQ, EqCOS, B> eq;
     ToEq(a_ecl, &eq);

@@ -166,7 +166,7 @@ namespace SpaceBallistics
       GridH + EquipBayH + UpperTrCH + MidTrCH + LowCylH;
     static_assert(H.ApproxEquals(27.138_m));
 
-    // Nozzles extension beyond "H". FIXME: This val is for the Verniers; the
+    // Nozzles extension beyond "H".  XXX: This val is for the Verniers; the
     // Main Engine Nozzles extend slightly less, but for the moment, we disre-
     // gard the difference:
     constexpr static Len      NozzlesExtH   = 0.66_m;

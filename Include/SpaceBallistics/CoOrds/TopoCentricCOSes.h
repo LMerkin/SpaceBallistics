@@ -17,17 +17,16 @@ namespace SpaceBallistics
   class TDB;
 
   //=========================================================================//
-  // "TopoCentricEqFixCOS" Struct:                                           //
+  // "TopoCEqFixCOS" Struct:                                                 //
   //=========================================================================//
-  // The Axes are as in "BodyCentricEqFixCOS" (in particular, for Earth they are
-  // ICRS/GCRS), but the Origin is a Location ("L") on the Body,  NOT the Body
-  // Center.
+  // The Axes are as in "BodyCEqFixCOS" (in particular, for Earth they are ICRS/
+  // GCRS), but the Origin is a Location ("L") on the Body, NOT the Body Center.
   // Suitable for computation of TopoCentric Ephemerides in astronomical appls.
   // The Origin of this COS is rotating (and otherwise moving) in the inertial
   // space, but the Axes are fixed:
   //
   template<Body BBody, Location<BBody> const* L>
-  struct TopoCentricEqFixCOS
+  struct TopoCEqFixCOS
   {
     constexpr static  Body BaseBody              = BBody;
     constexpr static  Location<BBody> const* Loc = L;
@@ -36,12 +35,12 @@ namespace SpaceBallistics
     using TimeScale = std::conditional_t<BBody == Body::Earth, TT, TDB>;
 
     static_assert(L != nullptr);
-    TopoCentricEqFixCOS() = delete; // No objs of this struct are to be created
+    TopoCEqFixCOS() = delete; // No objs of this struct are to be created
   };
 
-  // In particular, for Earth we call it "TopCentricGCRS":
+  // In particular, for Earth we call it "TopCGCRS":
   template<Location<Body::Earth> const* L>
-  using TopoCentricGCRS = TopoCentricEqFixCOS<Body::Earth, L>;
+  using TopoC_GCRS  = TopoCEqFixCOS<Body::Earth, L>;
 
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors in this COS:                              //
@@ -49,20 +48,20 @@ namespace SpaceBallistics
   // We probably do not need any other DQs here:
   //
   template<Body BBody,  Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using PosKVTopEqFix = PosKV<TopoCentricEqFixCOS<BBody, L>, B>;
+  using PosKVTopEqFix = PosKV<TopoCEqFixCOS<BBody, L>, B>;
 
   template<Body BBody,  Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelKVTopEqFix = VelKV<TopoCentricEqFixCOS<BBody, L>, B>;
+  using VelKVTopEqFix = VelKV<TopoCEqFixCOS<BBody, L>, B>;
 
-  // Aliases for Vectors in the "TopoCentricGCRS":
+  // Aliases for Vectors in the "TopoC_GCRS":
   template<Location<Body::Earth> const* L,        Body B = Body::UNDEFINED>
-  using PosKVTopGCRS  = PosKV<TopoCentricGCRS<L>, B>;
+  using PosKVTopGCRS  = PosKV<TopoC_GCRS<L>, B>;
 
   template<Location<Body::Earth> const* L,        Body B = Body::UNDEFINED>
-  using VelKVTopGCRS  = VelKV<TopoCentricGCRS<L>, B>;
+  using VelKVTopGCRS  = VelKV<TopoC_GCRS<L>, B>;
 
   //=========================================================================//
-  // "TopoCentricRotCOS_ENZ" Struct:                                         //
+  // "TopoCRotCOS_ENZ" Struct:                                               //
   //=========================================================================//
   // Origin   : A point on the Body Surface given by "L";
   // Axes     : X=LocalEast   (tangential to the Parallel);
@@ -74,7 +73,7 @@ namespace SpaceBallistics
   // Suitable eg for modeling of Launch Ops and for Ground Tracks!
   //
   template<Body BBody, Location<BBody> const* L>
-  struct TopoCentricRotCOS_ENZ
+  struct TopoCRotCOS_ENZ
   {
     constexpr static  Body BaseBody              = BBody;
     constexpr static  Location<BBody> const* Loc = L;
@@ -83,7 +82,7 @@ namespace SpaceBallistics
     using TimeScale = std::conditional_t<BBody == Body::Earth, TT, TDB>;
 
     static_assert(L != nullptr);
-    TopoCentricRotCOS_ENZ() = delete;
+    TopoCRotCOS_ENZ() = delete;
     // No objs of this struct are to be created
   };
 
@@ -94,54 +93,54 @@ namespace SpaceBallistics
   // the "ENZ" suffix stands for "East(X)-North(Y)-Zenith(Z)":
   //
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using PosKVTopRotENZ     = PosKV   <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using PosKVTopRotENZ     = PosKV   <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   // "VelK" and "Vel":
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelKVTopRotENZ     = VelKV   <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using VelKVTopRotENZ     = VelKV   <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelVTopRotENZ      = VelV    <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using VelVTopRotENZ      = VelV    <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AccVTopRotENZ      = AccV    <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using AccVTopRotENZ      = AccV    <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using ForceVTopRotENZ    = ForceV  <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using ForceVTopRotENZ    = ForceV  <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngVelVTopRotENZ   = AngVelV <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using AngVelVTopRotENZ   = AngVelV <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngAccVTopRot_ENZ  = AngAccV <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using AngAccVTopRot_ENZ  = AngAccV <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngMomVTopRot_ENZ  = AngMomV <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using AngMomVTopRot_ENZ  = AngMomV <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using TorqVTopRot_ENZ    = TorqV   <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using TorqVTopRot_ENZ    = TorqV   <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using MoIVTopRot_ENZ     = MoIV    <TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using MoIVTopRot_ENZ     = MoIV    <TopoCRotCOS_ENZ<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using MoIRateVTopRot_ENZ = MoIRateV<TopoCentricRotCOS_ENZ<BBody, L>, B>;
+  using MoIRateVTopRot_ENZ = MoIRateV<TopoCRotCOS_ENZ<BBody, L>, B>;
 
   //=========================================================================//
-  // "TopoCentricRotCOS" Struct:                                             //
+  // "TopoCRotCOS" Struct:                                                   //
   //=========================================================================//
   // Origin   : A point on the Body Surface given by "L";
-  // XYZ Axes : Parallel to those of the "BodyCentricRotCOS"
-  //            (ie for Earth they are parallel to the ITRS axes);
+  // XYZ Axes : Parallel to those of the "BodyCRotCOS" (ie for Earth they are
+  //            parallel to the ITRS axes);
   // TimeScale: TT for Earth, TDB otherwise;
   // This COS is HIGHLY NON-INERTIAL: its Origin is rotating (and otherwise mov-
   // ing) in the inertial space, and the axes are rotating as well.
   // Suitable eg for modeling of Launch Ops and for Ground Tracks!
   // XXX: This COS (and its Vectors) do not have any suffix, unlike the above
-  // "TopoCentricRotCOS_ENZ":
+  // "TopoCRotCOS_ENZ":
   //
   template<Body BBody, Location<BBody> const* L>
-  struct TopoCentricRotCOS
+  struct TopoCRotCOS
   {
     constexpr static  Body BaseBody              = BBody;
     constexpr static  Location<BBody> const* Loc = L;
@@ -150,19 +149,19 @@ namespace SpaceBallistics
     using TimeScale = std::conditional_t<BBody == Body::Earth, TT, TDB>;
 
     static_assert(L != nullptr);
-    TopoCentricRotCOS() = delete;
+    TopoCRotCOS() = delete;
     // No objs of this struct are to be created
   };
 
   //-----------------------------------------------------------------------//
   // Technical Stuff, for Template Meta-Programming:                       //
   //-----------------------------------------------------------------------//
-  // "IsTopoCentricRotCOS":
+  // "IsTopoCRotCOS":
   template<typename COS>
-  constexpr inline bool IsTopoCentricRotCOS = false;
+  constexpr inline bool IsTopoCRotCOS = false;
 
   template<Body BBody,  Location<BBody> const* L>
-  constexpr inline bool IsTopoCentricRotCOS<TopoCentricRotCOS<BBody, L>> = true;
+  constexpr inline bool IsTopoCRotCOS<TopoCRotCOS<BBody, L>> = true;
 
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in this COS:                       //
@@ -170,52 +169,52 @@ namespace SpaceBallistics
   // NB: Using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
   //
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using PosKVTopRot   = PosKV   <TopoCentricRotCOS<BBody, L>, B>;
+  using PosKVTopRot   = PosKV   <TopoCRotCOS<BBody, L>, B>;
 
   // "VelK" and "Vel":
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelKVTopRot    = VelKV   <TopoCentricRotCOS<BBody, L>, B>;
+  using VelKVTopRot    = VelKV   <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelVTopRot     = VelV    <TopoCentricRotCOS<BBody, L>, B>;
+  using VelVTopRot     = VelV    <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AccVTopRot     = AccV    <TopoCentricRotCOS<BBody, L>, B>;
+  using AccVTopRot     = AccV    <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using ForceVTopRot   = ForceV  <TopoCentricRotCOS<BBody, L>, B>;
+  using ForceVTopRot   = ForceV  <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngVelVTopRot  = AngVelV <TopoCentricRotCOS<BBody, L>, B>;
+  using AngVelVTopRot  = AngVelV <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngAccVTopRot  = AngAccV <TopoCentricRotCOS<BBody, L>, B>;
+  using AngAccVTopRot  = AngAccV <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngMomVTopRot  = AngMomV <TopoCentricRotCOS<BBody, L>, B>;
+  using AngMomVTopRot  = AngMomV <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using TorqVTopRot    = TorqV   <TopoCentricRotCOS<BBody, L>, B>;
+  using TorqVTopRot    = TorqV   <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using MoIVTopRot     = MoIV    <TopoCentricRotCOS<BBody, L>, B>;
+  using MoIVTopRot     = MoIV    <TopoCRotCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using MoIRateVTopRot = MoIRateV<TopoCentricRotCOS<BBody, L>, B>;
+  using MoIRateVTopRot = MoIRateV<TopoCRotCOS<BBody, L>, B>;
 
   //=========================================================================//
-  // Vector Transforms between the "{Body,Topo}CentricRotCOS"es:             //
+  // Vector Transforms between the "{Body,Topo}CRotCOS"es:                   //
   //=========================================================================//
   //-------------------------------------------------------------------------//
-  // BodyCentric -> TopoCentric:                                             //
+  // BodyC -> TopoC:                                                         //
   //-------------------------------------------------------------------------//
   // Here the CallER needs to specify the "TCOS" explicitly, which must be some
-  // "TopoCentricRotCOS":
+  // "TopoCRotCOS":
   //
   template<typename TCOS, Body  B = Body::UNDEFINED, typename  DQ>
   constexpr Vector3D<DQ,  TCOS, B> ToTopoC
-    (Vector3D<DQ, BodyCentricRotCOS<TCOS::BaseBody>, B> const& a_body_c)
-  requires(IsTopoCentricRotCOS<TCOS>)
+    (Vector3D<DQ, BodyCRotCOS<TCOS::BaseBody>, B> const& a_body_c)
+  requires(IsTopoCRotCOS<TCOS>)
   {
     // Position is changed by parallel translation; all other vectors remain un-
     // changed:
@@ -230,15 +229,15 @@ namespace SpaceBallistics
   }
 
   //-------------------------------------------------------------------------//
-  // TopoCentric -> BodyCentric:                                             //
+  // TopoC -> BodyC:                                                         //
   //-------------------------------------------------------------------------//
-  // Here the "TopoCentricRotCOS" can be inferred from the argument; the CallER
-  // does not need to specify any template params:
+  // Here the "TopoCRotCOS" can be inferred from the argument; the CallER does
+  // NOT need to specify any template params:
   //
   template<Body BBody, Location<BBody> const*  L,
            Body B = Body::UNDEFINED, typename  DQ>
-     Vector3D<DQ, BodyCentricRotCOS<BBody>,    B> ToBodyC
-    (Vector3D<DQ, TopoCentricRotCOS<BBody, L>, B> const& a_topo_c)
+     Vector3D<DQ, BodyCRotCOS<BBody>,    B> ToBodyC
+    (Vector3D<DQ, TopoCRotCOS<BBody, L>, B> const& a_topo_c)
   {
     return
       IsAnyLen<DQ>
@@ -247,22 +246,22 @@ namespace SpaceBallistics
           L->PosKV().y() + a_topo_c.y(),
           L->PosKV().z() + a_topo_c.z() }
       :
-        Vector3D<DQ, BodyCentricRotCOS<BBody>, B>
+        Vector3D<DQ, BodyCRotCOS<BBody>, B>
         { a_topo_c.x(), a_topo_c.y(), a_topo_c.z() };
   }
 
   //=========================================================================//
-  // "TopoCentricLaunchCOS" Struct:                                          //
+  // "TopoCLaunchCOS" Struct:                                                //
   //=========================================================================//
-  // Similar to "TopoCentricRotCOS", but rotated wrt the latter around the Z
-  // axis by the angle (counter-clock-wise) (Pi/2-A),  where A is the Launch
-  // Azimuth. XXX:  Unfortunately, the latter is dynamic (mission-specific),
+  // Similar to "TopoCRotCOS", but rotated wrt the latter around the Z axis by
+  // the angle (counter-clock-wise) (Pi/2-A), where A is the Launch Azimuth.
+  // XXX:  Unfortunately, the latter is dynamic (mission-specific),
   // so it cannot be made into a template param:
   // Often, this COS would be the most convenient one for integration of the
   // Equations of Motion during the Launch phase:
   //
   template<Body BBody, Location<BBody> const* L>
-  struct TopoCentricLaunchCOS
+  struct TopoCLaunchCOS
   {
     // XXX: This COS is typically Earth-based, but we allow other Bodies as
     // well, so both TT and TDB are supported:
@@ -274,7 +273,7 @@ namespace SpaceBallistics
 
     static_assert(L != nullptr);
     // No objs of this struct are to be created:
-    TopoCentricLaunchCOS() = delete;
+    TopoCLaunchCOS() = delete;
   };
 
   //-------------------------------------------------------------------------//
@@ -283,38 +282,38 @@ namespace SpaceBallistics
   // NB: Using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
   //
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using PosKVTopLaunch    = PosKV   <TopoCentricLaunchCOS<BBody, L>, B>;
+  using PosKVTopLaunch    = PosKV   <TopoCLaunchCOS<BBody, L>, B>;
 
   // "VelK" and "Vel":
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelKVTopLaunch    = VelKV   <TopoCentricLaunchCOS<BBody, L>, B>;
+  using VelKVTopLaunch    = VelKV   <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelVTopLaunch     = VelV    <TopoCentricLaunchCOS<BBody, L>, B>;
+  using VelVTopLaunch     = VelV    <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AccVTopLaunch     = AccV    <TopoCentricLaunchCOS<BBody, L>, B>;
+  using AccVTopLaunch     = AccV    <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using ForceVTopLaunch   = ForceV  <TopoCentricLaunchCOS<BBody, L>, B>;
+  using ForceVTopLaunch   = ForceV  <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngVelVTopLaunch  = AngVelV <TopoCentricLaunchCOS<BBody, L>, B>;
+  using AngVelVTopLaunch  = AngVelV <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngAccVTopLaunch  = AngAccV <TopoCentricLaunchCOS<BBody, L>, B>;
+  using AngAccVTopLaunch  = AngAccV <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngMomVTopLaunch  = AngMomV <TopoCentricLaunchCOS<BBody, L>, B>;
+  using AngMomVTopLaunch  = AngMomV <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using TorqVTopLaunch    = TorqV   <TopoCentricLaunchCOS<BBody, L>, B>;
+  using TorqVTopLaunch    = TorqV   <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using MoIVTopLaunch     = MoIV    <TopoCentricLaunchCOS<BBody, L>, B>;
+  using MoIVTopLaunch     = MoIV    <TopoCLaunchCOS<BBody, L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using MoIRateVTopLaunch = MoIRateV<TopoCentricLaunchCOS<BBody, L>, B>;
+  using MoIRateVTopLaunch = MoIRateV<TopoCLaunchCOS<BBody, L>, B>;
 
   //=========================================================================//
   // "AtmCOS" and "VelVAtm":                                                 //
@@ -341,8 +340,8 @@ namespace SpaceBallistics
 
   // "GetVelVAtm":
   // Velocity vector relative to the Atmosphere ("VelVAtm") can be constructed
-  // from the TopoCentric Velocity and TopoCentric Wind Velocity,    in either
-  // the "Rot" or "Launch" COSes:
+  // from the TopoC Velocity and TopoC Wind Velocity,  in either  the "Rot" or
+  // "Launch" COSes:
   //
   template<Body BBody, Location<BBody> const* L>
   VelVAtm <BBody, L>   GetVelVAtm

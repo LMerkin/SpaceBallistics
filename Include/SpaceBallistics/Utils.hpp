@@ -29,7 +29,7 @@ namespace DimTypes
     using ThisDimQ = std::remove_cv_t<std::remove_reference_t<decltype(*this)>>;
     static_assert(std::is_same_v<ThisDimQ, SB::Angle>   &&
                   std::is_same_v<ThisDimQ, SB::Angle_rad>);
-    return Magnitude();
+    return double(*this / SB::Angle(1.0));
   }
 
   // Similarly, converting "Angle_deg" into "double", via "Angle" (rad):

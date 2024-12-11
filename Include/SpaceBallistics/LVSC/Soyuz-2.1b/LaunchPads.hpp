@@ -15,9 +15,9 @@ namespace SpaceBallistics
   // the North, Clock-Wise) of the Main Axis of the Pad (ie pointing towards
   // the Far Edge of the Pad).
   // Then the initial LV Yaw  (at  the Launch Pad, counter-clock-wise)  can be
-  // taken as (Pi/4 - Azimuth), in the "TopoCentricRotCOS".
-  // However, in the "TopoCentricLauchCOS" the initial Yaw depends on the Launch
-  // Azimuth, not on the Pad Orientation Azimuth...
+  // taken as (Pi/4 - Azimuth), in the "TopoCRotCOS".
+  // However, in the "TopoCLaunchCOS" the initial Yaw depends on the Launch Azi-
+  // muth, not on the Pad Orientation Azimuth...
   //
   class Soyuz2_LaunchPad: public Location<Body::Earth>
   {

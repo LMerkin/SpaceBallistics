@@ -403,7 +403,7 @@ namespace SpaceBallistics::DE440T
   //=========================================================================//
   // "GetPlanet[s]BarEqPV[s]":                                               //
   //=========================================================================//
-  // In the "BaryCentricEqCOS", ie in the ICRS/BCRS axes:
+  // In the "BaryCEqCOS", ie in the ICRS/BCRS axes:
   //-------------------------------------------------------------------------//
   // With Compile-Time Object Selection:                                     //
   //-------------------------------------------------------------------------//
@@ -417,7 +417,7 @@ namespace SpaceBallistics::DE440T
   {
     // This is the generic case for the Sun and Planets except Earth (which re-
     // uires a specialised implementations); Moon is also not supported here as
-    // we seldom need its BaryCentric PV; however, EMB is OK here:
+    // we seldom need its BaryC PV; however, EMB is OK here:
     //
     static_assert(B != Body::Earth && B != Body::Moon);
     assert(a_pos != nullptr);
@@ -429,7 +429,7 @@ namespace SpaceBallistics::DE440T
     static_assert(Bits::Object::Sun <= Obj && Obj <= Bits::Object::PlChB);
 
     // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
-    // yield the PV in the BaryCentric Equatorial co-ords directly:
+    // yield the PV in the BaryC Eq co-ords directly:
     Bits::GetCoOrds<Obj>
     (
       rec,
@@ -455,8 +455,8 @@ namespace SpaceBallistics::DE440T
     // Get the record data for a given TDB instant:
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
-    // First, get the PV of the Earth-Moon System BaryCenter, in the BaryCentric
-    // Equatorial System (according to the DE440T convention):
+    // First, get the PV of the Earth-Moon System BaryCenter, in the BaryC Eq
+    // System (according to the DE440T convention):
     LenK posEMB[3];
     VelK velEMB[3];
     Bits::GetCoOrds<Bits::Object::EMB>
@@ -467,8 +467,8 @@ namespace SpaceBallistics::DE440T
       (a_vel != nullptr) ? velEMB  : nullptr
     );
 
-    // Now get the GeoCentric PV of the Moon, in the GeoCentric Equatorial sys-
-    // tem (again, according to the DE440T convention):
+    // Now get the GeoC PV of the Moon, in the GeoC Eq system (again, according
+    // to the DE440T convention):
     LenK posM[3];
     VelK velM[3];
     Bits::GetCoOrds<Bits::Object::Moon>
@@ -479,10 +479,10 @@ namespace SpaceBallistics::DE440T
       (a_vel != nullptr) ? velM : nullptr
     );
 
-    // The GeoCentric  PV of the EMB: Proportional to those of the Moon:
+    // The GeoC PV of the EMB: Proportional to those of the Moon:
     constexpr double mu = 1.0 / (EMRat + 1.0);
 
-    // So the BaryCentric Equatorial PV of Earth will be:
+    // So the BaryC Eq PV of Earth will be:
     a_pos->x() = posEMB[0] - mu * posM[0];
     a_pos->y() = posEMB[1] - mu * posM[1];
     a_pos->z() = posEMB[2] - mu * posM[2];
@@ -602,13 +602,13 @@ namespace SpaceBallistics::DE440T
     // Not for the Moon;  but Sun, Planets and EMB are OK:
     static_assert(Body::Sun <= B && B <= Body::EMB && B != Body::Moon);
 
-    // First, compute the PV in the BaryCentric Equatorial Co-Ords:
+    // First, compute the PV in the BaryC Eq Co-Ords:
     PosKVBarEq<B>    posEq;
     VelKVBarEq<B>    velEq;
     GetPlanetBarEqPV<B>
       (a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
-    // Then convert the results into the BaryCentric Ecliptical Co-Ords:
+    // Then convert the results into the BaryC Ecl Co-Ords:
     ToEcl(posEq, a_pos);
     if (a_vel != nullptr)
       ToEcl(velEq, a_vel);
@@ -625,13 +625,13 @@ namespace SpaceBallistics::DE440T
     VelKVBarEcl<>*  a_vel     // Output (Velocity); may be NULL
   )
   {
-    // First, compute the PV in the BaryCentric Equatorial Co-Ords:
+    // First, compute the PV in the BaryC Eq Co-Ords:
     PosKVBarEq<>    posEq;
     VelKVBarEq<>    velEq;
     GetPlanetBarEqPV
       (a_body, a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
-    // Then convert the results into the BaryCentric Ecliptical Co-Ords:
+    // Then convert the results into the BaryC Ecl Co-Ords:
     ToEcl(posEq, a_pos);
     if (a_vel != nullptr)
       ToEcl(velEq, a_vel);
@@ -640,8 +640,8 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // A slightly optimised version for the Sun and all Major Planets:         //
   //-------------------------------------------------------------------------//
-  // Similar to "GetPlanetsBarEqPVs", but for the BaruCentric Ecliptical PVs.
-  // The output arrays (of Generic vectors) are for:
+  // Similar to "GetPlanetsBarEqPVs", but for the BaryC Ecl PVs. The output
+  // arrays (of Generic vectors) are for:
   // [0: Sun,    1: Mercury, 2: Venus,   3: EMB, 4: Mars, 5: Jupiter,
   //  6: Saturn, 7: Uranus,  8: Neptune, 9: PlChB]:
   //
@@ -652,12 +652,12 @@ namespace SpaceBallistics::DE440T
     VelKVBarEcl<>   a_vels[10]  // Output (again, may be NULL)
   )
   {
-    // First, get the PVs in the BaryCentric Equatorial Co-Ords:
+    // First, get the PVs in the BaryC Eq Co-Ords:
     PosKVBarEq<>    possEq[10];
     VelKVBarEq<>    velsEq[10];
     GetPlanetsBarEqPVs(a_tdb, possEq, (a_vels != nullptr) ? velsEq : nullptr);
 
-    // Then convert the results into the BaryCentric Ecliptical Co-Ords:
+    // Then convert the results into the BaryC Ecl Co-Ords:
     for (int i = 0; i < 10; ++i)
     {
       ToEcl(possEq[i], a_poss + i);
@@ -670,7 +670,7 @@ namespace SpaceBallistics::DE440T
   // "GetMoonG{Eq,Ecl}PV":                                                   //
   //=========================================================================//
   //-------------------------------------------------------------------------//
-  // In the GeoCentric Equatorial Fixed-Axes (ICRS/GCRS) COS:                //
+  // In the GeoC Eq Fixed-Axes (ICRS/GCRS) COS:                              //
   //-------------------------------------------------------------------------//
   void GetMoonGEqPV
   (
@@ -685,8 +685,7 @@ namespace SpaceBallistics::DE440T
     auto [rec, dt] = Bits::GetRecord(a_tdb);
 
     // Invoke the generic "GetCoOrds". Due to the DE440T convention, it will
-    // yield the PV in the GeoCentric Equatorial  Fixed-Axes (ICRS/GCRS) co-
-    // ords directly:
+    // yield the PV in the GeoC Eq Fixed-Axes (ICRS/GCRS) coords directly:
     Bits::GetCoOrds<Bits::Object::Moon>
     (
       rec,
@@ -697,7 +696,7 @@ namespace SpaceBallistics::DE440T
   }
 
   //-------------------------------------------------------------------------//
-  // In the GeoCentric Ecliptical Fixed-Axes COS (JPL Horizons-compatible):  //
+  // In the GeoC Ecl Fixed-Axes COS (JPL Horizons-compatible):               //
   //-------------------------------------------------------------------------//
   void GetMoonGEclPV
   (
@@ -706,14 +705,13 @@ namespace SpaceBallistics::DE440T
     VelKVGeoEclFix<Body::Moon>* a_vel
   )
   {
-    // First, compute the PV in the GeoCentric Equatorial Fixed-Axes (ICRS/GCRS)
-    // Co-Ords:
+    // First, compute the PV in the GeoC Eq Fixed-Axes (ICRS/GCRS) Co-Ords:
     PosKV_GCRS<Body::Moon> posEq;
     VelKV_GCRS<Body::Moon> velEq;
 
     GetMoonGEqPV(a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
-    // Then convert the results into the GeoCentric Ecliptical Co-Ords:
+    // Then convert the results into the GeoC Ecl Co-Ords:
     ToEcl(posEq, a_pos);
     if (a_vel != nullptr)
       ToEcl(velEq, a_vel);

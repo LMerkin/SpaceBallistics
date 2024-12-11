@@ -253,7 +253,6 @@ namespace SpaceBallistics
       // DeltaAT = (TAI-UTC) difference, in sec.
       // The formulas are from the Explanatory Supplement to the Astronomical
       // Almanach, 3rd ed., 2013:
-      // XXX: We have to use "Magnitude" here:
       //
       Time DeltaAT =
         //
@@ -265,43 +264,43 @@ namespace SpaceBallistics
         // Prior to introduction of Leap Seconds in 1972:
         //
         (a_utc.m_year == 1961 && a_utc.m_month < 8)
-        ? 1.422818_sec + (mjd - 37300.0_day).Magnitude() * 0.001296_sec
+        ? 1.422818_sec + double((mjd - 37300.0_day)/1.0_day) * 0.001296_sec
         :
         (a_utc.m_year <  1962)
-        ? 1.372818_sec + (mjd - 37300.0_day).Magnitude() * 0.001296_sec 
+        ? 1.372818_sec + double((mjd - 37300.0_day)/1.0_day) * 0.001296_sec 
         :
         (a_utc.m_year == 1962 || (a_utc.m_year == 1963 && a_utc.m_month < 11))
-        ? 1.845858_sec + (mjd - 37665.0_day).Magnitude() * 0.0011232_sec
+        ? 1.845858_sec + double((mjd - 37665.0_day)/1.0_day) * 0.0011232_sec
         :
         (a_utc.m_year == 1963)
-        ? 1.945858_sec + (mjd - 37665.0_day).Magnitude() * 0.0011232_sec
+        ? 1.945858_sec + double((mjd - 37665.0_day)/1.0_day) * 0.0011232_sec
         :
         (a_utc.m_year == 1964 && a_utc.m_month < 4)
-        ? 3.240130_sec + (mjd - 38761.0_day).Magnitude() * 0.001296_sec
+        ? 3.240130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
         :
         (a_utc.m_year == 1964 && a_utc.m_month < 9)
-        ? 3.340130_sec + (mjd - 38761.0_day).Magnitude() * 0.001296_sec
+        ? 3.340130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
         :
         (a_utc.m_year == 1964)
-        ? 3.440130_sec + (mjd - 38761.0_day).Magnitude() * 0.001296_sec
+        ? 3.440130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
         :
         (a_utc.m_year == 1965 && a_utc.m_month < 3)
-        ? 3.540130_sec + (mjd - 38761.0_day).Magnitude() * 0.001296_sec
+        ? 3.540130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
         :
         (a_utc.m_year == 1965 && a_utc.m_month < 7)
-        ? 3.640130_sec + (mjd - 38761.0_day).Magnitude() * 0.001296_sec
+        ? 3.640130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
         :
         (a_utc.m_year == 1965 && a_utc.m_month < 9)
-        ? 3.740130_sec + (mjd - 38761.0_day).Magnitude() * 0.001296_sec
+        ? 3.740130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
         :
         (a_utc.m_year == 1965)
-        ? 3.840130_sec + (mjd - 38761.0_day).Magnitude() * 0.001296_sec
+        ? 3.840130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
         :
         (a_utc.m_year <  1968 || (a_utc.m_year == 1968 && a_utc.m_month < 2))
-        ? 4.313170_sec + (mjd - 39126.0_day).Magnitude() * 0.002592_sec
+        ? 4.313170_sec + double((mjd - 39126.0_day)/1.0_day) * 0.002592_sec
         :
         (a_utc.m_year <  1972)
-        ? 4.213170_sec + (mjd - 39126.0_day).Magnitude() * 0.002592_sec
+        ? 4.213170_sec + double((mjd - 39126.0_day)/1.0_day) * 0.002592_sec
         :
         // Since 1972, the Leap Seconds are used (don't forget the initial
         // offset of 10 sec!):

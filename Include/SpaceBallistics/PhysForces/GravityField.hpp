@@ -4,7 +4,6 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
-#include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
 #include "SpaceBallistics/PhysForces/BodyData.hpp"
 #include <type_traits>
@@ -17,9 +16,10 @@ namespace SpaceBallistics
   //=========================================================================//
   // "GravityField" Class:                                                   //
   //=========================================================================//
-  // Provides the Gravitational Field Model for the given Body:
+  // Provides the Gravitational Field Model for the given Ellipsoidal Gravita-
+  // ting Body (EGB):
   //
-  template<Body BodyName>
+  template<Body EGB>
   class GravityField
   {
   public:
@@ -28,10 +28,10 @@ namespace SpaceBallistics
     //=======================================================================//
     // Equatorial Radius of the Body (used in the Gravitational Potential exp-
     // ansion):
-    constexpr static LenK Re = BodyData<BodyName>::Re;
+    constexpr static LenK Re = BodyData<EGB>::Re;
 
     // Gravitational Field Constant of the Body:
-    constexpr static GMK  K  = BodyData<BodyName>::K;
+    constexpr static GMK  K  = BodyData<EGB>::K;
 
     //=======================================================================//
     // Model Coeffs:                                                         //
@@ -49,7 +49,7 @@ namespace SpaceBallistics
     };
 
     // The Max Degree and Order of Spherical Harmonics available:
-    constexpr static int N = BodyData<BodyName>::MaxSpherHarmDegreeAndOrder;
+    constexpr static int N = BodyData<EGB>::MaxSpherHarmDegreeAndOrder;
 
   private:
     // Actual Coeffs:
@@ -75,16 +75,16 @@ namespace SpaceBallistics
     // The function ADDS the components of the gravitational  acceleration vec-
     // tor to the output vector "acc",  so the latter must be properly initial-
     // ised (eg zeroed-out) before calling this function.
-    // NB: "pos" and "acc" are in the "BodyCentricRotCOS" (which is embedded in
-    // the Body is and rotating with it):
+    // NB: "pos" and "acc" are in the "BodyCRotCOS" (which is embedded in the
+    // Body is and rotating with it):
     //
     static void GravAcc
     (
-      Time                      a_t,                  // For info only
-      PosKVRot<BodyName> const& a_pos,
-      AccVRot <BodyName>*       a_acc,
-      int                       a_n          = N,     // Max order used
-      bool                      a_zonal_only = false  // Zonal Harmonics only?
+      Time                 a_t,                  // For info only
+      PosKVRot<EGB> const& a_pos,
+      AccVRot <EGB>*       a_acc,
+      int                  a_n          = N,     // Max order used
+      bool                 a_zonal_only = false  // Zonal Harmonics only?
     )
     {
       //---------------------------------------------------------------------//
@@ -103,7 +103,7 @@ namespace SpaceBallistics
       //---------------------------------------------------------------------//
       // The Rectangular and Spherical CoOrds:                               //
       //---------------------------------------------------------------------//
-      // (In the "BodyCentricRotCOS"):
+      // (In the "BodyCRotCOS"):
       LenK x       = a_pos[0];
       LenK y       = a_pos[1];
       LenK z       = a_pos[2];
@@ -117,8 +117,7 @@ namespace SpaceBallistics
         // a "surface impact" event,   though it might not be a physical impact
         // yet (we are under the Equatorial Radius, possibly not the local one):
         double const phi     = ASin (double(z/r));
-        double const lambda  =
-          IsZero(r2xy) ? 0.0 : ATan2(x.Magnitude(), y.Magnitude());
+        double const lambda  = IsZero(r2xy) ? 0.0 : ATan2(x, y);
 
         throw ImpactExn{ a_t, To_Len(r - Re), Angle(lambda), Angle(phi) };
       }
@@ -147,7 +146,7 @@ namespace SpaceBallistics
 
       // The Longitude: Undefined if rXY=0, assume Lambda=0 in that case:
       double const lambda  =
-        IsZero(r2xy) ? 0.0 : ATan2(x.Magnitude(), y.Magnitude());
+        IsZero(r2xy) ? 0.0 : ATan2(x, y);
 
       // Pre-compute Cos(m*lambda), Sin(m*lambda) for m = 0..a_n:
       assert(2 <= a_n && a_n <= N);

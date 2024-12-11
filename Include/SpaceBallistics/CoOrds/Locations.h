@@ -46,7 +46,7 @@ namespace SpaceBallistics
     Angle           m_phi;      // Latitude  (rad)
     Len             m_h;        // Elevation (m)
 
-    // Derived Rectangular Co-Ords (in the BodyCentricRotatingCOS):
+    // Derived Rectangular Co-Ords (in the "BodyCRotatingCOS"):
     PosKVRot<BBody> m_r;        // (x, y, z)
     LenK            m_rho;      // Radius-vector from Body center
 
@@ -79,7 +79,7 @@ namespace SpaceBallistics
       // Checks:
       static_assert(IsPos(Rp) && Re >= Rp && Flat >= 0.0);
 
-      // Derived Rectangular Co-Ords (in the BodyCentricRotatingCOS):
+      // Derived Rectangular Co-Ords (in the "BodyCRotatingCOS"):
       // a = Re, b = Rp:
       // XXX: We do NOT apply any simplifications in the case Flat==0 here:
       auto   a2  = Sqr(Re);
@@ -90,10 +90,10 @@ namespace SpaceBallistics
       // (x,z) in the cross-section through the axis and the given point:
       LenK   x   = a2  / d;
       LenK   z   = bbt / d;
-      m_r[0]     = x * Cos(double(m_lambda));    // BodyCentric x
-      m_r[1]     = x * Sin(double(m_lambda));    // BodyCentric y
-      m_r[2]     = z;                            // BodyCentric z
-      m_rho      = SqRt(Sqr(a2) + Sqr(bbt)) / d; // BodyCentric RV
+      m_r[0]     = x * Cos(double(m_lambda));    // BodyC x
+      m_r[1]     = x * Sin(double(m_lambda));    // BodyC y
+      m_r[2]     = z;                            // BodyC z
+      m_rho      = SqRt(Sqr(a2) + Sqr(bbt)) / d; // BodyC r
     }
 
     //-----------------------------------------------------------------------//
@@ -113,7 +113,7 @@ namespace SpaceBallistics
     constexpr Angle                  Latitude () const { return m_phi;    }
     constexpr Len                    Elevation() const { return m_h;      }
 
-    // BodyCentric Rectangualar Co-Ords (in the BodyCentricRotatingCOS):
+    // BodyCentric Rectangualar Co-Ords (in the "BodyCRotatingCOS"):
     // The object itself characterised by a "Location" is NOT a Body, hence
     // "Body::UNDEFINED" in its "PosKVRot":
     constexpr PosKVRot<BBody> const& PosKV    () const { return m_r;      }

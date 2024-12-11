@@ -1,5 +1,6 @@
--- Generic Transforms between Origins...
--- Complete EllipsoidalPV and possibly modify Locations
+-- TT -> UTC conversion
+-- Complete GeoCDynEqFixCOS
+-- Complete EllipsPV and possibly modify Locations
 -- Complete TimeScales (implement FlightTime)
 -- Atmosphere model(s), at least for Earth
 -- AeroFin controls

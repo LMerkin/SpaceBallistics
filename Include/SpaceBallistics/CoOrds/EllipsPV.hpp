@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
-//                  "SpaceBallistics/CoOrds/EllipsoidalPV.hpp":              //
-//                      Ellipsoidal Positions and Velocities                 //
+//                    "SpaceBallistics/CoOrds/EllipsPV.hpp":                 //
+//                     Ellipsoidal Positions and Velocities                  //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/CoOrds/Bodies.h"
@@ -15,21 +15,21 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Mostly useful for computation of Locations on the Ellipsoidal Bodies and
   // SpaceCraft GroundTracks on such Bodies.
-  // XXX: Current Restriction: "EllipsoidalPV" makes sense only for BodyCentric
-  // Rotating COSes (if the corrsp Body is a Rotational Ellipsoid or Spheroid):
+  // XXX: Current Restriction: "EllipsPV" makes sense only for BodyC Rotating
+  // COSes (if the corrsp Body is a Rotational Ellipsoid or Spheroid):
   //
   //=========================================================================//
-  // "EllipsoidalPV" Class:                                                  //
+  // "EllipsPV" Class:                                                       //
   //=========================================================================//
   template<Body BBody, Body B = Body::UNDEFINED>
-  class EllipsoidalPV
+  class EllipsPV
   {
   private:
     //-----------------------------------------------------------------------//
     // Consts:                                                               //
     //-----------------------------------------------------------------------//
-    // NB: Unlike "SphericalPV", "EllipsoidalPV" requires the dimensions of the
-    // Ellipsoidal Surface:
+    // NB: Unlike "SpherPV", "EllipsPV" requires the dimensions of the Ellipso-
+    // idal Surface:
     //
     // Equatorial Radius:
     constexpr static LenK   Re    = BodyData<BBody>::Re;
@@ -60,22 +60,22 @@ namespace SpaceBallistics
   public:
     // Default Ctor,  Copy Ctor, Assignment and Equality are auto-generated;
     // in particular, the Default Ctor initialises all flds to 0:
-    EllipsoidalPV             ()                           = default;
-    EllipsoidalPV             (EllipsoidalPV const&)       = default;
-    EllipsoidalPV& operator=  (EllipsoidalPV const&)       = default;
-    bool           operator== (EllipsoidalPV const&) const = default;
+    EllipsPV             ()                      = default;
+    EllipsPV             (EllipsPV const&)       = default;
+    EllipsPV& operator=  (EllipsPV const&)       = default;
+    bool      operator== (EllipsPV const&) const = default;
 
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
-    // Constructing "SphericalPV" from the Rectangular PV Vectors:
+    // Constructing "SpherPV" from the Rectangular PV Vectors:
     //
-    constexpr EllipsoidalPV
+    constexpr EllipsPV
     (
       PosKVRot<BBody, B> const& a_pos, // Must be non-0
       VelKVRot<BBody, B> const& a_vel  // May  be 0
     )
-    : EllipsoidalPV()         // Zero-out all components by default
+    : EllipsPV()         // Zero-out all components by default
     {
       // FIXME TODO
     }
@@ -91,7 +91,7 @@ namespace SpaceBallistics
     constexpr AngVel GetPhiDot   () const { return m_phiDot;    }
 
     //-----------------------------------------------------------------------//
-    // Other Way Round: Pos and Vel Vectors from "EllipsoidalPV":            //
+    // Other Way Round: Pos and Vel Vectors from "EllipsPV":                 //
     //-----------------------------------------------------------------------//
     // Returning both vectors together is more efficient:
     //
@@ -142,35 +142,35 @@ namespace SpaceBallistics
   // Aliases:                                                                //
   //-------------------------------------------------------------------------//
   template<Body B = Body::UNDEFINED>
-  using HelioCentricEllipsPV   = EllipsoidalPV<Body::Sun,     B>;
+  using HelioCEllipsPV   = EllipsPV<Body::Sun,     B>;
 
   template<Body B = Body::UNDEFINED>
-  using HermeoCentricEllipsPV  = EllipsoidalPV<Body::Mercury, B>;
+  using HermeoCEllipsPV  = EllipsPV<Body::Mercury, B>;
 
   template<Body B = Body::UNDEFINED>
-  using CytheroCentricEllipsPV = EllipsoidalPV<Body::Venus,   B>;
+  using CytheroCEllipsPV = EllipsPV<Body::Venus,   B>;
 
   template<Body B = Body::UNDEFINED>
-  using GeoCentricEllipsPV     = EllipsoidalPV<Body::Earth,   B>;
+  using GeoCEllipsPV     = EllipsPV<Body::Earth,   B>;
 
   template<Body B = Body::UNDEFINED>
-  using SelenoCentricEllipsPV  = EllipsoidalPV<Body::Moon>,   B;
+  using SelenoCEllipsPV  = EllipsPV<Body::Moon>,   B;
 
   template<Body B = Body::UNDEFINED>
-  using AreoCentricEllipsPV    = EllipsoidalPV<Body::Mars,    B>;
+  using AreoCEllipsPV    = EllipsPV<Body::Mars,    B>;
 
   template<Body B = Body::UNDEFINED>
-  using ZenoCentricEllipsrPV   = EllipsoidalPV<Body::Jupiter, B>;
+  using ZenoCEllipsrPV   = EllipsPV<Body::Jupiter, B>;
 
   template<Body B = Body::UNDEFINED>
-  using CronoCentricEllipsPV   = EllipsoidalPV<Body::Saturn,  B>;
+  using CronoCEllipsPV   = EllipsPV<Body::Saturn,  B>;
 
   template<Body B = Body::UNDEFINED>
-  using UranoCentricEllipsPV   = EllipsoidalPV<Body::Uranus,  B>;
+  using UranoCEllipsPV   = EllipsPV<Body::Uranus,  B>;
 
   template<Body B = Body::UNDEFINED>
-  using PoseidoCentricEllipsPV = EllipsoidalPV<Body::Neptune, B>;
+  using PoseidoCEllipsPV = EllipsPV<Body::Neptune, B>;
 
-  // XXX: No Ellipsoid data for Pluto, hence no EllipsoidalPV...
+  // XXX: No Ellipsoid data for Pluto, hence no "EllipsPV"...
 }
 // End namespace SpaceBallistics

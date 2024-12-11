@@ -44,9 +44,9 @@ namespace SpaceBallistics::DE440T
   // API to DE440T Ephemerides:                                              //
   //=========================================================================//
   //-------------------------------------------------------------------------//
-  // "BaryCentric{Eq,Ecl}COS" Pos and Vel Vectors for Planets and Sun:       //
+  // "BaryC{Eq,Ecl}COS" Pos and Vel Vectors for Planets and Sun:             //
   //-------------------------------------------------------------------------//
-  // In the BaryCentric Equatorial COS:
+  // In the BaryC Equatorial COS:
   //
   template<Body B>
   void GetPlanetBarEqPV
@@ -65,7 +65,7 @@ namespace SpaceBallistics::DE440T
     VelKVBarEq<B>*  a_vel   // Output (Velocity); may be NULL
   );
 
-  // In the BaryCentric Ecliptical COS (compatible with JPL Horizons):
+  // In the BaryC Ecliptical COS (compatible with JPL Horizons):
   template<Body B>
   void GetPlanetBarEclPV
   (
@@ -113,9 +113,9 @@ namespace SpaceBallistics::DE440T
   );
 
   //-------------------------------------------------------------------------//
-  // GeoCentric Equatorial Position and Velocity of the Moon:                //
+  // GeoC Equatorial Position and Velocity of the Moon:                      //
   //-------------------------------------------------------------------------//
-  // In the GeoCentric Equatorial Fixed-Axes (GCRS) COS:
+  // In the GeoC Equatorial Fixed-Axes (GCRS) COS:
   void GetMoonGEqPV
   (
     TDB                         a_tdb,
@@ -123,7 +123,7 @@ namespace SpaceBallistics::DE440T
     VelKV_GCRS<Body::Moon>*     a_vel
   );
 
-  // In the GeoCentric Ecliptical Fixed-Axes COS (compatible with JPL Horizons):
+  // In the GeoC Ecliptical Fixed-Axes COS (compatible with JPL Horizons):
   void GetMoonGEclPV
   (
     TDB                         a_tdb,

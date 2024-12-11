@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                  "SpaceBallistics/CoOrds/SphericalPV.hpp":                //
+//                    "SpaceBallistics/CoOrds/SpherPV.hpp":                  //
 //                     Spherical Positions and Velocities                    //
 //===========================================================================//
 #pragma  once
@@ -23,7 +23,7 @@ namespace SpaceBallistics
   //     ing the PV data (Position and Velocity) as input or output only...
   //
   //=========================================================================//
-  // "SphericalPV" Class:                                                    //
+  // "SpherPV" Class:                                                        //
   //=========================================================================//
   // Position and Velicity in the Spherical Co-Ords corresponding to the given
   // rectangular COS.
@@ -32,7 +32,7 @@ namespace SpaceBallistics
   // Vector and their "Dots" of an Object:
   //
   template<typename COS, Body B = Body::UNDEFINED>
-  class SphericalPV
+  class SpherPV
   {
   private:
     //-----------------------------------------------------------------------//
@@ -51,22 +51,22 @@ namespace SpaceBallistics
   public:
     // Default Ctor,  Copy Ctor, Assignment and Equality are auto-generated;
     // in particular, the Default Ctor initialises all flds to 0:
-    SphericalPV             ()                         = default;
-    SphericalPV             (SphericalPV const&)       = default;
-    SphericalPV& operator=  (SphericalPV const&)       = default;
-    bool         operator== (SphericalPV const&) const = default;
+    SpherPV             ()                     = default;
+    SpherPV             (SpherPV const&)       = default;
+    SpherPV& operator=  (SpherPV const&)       = default;
+    bool         operator== (SpherPV const&) const = default;
 
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
-    // Constructing "SphericalPV" from the Rectangular PV Vectors:
+    // Constructing "SpherPV" from the Rectangular PV Vectors:
     //
-    constexpr SphericalPV
+    constexpr SpherPV
     (
       PosKV<COS, B> const& a_pos, // Must be non-0
       VelKV<COS, B> const& a_vel  // May  be 0
     )
-    : SphericalPV()               // Zero-out all components by default
+    : SpherPV()                   // Zero-out all components by default
     {
       // Position:
       m_rho      = LenK(a_pos);
@@ -123,7 +123,7 @@ namespace SpaceBallistics
     constexpr AngVel GetDeltaDot() const { return m_deltaDot; }
 
     //-----------------------------------------------------------------------//
-    // Other Way Round: Pos and Vel Vectors from "SphericalPV":              //
+    // Other Way Round: Pos and Vel Vectors from "SpherPV":                  //
     //-----------------------------------------------------------------------//
     // Returning both vectors together is more efficient:
     //
@@ -163,41 +163,41 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Aliases (for Body-Centric Equatorial "SpherPV"s only):                  //
   //-------------------------------------------------------------------------//
-  // XXX: Currently, they are provided for Body-Centric Equatorial COSes only.
-  // In particular, "GeoCentricEqSpherPV" provides GeoCentric Right Ascentions,
-  // Declinations and Distances:
+  // XXX: Currently, they are provided for Body-Centric Equatorial COSes  only.
+  // In particular, "GeoCEqSpherPV" provides GeoCentric Right Ascentions, Decl-
+  // inations and Distances:
   //
   template<Body B = Body::UNDEFINED>
-  using HelioCentricEqSpherPV   = SphericalPV<HelioCentricEqFixCOS,   B>;
+  using HelioCEqSpherPV   = SpherPV<HelioCEqFixCOS,   B>;
 
   template<Body B = Body::UNDEFINED>
-  using HermeoCentricEqSpherPV  = SphericalPV<HermeoCentricEqFixCOS,  B>;
+  using HermeoCEqSpherPV  = SpherPV<HermeoCEqFixCOS,  B>;
 
   template<Body B = Body::UNDEFINED>
-  using CytheroCentricEqSpherPV = SphericalPV<CytheroCentricEqFixCOS, B>;
+  using CytheroCEqSpherPV = SpherPV<CytheroCEqFixCOS, B>;
 
   template<Body B = Body::UNDEFINED>
-  using GeoCentricEqSpherPV     = SphericalPV<GeoCentricEqFixCOS,     B>;
+  using GeoCEqSpherPV     = SpherPV<GeoCEqFixCOS,     B>;
 
   template<Body B = Body::UNDEFINED>
-  using SelenoCentricEqSpherPV  = SphericalPV<SelenoCentricEqFixCOS,  B>;
+  using SelenoCEqSpherPV  = SpherPV<SelenoCEqFixCOS,  B>;
 
   template<Body B = Body::UNDEFINED>
-  using AreoCentricEqSpherPV    = SphericalPV<AreoCentricEqFixCOS,    B>;
+  using AreoCEqSpherPV    = SpherPV<AreoCEqFixCOS,    B>;
 
   template<Body B = Body::UNDEFINED>
-  using ZenoCentricEqSpherPV    = SphericalPV<ZenoCentricEqFixCOS,    B>;
+  using ZenoCEqSpherPV    = SpherPV<ZenoCEqFixCOS,    B>;
 
   template<Body B = Body::UNDEFINED>
-  using CronoCentricEqSpherPV   = SphericalPV<CronoCentricEqFixCOS,   B>;
+  using CronoCEqSpherPV   = SpherPV<CronoCEqFixCOS,   B>;
 
   template<Body B = Body::UNDEFINED>
-  using UranoCentricEqSpherPV   = SphericalPV<UranoCentricEqFixCOS,   B>;
+  using UranoCEqSpherPV   = SpherPV<UranoCEqFixCOS,   B>;
 
   template<Body B = Body::UNDEFINED>
-  using PoseidoCentricEqSpherPV = SphericalPV<PoseidoCentricEqFixCOS, B>;
+  using PoseidoCEqSpherPV = SpherPV<PoseidoCEqFixCOS, B>;
 
   template<Body B = Body::UNDEFINED>
-  using HadeoCentricEqSpherPV   = SphericalPV<HadeoCentricEqFixCOS,   B>;
+  using HadeoCEqSpherPV   = SpherPV<HadeoCEqFixCOS,   B>;
 }
 // End namespace SpaceBallistics

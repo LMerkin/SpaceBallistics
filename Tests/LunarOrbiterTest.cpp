@@ -31,8 +31,8 @@ namespace
   //     dimensioned; however, all internal computations use DimTypes;
   // (*) Currently, only the (quite complex)  Lunar Gravity Field is used
   //     to compute the RHS; Solar, Earth and Planetary perturbations, as
-  //     well as the effects of non-inertiality of the SelenoCentricFixed
-  //     CoS, are currently OMITTED:
+  //     well as the effects of non-inertiality  of the SelenoCFixed COS,
+  //     are currently OMITTED:
   //
   int ODERHS
   (

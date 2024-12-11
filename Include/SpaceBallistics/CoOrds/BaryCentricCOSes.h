@@ -12,7 +12,7 @@ namespace SpaceBallistics
   class  TDB;
 
   //=========================================================================//
-  // "BaryCentricEclCOS" Struct:                                             //
+  // "BaryCEclCOS" Struct:                                                   //
   //=========================================================================//
   // BaryCentric Ecliptical COS:
   // Origin: Solar System BaryCenter
@@ -27,48 +27,48 @@ namespace SpaceBallistics
   // This definition is consistent with the conventions of the JPL Horizon eph-
   // emerides:
   //
-  struct BaryCentricEclCOS
+  struct BaryCEclCOS
   {
     constexpr static bool HasFixedAxes   = true;
     constexpr static bool HasFixedOrigin = true;
     using TimeScale                      = TDB;
-    BaryCentricEclCOS() = delete;  // No objects construction at all!
+    BaryCEclCOS() = delete;  // No objects construction at all!
   };
 
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
   template<Body B   = Body::UNDEFINED>
-  using PosKVBarEcl = PosKV<BaryCentricEclCOS, B>;
+  using PosKVBarEcl = PosKV<BaryCEclCOS, B>;
 
   template<Body B   = Body::UNDEFINED>
-  using VelKVBarEcl = VelKV<BaryCentricEclCOS, B>;
+  using VelKVBarEcl = VelKV<BaryCEclCOS, B>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 
   //=========================================================================//
-  // "BaryCentricEqCOS" Struct:                                              //
+  // "BaryCEqCOS" Struct:                                                    //
   //=========================================================================//
   // BaryCentric Equatorial COS:
-  // As "BaryCentricEclCOS" above, but the XY plane is ~ the Mean Earth Equator
-  // of J2000.0. Thus, this COS is the ICRS/BCRS itself:
+  // As "BaryCEclCOS" above, but the XY plane is ~ the Mean Earth Equator of
+  // J2000.0. Thus, this COS is the ICRS/BCRS itself:
   //
-  struct BaryCentricEqCOS
+  struct BaryCEqCOS
   {
     constexpr static bool HasFixedAxes   = true;
     constexpr static bool HasFixedOrigin = true;
     using TimeScale                      = TDB;
-    BaryCentricEqCOS() = delete;   // No objects construction at all!
+    BaryCEqCOS() = delete;   // No objects construction at all!
   };
 
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
   template<Body B   = Body::UNDEFINED>
-  using PosKVBarEq  = PosKV<BaryCentricEqCOS, B>;
+  using PosKVBarEq  = PosKV<BaryCEqCOS, B>;
 
   template<Body B   = Body::UNDEFINED>
-  using VelKVBarEq  = VelKV<BaryCentricEqCOS, B>;
+  using VelKVBarEq  = VelKV<BaryCEqCOS, B>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 }

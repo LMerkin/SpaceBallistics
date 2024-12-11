@@ -6,7 +6,8 @@
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/TimeScales.h"
 #include "SpaceBallistics/Maths/RotationMatrices.hpp"
-#include "SpaceBallistics/Utils.hpp"
+#include <utility>
+#include <tuple>
 
 namespace SpaceBallistics
 {
@@ -26,52 +27,63 @@ namespace SpaceBallistics
   //
   class EarthRotationModel
   {
-  private:
-    //-----------------------------------------------------------------------//
-    // Data Flds:                                                            //
-    //-----------------------------------------------------------------------//
-    // "M" is the (CRS_Epoch -> GCRS) "direct" conversion matrix, ie the
-    // Precession-Nutation matrx (P*N) such that
-    // r_GCRS = M * r_[CRS_Epoch] ;
-    // XXX: BiasCorrection and PolarMotion effects are currently deemed to be
-    // too small, and not taken into account:
-    double  m_M  [3][3];
-
-    // The Inverse of "M", for (GCRS -> CRS_Epoch) "inverse" conversions, s.t.
-    // r_[CRS_Epoch] = invM * r_GCRS, invM = invN * invP:
-    double m_invM[3][3];
-
-    // The Equation of the Origins: Ee = ERA - GAST:
-    Angle  m_Ee;
-
-    // DeltaT = TT - UT1:
-    Time   m_DeltaT;
-
-    // Default Ctor is deleted: without the Epoch, this model makes no sense:
-    EarthRotationModel() = delete;
-
   public:
     //-----------------------------------------------------------------------//
     // Obliquity of the Ecliptic @ J2000.0:                                  //
     //-----------------------------------------------------------------------//
     constexpr static Angle_arcSec Eps0 = 84381.406_arcSec;
 
+  private:
     //-----------------------------------------------------------------------//
-    // Non-Default Ctor:                                                     //
+    // Data Flds:                                                            //
+    //-----------------------------------------------------------------------//
+    Time_jyr  m_ermEpoch;     // Epoch of Precession-Nutation
+
+    // "PN" is the (CRS_Epoch -> GCRS) "direct" conversion matrix, ie the
+    // Precession-Nutation matrx (P*N) such that
+    // r_GCRS = PN * r_[CRS_Epoch] ;
+    // XXX: BiasCorrection and PolarMotion effects are currently deemed to be
+    // too small, and not taken into account:
+    Mtx33     m_PN;
+
+    // The Inverse of "PN", for (GCRS -> CRS_Epoch) "inverse" conversions, s.t.
+    // invPN = N^(-1) * P^(-1),
+    // r_[CRS_Epoch] = invPN * r_GCRS:
+    Mtx33     m_invPN;
+
+    // The Equation of the Origins: Ee = ERA - GAST:
+    Angle     m_Ee;
+
+    // DeltaT = TT - UT1:
+    Time      m_DeltaT;
+
+    // Default Ctor is deleted: without the Epoch, this model makes no sense:
+    EarthRotationModel() = delete;
+
+  public:
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctors:                                                    //
     //-----------------------------------------------------------------------//
     // Constructing the model for a given Year (may be fractional); the exact
     // TimeScale is presumably TT, but that does not matter here  because the
     // result depends on the Epoch VERY WEAKLY:
-    // NB: It is not a "constexpr" because requires DE440T invocations. Then
-    // there is no point in making any methods of this class "constexpr", ei-
-    // ther:
-    EarthRotationModel(Time_jyr a_epoch);
+    // NB: They are not "constexpr"s because require DE440T invocations:
+    //
+    EarthRotationModel(Time_jyr  a_erm_epoch);
+    EarthRotationModel(TT        a_erm_epoch);
+
+    // The Ctor with an integral YearNumber arg uses the Analytical Nutations
+    // Model (IAU2000B), and is therefore a "constexpr".  Intended for use in
+    // "GeoCDynEqFixCOS";  then "EarthRotationModel.hpp"  must  be incuded to
+    // provide the body of this Ctor:
+    //
+    constexpr EarthRotationModel(int a_erm_epoch_year);
 
     //-----------------------------------------------------------------------//
     // ITRS -> GCRS Conversion (of any "Vector3D"):                          //
     //-----------------------------------------------------------------------//
     template<typename  DQ, Body B = Body::UNDEFINED>
-    Vector3D<DQ, GCRS, B>  ToGCRS
+    constexpr Vector3D<DQ, GCRS, B>  ToGCRS
     (
       TT                           a_tt,
       Vector3D<DQ, ITRS, B> const& a_terr
@@ -79,25 +91,25 @@ namespace SpaceBallistics
     const
     {
       // NB: We must use GAST, not just ERA, because the former is consistent
-      // with the origin of RA (Dynamic Equinox of "a_epoch"):
-      // res = m_M * R3(-GAST) * a_terr:
-      Angle    gast   =  GAST(a_tt);
-      double   T[3][3];
-      MkMtsR3(-gast, T, nullptr);
+      // with the origin of RA (Dynamic Equinox of "m_ermEpoch):
+      // res = m_PN * R3(-GAST) * a_terr:
+      Angle   gast = GAST(a_tt);
+      Mtx33   T;
+      MkMtsR3(-gast, &T, nullptr);
 
       DQ       tmp[3];
-      MVMult3(T,   a_terr.GetArr(), tmp);
+      MVMult33(T,   a_terr.GetArr(), tmp);
 
       Vector3D<DQ, GCRS, B> res;
-      MVMult3(m_M, tmp,  res.GetArr());
-      return  res;
+      MVMult33(m_PN, tmp,  res.GetArr());
+      return   res;
     }
 
     //-----------------------------------------------------------------------//
-    // GCRS <-> ITRS Conversion (of any "Vector3D"):                         //
+    // GCRS -> ITRS Conversion (of any "Vector3D"):                          //
     //-----------------------------------------------------------------------//
     template<typename  DQ, Body B = Body::UNDEFINED>
-    Vector3D<DQ, ITRS, B>  ToITRS
+    constexpr Vector3D<DQ, ITRS, B>  ToITRS
     (
       TT                           a_tt,
       Vector3D<DQ, GCRS, B> const& a_geo
@@ -105,17 +117,17 @@ namespace SpaceBallistics
     const
     {
       // NB: Again, using GAST:
-      // res = R3(GAST) * m_invM * a_geo:
-      Angle   gast   =  GAST(a_tt);
-      double  T[3][3];
-      MkMtsR3(gast, T, nullptr);
+      // res = R3(GAST) * m_invPN * a_geo:
+      Angle   gast = GAST(a_tt);
+      Mtx33   T;
+      MkMtsR3(gast, &T, nullptr);
 
-      DQ      tmp [3];
-      MVMult3(m_invM,  a_geo.GetArr(), tmp);
+      DQ       tmp[3];
+      MVMult33(m_invPN,  a_geo.GetArr(), tmp);
 
       Vector3D<DQ, ITRS, B> res;
-      MVMult3(T, tmp,  res.GetArr());
-      return  res;
+      MVMult33(T, tmp,  res.GetArr());
+      return   res;
     }
 
     //-----------------------------------------------------------------------//
@@ -123,13 +135,68 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // NB: GAST is an a Angle, not Time:
     //
-    Angle GAST(TT a_tt) const;
+    constexpr Angle GAST(TT a_tt) const
+    {
+      // UT1_Since_Epoch = TT_Since_Epoch  - DeltaT:
+      Time ut1  = a_tt.GetTimeSinceEpoch() - m_DeltaT;
+
+      // EarthRotationAngle (ERA) is a linear function of UT1_Since_Epoch expr-
+      // essed in JDs:
+      double t  = double(To_Time_day(ut1) / 1.0_day);
+      Angle ERA =
+        TwoPi<double> *
+        Angle(0.779'057'273'264 + 1.002'737'811'911'354'480 * t);
+
+      // Finally, GAST = ERA + Ee:
+      return ERA + m_Ee;
+    }
 
     //-----------------------------------------------------------------------//
     // Accessors:                                                            //
     //-----------------------------------------------------------------------//
-    Angle GetEe()     const { return m_Ee;     }
-    Time  GetDeltaT() const { return m_DeltaT; }
+    constexpr Time_jyr     GetERMEpoch() const { return m_ermEpoch; }
+    constexpr Angle        GetEe      () const { return m_Ee;       }
+    constexpr Time         GetDeltaT  () const { return m_DeltaT;   }
+    constexpr Mtx33 const& GetPN      () const { return m_PN;       }
+    constexpr Mtx33 const& GetInvPN   () const { return m_invPN;    }
+
+  private:
+    //-----------------------------------------------------------------------//
+    // Utils (for internal use):                                             //
+    //-----------------------------------------------------------------------//
+    // Time from the Epoch (J2000.0) to "a_t" RELATIVE to Julian Centuries, as
+    // a mere "double": For use in various polynomial expansions:
+    //
+    constexpr static double GetJCYsSinceEpoch(Time_jyr a_t);
+
+    // Earth Precession Mtx and its Inverse:
+    constexpr static std::pair<Mtx33,Mtx33> MkPrecMts(double a_T);
+
+    // Earth Nutations Angles: (d(Psi), d(Eps), cos(eps)) using the Analytical
+    // Model (IAU2000B), hence "constexpr":
+    constexpr static std::pair<Angle,Angle> GetNutAnglesAnalyt(double a_T);
+
+    // Earth Nutation Matrix and its Inverse, via Nutation Angles. Also returns
+    // Cos(eps):
+    constexpr static std::tuple<Mtx33,Mtx33,double> MkNutMts
+      (double a_T, Angle a_dpsi, Angle a_deps);
+
+    // DeltaT = TT - UT1:
+    constexpr static Time GetDeltaT(Time_jyr a_t);
+
+  public:
+    //-----------------------------------------------------------------------//
+    // For External Testability:                                             //
+    //-----------------------------------------------------------------------//
+    // Earth Nutations Angles: (d(Psi), d(Eps), cos(eps)) using DE440T;  thus,
+    // NON-"constexpr":
+    //
+    static           std::pair<Angle,Angle> GetNutAnglesDE440T(Time_jyr a_t);
+
+    // An overload of "GetNutAnglesAnalyt" for external testability;  requires
+    // including the  "EarthRotationModel.hpp" for use:
+    //
+    constexpr static std::pair<Angle,Angle> GetNutAnglesAnalyt(Time_jyr a_t);
   };
 }
 // End namespace SpaceBallistics

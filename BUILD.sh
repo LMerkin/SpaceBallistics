@@ -122,11 +122,11 @@ mkdir -p $LibDir
 #-----------------------------------------------------------------------------#
 if [ $CountSrcLines -eq 1 ]
 then
-  EligFiles=$(find  . -type f    | \
-              grep -v  Docs      | \
-              grep -v  .git      | \
-              grep -v  __BUILD__ | \
-              grep -v  DE440T-   | \
+  EligFiles=$(find  . -type f   | \
+              grep -v Docs      | \
+              grep -v .git      | \
+              grep -v __BUILD__ | \
+              grep -v DE440T-   | \
               grep -v GravityPotential- )
   echo $(wc -l $EligFiles | grep total)
 fi
