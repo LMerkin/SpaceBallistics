@@ -14,9 +14,8 @@ namespace SpaceBallistics
   //=========================================================================//
   constexpr double EarthRotationModel::GetJCYsSinceEpoch(Time_jyr a_t)
   {
-    // XXX: "a_t" is actually the Year Number; it is OK to use the following
-    // "low-accuracy" formula (instead of exact Epoch = JD_TT 2451545.0):
-    return double((a_t - 2000.0_jyr) / Time_jyr(100.0));
+    // XXX: "a_t" is actually the Year Number:
+    return double((a_t - TBits::Epoch_J2000_Yr) / Time_jyr(100.0));
   }
     
   //=========================================================================//
@@ -420,7 +419,7 @@ namespace SpaceBallistics
   //=========================================================================//
   EarthRotationModel::EarthRotationModel(TT a_erm_epoch)
   : EarthRotationModel
-    (TT::EpochJYr + To_Time_jyr(a_erm_epoch.GetTimeSinceEpoch()))
+    (TBits::Epoch_J2000_Yr + To_Time_jyr(a_erm_epoch.GetTimeSinceEpoch()))
   {}
 
   //=========================================================================//

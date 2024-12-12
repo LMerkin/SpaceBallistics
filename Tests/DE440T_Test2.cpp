@@ -41,14 +41,14 @@ namespace
       return TT();
 
     UTC utc
-    {
-      .m_year  = tmUTC.tm_year + 1900,
-      .m_month = tmUTC.tm_mon  + 1,
-      .m_day   = tmUTC.tm_mday,
-      .m_hour  = tmUTC.tm_hour,
-      .m_min   = tmUTC.tm_min,
-      .m_sec   = double(tmUTC.tm_sec)
-    };
+    (
+      tmUTC.tm_year + 1900,
+      tmUTC.tm_mon  + 1,
+      tmUTC.tm_mday,
+      tmUTC.tm_hour,
+      tmUTC.tm_min,
+      double(tmUTC.tm_sec)
+    );
     return TT(utc);
   }
 

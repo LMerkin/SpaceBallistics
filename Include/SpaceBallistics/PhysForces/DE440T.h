@@ -1,45 +1,19 @@
 // vim:ts=2:et
 //===========================================================================//
 //                  "SpaceBallistics/PhysForces/DE440T.h":                   //
-//                         JPL DE440T Ephemerides                            //
+//                    API to the JPL DE440T Ephemerides                      //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/Utils.hpp"
-#include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/TimeScales.h"
 #include "SpaceBallistics/CoOrds/BaryCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
+#include "SpaceBallistics/PhysForces/BodyData.hpp"    // Has DE440T namespace!
+#include "SpaceBallistics/PhysForces/DE440T-Data.h"
 
 namespace SpaceBallistics::DE440T
 {
-  //=========================================================================//
-  // Constants:                                                              //
-  //=========================================================================//
-  //-------------------------------------------------------------------------//
-  // Gravitational and Mass Params of Bodies:                                //
-  //-------------------------------------------------------------------------//
-  template<Body B>
-  constexpr GMK K;
-
-  template<> constexpr inline GMK K<Body::Sun>     = GMK(132712440041.279419);
-  template<> constexpr inline GMK K<Body::Mercury> = GMK(       22031.868551);
-  template<> constexpr inline GMK K<Body::Venus>   = GMK(      324858.592   );
-  template<> constexpr inline GMK K<Body::Earth>   = GMK(      398600.435507);
-  template<> constexpr inline GMK K<Body::Moon>    = GMK(        4902.800118);
-  template<> constexpr inline GMK K<Body::EMB>     = K<Body::Earth>
-                                                   + K<Body::Moon>;
-  template<> constexpr inline GMK K<Body::Mars>    = GMK(       42828.375816);
-  template<> constexpr inline GMK K<Body::Jupiter> = GMK(   126712764.1     );
-  template<> constexpr inline GMK K<Body::Saturn>  = GMK(    37940584.8418  );
-  template<> constexpr inline GMK K<Body::Uranus>  = GMK(     5794556.4     );
-  template<> constexpr inline GMK K<Body::Neptune> = GMK(     6836527.10058 );
-  template<> constexpr inline GMK K<Body::PlChB>   = GMK(         975.5     );
-
-  // Earth/Moon Mass Ratio:
-  constexpr  inline double EMRat      = 81.3005682214972154;
-  static_assert(K<Body::Earth>.ApproxEquals(K<Body::Moon> * EMRat, 1e-10));
-
   //=========================================================================//
   // API to DE440T Ephemerides:                                              //
   //=========================================================================//
@@ -161,25 +135,14 @@ namespace SpaceBallistics::DE440T
     constexpr inline Time_jyr FromY = 1650.0_jyr;
     constexpr inline Time_jyr ToY   = 2149.0_jyr;
 
-    // The Number of DE440T Data Records:
-    constexpr inline int NR  = 5707;
-
-    // Temporal Span of each Record:
+    // Temporal Span of each Record.  NB: "NR", "ND" are in "DE440T-Data.h":
     constexpr Time      RecSpan =  To_Time(32.0_day);
     static_assert(double(NR) * RecSpan == To - From);
-
-    // Size of each record in "double"s:
-    constexpr inline int ND  = 1122;
 
     //-----------------------------------------------------------------------//
     // "TemporalConsistencyTest":                                            //
     //-----------------------------------------------------------------------//
     void TemporalConsistencyTest();
-
-    //-----------------------------------------------------------------------//
-    // The Actual Data:                                                      //
-    //-----------------------------------------------------------------------//
-    extern double const Data[NR][ND];
   }
   // End namespace Bits
 }

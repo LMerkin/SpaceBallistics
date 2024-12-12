@@ -29,16 +29,9 @@ int main()
   for (int m = 1; m <= 12; ++m)
   for (int d = 1; d <= UTC::DaysInMonth(Year, m); ++d, ++dc)
   {
-    // First, the UTC:
-    UTC utc
-    {
-      .m_year  = Year,
-      .m_month = m,
-      .m_day   = d,
-      .m_hour  = 12,   // Noon!
-      .m_min   = 0,
-      .m_sec   = 0.0
-    };
+    // First, the UTC (@ Noon!)
+    UTC utc(Year, m, d, 12, 0, 0.0);
+
     // Get the TT and TDB from the above UTC:
     TT  tt (utc);
     TDB tdb(tt);
@@ -64,8 +57,7 @@ int main()
     // Convert the "topSun" co-ords into Spgerical ones: For the moment, we only
     // need the Lambda. This is the longitude of the Sun at Noon (should be aro-
     // und 0, since our location is in the XZ plane):
-    SpherPV<TCOS0, Body::Sun> spherTopSun
-      {topSun, VelKV<TCOS0, Body::Sun>() };
+    SpherPV<TCOS0, Body::Sun> spherTopSun(topSun);
 
     // Output the Longitude of the Sun, in Degrees:
     printf("%d\t%.6lf\n",

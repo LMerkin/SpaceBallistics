@@ -368,9 +368,7 @@ namespace SpaceBallistics::DE440T
 
         if (a_vel != nullptr)
           // Provide the Dots (Velocities) as well. They are NOT stored  in the
-          // DE440T data sets, so we have to differentiate the Chebyshev Series
-          // (XXX:  do they really provide good approximations in C1,  not just
-          // in C0???):
+          // DE440T data sets, so we have to differentiate the Chebyshev Series:
           a_vel[i] = Chebyshev::SumDT<double, CT<Obj>>(NCC<Obj>-1, coeffsI, x)
                    * dxdt;
       }

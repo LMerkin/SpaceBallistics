@@ -31,6 +31,76 @@ namespace SpaceBallistics
     int    const m_min;     //  0..59
     double const m_sec;     // [0..60), or [0..61) if LeapSecond
 
+    // NB: Default Ctor is implicitly deleted!
+
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctors: From Date and Time:                                //
+    //-----------------------------------------------------------------------//
+    constexpr explicit UTC
+    (
+      std::tuple<int, int, int>    const& a_date,
+      std::tuple<int, int, double> const& a_time = std::make_tuple(0, 0, 0.0)
+    )
+    : m_year (std::get<0>(a_date)),
+      m_month(std::get<1>(a_date)),
+      m_day  (std::get<2>(a_date)),
+      m_hour (std::get<0>(a_time)),
+      m_min  (std::get<1>(a_time)),
+      m_sec  (std::get<2>(a_time))
+    {
+      // Verification:
+      assert(IsValid());
+    }
+
+    constexpr explicit UTC
+    (
+      int a_year,     int a_month = 1, int    a_day = 1,
+      int a_hour = 0, int a_min   = 0, double a_sec = 0.0
+    )
+    : m_year (a_year),
+      m_month(a_month),
+      m_day  (a_day),
+      m_hour (a_hour),
+      m_min  (a_min),
+      m_sec  (a_sec)
+    {
+      // Verification:
+      assert(IsValid());
+    }
+
+    //-----------------------------------------------------------------------//
+    // Comparison:                                                           //
+    //-----------------------------------------------------------------------//
+    constexpr bool operator== (UTC const& a_r) const = default;
+
+    constexpr bool operator<  (UTC const& a_r) const
+    {
+      return
+        (m_year <  a_r.m_year)
+        ||
+        (m_year == a_r.m_year && m_month <  a_r.m_month)
+        ||
+        (m_year == a_r.m_year && m_month == a_r.m_month  &&
+         m_day  <  a_r.m_day)
+        ||
+        (m_year == a_r.m_year && m_month == a_r.m_month  &&
+         m_day  <  a_r.m_day)
+        ||
+        (m_year == a_r.m_year && m_month == a_r.m_month  &&
+         m_day  == a_r.m_day  && m_hour  <  a_r.m_hour)
+        ||
+        (m_year == a_r.m_year && m_month == a_r.m_month  &&
+         m_day  == a_r.m_day  && m_hour  <  a_r.m_hour)
+        ||
+        (m_year == a_r.m_year && m_month == a_r.m_month  &&
+         m_day  == a_r.m_day  && m_hour  == a_r.m_hour   &&
+         m_min  <  a_r.m_min)
+        ||
+        (m_year == a_r.m_year && m_month == a_r.m_month  &&
+         m_day  == a_r.m_day  && m_hour  == a_r.m_hour   &&
+         m_min  == a_r.m_min  && m_sec   <  a_r.m_sec);
+    }
+
     //-----------------------------------------------------------------------//
     // Consts:                                                               //
     //-----------------------------------------------------------------------//
@@ -110,12 +180,12 @@ namespace SpaceBallistics
     }
 
     //-----------------------------------------------------------------------//
-    // "CumPrevLeapSecs":                                                    //
+    // "GetCumPrevLeapSecs":                                                 //
     //-----------------------------------------------------------------------//
     // Cumulative number of Leap Seconds BEFORE this instant. If it corresponds
-    // to a Leap Second itself, the current Leap Second does NOT count yet:
+    // to a Leap Second itself, the current Leap Second is NOT counted yet:
     //
-    constexpr Time CumPrevLeapSecs() const
+    constexpr Time GetCumPrevLeapSecs() const
     {
       int res = NLS;
       for (int i = NLS-1; i >= 0; --i, --res)
@@ -132,88 +202,59 @@ namespace SpaceBallistics
   };
 
   //=========================================================================//
-  // "TT" Class:                                                             //
+  // Utils for UTC <-> TT Conversion:                                        //
   //=========================================================================//
-  // Terrestrial Time (Uniform, Relativistic), implemented via TAI (with an
-  // offset):
-  class TDB;
-
-  class TT
+  namespace TBits
   {
-  private:
-    //-----------------------------------------------------------------------//
-    // Data Flds:                                                            //
-    //-----------------------------------------------------------------------//
-    // The time is stored in "Modified Julian Seconds",  ie as a number of TAI
-    // seconds since the (Modified) Epoch of J2000.0. XXX: This representation
-    // has precision of 1 microsecond over the time span of +- 150 years only,
-    // which is barely sufficient:
-    Time      m_MJS;
+    //=======================================================================//
+    // Consts:                                                               //
+    //=======================================================================//
+    // The J2000.0 Epoch = 2000 Jan 1.5 (will be used in TT and TDB):
+    //
+    constexpr inline Time_day Epoch_J2000    = 2451545.0_day;
+    constexpr inline Time_jyr Epoch_J2000_Yr = Time_jyr(2000.0 + 0.5 / 365.25);
 
-  public:
-    //-----------------------------------------------------------------------//
-    // Default Ctor, Copy Ctor, Assignment, Equality:                        //
-    //-----------------------------------------------------------------------//
-    // NB: Default Ctor returns the Epoch (J2000.0):
-    constexpr TT              ()                = default;
-    constexpr TT              (TT const&)       = default;
-    constexpr TT&  operator=  (TT const&)       = default;
-    constexpr bool operator== (TT const&) const = default;
+    // Fixed TT-TAI  diff:
+    constexpr inline Time     TT_TAI         = 32.184_sec;
 
-    // The J2000.0 Epoch = 2000 Jan 1.5, in TT:
-    constexpr static Time_day Epoch    = 2451545.0_day;
-    constexpr static Time_jyr EpochJYr = Time_jyr(2000.0 + 0.5 / 365.25);
-
-    // Fixed TT-TAI offset:
-    constexpr static Time     TT_TAI = 32.184_sec;
-
-    //-----------------------------------------------------------------------//
-    // Non-Default Ctors:                                                    //
-    //-----------------------------------------------------------------------//
-    // From UTC:
-    constexpr explicit TT(UTC const& a_utc)
+    //=======================================================================//
+    // Old-Style (1961--1972) "DeltaAT" Nodes:                               //
+    //=======================================================================//
+    struct OldDeltaATNode
     {
-      // Compute the TAI components:
-      auto [JD_UTC, DeltaAT]  = MkTAI(a_utc);
+      UTC       m_utc;
+      Time_sec  m_a;
+      Time_day  m_base;
+      Time_sec  m_b;
+    };
 
-      // Don't forget to include the fixed TT-TAI offset:
-      m_MJS  = To_Time(JD_UTC - Epoch) + DeltaAT + TT_TAI;
-    }
+    // DeltaAT = (TAI-UTC) difference, in sec.
+    // The data are from the Explanatory Supplement to the Astronomical
+    // Almanach, 3rd ed., 2013:
+    constexpr int            NODAT   = 14;
+    constexpr OldDeltaATNode ODATNodes[NODAT]
+    {
+      // Prior to 1961: The diff is not known, XXX: assume it to be 0:
+      { UTC(1961,  1), 0.0_sec,      2437300.5_day, 0.0_sec       },
+      { UTC(1961,  8), 1.422818_sec, 2437300.5_day, 0.001296_sec  },
+      { UTC(1962,  1), 1.372818_sec, 2437300.5_day, 0.001296_sec  },
+      { UTC(1963, 11), 1.845858_sec, 2437665.5_day, 0.0011232_sec },
+      { UTC(1964,  1), 1.945858_sec, 2437665.5_day, 0.0011232_sec },
+      { UTC(1964,  4), 3.240130_sec, 2438761.5_day, 0.001296_sec  },
+      { UTC(1964,  9), 3.340130_sec, 2438761.5_day, 0.001296_sec  },
+      { UTC(1965,  1), 3.440130_sec, 2438761.5_day, 0.001296_sec  },
+      { UTC(1965,  3), 3.540130_sec, 2438761.5_day, 0.001296_sec  },
+      { UTC(1965,  7), 3.640130_sec, 2438761.5_day, 0.001296_sec  },
+      { UTC(1965,  9), 3.740130_sec, 2438761.5_day, 0.001296_sec  },
+      { UTC(1966,  1), 3.840130_sec, 2438761.5_day, 0.001296_sec  },
+      { UTC(1968,  2), 4.313170_sec, 2439126.5_day, 0.002592_sec  },
+      { UTC(1972,  1), 4.213170_sec, 2439126.5_day, 0.002592_sec  }
+      // Since 1972, Leap Seconds are used...
+    };
 
-    // Directly constructing TT from JD_TT:
-    constexpr explicit TT(Time_day a_jd_tt)
-    : m_MJS    (To_Time_sec(a_jd_tt - Epoch))
-    {}
-
-    // Directly constructing from JYear_TT. XXX: In this case we assume that
-    // the Epoch is 2000.0 exactly. XXX: This is for "low-precision" computa-
-    // tions such as Precession Matrices:
-    //
-    constexpr explicit TT(Time_jyr a_jyr_tt)
-    : m_MJS    (To_Time_sec( a_jyr_tt - EpochJYr))
-    {}
-
-    // From TDB (not "constexpr", as DE440T is required):
-    explicit TT(TDB const& a_tdb);
-
-    //-----------------------------------------------------------------------//
-    // Extracting the Time value (since the Epoch) or JD_TT val:             //
-    //-----------------------------------------------------------------------//
-    // XXX: USE WITH CARE, as TimeScale info is then lost:
-    //
-    constexpr Time     GetTimeSinceEpoch() const
-      { return m_MJS; }
-
-    constexpr Time_day GetJDsSinceEpoch () const
-      { return To_Time_day(m_MJS); }
-
-    // Extracting the JD_TDB:
-    constexpr Time_day GetJD            () const
-      { return Epoch + To_Time_day(m_MJS); }
-
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // "MkTAI":                                                              //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // Util used as part of UTC->TT conversion. For a given UTC, returns the
     // pair (JD_UTC, DeltaAT), where DeltaAT = TAI - UTC. Can be used in the
     // stand-alone mode as well:
@@ -247,68 +288,192 @@ namespace SpaceBallistics
                          double(a_utc.m_min)  /  1440.0 +
                          a_utc.m_sec          / 86400.0);
 
-      // MJD (Modified Julian Days) is used in the DeltaAT computation below:
-      Time_day mjd = JD_UTC - 2'400'000.5_day;
+      // Finally, DeltaAT = TAI-UTC (initially 0):
+      Time DeltaAT;
 
-      // DeltaAT = (TAI-UTC) difference, in sec.
-      // The formulas are from the Explanatory Supplement to the Astronomical
-      // Almanach, 3rd ed., 2013:
-      //
-      Time DeltaAT =
-        //
-        // Prior to 1961: The diff is not known, XXX: assume it to be 0 :
-        //
-        (a_utc.m_year <  1961)
-        ? 0.0_sec :
-        //
-        // Prior to introduction of Leap Seconds in 1972:
-        //
-        (a_utc.m_year == 1961 && a_utc.m_month < 8)
-        ? 1.422818_sec + double((mjd - 37300.0_day)/1.0_day) * 0.001296_sec
-        :
-        (a_utc.m_year <  1962)
-        ? 1.372818_sec + double((mjd - 37300.0_day)/1.0_day) * 0.001296_sec 
-        :
-        (a_utc.m_year == 1962 || (a_utc.m_year == 1963 && a_utc.m_month < 11))
-        ? 1.845858_sec + double((mjd - 37665.0_day)/1.0_day) * 0.0011232_sec
-        :
-        (a_utc.m_year == 1963)
-        ? 1.945858_sec + double((mjd - 37665.0_day)/1.0_day) * 0.0011232_sec
-        :
-        (a_utc.m_year == 1964 && a_utc.m_month < 4)
-        ? 3.240130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
-        :
-        (a_utc.m_year == 1964 && a_utc.m_month < 9)
-        ? 3.340130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
-        :
-        (a_utc.m_year == 1964)
-        ? 3.440130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
-        :
-        (a_utc.m_year == 1965 && a_utc.m_month < 3)
-        ? 3.540130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
-        :
-        (a_utc.m_year == 1965 && a_utc.m_month < 7)
-        ? 3.640130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
-        :
-        (a_utc.m_year == 1965 && a_utc.m_month < 9)
-        ? 3.740130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
-        :
-        (a_utc.m_year == 1965)
-        ? 3.840130_sec + double((mjd - 38761.0_day)/1.0_day) * 0.001296_sec
-        :
-        (a_utc.m_year <  1968 || (a_utc.m_year == 1968 && a_utc.m_month < 2))
-        ? 4.313170_sec + double((mjd - 39126.0_day)/1.0_day) * 0.002592_sec
-        :
-        (a_utc.m_year <  1972)
-        ? 4.213170_sec + double((mjd - 39126.0_day)/1.0_day) * 0.002592_sec
-        :
-        // Since 1972, the Leap Seconds are used (don't forget the initial
-        // offset of 10 sec!):
-        10.0_sec + a_utc.CumPrevLeapSecs();
-
-        // All Done:
-        return std::make_pair(JD_UTC, DeltaAT);
+      // Try "Old-Style" nodes first:
+      bool found = false;
+      for (int i = 0; i < NODAT; ++i)
+      {
+        OldDeltaATNode const& node = ODATNodes[i];
+        if (a_utc < node.m_utc)
+        {
+          DeltaAT =
+            node.m_a + double((JD_UTC - node.m_base) / 1.0_day) * node.m_b;
+          found   = true;
+          break;
+        }
+      }
+      // If we got here and "DeltaAT" has not neen found yet,
+      // so UTC must be >= 1972: Use Leap Seconds:
+      if (!found)
+      {
+        assert(a_utc.m_year >= 1972);
+        // Don't forget the initial 10.0 Leap Seconds:
+        DeltaAT = 10.0_sec + a_utc.GetCumPrevLeapSecs();
+      }
+      // All Done:
+      return std::make_pair(JD_UTC, DeltaAT);
     }
+
+    //=======================================================================//
+    // "MkMJSTT":                                                            //
+    //=======================================================================//
+    constexpr Time MkMJSTT(UTC const& a_utc)
+    {
+      // Compute the TAI components:
+      auto [JD_UTC, DeltaAT]  = MkTAI(a_utc);
+
+      // Don't forget to include the fixed TT-TAI offset:
+      return To_Time(JD_UTC - Epoch_J2000) + DeltaAT + TT_TAI;
+    }
+  }
+
+  //=========================================================================//
+  // "TT" Class:                                                             //
+  //=========================================================================//
+  // Terrestrial Time (Uniform, Relativistic), implemented via TAI (with an
+  // offset):
+  class TDB;
+
+  class TT
+  {
+  private:
+    //-----------------------------------------------------------------------//
+    // Data Flds:                                                            //
+    //-----------------------------------------------------------------------//
+    // The time is stored in "Modified Julian Seconds",  ie as a number of TAI
+    // seconds since the (Modified) Epoch of J2000.0. XXX: This representation
+    // has precision of 1 microsecond over the time span of +- 150 years only,
+    // which is barely sufficient:
+    Time      m_MJS;
+
+  public:
+    //-----------------------------------------------------------------------//
+    // Default Ctor, Copy Ctor, Assignment, Equality:                        //
+    //-----------------------------------------------------------------------//
+    // NB: Default Ctor actually returns the Epoch_J2000 in TT:
+    constexpr TT              ()                = default;
+    constexpr TT              (TT const&)       = default;
+    constexpr TT&  operator=  (TT const&)       = default;
+    constexpr bool operator== (TT const&) const = default;
+
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctors:                                                    //
+    //-----------------------------------------------------------------------//
+    // From UTC:
+    constexpr explicit  TT(UTC const& a_utc)
+    : m_MJS(TBits::MkMJSTT(a_utc))
+    {}
+
+    // Directly constructing TT from JD_TT:
+    constexpr explicit TT(Time_day a_jd_tt)
+    : m_MJS    (To_Time_sec(a_jd_tt - TBits::Epoch_J2000))
+    {}
+
+    // Directly constructing from JYear_TT:
+    constexpr explicit TT(Time_jyr a_jyr_tt)
+    : m_MJS    (To_Time_sec( a_jyr_tt - TBits::Epoch_J2000_Yr))
+    {}
+
+    // From TDB (not "constexpr", as DE440T is required):
+    explicit TT(TDB const& a_tdb);
+
+    //-----------------------------------------------------------------------//
+    // Extracting the Time value (since the Epoch) or JD_TT val:             //
+    //-----------------------------------------------------------------------//
+    // XXX: USE WITH CARE, as TimeScale info is then lost:
+    //
+    constexpr Time     GetTimeSinceEpoch() const
+      { return m_MJS; }
+
+    constexpr Time_day GetJDsSinceEpoch () const
+      { return To_Time_day(m_MJS); }
+
+    // Extracting the JD_TDB:
+    constexpr Time_day GetJD            () const
+      { return TBits::Epoch_J2000 + To_Time_day(m_MJS); }
+
+    //-----------------------------------------------------------------------//
+    // Consts for "GetUTC":                                                  //
+    //-----------------------------------------------------------------------//
+    // Old-Style (1961--1972) "DeltaAT" Nodes in MJS_TT:
+    //
+    constexpr static Time OldDeltaATNodesMJS[TBits::NODAT]
+    {
+      TBits::MkMJSTT(TBits::ODATNodes[ 0].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 1].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 2].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 3].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 4].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 5].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 6].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 7].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 8].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[ 9].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[10].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[11].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[12].m_utc),
+      TBits::MkMJSTT(TBits::ODATNodes[13].m_utc)
+    };
+
+    // Beginnings of Leap Seconds in MJS_TT:
+    //
+    constexpr static std::tuple<int, int, double> LeapSecTime =
+      std::make_tuple(23, 59, 60.0);
+
+    constexpr static Time LeapSecondsStartMJS[UTC::NLS]
+    {
+      // XXX: A horrible boiler-plate, but there is no easy way to constract a
+      // "constexpr" array via a mapping function. Fortunately, no new Leap Se-
+      // conds are expected any time soon:
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 0], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 1], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 2], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 3], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 4], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 5], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 6], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 7], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 8], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 9], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[10], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[11], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[12], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[13], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[14], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[15], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[16], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[17], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[18], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[19], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[20], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[21], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[22], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[23], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[24], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[25], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[26], LeapSecTime))
+    };
+
+    //-----------------------------------------------------------------------//
+    // "GetDeltaAT":                                                         //
+    //-----------------------------------------------------------------------//
+    // Unlike "TBits::GetDeltaAT", here the arg is TT:
+    //
+/*
+    constexpr Time GetDeltaAT() const
+    {
+    }
+
+    //-----------------------------------------------------------------------//
+    // "GetUTC": TT -> UTC Conversion:                                       //
+    //-----------------------------------------------------------------------//
+    constexpr operator UTC() const
+    {
+      // First, try Old-Style Nodes:
+    }
+*/
 
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //
@@ -380,15 +545,12 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Default Ctor, Copy Ctor, Assignment, Equality:                        //
     //-----------------------------------------------------------------------//
-    // NB: Default Ctor returns the Epoch (J2000.0):
+    // NB: Default Ctor returns the Epoch_J2000 but in TDB:
     constexpr TDB              ()                 = default;
     constexpr TDB              (TDB const&)       = default;
     constexpr TDB&  operator=  (TDB const&)       = default;
     constexpr bool  operator== (TDB const&) const = default;
 
-    // The J2000.0 Epoch = 2000 Jan 1.5, in TDB:
-    constexpr static Time_day Epoch = 2451545.0_day;
-    
     //-----------------------------------------------------------------------//
     // Non-Default Ctors:                                                    //
     //-----------------------------------------------------------------------//
@@ -398,11 +560,11 @@ namespace SpaceBallistics
 
     // Directly constructing TDB from JD_TDB:
     constexpr explicit TDB (Time_day a_jd_tdb)
-    : m_MJS    (To_Time_sec(a_jd_tdb - Epoch))
+    : m_MJS    (To_Time_sec(a_jd_tdb - TBits::Epoch_J2000))
     {}
 
     //-----------------------------------------------------------------------//
-    // Extracting the Time value (since the Epoch) or JD_TDB val:            //
+    // Extracting the Time value (since the Epoch_J2000) or JD_TDB val:      //
     //-----------------------------------------------------------------------//
     // XXX: USE WITH CARE, as TimeScale info is then lost:
     //
@@ -413,8 +575,8 @@ namespace SpaceBallistics
       { return To_Time_day(m_MJS); }
 
     // Extracting the JD_TDB:
-    constexpr Time_day GetJD            () const
-      { return Epoch + To_Time_day(m_MJS); }
+    constexpr  Time_day GetJD           () const
+      { return TBits::Epoch_J2000 + To_Time_day(m_MJS); }
 
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //

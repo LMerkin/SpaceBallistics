@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
       PosKV<GCRS> celestPolarVec = era.ToGCRS(TT{t}, TerrPolarVec);
 
       // Convert  the  "celestPolarVec" into Spherical Co-Ords:
-      SpherPV<GCRS> celestPolarSph(celestPolarVec, VelKV<GCRS>());
+      SpherPV<GCRS> celestPolarSph(celestPolarVec);
 
       // The Dynamic Equinox vector extracted from the "era":  it's Col0 of the
       // PN matrix.
@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
       Mtx33 const&   PN  = era.GetPN();
       Vector3D<LenK, void> equinox
         { 1.0_km * PN(0,0), 1.0_km * PN(1,0), 1.0_km * PN(2,0) };
-      SpherPV<void> equinoxSph(equinox, VelKV<void>());
+      SpherPV<void> equinoxSph(equinox);
 
       // Output:
       printf("%.1lf\t"                // Time (Year Number)

@@ -1,37 +1,29 @@
 // vim:ts=2:et
 //===========================================================================//
-//                           "Tests/JD_Test.cpp":												     //
+//                           "Tests/JD_Test.cpp":                            //
 //===========================================================================//
 #include "SpaceBallistics/CoOrds/TimeScales.h"
 #include <cstdio>
 
 int main()
 {
-	using namespace SpaceBallistics;
-	using namespace std;
+  using namespace SpaceBallistics;
+  using namespace std;
 
   //-------------------------------------------------------------------------//
   // UTC->TAI Conversion Test:                                               //
   //-------------------------------------------------------------------------//
-	for (int year  = 1960; year  <= 2025; ++year)
-	for (int month = 1;    month <= 12;   ++month)
-	{
-		UTC utc
-		{
-			.m_year  = year,
-			.m_month = month,
-			.m_day	 = 1,
-			.m_hour  = 0,
-			.m_min	 = 0,
-			.m_sec   = 0.0
-		};
-		auto [JD_UTC, DeltaAT] = TT::MkTAI(utc);
+  for (int year  = 1960; year  <= 2025; ++year)
+  for (int month = 1;    month <= 12;   ++month)
+  {
+    UTC utc(year, month, 1,  0, 0, 0.0);
+    auto [JD_UTC, DeltaAT] = TBits::MkTAI(utc);
 
     double yf  = double(year) + double(month - 1)/12.0;
 
     printf("%.3lf\t%.2lf\t%.3lf\n",
            yf, JD_UTC.Magnitude(), DeltaAT.Magnitude());
-	}
+  }
 
   //-------------------------------------------------------------------------//
   // Leap Seconds Test:                                                      //
@@ -44,26 +36,16 @@ int main()
     assert((m == 6 && d == 30) || (m == 12 && d == 31));
 
     // Beginning of this Leap Second:
-    UTC utc0
-    {
-      .m_year  = y,
-      .m_month = m,
-      .m_day   = d,
-      .m_hour  = 23,
-      .m_min   = 59,
-      .m_sec   = 60.0
-    };
+    UTC utc0(y, m, d, 23, 59, 60.0);
 
     // Beginning of the next second:
     UTC utc1
-    {
-      .m_year  = (m == 6) ? y : (y+1),
-      .m_month = (m == 6) ? 7 : 1,
-      .m_day   = 1,
-      .m_hour  = 0,
-      .m_min   = 0,
-      .m_sec   = 0.0
-    };
+    (
+      (m == 6) ? y : (y+1),
+      (m == 6) ? 7 : 1,
+      1,
+      0, 0, 0.0
+    );
 
     // Compute the TT for both instants:
     TT tt0(utc0);

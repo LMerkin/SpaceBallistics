@@ -61,12 +61,12 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Constructing "SpherPV" from the Rectangular PV Vectors:
     //
-    constexpr SpherPV
+    constexpr explicit SpherPV
     (
-      PosKV<COS, B> const& a_pos, // Must be non-0
-      VelKV<COS, B> const& a_vel  // May  be 0
+      PosKV<COS, B> const& a_pos,                   // Must be non-0
+      VelKV<COS, B> const& a_vel = VelKV<COS, B>()  // May  be     0
     )
-    : SpherPV()                   // Zero-out all components by default
+    : SpherPV()     // Zero-out all components by default
     {
       // Position:
       m_rho      = LenK(a_pos);

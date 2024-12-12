@@ -7,7 +7,7 @@
 // FIXME: This implementation uses a GPL integrator which is NOT DimTypes-
 // aware. Must be replaced by our own DimTypes-based integrator:
 //
-#include "SpaceBallistics/PhysForces/GravityField.hpp"
+#include "SpaceBallistics/PhysForces/GravityFld.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/Locations.h"
@@ -81,9 +81,9 @@ namespace
     // collision with the Lunar surface; 
     try
     {
-      GravityField<Body::Moon>::GravAcc(Time(a_t), posR, &accR);
+      GravityFld<Body::Moon>::GravAcc(Time(a_t), posR, &accR);
     }
-    catch (GravityField<Body::Moon>::ImpactExn const& exn)
+    catch (GravityFld<Body::Moon>::ImpactExn const& exn)
     {
       // An exception would mean a likely collison with Lunar surface; stop the
       // integration immediately:
@@ -111,21 +111,6 @@ namespace
 }
 
 //===========================================================================//
-// Lunar Gravitational Field Coeffs:                                         //
-//===========================================================================//
-namespace SpaceBallistics
-{
-  // We need to tell the compiler that "s_coeffs" are provided in a separate
-  // compilation unit, otherwise a warning is generated in CLang:
-  //
-  using MGF = GravityField<Body::Moon>;
-
-  extern template
-  MGF::SpherHarmonicCoeffs const
-  GravityField<Body::Moon>::s_coeffs[((MGF::N+1)*(MGF::N+2))/2];
-}
-
-//===========================================================================//
 // "main":                                                                   //
 //===========================================================================//
 int main()
@@ -141,8 +126,8 @@ int main()
   //
   constexpr Time t0     = 0.0_sec;
   constexpr LenK h0     = 20.0_km;
-  constexpr LenK ReMoon = Location    <Body::Moon>::Re;
-  constexpr GMK  KMoon  = GravityField<Body::Moon>::K;
+  constexpr LenK ReMoon = Location  <Body::Moon>::Re;
+  constexpr GMK  KMoon  = GravityFld<Body::Moon>::K;
   constexpr LenK r0     = ReMoon     + h0;
   constexpr VelK V0     = SqRt(KMoon / r0);
 

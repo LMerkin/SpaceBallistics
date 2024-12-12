@@ -70,10 +70,10 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Constructing "SpherPV" from the Rectangular PV Vectors:
     //
-    constexpr EllipsPV
+    constexpr explicit EllipsPV
     (
-      PosKVRot<BBody, B> const& a_pos, // Must be non-0
-      VelKVRot<BBody, B> const& a_vel  // May  be 0
+      PosKVRot<BBody, B> const& a_pos,                        // Must be non-0
+      VelKVRot<BBody, B> const& a_vel = VelKVRot<BBody, B>()  // May  be     0
     )
     : EllipsPV()         // Zero-out all components by default
     {
