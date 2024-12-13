@@ -122,12 +122,17 @@ mkdir -p $LibDir
 #-----------------------------------------------------------------------------#
 if [ $CountSrcLines -eq 1 ]
 then
-  EligFiles=$(find  . -type f   | \
-              grep -v Docs      | \
-              grep -v .git      | \
-              grep -v __BUILD__ | \
-              grep -v DE440T-   | \
-              grep -v GravityPotential- )
+  EligFiles=$(find  . -type f              | \
+              grep -v Docs                 | \
+              grep -v .git                 | \
+              grep -v __BUILD__            | \
+              grep -v DE440T-1650-1750.hpp | \
+              grep -v DE440T-1750-1850.hpp | \
+              grep -v DE440T-1850-1950.hpp | \
+              grep -v DE440T-1950-2050.hpp | \
+              grep -v DE440T-2050-2150.hpp | \
+              grep -v GravityFld-Earth.hpp | \
+              grep -v GravityFld-Moon.hpp )
   echo $(wc -l $EligFiles | grep total)
 fi
 

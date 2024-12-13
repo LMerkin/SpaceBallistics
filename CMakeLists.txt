@@ -194,7 +194,7 @@ SET(SB_TESTS
   LagrangeNormTest
   LunarOrbiterTest
   ChebyshevTest
-  TAI_Test
+  TT_UTC_Test
   DE440T_Test0
   DE440T_Test1
   DE440T_Test2

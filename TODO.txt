@@ -1,4 +1,3 @@
--- TT -> UTC conversion
 -- Complete GeoCDynEqFixCOS
 -- Complete EllipsPV and possibly modify Locations
 -- Complete TimeScales (implement FlightTime)

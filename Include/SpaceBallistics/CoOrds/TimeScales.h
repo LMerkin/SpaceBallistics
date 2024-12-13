@@ -451,6 +451,10 @@ namespace SpaceBallistics
     constexpr bool operator>= (TT a_right) const
       { return m_MJS >= a_right.m_MJS; }
 
+    constexpr bool ApproxEquals
+      (TT a_right, double a_tol = Bits::CEMaths::Eps<double> * 100.0) const
+      { return m_MJS.ApproxEquals(a_right.m_MJS, a_tol); }
+
   private:
     //-----------------------------------------------------------------------//
     // Consts for TT -> UTC Conversion:                                      //
@@ -520,8 +524,9 @@ namespace SpaceBallistics
       //---------------------------------------------------------------------//
       Time_day jd_utc;  // Initially 0, which is never valid
 
-      // Very old instants: DeltaAT=0, so just subtract the fixed offset:
-      if (m_MJS <= ODATNodesMJS[0])
+      // Very old instants (BEFORE 1961): DeltaAT=0, so just subtract the fixed
+      // TT_TAI offset:
+      if (m_MJS < ODATNodesMJS[0])
         jd_utc = TBits::Epoch_J2000 + To_Time_day(m_MJS - TBits::TT_TAI);
       else
       {
@@ -531,6 +536,7 @@ namespace SpaceBallistics
           // Check the monotonicity:
           assert(i == TBits::NODATN-1 || ODATNodesMJS[i] < ODATNodesMJS[i+1]);
 
+          // XXX: This "<" is susceptable to rounding errors!
           if (m_MJS < ODATNodesMJS[i])
           {
             TBits::ODATNode const& node = TBits::ODATNodes[i];
@@ -554,8 +560,8 @@ namespace SpaceBallistics
         }
       }
       // "jd_utc" has not been constructed? Then search the Leap Seconds:
-      Time lsFrac; // Fraction of the curr Leap Second, if any (initially 0)
-
+      //
+      bool isLS  = false; // m_MJS is in [LeapSecBegin .. LeapSecEnd) ?
       if (IsZero(jd_utc))
       {
         // Then we are from 1972 on, so Leap Seconds are to be used:
@@ -571,18 +577,18 @@ namespace SpaceBallistics
           // Check the monotonicity:
           assert(i == UTC::NLS-1 || startI < LeapSecondsStartMJS[i+1]);
 
+          // XXX: This "<" is susceptable to rounding errors!
           if (m_MJS < endI)
           {
             // Previous COMPLETE Leap Seconds (i) and the fixed offset:
             Time off = Time(double(i)) + 10.0_sec + TBits::TT_TAI;
 
-            // The Leap Second Fraction (if we are actually within the curr
-            // Leap Second):
-            if (startI < m_MJS)
-              lsFrac   = m_MJS - startI;
-
             // Then "jd_utc" is:
             jd_utc = TBits::Epoch_J2000 + To_Time_day(m_MJS - off);
+
+            // Are we are actually within the "i"th Leap Second (incomplete
+            // yet)?
+            isLS = (startI <= m_MJS);
             break;
           }
         }
@@ -590,28 +596,24 @@ namespace SpaceBallistics
         if (IsZero(jd_utc))
         {
           // Then all currently-known Leap Seconds have been traversed, and are
-          // in the past. Then the offset is:
-          assert(m_MJS >= LeapSecondsStartMJS[TBits::NODATN-1] + 1.0_sec);
-          Time   off    = Time(double(TBits::NODATN)) +
-                          10.0_sec  + TBits::TT_TAI;
-          jd_utc        = TBits::Epoch_J2000 + To_Time_day(m_MJS - off);
-          assert(IsZero(lsFrac));
+          // in the past. Then the last available Number of Leap Seconds is ext-
+          // rapolated:
+          assert(m_MJS >= LeapSecondsStartMJS[UTC::NLS-1]   + 1.0_sec);
+          Time   off    = Time(double(UTC::NLS)) + 10.0_sec + TBits::TT_TAI;
+          jd_utc        = TBits::Epoch_J2000     + To_Time_day(m_MJS - off);
         }
       }
-      // We must have obtained valid "jd_utc" and "lsFrac". Ante-Deluvian JDs
-      // are not allowed:
-      assert(IsPos(jd_utc) && !IsNeg(lsFrac) && lsFrac < 1.0_sec);
+      // We must have obtained valid "jd_utc" and possibly the curr Leap Second
+      // info. Ante-Deluvian dates are not allowed:
+      assert(IsPos(jd_utc));
 
       // Extract the Gregorian Calendar Date (possibly proleptic) from "jd_utc":
       // From:
       // Fliegel, H. & Van Flandern, T.  Comm. of the ACM, Vol. 11, No. 10,
       // October 1968, p. 657:
       //
-      // XXX: To prevent accidential big rounding-down due to previous rounding
-      // errors, apply a 1 usec offset (~1e-11 of day):
-      constexpr Time_day  us1 = To_Time_day(Time(1e-6));
-
-      jd_utc         += 0.5_day + us1;
+      jd_utc         += 0.5_day;
+      // XXX: "Floor" is susceptable to rounding errors!
       double   jdW    = Floor(double(jd_utc / 1.0_day));
       long     jd     = long (jdW);
       Time     daySec = To_Time(jd_utc - Time_day(jdW));
@@ -633,6 +635,7 @@ namespace SpaceBallistics
              day <= UTC::DaysInMonth(year, month));
 
       // Hour, Min, Sec:
+      // XXX: Again,  "Floor" is susceptable to rounding errors!
       int   iSec = int(Floor(double(daySec / 1.0_sec)));
       int   hour = iSec / 3600;
       int    min = iSec / 60 - hour * 60;
@@ -640,9 +643,31 @@ namespace SpaceBallistics
                    ((daySec - Time(double(3600 * hour + 60 * min))) / 1.0_sec);
       assert(0 <= hour  && hour <= 23 && 0 <= min && min <= 59 &&
              0.0 <= sec && sec  <  60.0);
-      // If there is a current Leap Second Fraction, apply it:
-      sec += double(lsFrac / 1.0_sec);
 
+      // If it is a LeapSecond, it would as yet be 0th of the following minute,
+      // but we need to mark it as the 60th, and adjust the minute, hour and
+      // day:
+      if (isLS)
+      {
+        assert(Floor(sec) == 0.0 && min == 0 && hour == 0 && day == 1 &&
+              (month == 1 || month == 7));
+        sec   = 60.0 + (sec - Floor(sec));
+        min   = 59;
+        hour  = 23;
+        if (month == 7)
+        {
+          day   = 30;
+          month = 6;
+          // year unchanged
+        }
+        else
+        {
+          day   = 31;
+          month = 12;
+          --year;
+        }
+      }
+      // We can now compose the UTC obj:
       return UTC(year, month, day, hour, min, sec);
     }
   };
@@ -748,6 +773,10 @@ namespace SpaceBallistics
 
     constexpr bool operator>= (TDB a_right) const
       { return m_MJS >= a_right.m_MJS; }
+
+    constexpr bool  ApproxEquals
+      (TDB a_right, double a_tol = Bits::CEMaths::Eps<double> * 100.0) const
+      { return m_MJS.ApproxEquals(a_right.m_MJS, a_tol); }
   };
 };
 // End namespace SpaceBallistics

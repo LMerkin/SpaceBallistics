@@ -91,6 +91,10 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+  // ERM for use with the Dynamic mode:
+  TT ermEpoch = from;
+  EarthRotationModel erm(ermEpoch);
+
   // Generate the Ephemerides of the Sun in the J2000.0 Equatorial Co-Ords:
   for (TT tt = from; tt <= to; tt += step)
   {
@@ -117,8 +121,14 @@ int main(int argc, char* argv[])
     {
       // Use "Dynamic Ecliptic and Mean Equator of the Date", so perform a man-
       // ual conversion of GCRS into DynEq (XXX: we don't use "GeoCDynEqFixCOS"
-      // here yet): Extract the rotation matrices from the corresp ERM:
-      EarthRotationModel   erm(tt);
+      // here yet): Extract the rotation matrices from the corresp ERM; re-cal-
+      // culate it periodically:
+      //
+      if (To_Time_day(tt - ermEpoch) > 30.0_day)
+      {
+        ermEpoch = tt;
+        erm      = EarthRotationModel(ermEpoch);
+      }
       Mtx33 const& toDyn = erm.GetInvPN();
 
       // XXX: have to use COS=void in the corresp Vectors yet:
@@ -171,8 +181,8 @@ int main(int argc, char* argv[])
 
     // Output:
     printf("%04d-%02d-%02d_%02d:%02d:%03.3lf\t"
-             "%02.0lf:%02.0lf:%02.3lf\t"
-           "%c%02.0lf %02.0lf %02.3lf\t"
+             "%02.0lf:%02.0lf:%02.06lf\t"
+           "%c%02.0lf %02.0lf %02.06lf\t"
              "%.2lf\t%.2lf\t%.3lf\n", 
            utc.m_year, utc.m_month, utc.m_day,
            utc.m_hour, utc.m_min,   utc.m_sec,
