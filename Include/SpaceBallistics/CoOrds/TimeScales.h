@@ -11,6 +11,12 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
+  // Fwd Decls:                                                              //
+  //=========================================================================//
+  class TT;
+  class TDB;
+
+  //=========================================================================//
   // "UTC" Struct:                                                           //
   //=========================================================================//
   // Terrestrial Non-Uniform Civil Time. For external representation of  time
@@ -128,8 +134,8 @@ namespace SpaceBallistics
     constexpr static bool IsLeapYear(int a_year)
     {
       // It is assumed that the Gregorian Calendar is extended indefinitely into
-      // the past (and into the future) across all jurisdictions. Yet for techn-
-      // ical reasons we need the Year to be positive:
+      // the past (proleptic) and into the future across all jurisdictions. Yet
+      // for technical reasons we need the Year to be positive:
       assert(a_year > 0);
       return a_year % 4 == 0 && (a_year % 100 != 0 || a_year % 400 == 0);
     }
@@ -218,21 +224,23 @@ namespace SpaceBallistics
     constexpr inline Time     TT_TAI         = 32.184_sec;
 
     //=======================================================================//
-    // Old-Style (1961--1972) "DeltaAT" Nodes:                               //
+    // Old-Style (1961--1972) "DeltaAT":                                     //
     //=======================================================================//
-    struct OldDeltaATNode
-    {
-      UTC       m_utc;
-      Time_sec  m_a;
-      Time_day  m_base;
-      Time_sec  m_b;
-    };
-
     // DeltaAT = (TAI-UTC) difference, in sec.
     // The data are from the Explanatory Supplement to the Astronomical
     // Almanach, 3rd ed., 2013:
-    constexpr int            NODAT   = 14;
-    constexpr OldDeltaATNode ODATNodes[NODAT]
+    //
+    // "Old DataAT Node":
+    struct ODATNode
+    {
+      UTC       m_until;
+      Time_sec  m_a;
+      Time_day  m_jd0; // JD_UTC
+      Time_sec  m_b;
+    };
+
+    constexpr int      NODATN = 14;
+    constexpr ODATNode ODATNodes[NODATN]
     {
       // Prior to 1961: The diff is not known, XXX: assume it to be 0:
       { UTC(1961,  1), 0.0_sec,      2437300.5_day, 0.0_sec       },
@@ -281,10 +289,10 @@ namespace SpaceBallistics
         - (   3 * ((a_utc.m_year  + 4900 + mm) / 100)) / 4;
 
       // Convert the JD to mid-night start:
-      Time_day  JD_UTC(double(jd12h) - 0.5);
+      Time_day  jd_utc(double(jd12h) - 0.5);
 
       // Apply the intra-day time:
-      JD_UTC += Time_day(double(a_utc.m_hour) /    24.0 +
+      jd_utc += Time_day(double(a_utc.m_hour) /    24.0 +
                          double(a_utc.m_min)  /  1440.0 +
                          a_utc.m_sec          / 86400.0);
 
@@ -293,13 +301,16 @@ namespace SpaceBallistics
 
       // Try "Old-Style" nodes first:
       bool found = false;
-      for (int i = 0; i < NODAT; ++i)
+      for (int i = 0; i < NODATN; ++i)
       {
-        OldDeltaATNode const& node = ODATNodes[i];
-        if (a_utc < node.m_utc)
+        ODATNode const& node =  ODATNodes[i];
+        // Check the monotonicity:
+        assert(i == NODATN-1 || node.m_until < ODATNodes[i+1].m_until);
+
+        if (a_utc < node.m_until)
         {
           DeltaAT =
-            node.m_a + double((JD_UTC - node.m_base) / 1.0_day) * node.m_b;
+            node.m_a + double((jd_utc - node.m_jd0) / 1.0_day) * node.m_b;
           found   = true;
           break;
         }
@@ -313,7 +324,7 @@ namespace SpaceBallistics
         DeltaAT = 10.0_sec + a_utc.GetCumPrevLeapSecs();
       }
       // All Done:
-      return std::make_pair(JD_UTC, DeltaAT);
+      return std::make_pair(jd_utc, DeltaAT);
     }
 
     //=======================================================================//
@@ -322,10 +333,10 @@ namespace SpaceBallistics
     constexpr Time MkMJSTT(UTC const& a_utc)
     {
       // Compute the TAI components:
-      auto [JD_UTC, DeltaAT]  = MkTAI(a_utc);
+      auto [jd_utc, DeltaAT]  = MkTAI(a_utc);
 
       // Don't forget to include the fixed TT-TAI offset:
-      return To_Time(JD_UTC - Epoch_J2000) + DeltaAT + TT_TAI;
+      return To_Time(jd_utc - Epoch_J2000) + DeltaAT + TT_TAI;
     }
   }
 
@@ -334,8 +345,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // Terrestrial Time (Uniform, Relativistic), implemented via TAI (with an
   // offset):
-  class TDB;
-
+  //
   class TT
   {
   private:
@@ -395,87 +405,6 @@ namespace SpaceBallistics
       { return TBits::Epoch_J2000 + To_Time_day(m_MJS); }
 
     //-----------------------------------------------------------------------//
-    // Consts for "GetUTC":                                                  //
-    //-----------------------------------------------------------------------//
-    // Old-Style (1961--1972) "DeltaAT" Nodes in MJS_TT:
-    //
-    constexpr static Time OldDeltaATNodesMJS[TBits::NODAT]
-    {
-      TBits::MkMJSTT(TBits::ODATNodes[ 0].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 1].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 2].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 3].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 4].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 5].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 6].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 7].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 8].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[ 9].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[10].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[11].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[12].m_utc),
-      TBits::MkMJSTT(TBits::ODATNodes[13].m_utc)
-    };
-
-    // Beginnings of Leap Seconds in MJS_TT:
-    //
-    constexpr static std::tuple<int, int, double> LeapSecTime =
-      std::make_tuple(23, 59, 60.0);
-
-    constexpr static Time LeapSecondsStartMJS[UTC::NLS]
-    {
-      // XXX: A horrible boiler-plate, but there is no easy way to constract a
-      // "constexpr" array via a mapping function. Fortunately, no new Leap Se-
-      // conds are expected any time soon:
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 0], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 1], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 2], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 3], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 4], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 5], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 6], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 7], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 8], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 9], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[10], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[11], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[12], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[13], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[14], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[15], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[16], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[17], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[18], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[19], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[20], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[21], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[22], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[23], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[24], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[25], LeapSecTime)),
-      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[26], LeapSecTime))
-    };
-
-    //-----------------------------------------------------------------------//
-    // "GetDeltaAT":                                                         //
-    //-----------------------------------------------------------------------//
-    // Unlike "TBits::GetDeltaAT", here the arg is TT:
-    //
-/*
-    constexpr Time GetDeltaAT() const
-    {
-    }
-
-    //-----------------------------------------------------------------------//
-    // "GetUTC": TT -> UTC Conversion:                                       //
-    //-----------------------------------------------------------------------//
-    constexpr operator UTC() const
-    {
-      // First, try Old-Style Nodes:
-    }
-*/
-
-    //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //
     //-----------------------------------------------------------------------//
     constexpr Time operator-  (TT   a_right) const
@@ -521,6 +450,201 @@ namespace SpaceBallistics
 
     constexpr bool operator>= (TT a_right) const
       { return m_MJS >= a_right.m_MJS; }
+
+  private:
+    //-----------------------------------------------------------------------//
+    // Consts for TT -> UTC Conversion:                                      //
+    //-----------------------------------------------------------------------//
+    // Old-Style (1961--1972) "DeltaAT" Nodes as MJS_TT: XXX: a Boliler-Plate:
+    constexpr static Time ODATNodesMJS[TBits::NODATN]
+    {
+      TBits::MkMJSTT(TBits::ODATNodes[ 0].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 1].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 2].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 3].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 4].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 5].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 6].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 7].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 8].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[ 9].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[10].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[11].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[12].m_until),
+      TBits::MkMJSTT(TBits::ODATNodes[13].m_until)
+    };
+
+    // Starts of all Leap Seconds as MJS_TT: XXX: a Boiler-Plate again:
+    constexpr static std::tuple<int, int, double> LeapSecTime =
+      std::make_tuple(23, 59, 60.0);
+
+    constexpr static Time LeapSecondsStartMJS[UTC::NLS]
+    {
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 0], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 1], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 2], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 3], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 4], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 5], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 6], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 7], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 8], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[ 9], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[10], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[11], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[12], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[13], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[14], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[15], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[16], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[17], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[18], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[19], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[20], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[21], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[22], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[23], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[24], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[25], LeapSecTime)),
+      TBits::MkMJSTT(UTC(UTC::LeapSecondDates[26], LeapSecTime))
+    };
+
+  public:
+    //-----------------------------------------------------------------------//
+    // TT -> UTC Conversion:                                                 //
+    //-----------------------------------------------------------------------//
+    constexpr operator UTC() const
+    {
+      //---------------------------------------------------------------------//
+      // Get the JD_UTC:                                                     //
+      //---------------------------------------------------------------------//
+      Time_day jd_utc;  // Initially 0, which is never valid
+
+      // Very old instants: DeltaAT=0, so just subtract the fixed offset:
+      if (m_MJS <= ODATNodesMJS[0])
+        jd_utc = TBits::Epoch_J2000 + To_Time_day(m_MJS - TBits::TT_TAI);
+      else
+      {
+        // Search "Old-Style" (1961--1972) Nodes:
+        for (int i = 1; i < TBits::NODATN; ++i)   // NB: i==0 done above
+        {
+          // Check the monotonicity:
+          assert(i == TBits::NODATN-1 || ODATNodesMJS[i] < ODATNodesMJS[i+1]);
+
+          if (m_MJS < ODATNodesMJS[i])
+          {
+            TBits::ODATNode const& node = TBits::ODATNodes[i];
+            // Again, check the monotonicity:
+            assert(i == TBits::NODATN-1 ||
+                   node.m_until < TBits::ODATNodes[i+1].m_until);
+
+            // Solve the following equation wrt "jd_utc":
+            // m_MJS   = To_Time(jd_utc - Epoch_J2000) + DeltaAT + TT_TAI
+            // where
+            // DeltaAT = node.m_a + node.m_b * (jd_utc - mode.m_jd0) / 1d :
+            //
+            Time denom = 86400.0_sec + node.m_b;
+            double  c0 = double(86400.0_sec       / denom);
+            double  c1 = double(node.m_b          / denom);
+            double  c2 = double((m_MJS - node.m_a - TBits::TT_TAI)  / denom);
+            jd_utc     = c0 * TBits::Epoch_J2000  + c1 * node.m_jd0 +
+                         c2 * 1.0_day;
+            break;
+          }
+        }
+      }
+      // "jd_utc" has not been constructed? Then search the Leap Seconds:
+      Time lsFrac; // Fraction of the curr Leap Second, if any (initially 0)
+
+      if (IsZero(jd_utc))
+      {
+        // Then we are from 1972 on, so Leap Seconds are to be used:
+        assert(m_MJS >= ODATNodesMJS[TBits::NODATN-1]);
+
+        // Search the "LeapSecondsStartMJS" table:
+        for (int i = 0; i < UTC::NLS; ++i)
+        {
+          // End of the "i"th Leap Second:
+          Time startI = LeapSecondsStartMJS[i];
+          Time endI   = startI + 1.0_sec;
+
+          // Check the monotonicity:
+          assert(i == UTC::NLS-1 || startI < LeapSecondsStartMJS[i+1]);
+
+          if (m_MJS < endI)
+          {
+            // Previous COMPLETE Leap Seconds (i) and the fixed offset:
+            Time off = Time(double(i)) + 10.0_sec + TBits::TT_TAI;
+
+            // The Leap Second Fraction (if we are actually within the curr
+            // Leap Second):
+            if (startI < m_MJS)
+              lsFrac   = m_MJS - startI;
+
+            // Then "jd_utc" is:
+            jd_utc = TBits::Epoch_J2000 + To_Time_day(m_MJS - off);
+            break;
+          }
+        }
+        // "jd_utc" not constructed yet?
+        if (IsZero(jd_utc))
+        {
+          // Then all currently-known Leap Seconds have been traversed, and are
+          // in the past. Then the offset is:
+          assert(m_MJS >= LeapSecondsStartMJS[TBits::NODATN-1] + 1.0_sec);
+          Time   off    = Time(double(TBits::NODATN)) +
+                          10.0_sec  + TBits::TT_TAI;
+          jd_utc        = TBits::Epoch_J2000 + To_Time_day(m_MJS - off);
+          assert(IsZero(lsFrac));
+        }
+      }
+      // We must have obtained valid "jd_utc" and "lsFrac". Ante-Deluvian JDs
+      // are not allowed:
+      assert(IsPos(jd_utc) && !IsNeg(lsFrac) && lsFrac < 1.0_sec);
+
+      // Extract the Gregorian Calendar Date (possibly proleptic) from "jd_utc":
+      // From:
+      // Fliegel, H. & Van Flandern, T.  Comm. of the ACM, Vol. 11, No. 10,
+      // October 1968, p. 657:
+      //
+      // XXX: To prevent accidential big rounding-down due to previous rounding
+      // errors, apply a 1 usec offset (~1e-11 of day):
+      constexpr Time_day  us1 = To_Time_day(Time(1e-6));
+
+      jd_utc         += 0.5_day + us1;
+      double   jdW    = Floor(double(jd_utc / 1.0_day));
+      long     jd     = long (jdW);
+      Time     daySec = To_Time(jd_utc - Time_day(jdW));
+      assert(!IsNeg(daySec));
+
+      long k     = jd + 68569;
+      long n     = (4 * k) / 146097;
+      k         -= (146097 *  n + 3)  / 4;
+      long m     = (  4000 * (k + 1)) / 1461001;
+      k         -= (1461 * m) / 4 - 31;
+
+      // Year, Month, Day:
+      long lm    = (80 * k) / 2447;
+      int day    = int(k - (2447 * lm) / 80);
+      k          = lm / 11;
+      int month  = int(lm  + 2  - 12  * k);
+      int year   = int(100 * (n - 49) + m + k);
+      assert(year > 0 && 1 <= month && month <= 12 && 1 <= day &&
+             day <= UTC::DaysInMonth(year, month));
+
+      // Hour, Min, Sec:
+      int   iSec = int(Floor(double(daySec / 1.0_sec)));
+      int   hour = iSec / 3600;
+      int    min = iSec / 60 - hour * 60;
+      double sec = double
+                   ((daySec - Time(double(3600 * hour + 60 * min))) / 1.0_sec);
+      assert(0 <= hour  && hour <= 23 && 0 <= min && min <= 59 &&
+             0.0 <= sec && sec  <  60.0);
+      // If there is a current Leap Second Fraction, apply it:
+      sec += double(lsFrac / 1.0_sec);
+
+      return UTC(year, month, day, hour, min, sec);
+    }
   };
 
   //=========================================================================//

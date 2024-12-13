@@ -166,12 +166,16 @@ int main(int argc, char* argv[])
     auto alphaDotSD = To_Time_day(To_Angle_ss    (alphaDot));
     auto deltaDotSD = To_Time_day(To_Angle_arcSec(deltaDot));
 
+    // Get the UTC from this TT:
+    UTC utc(tt);
+
     // Output:
-    printf("%.6lf\t"
+    printf("%04d-%02d-%02d_%02d:%02d:%03.3lf\t"
              "%02.0lf:%02.0lf:%02.3lf\t"
            "%c%02.0lf %02.0lf %02.3lf\t"
-             "%.2lf\t%.2lf\t%.3lf\n",
-           tt.GetJD() .Magnitude(),
+             "%.2lf\t%.2lf\t%.3lf\n", 
+           utc.m_year, utc.m_month, utc.m_day,
+           utc.m_hour, utc.m_min,   utc.m_sec,
            get<0>(hms).Magnitude(), get<1>(hms).Magnitude(),
            get<2>(hms).Magnitude(),
            get<0>(dms) < 0  ? '-' : get<0>(dms) > 0 ? '+' : ' ',
