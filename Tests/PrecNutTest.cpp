@@ -22,32 +22,22 @@ int main(int argc, char* argv[])
     constexpr Time_jyr Step(1.0);
     constexpr Time_jyr To  = From + Time_jyr(26'000.0);
 
-    // The Polar ITRS vector of unit length:
-    constexpr PosKV<ITRS> TerrPolarVec { 0.0_km, 0.0_km, 1.0_km };
-
     for (Time_jyr t = From; t <= To; t += Step)
     {
       // ITRS orientation @ t:
       EarthRotationModel era{ t };
 
-      // Convert the PolarVec to GCRS. For that, we have to convert "t" to TT,
-      // although it does not matter here, since we only need  the Earth Axis
-      // orientation:
-      PosKV<GCRS> celestPolarVec = era.ToGCRS(TT{t}, TerrPolarVec);
+      // Get the PolarVec in GCRS:
+      PosKV_GCRS<>  dynCelestPolarVec = era.GetGeoCDynEqFixZ();
 
       // Convert  the  "celestPolarVec" into Spherical Co-Ords:
-      SpherPV<GCRS> celestPolarSph(celestPolarVec);
+      SpherPV<GCRS> dynCelestPolarSph(dynCelestPolarVec);
 
-      // The Dynamic Equinox vector extracted from the "era":  it's Col0 of the
-      // PN matrix.
-      // XXX: we don't use "GeoCDynEqFixCOS" here, so just use "Vector3D" with
-      // DQ=LenK and COS=void, and construct "SpherPV" from it; ie it is a dir-
-      // ectional vector of 1.0_km length:
-      //
-      Mtx33 const&   PN  = era.GetPN();
-      Vector3D<LenK, void> equinox
-        { 1.0_km * PN(0,0), 1.0_km * PN(1,0), 1.0_km * PN(2,0) };
-      SpherPV<void> equinoxSph(equinox);
+      // The Dynamic Equinox (of "t") vector extracted from the "era":    it's
+      // Col0 of the PN matrix. Thus, it is the position of the Equinox of "t"
+      // in the GCRS:
+      PosKV_GCRS<>  dynEquinoxVec = era.GetGeoCDynEqFixX();
+      SpherPV<GCRS> dynEquinoxSph(dynEquinoxVec);
 
       // Output:
       printf("%.1lf\t"                // Time (Year Number)
@@ -55,11 +45,11 @@ int main(int argc, char* argv[])
              "%.6lf\t%.6lf\t"         // "celestPolarVec" X  and Y
              "%.6lf\t%.6lf\n",        // "celestPolarSph" RA and Decl
              t.Magnitude(),
-             equinoxSph.GetAlpha()    .Magnitude(),
-             celestPolarVec.x()       .Magnitude(),
-             celestPolarVec.y()       .Magnitude(),
-             celestPolarSph.GetAlpha().Magnitude(),
-             celestPolarSph.GetDelta().Magnitude());
+             dynEquinoxSph.GetAlpha()    .Magnitude(),
+             dynCelestPolarVec.x()       .Magnitude(),
+             dynCelestPolarVec.y()       .Magnitude(),
+             dynCelestPolarSph.GetAlpha().Magnitude(),
+             dynCelestPolarSph.GetDelta().Magnitude());
     }
   }
   else

@@ -607,9 +607,9 @@ namespace SpaceBallistics::DE440T
       (a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
     // Then convert the results into the BaryC Ecl Co-Ords:
-    ToEcl(posEq, a_pos);
+    *a_pos = ToEcl<BaryCEclCOS>(posEq);
     if (a_vel != nullptr)
-      ToEcl(velEq, a_vel);
+      *a_vel = ToEcl<BaryCEclCOS>(velEq);
   }
 
   //-------------------------------------------------------------------------//
@@ -630,9 +630,9 @@ namespace SpaceBallistics::DE440T
       (a_body, a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
     // Then convert the results into the BaryC Ecl Co-Ords:
-    ToEcl(posEq, a_pos);
+    *a_pos = ToEcl<BaryCEclCOS>(posEq);
     if (a_vel != nullptr)
-      ToEcl(velEq, a_vel);
+      *a_vel = ToEcl<BaryCEclCOS>(velEq);
   }
 
   //-------------------------------------------------------------------------//
@@ -658,9 +658,9 @@ namespace SpaceBallistics::DE440T
     // Then convert the results into the BaryC Ecl Co-Ords:
     for (int i = 0; i < 10; ++i)
     {
-      ToEcl(possEq[i], a_poss + i);
+      a_poss[i] = ToEcl<BaryCEclCOS>(possEq[i]);
       if (a_vels != nullptr)
-        ToEcl(velsEq[i], a_vels + i);
+        a_vels[i] = ToEcl<BaryCEclCOS>(velsEq[i]);
     }
   }
 
@@ -710,9 +710,9 @@ namespace SpaceBallistics::DE440T
     GetMoonGEqPV(a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
     // Then convert the results into the GeoC Ecl Co-Ords:
-    ToEcl(posEq, a_pos);
+    *a_pos = ToEcl<GeoCEclFixCOS>(posEq);
     if (a_vel != nullptr)
-      ToEcl(velEq, a_vel);
+      *a_vel = ToEcl<GeoCEclFixCOS>(velEq);
   }
 
   //=========================================================================//

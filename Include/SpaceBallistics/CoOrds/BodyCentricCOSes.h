@@ -230,7 +230,7 @@ namespace SpaceBallistics
   // The orientation of axes is the same, so:
   // (Bary,  Earth) + (Earth, Body) => (Bary, Body ):
   //
-  template<typename DQ,      Body B>
+  template<typename DQ,     Body B>
   Vector3D<DQ, BaryCEclCOS, B> operator+
   (
     Vector3D<DQ, BaryCEclCOS,   Body::Earth> const& a_earth,

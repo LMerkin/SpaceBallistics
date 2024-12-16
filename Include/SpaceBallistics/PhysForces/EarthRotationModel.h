@@ -7,7 +7,6 @@
 #include "SpaceBallistics/CoOrds/TimeScales.h"
 #include "SpaceBallistics/Maths/RotationMatrices.hpp"
 #include <utility>
-#include <tuple>
 
 namespace SpaceBallistics
 {
@@ -92,17 +91,15 @@ namespace SpaceBallistics
     {
       // NB: We must use GAST, not just ERA, because the former is consistent
       // with the origin of RA (Dynamic Equinox of "m_ermEpoch):
-      // res = m_PN * R3(-GAST) * a_terr:
-      Angle   gast = GAST(a_tt);
-      Mtx33   T;
-      MkMtsR3(-gast, &T, nullptr);
+      // res  = m_PN * R3(-GAST) * a_terr:
+      Mtx33 T = Mtx33::MkR3(-GAST(a_tt));
 
-      DQ       tmp[3];
-      MVMult33(T,   a_terr.GetArr(), tmp);
+      DQ tmp[3];
+      T.MVMult(a_terr.GetArr(), tmp);
 
       Vector3D<DQ, GCRS, B> res;
-      MVMult33(m_PN, tmp,  res.GetArr());
-      return   res;
+      m_PN.MVMult(tmp,   res.GetArr());
+      return res;
     }
 
     //-----------------------------------------------------------------------//
@@ -117,17 +114,15 @@ namespace SpaceBallistics
     const
     {
       // NB: Again, using GAST:
-      // res = R3(GAST) * m_invPN * a_geo:
-      Angle   gast = GAST(a_tt);
-      Mtx33   T;
-      MkMtsR3(gast, &T, nullptr);
+      // res  = R3(GAST) * m_invPN * a_geo:
+      Mtx33 T = Mtx33::MkR3(GAST(a_tt));
 
-      DQ       tmp[3];
-      MVMult33(m_invPN,  a_geo.GetArr(), tmp);
+      DQ tmp[3];
+      m_invPN.MVMult(a_geo.GetArr(), tmp);
 
-      Vector3D<DQ, ITRS, B> res;
-      MVMult33(T, tmp,  res.GetArr());
-      return   res;
+      Vector3D<DQ,  ITRS, B> res;
+      T.MVMult(tmp, res.GetArr());
+      return res;
     }
 
     //-----------------------------------------------------------------------//
@@ -160,6 +155,36 @@ namespace SpaceBallistics
     constexpr Mtx33 const& GetPN      () const { return m_PN;       }
     constexpr Mtx33 const& GetInvPN   () const { return m_invPN;    }
 
+    // Furthermore, the columns of PN are actually the unit vectors  of the
+    // "GeoCDynEqFixCOS" (with the Dynamic Equator and Mean Ecliptic of the
+    // "ERMEpoch") in the GCRS system, so we can return them one-by-one as
+    // GCRS vectors (assuming they are pos vectors of unit length):
+    //
+    // Col0: The X axis of "GeoCDynEqFixCOS": Points to the Equinox of the
+    // "ERMEpoch":
+    constexpr PosKV_GCRS<> GetGeoCDynEqFixX() const
+    {
+      return  PosKV_GCRS<>
+              {m_PN(0,0) * 1.0_km, m_PN(1,0) * 1.0_km, m_PN(2,0) * 1.0_km};
+    }
+
+    // Col1: The Y axis of "GeoCDynEqFixCOS": Just complements the X and Z
+    //       axes to the right-oriented XYZ frame:
+    constexpr PosKV_GCRS<> GetGeoCDynEqFixY() const
+    {
+      return  PosKV_GCRS<>
+              {m_PN(0,1) * 1.0_km, m_PN(1,1) * 1.0_km, m_PN(2,1) * 1.0_km};
+    }
+
+    // Col2: The Z axis of "GeoCDynEqFixCOS": Points to the (Equatorial) North
+    //       Pole  of the  "ERMEpoch":
+    //
+    constexpr PosKV_GCRS<> GetGeoCDynEqFixZ() const
+    {
+      return  PosKV_GCRS<>
+              {m_PN(0,2) * 1.0_km, m_PN(1,2) * 1.0_km, m_PN(2,2) * 1.0_km};
+    }
+
   private:
     //-----------------------------------------------------------------------//
     // Utils (for internal use):                                             //
@@ -169,16 +194,15 @@ namespace SpaceBallistics
     //
     constexpr static double GetJCYsSinceEpoch(Time_jyr a_t);
 
-    // Earth Precession Mtx and its Inverse:
-    constexpr static std::pair<Mtx33,Mtx33> MkPrecMts(double a_T);
+    // Earth Precession Mtx:
+    constexpr static Mtx33 MkPrecMtx(double a_T);
 
     // Earth Nutations Angles: (d(Psi), d(Eps), cos(eps)) using the Analytical
     // Model (IAU2000B), hence "constexpr":
     constexpr static std::pair<Angle,Angle> GetNutAnglesAnalyt(double a_T);
 
-    // Earth Nutation Matrix and its Inverse, via Nutation Angles. Also returns
-    // Cos(eps):
-    constexpr static std::tuple<Mtx33,Mtx33,double> MkNutMts
+    // Earth Nutation Matrix, via Nutation Angles. Also returns Cos(eps):
+    constexpr static std::pair<Mtx33,double> MkNutMtx
       (double a_T, Angle a_dpsi, Angle a_deps);
 
     // DeltaT = TT - UT1:

@@ -9,6 +9,7 @@
 #endif
 #include "SpaceBallistics/PhysForces/DE440T.h"
 #include "SpaceBallistics/PhysForces/EarthRotationModel.h"
+#include "SpaceBallistics/CoOrds/GeoCDynEqFixCOS.h"
 #include "SpaceBallistics/CoOrds/SpherPV.hpp"
 #include "SpaceBallistics/Maths/RotationMatrices.hpp"
 #include "SpaceBallistics/Utils.hpp"
@@ -95,6 +96,10 @@ int main(int argc, char* argv[])
   TT ermEpoch = from;
   EarthRotationModel erm(ermEpoch);
 
+  // Epoch used for "GeoCDynEqFixCOS":
+  constexpr int DynEquinoxEpochY = 2025;
+  constexpr TT  DynEquinoxEpochTT{Time_jyr(double(DynEquinoxEpochY))};
+
   // Generate the Ephemerides of the Sun in the J2000.0 Equatorial Co-Ords:
   for (TT tt = from; tt <= to; tt += step)
   {
@@ -119,31 +124,54 @@ int main(int argc, char* argv[])
 
     if (useDyn)
     {
-      // Use "Dynamic Ecliptic and Mean Equator of the Date", so perform a man-
-      // ual conversion of GCRS into DynEq (XXX: we don't use "GeoCDynEqFixCOS"
-      // here yet): Extract the rotation matrices from the corresp ERM; re-cal-
-      // culate it periodically:
+      // Use "Dynamic Ecliptic and Mean Equator of the Date", so perform conv-
+      // ersion of GCRS into DynEquinox. This can be done either explicitly or
+      // via "GeoCDynEqFixCOS" (of the Epoch=2025):
       //
-      if (To_Time_day(tt - ermEpoch) > 30.0_day)
+      if (Abs(To_Time_jyr(tt - DynEquinoxEpochTT)) < 1.0_jyr)
       {
-        ermEpoch = tt;
-        erm      = EarthRotationModel(ermEpoch);
+        // Use the "GeoCDynEqFixCOS" method:
+        PosKV_GeoDynEqFix<DynEquinoxEpochY, Body::Sun> posDynES =
+             ToDynEquinox<DynEquinoxEpochY>(posES);
+
+        VelKV_GeoDynEqFix<DynEquinoxEpochY, Body::Sun> velDynES =
+             ToDynEquinox<DynEquinoxEpochY>(velES);
+
+        SpherPV<GeoCDynEqFixCOS<DynEquinoxEpochY>, Body::Sun>
+          spherDynPVS(posDynES, velDynES);
+
+        hms      = ToHMS(spherDynPVS.GetAlpha());
+        dms      = ToDMS(spherDynPVS.GetDelta());
+        alphaDot = spherDynPVS.GetAlphaDot();
+        deltaDot = spherDynPVS.GetDeltaDot();
+        radVel   = spherDynPVS.GetRadVel  ();
       }
-      Mtx33 const& toDyn = erm.GetInvPN();
+      else
+      {
+        // Use explicit conversion; re-calculate the ERM if necessary:
+        if (To_Time_day(tt - ermEpoch) > 30.0_day)
+        {
+          ermEpoch = tt;
+          erm      = EarthRotationModel(ermEpoch);
+        }
+        Mtx33 const& toDyn = erm.GetInvPN();
 
-      // XXX: have to use COS=void in the corresp Vectors yet:
-      Vector3D<LenK, void, Body::Sun> posDynES;
-      Vector3D<VelK, void, Body::Sun> velDynES;
+        // XXX: Here we have to use COS=void in the corresp Vectors, since
+        // "GeoCDynEqFixCOS" is not used:
+        Vector3D<LenK, void, Body::Sun> posDynES;
+        Vector3D<VelK, void, Body::Sun> velDynES;
 
-      MVMult33(toDyn, posES.GetArr(), posDynES.GetArr());
-      MVMult33(toDyn, velES.GetArr(), velDynES.GetArr());
+        toDyn.MVMult(posES.GetArr(), posDynES.GetArr());
+        toDyn.MVMult(velES.GetArr(), velDynES.GetArr());
 
-      SpherPV<void, Body::Sun> spherDynPVS(posDynES, velDynES);
-      hms      = ToHMS(spherDynPVS.GetAlpha());
-      dms      = ToDMS(spherDynPVS.GetDelta());
-      alphaDot = spherDynPVS.GetAlphaDot();
-      deltaDot = spherDynPVS.GetDeltaDot();
-      radVel   = spherDynPVS.GetRadVel  ();
+        SpherPV<void, Body::Sun> spherDynPVS(posDynES, velDynES);
+
+        hms      = ToHMS(spherDynPVS.GetAlpha());
+        dms      = ToDMS(spherDynPVS.GetDelta());
+        alphaDot = spherDynPVS.GetAlphaDot();
+        deltaDot = spherDynPVS.GetDeltaDot();
+        radVel   = spherDynPVS.GetRadVel  ();
+      }
     }
     else
     {

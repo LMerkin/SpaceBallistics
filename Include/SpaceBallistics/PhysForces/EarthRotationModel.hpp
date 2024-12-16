@@ -19,9 +19,9 @@ namespace SpaceBallistics
   }
     
   //=========================================================================//
-  // Precession Mtx and its Inverse:                                         //
+  // Precession Mtx:                                                         //
   //=========================================================================//
-  constexpr std::pair<Mtx33,Mtx33> EarthRotationModel::MkPrecMts(double a_T)
+  constexpr Mtx33 EarthRotationModel::MkPrecMtx(double a_T)
   {
     double T  = a_T;
     double T2 = T * T;
@@ -40,37 +40,17 @@ namespace SpaceBallistics
       To_Angle(       10.556403_arcSec   * T - 2.3814292_arcSec * T2
                     - 0.00121197_arcSec  * T3);
 
-    Mtx33 R1pEps0, R3pPsi1, R1pEps1,  R3pChi,
-          R1mEps0, R3mPsi1, R1mEps1,  R3mChi,
-          Tmp0,    Tmp1,    P,        invP;
-
-    // Elementary Rotation Matrices:
-    MkMtsR1(To_Angle(Eps0), &R1pEps0, &R1mEps0);
-    MkMtsR3(psi1,           &R3pPsi1, &R3mPsi1);
-    MkMtsR1(eps1,           &R1pEps1, &R1mEps1);
-    MkMtsR3(chi,            &R3pChi,  &R3mChi);
-
     //-----------------------------------------------------------------------//
     // P    = R1(-eps0) * R3(psi1) * R1(eps1) * R3(-chi):                    //
     //-----------------------------------------------------------------------//
-    MtxMult33(R1mEps0,      R3pPsi1,  &Tmp0);
-    MtxMult33(Tmp0,         R1pEps1,  &Tmp1);
-    MtxMult33(Tmp1,         R3mChi,   &P);
-
-    //-----------------------------------------------------------------------//
-    // invP = R3(chi) * R1(-eps1) * R3(-psi1) * R1(eps0):                    //
-    //-----------------------------------------------------------------------//
-    MtxMult33(R3pChi,       R1mEps1,  &Tmp0);
-    MtxMult33(Tmp0,         R3mPsi1,  &Tmp1);
-    MtxMult33(Tmp1,         R1pEps0,  &invP);
-
-    return std::make_pair(P, invP);
+    return Mtx33::MkR1(-To_Angle(Eps0)) * Mtx33::MkR3(psi1) *
+           Mtx33::MkR1(eps1)            * Mtx33::MkR3(-chi);
   }
 
   //=========================================================================//
   // Nutation Matrices as Functions of d(Psi) and d(Eps):                    //
   //=========================================================================//
-  constexpr std::tuple<Mtx33,Mtx33,double> EarthRotationModel::MkNutMts
+  constexpr std::pair<Mtx33,double> EarthRotationModel::MkNutMtx
     (double a_T, Angle a_dpsi, Angle a_deps)
   {
     Angle eps  =
@@ -78,24 +58,11 @@ namespace SpaceBallistics
                - 46.836769_arcSec) * a_T + Eps0);
     Angle epsD = eps + a_deps;
 
-    Mtx33 R1pEpsD,  R3pDPsi,  R1pEps,
-          R1mEpsD,  R3mDPsi,  R1mEps,
-          Tmp,      N,        invN;
-
-    MkMtsR1(epsD,   &R1pEpsD, &R1mEpsD);
-    MkMtsR3(a_dpsi, &R3pDPsi, &R3mDPsi);
-    MkMtsR1(eps,    &R1pEps,  &R1mEps );
-
-    // N    = R1(-eps) * R3(dPsi) * R1(epsD):
-    MtxMult33(R1mEps,  R3pDPsi, &Tmp);
-    MtxMult33(Tmp,     R1pEpsD, &N);
-
-    // invN = R1(-epsD) * R3(-dPsi) * R1(eps);
-    MtxMult33(R1mEpsD, R3mDPsi, &Tmp);
-    MtxMult33(Tmp,     R1pEps,  &invN);
+    //    N = R1(-eps) * R3(dPsi) * R1(epsD):
+    Mtx33 N = Mtx33::MkR1(-eps) * Mtx33::MkR3(a_dpsi) * Mtx33::MkR1(epsD);
 
     // NB: Cos(eps) == R1pEps(1,1), but it's better compute it anew:
-    return std::make_tuple(N, invN, Cos(double(eps)));
+    return std::make_pair(N, Cos(double(eps)));
   }
 
   //=========================================================================//
@@ -298,7 +265,7 @@ namespace SpaceBallistics
     // We will use the value from the Maple-generated Cubic Spline approximation
     // using the following table. XXX: "DeltaT" is linearly extrapolated beyond
     // the range 1620..2024:
-    struct    DeltaTCoeffs
+    struct DeltaTCoeffs
     {
       Time_jyr  m_year;
       Time      m_c0;
@@ -369,8 +336,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Precession Matrices:                                                  //
     //-----------------------------------------------------------------------//
-    double      T  = GetJCYsSinceEpoch(a_erm_epoch);
-    auto [P, invP] = MkPrecMts(T);
+    double T = GetJCYsSinceEpoch(a_erm_epoch);
+    Mtx33  P = MkPrecMtx(T);
 
     //-----------------------------------------------------------------------//
     // Nutation Angles and Matrices:                                         //
@@ -385,21 +352,20 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Nutation Matrices:                                                    //
     //-----------------------------------------------------------------------//
-    auto [N, invN, cosEps] = MkNutMts(T, dPsi, dEps);
+    auto [N, cosEps] = MkNutMtx(T, dPsi, dEps);
 
     //-----------------------------------------------------------------------//
     // Over-All "PN" and "invPN" Matrices:                                   //
     //-----------------------------------------------------------------------//
     // XXX: Bias Correction and Polar Motion Matrices are considered to be too
     // small, and not used. Thus:
-    MtxMult33(P,    N,    &m_PN);
-    MtxMult33(invN, invP, &m_invPN);
+    m_PN    = P * N;
+    m_invPN = m_PN.Transpose();
 
     // Check:
     DEBUG_ONLY
     (
-      Mtx33 Tmp;
-      MtxMult33(m_PN,  m_invPN, &Tmp);
+      Mtx33 Tmp  = m_PN * m_invPN;
       for (int i = 0; i < 3; ++i)
       for (int j = 0; j < 3; ++j)
         assert(DimTypes::Bits::CEMaths::ApproxEqual
@@ -434,8 +400,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Precession Matrices:                                                  //
     //-----------------------------------------------------------------------//
-    double      T  = GetJCYsSinceEpoch(m_ermEpoch);
-    auto [P, invP] = MkPrecMts(T);
+    double T = GetJCYsSinceEpoch(m_ermEpoch);
+    Mtx33  P = MkPrecMtx(T);
 
     //-----------------------------------------------------------------------//
     // Nutation Angles and Matrices:                                         //
@@ -445,21 +411,20 @@ namespace SpaceBallistics
     Angle dPsi = nutAngles.first;
     Angle dEps = nutAngles.second;
 
-    auto [N, invN, cosEps] = MkNutMts(T, dPsi, dEps);
+    auto [N, cosEps] = MkNutMtx(T, dPsi, dEps);
 
     //-----------------------------------------------------------------------//
     // Over-All "PN" and "invPN" Matrices:                                   //
     //-----------------------------------------------------------------------//
     // XXX: Bias Correction and Polar Motion Matrices are considered to be too
     // small, and not used. Thus:
-    MtxMult33(P,    N,    &m_PN);
-    MtxMult33(invN, invP, &m_invPN);
+    m_PN    = P * N;
+    m_invPN = m_PN.Transpose();
 
     // Check:
     DEBUG_ONLY
     (
-      Mtx33 Tmp;
-      MtxMult33(m_PN,  m_invPN, &Tmp);
+      Mtx33 Tmp = m_PN * m_invPN;
       for (int i = 0; i < 3; ++i)
       for (int j = 0; j < 3; ++j)
         assert(DimTypes::Bits::CEMaths::ApproxEqual

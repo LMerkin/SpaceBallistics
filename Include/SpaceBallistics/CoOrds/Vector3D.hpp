@@ -6,7 +6,6 @@
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
-#include "SpaceBallistics/Maths/RotationMatrices.hpp"
 #include <type_traits>
 
 namespace SpaceBallistics

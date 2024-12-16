@@ -400,9 +400,13 @@ namespace SpaceBallistics
     constexpr Time_day GetJDsSinceEpoch () const
       { return To_Time_day(m_MJS); }
 
-    // Extracting the JD_TDB:
+    // Extracting the JD_TT:
     constexpr Time_day GetJD            () const
-      { return TBits::Epoch_J2000 + To_Time_day(m_MJS); }
+      { return TBits::Epoch_J2000    + To_Time_day(m_MJS); }
+
+    // Extracting the JYr_TT:
+    constexpr Time_jyr GetJYr           () const
+      { return TBits::Epoch_J2000_Yr + To_Time_jyr(m_MJS); }
 
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //
@@ -726,6 +730,8 @@ namespace SpaceBallistics
     // Extracting the JD_TDB:
     constexpr  Time_day GetJD           () const
       { return TBits::Epoch_J2000 + To_Time_day(m_MJS); }
+
+    // XXX: Unlike TT, for TDB we probably don't need "GetJYr"...
 
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //
