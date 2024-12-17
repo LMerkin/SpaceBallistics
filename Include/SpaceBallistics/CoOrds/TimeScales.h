@@ -17,6 +17,14 @@ namespace SpaceBallistics
   class TDB;
 
   //=========================================================================//
+  // Consts:                                                                 //
+  //=========================================================================//
+  // The J2000.0 Epoch = 2000 Jan 1.5 (will be used in TT and TDB):
+  //
+  constexpr inline Time_day Epoch_J2000    = 2451545.0_day;
+  constexpr inline Time_jyr Epoch_J2000_Yr = Time_jyr(2000.0 + 0.5 / 365.25);
+
+  //=========================================================================//
   // "UTC" Struct:                                                           //
   //=========================================================================//
   // Terrestrial Non-Uniform Civil Time. For external representation of  time
@@ -212,14 +220,6 @@ namespace SpaceBallistics
   //=========================================================================//
   namespace TBits
   {
-    //=======================================================================//
-    // Consts:                                                               //
-    //=======================================================================//
-    // The J2000.0 Epoch = 2000 Jan 1.5 (will be used in TT and TDB):
-    //
-    constexpr inline Time_day Epoch_J2000    = 2451545.0_day;
-    constexpr inline Time_jyr Epoch_J2000_Yr = Time_jyr(2000.0 + 0.5 / 365.25);
-
     // Fixed TT-TAI  diff:
     constexpr inline Time     TT_TAI         = 32.184_sec;
 
@@ -378,12 +378,12 @@ namespace SpaceBallistics
 
     // Directly constructing TT from JD_TT:
     constexpr explicit TT(Time_day a_jd_tt)
-    : m_MJS    (To_Time_sec(a_jd_tt - TBits::Epoch_J2000))
+    : m_MJS    (To_Time_sec(a_jd_tt - Epoch_J2000))
     {}
 
     // Directly constructing from JYear_TT:
     constexpr explicit TT(Time_jyr a_jyr_tt)
-    : m_MJS    (To_Time_sec( a_jyr_tt - TBits::Epoch_J2000_Yr))
+    : m_MJS    (To_Time_sec( a_jyr_tt - Epoch_J2000_Yr))
     {}
 
     // From TDB (not "constexpr", as DE440T is required):
@@ -402,11 +402,11 @@ namespace SpaceBallistics
 
     // Extracting the JD_TT:
     constexpr Time_day GetJD            () const
-      { return TBits::Epoch_J2000    + To_Time_day(m_MJS); }
+      { return Epoch_J2000    + To_Time_day(m_MJS); }
 
     // Extracting the JYr_TT:
     constexpr Time_jyr GetJYr           () const
-      { return TBits::Epoch_J2000_Yr + To_Time_jyr(m_MJS); }
+      { return Epoch_J2000_Yr + To_Time_jyr(m_MJS); }
 
     //-----------------------------------------------------------------------//
     // Time Intervals (Durations):                                           //
@@ -531,7 +531,7 @@ namespace SpaceBallistics
       // Very old instants (BEFORE 1961): DeltaAT=0, so just subtract the fixed
       // TT_TAI offset:
       if (m_MJS < ODATNodesMJS[0])
-        jd_utc = TBits::Epoch_J2000 + To_Time_day(m_MJS - TBits::TT_TAI);
+        jd_utc = Epoch_J2000 + To_Time_day(m_MJS - TBits::TT_TAI);
       else
       {
         // Search "Old-Style" (1961--1972) Nodes:
@@ -557,8 +557,7 @@ namespace SpaceBallistics
             double  c0 = double(86400.0_sec       / denom);
             double  c1 = double(node.m_b          / denom);
             double  c2 = double((m_MJS - node.m_a - TBits::TT_TAI)  / denom);
-            jd_utc     = c0 * TBits::Epoch_J2000  + c1 * node.m_jd0 +
-                         c2 * 1.0_day;
+            jd_utc     = c0 * Epoch_J2000 + c1 * node.m_jd0 + c2 * 1.0_day;
             break;
           }
         }
@@ -588,7 +587,7 @@ namespace SpaceBallistics
             Time off = Time(double(i)) + 10.0_sec + TBits::TT_TAI;
 
             // Then "jd_utc" is:
-            jd_utc = TBits::Epoch_J2000 + To_Time_day(m_MJS - off);
+            jd_utc = Epoch_J2000 + To_Time_day(m_MJS - off);
 
             // Are we are actually within the "i"th Leap Second (incomplete
             // yet)?
@@ -604,7 +603,7 @@ namespace SpaceBallistics
           // rapolated:
           assert(m_MJS >= LeapSecondsStartMJS[UTC::NLS-1]   + 1.0_sec);
           Time   off    = Time(double(UTC::NLS)) + 10.0_sec + TBits::TT_TAI;
-          jd_utc        = TBits::Epoch_J2000     + To_Time_day(m_MJS - off);
+          jd_utc        = Epoch_J2000 + To_Time_day(m_MJS - off);
         }
       }
       // We must have obtained valid "jd_utc" and possibly the curr Leap Second
@@ -713,7 +712,7 @@ namespace SpaceBallistics
 
     // Directly constructing TDB from JD_TDB:
     constexpr explicit TDB (Time_day a_jd_tdb)
-    : m_MJS    (To_Time_sec(a_jd_tdb - TBits::Epoch_J2000))
+    : m_MJS    (To_Time_sec(a_jd_tdb - Epoch_J2000))
     {}
 
     //-----------------------------------------------------------------------//
@@ -729,7 +728,7 @@ namespace SpaceBallistics
 
     // Extracting the JD_TDB:
     constexpr  Time_day GetJD           () const
-      { return TBits::Epoch_J2000 + To_Time_day(m_MJS); }
+      { return Epoch_J2000 + To_Time_day(m_MJS); }
 
     // XXX: Unlike TT, for TDB we probably don't need "GetJYr"...
 

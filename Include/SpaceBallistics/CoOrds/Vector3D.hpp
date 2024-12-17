@@ -112,9 +112,18 @@ namespace SpaceBallistics
       return *this;
     }
 
-    constexpr Vector3D  operator*  (double a_k) const
-      { return  Vector3D(a_k * m_arr[0], a_k * m_arr[1], a_k * m_arr[2]); }
+    //-----------------------------------------------------------------------//
+    // Multiplication by any scalar:                                         //
+    //-----------------------------------------------------------------------//
+    template<typename DT>
+    constexpr Vector3D<decltype(DQ(1.0) * DT(1.0)), COS, B> operator* (DT a_k)
+    const
+    {
+      return Vector3D<decltype(DQ(1.0) * DT(1.0)), COS, B>
+             (m_arr[0] * a_k, m_arr[1] * a_k, m_arr[2] * a_k);
+    }
 
+    // In-place multiplication is only possible for a "double" scalar:
     constexpr Vector3D& operator*= (double a_k)
     {
       m_arr[0] *= a_k;
@@ -123,14 +132,94 @@ namespace SpaceBallistics
       return *this;
     }
 
-    constexpr friend Vector3D operator* (double a_k, Vector3D const& a_right)
+    template<typename DT>
+    constexpr friend  Vector3D<decltype(DQ(1.0) * DT(1.0)), COS, B> operator*
+      (DT a_k, Vector3D const& a_right)
       { return a_right * a_k; }
 
-    // Vector Length:
-    // Implemented simply as conversion to the underlying type:
+    //-----------------------------------------------------------------------//
+    // Division by any scalar:                                               //
+    //-----------------------------------------------------------------------//
+    template<typename DT>
+    constexpr Vector3D<decltype(DQ(1.0) / DT(1.0)), COS, B> operator/ (DT a_k)
+    const
+    {
+      assert(!IsZero(a_k));
+      return Vector3D<decltype(DQ(1.0) / DT(1.0)), COS, B>
+             (m_arr[0] / a_k, m_arr[1] / a_k, m_arr[2] / a_k);
+    }
+
+    // Overloading (NOT Specialisation) of the above:
+    // Division by a "DQ" will produce a vector of "double"s:
+    //
+    constexpr Vector3D<double, COS, B> operator/ (DQ a_k) const
+    {
+      assert(!IsZero(a_k));
+      return Vector3D<double, COS, B>
+             (double(m_arr[0] / a_k), double(m_arr[1] / a_k),
+              double(m_arr[2] / a_k));
+    }
+
+    // In-place division is only possible for a "double" scalar:
+    constexpr Vector3D& operator/= (double a_k)
+    {
+      assert(a_k != 0.0);
+      m_arr[0] /= a_k;
+      m_arr[1] /= a_k;
+      m_arr[2] /= a_k;
+      return *this;
+    }
+
+    //-----------------------------------------------------------------------//
+    // Vector Length:                                                        //
+    //-----------------------------------------------------------------------//
+    // Implemented simply as conversion to the underlying type, as well as the
+    // "EuclNorm":
     //
     constexpr operator DQ() const
-      { return SqRt(Sqr(m_arr[0]) + Sqr(m_arr[1]) + Sqr(m_arr[2])); }
+      { return SqRt(Sqr(x()) + Sqr(y()) + Sqr(z())); }
+
+    constexpr DQ EuclNorm() const { return operator DQ(); }
+
+    //-----------------------------------------------------------------------//
+    // Dot Product:                                                          //
+    //-----------------------------------------------------------------------//
+    template<typename  DT>
+    constexpr decltype(DQ(1.0) * DT(1.0)) DotProd
+      (Vector3D<DT, COS, B> const& a_right) const
+    { return x() * a_right.x() + y() * a_right.y() + z() * a_right.z(); }
+
+    template<typename DT>
+    constexpr friend decltype(DQ(1.0) * DT(1.0)) DotProd
+    (
+      Vector3D<DQ, COS, B> const& a_left,
+      Vector3D<DT, COS, B> const& a_right
+    )
+    { return a_left.DotProd(a_right); }
+
+    //-----------------------------------------------------------------------//
+    // Cross Product:                                                        //
+    //-----------------------------------------------------------------------//
+    template<typename DT>
+    constexpr Vector3D<decltype(DQ(1.0) * DT(1.0)), COS, B> CrossProd
+      (Vector3D<DT, COS, B> const& a_right) const
+    {
+      return
+        Vector3D<decltype(DQ(1.0) * DT(1.0)), COS, B>
+        {
+          y() * a_right.z() - z() * a_right.y(),
+          z() * a_right.x() - x() * a_right.z(),
+          x() * a_right.y() - y() * a_right.x()
+        };
+    }
+
+    template<typename DT>
+    constexpr friend Vector3D<decltype(DQ(1.0) * DT(1.0)), COS, B> CrossProd
+    (
+      Vector3D<DQ, COS, B> const& a_left,
+      Vector3D<DT, COS, B> const& a_right
+    )
+    { return a_left.CrossProd(a_right); }
 
     //-----------------------------------------------------------------------//
     // Direct Access to the Underlying Array:                                //

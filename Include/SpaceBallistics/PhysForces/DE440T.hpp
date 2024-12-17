@@ -694,7 +694,7 @@ namespace SpaceBallistics::DE440T
   }
 
   //-------------------------------------------------------------------------//
-  // In the GeoC Ecl Fixed-Axes COS (JPL Horizons-compatible):               //
+  // In the GeoC Ecl Fixed-Axes COS:                                         //
   //-------------------------------------------------------------------------//
   void GetMoonGEclPV
   (

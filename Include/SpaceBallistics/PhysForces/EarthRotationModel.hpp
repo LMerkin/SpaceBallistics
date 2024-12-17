@@ -15,7 +15,7 @@ namespace SpaceBallistics
   constexpr double EarthRotationModel::GetJCYsSinceEpoch(Time_jyr a_t)
   {
     // XXX: "a_t" is actually the Year Number:
-    return double((a_t - TBits::Epoch_J2000_Yr) / Time_jyr(100.0));
+    return double((a_t - Epoch_J2000_Yr) / Time_jyr(100.0));
   }
     
   //=========================================================================//
@@ -385,7 +385,7 @@ namespace SpaceBallistics
   //=========================================================================//
   EarthRotationModel::EarthRotationModel(TT a_erm_epoch)
   : EarthRotationModel
-    (TBits::Epoch_J2000_Yr + To_Time_jyr(a_erm_epoch.GetTimeSinceEpoch()))
+      (Epoch_J2000_Yr + To_Time_jyr(a_erm_epoch.GetTimeSinceEpoch()))
   {}
 
   //=========================================================================//

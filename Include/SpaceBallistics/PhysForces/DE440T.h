@@ -39,7 +39,7 @@ namespace SpaceBallistics::DE440T
     VelKVBarEq<B>*  a_vel   // Output (Velocity); may be NULL
   );
 
-  // In the BaryC Ecliptical COS (compatible with JPL Horizons):
+  // In the BaryC Ecliptical COS:
   template<Body B>
   void GetPlanetBarEclPV
   (
@@ -97,7 +97,7 @@ namespace SpaceBallistics::DE440T
     VelKV_GCRS<Body::Moon>*     a_vel
   );
 
-  // In the GeoC Ecliptical Fixed-Axes COS (compatible with JPL Horizons):
+  // In the GeoC Ecliptical Fixed-Axes COS:
   void GetMoonGEclPV
   (
     TDB                         a_tdb,

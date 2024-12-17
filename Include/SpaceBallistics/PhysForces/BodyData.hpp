@@ -59,6 +59,25 @@ namespace SpaceBallistics
   struct   BodyData;
 
   //-------------------------------------------------------------------------//
+  // "UNDEFINED":                                                            //
+  //-------------------------------------------------------------------------//
+  // Assumed to be a point of negligible size and mass:
+  //
+  template<>
+  struct BodyData<Body::UNDEFINED>
+  {
+    // Equatorial and Polar Radius:
+    constexpr static LenK Re = 0.0_km;
+    constexpr static LenK Rp = 0.0_km;
+
+    // The Gravitational Field Constant: 0, since Mass=0:
+    constexpr static GMK  K  = GMK(0.0);
+
+    // And obviously no harmonics in the Gravitational Fld expansion:
+    constexpr static int MaxSpherHDegreeAndOrder = 0;
+  };
+
+  //-------------------------------------------------------------------------//
   // Earth:                                                                  //
   //-------------------------------------------------------------------------//
   template<>
