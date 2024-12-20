@@ -82,30 +82,48 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Vector Space Operations:                                              //
     //-----------------------------------------------------------------------//
-    constexpr Vector3D  operator+  (Vector3D const& a_right) const
+    // XXX:  In "+", if one of the Arg Vectors is with  UNDEFINED Body, the type
+    // check is relaxed, as the result will also be for UNDEFINED:
+    //
+    template<Body R>
+    constexpr  Vector3D<DQ, COS, UnifyBodies(B,R)>
+    operator+ (Vector3D<DQ, COS, R> const& a_right) const
     {
-      return  Vector3D(m_arr[0] + a_right.m_arr[0],
-                       m_arr[1] + a_right.m_arr[1],
-                       m_arr[2] + a_right.m_arr[2]);
+      return   Vector3D<DQ, COS, UnifyBodies(B,R)>
+      (
+        x() + a_right.x(),
+        y() + a_right.y(),
+        z() + a_right.z()
+      );
     }
 
     constexpr Vector3D& operator+= (Vector3D const& a_right)
     {
+      // But here no unification is attempted:
       m_arr[0] += a_right.m_arr[0];
       m_arr[1] += a_right.m_arr[1];
       m_arr[2] += a_right.m_arr[2];
       return *this;
     }
 
-    constexpr Vector3D  operator-  (Vector3D const& a_right) const
+    // XXX:  In "-", if one of the Arg Vectors is with  UNDEFINED Body, the type
+    // check is relaxed, as the result will also be for UNDEFINED:
+    //
+    template<Body R>
+    constexpr  Vector3D<DQ, COS, UnifyBodies(B,R)>
+    operator- (Vector3D<DQ, COS, R> const& a_right) const
     {
-      return  Vector3D(m_arr[0] - a_right.m_arr[0],
-                       m_arr[1] - a_right.m_arr[1],
-                       m_arr[2] - a_right.m_arr[2]);
+      return   Vector3D<DQ, COS, UnifyBodies(B,R)>
+      (
+        x() - a_right.x(),
+        y() - a_right.y(),
+        z() - a_right.z()
+      );
     }
 
     constexpr Vector3D& operator-= (Vector3D const& a_right)
     {
+      // But here no unification is attempted:
       m_arr[0] -= a_right.m_arr[0];
       m_arr[1] -= a_right.m_arr[1];
       m_arr[2] -= a_right.m_arr[2];
@@ -220,6 +238,21 @@ namespace SpaceBallistics
       Vector3D<DT, COS, B> const& a_right
     )
     { return a_left.CrossProd(a_right); }
+
+    //-----------------------------------------------------------------------//
+    // Approximate Equality of Vectors:                                      //
+    //-----------------------------------------------------------------------//
+    constexpr bool ApproxEquals
+    (
+      Vector3D const& a_right,
+      double          a_tol = DefaultTol<double>
+    )
+    const
+    {
+      return x().ApproxEquals(a_right.x(), a_tol) &&
+             y().ApproxEquals(a_right.y(), a_tol) &&
+             z().ApproxEquals(a_right.z(), a_tol);
+    }
 
     //-----------------------------------------------------------------------//
     // Direct Access to the Underlying Array:                                //

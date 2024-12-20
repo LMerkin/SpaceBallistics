@@ -409,8 +409,8 @@ namespace SpaceBallistics::DE440T
   void GetPlanetBarEqPV
   (
     TDB             a_tdb,
-    PosKVBarEq<B>*  a_pos,  // Output (Position)
-    VelKVBarEq<B>*  a_vel   // Output (Velocity); may be NULL
+    PosKV_BCRS<B>*  a_pos,  // Output (Position)
+    VelKV_BCRS<B>*  a_vel   // Output (Velocity); may be NULL
   )
   {
     // This is the generic case for the Sun and Planets except Earth (which re-
@@ -444,8 +444,8 @@ namespace SpaceBallistics::DE440T
   void GetPlanetBarEqPV<Body::Earth>
   (
     TDB                      a_tdb,
-    PosKVBarEq<Body::Earth>* a_pos,  // Output (Position)
-    VelKVBarEq<Body::Earth>* a_vel   // Output (Velocity); may be NULL
+    PosKV_BCRS<Body::Earth>* a_pos,  // Output (Position)
+    VelKV_BCRS<Body::Earth>* a_vel   // Output (Velocity); may be NULL
   )
   {
     assert(a_pos != nullptr);
@@ -503,8 +503,8 @@ namespace SpaceBallistics::DE440T
   (
     Body          a_body,
     TDB           a_tdb,
-    PosKVBarEq<>* a_pos,    // Output (Position)
-    VelKVBarEq<>* a_vel     // Output (Velocity); may be NULL
+    PosKV_BCRS<>* a_pos,    // Output (Position)
+    VelKV_BCRS<>* a_vel     // Output (Velocity); may be NULL
   )
   {
     switch (a_body)
@@ -548,8 +548,8 @@ namespace SpaceBallistics::DE440T
   void GetPlanetsBarEqPVs
   (
     TDB           a_tdb,
-    PosKVBarEq<>  a_poss[10], // Output
-    VelKVBarEq<>  a_vels[10]  // Output (again, may be NULL)
+    PosKV_BCRS<>  a_poss[10], // Output
+    VelKV_BCRS<>  a_vels[10]  // Output (again, may be NULL)
   )
   {
     // Optimisation: The Record is fetched JUST ONCE for all Objects:
@@ -601,8 +601,8 @@ namespace SpaceBallistics::DE440T
     static_assert(Body::Sun <= B && B <= Body::EMB && B != Body::Moon);
 
     // First, compute the PV in the BaryC Eq Co-Ords:
-    PosKVBarEq<B>    posEq;
-    VelKVBarEq<B>    velEq;
+    PosKV_BCRS<B>    posEq;
+    VelKV_BCRS<B>    velEq;
     GetPlanetBarEqPV<B>
       (a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
@@ -624,8 +624,8 @@ namespace SpaceBallistics::DE440T
   )
   {
     // First, compute the PV in the BaryC Eq Co-Ords:
-    PosKVBarEq<>    posEq;
-    VelKVBarEq<>    velEq;
+    PosKV_BCRS<>    posEq;
+    VelKV_BCRS<>    velEq;
     GetPlanetBarEqPV
       (a_body, a_tdb, &posEq, a_vel != nullptr ? &velEq : nullptr);
 
@@ -651,8 +651,8 @@ namespace SpaceBallistics::DE440T
   )
   {
     // First, get the PVs in the BaryC Eq Co-Ords:
-    PosKVBarEq<>    possEq[10];
-    VelKVBarEq<>    velsEq[10];
+    PosKV_BCRS<>    possEq[10];
+    VelKV_BCRS<>    velsEq[10];
     GetPlanetsBarEqPVs(a_tdb, possEq, (a_vels != nullptr) ? velsEq : nullptr);
 
     // Then convert the results into the BaryC Ecl Co-Ords:

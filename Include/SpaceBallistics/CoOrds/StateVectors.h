@@ -116,7 +116,7 @@ namespace SpaceBallistics
         // If "cosP" is close to 0, "yawDot" has a singularity; this normally
         // occurs during the vertical ascent, so we assume yawDot = 0 in this
         // case:
-        (Abs(m_cosP) < Tol)
+        (Abs(m_cosP) < DefaultTol<double>)
         ? AngVel(0.0)
         : a_omega[2] -
           (m_cosY * a_omega[0] + m_sinY * a_omega[1]) * m_sinP / m_cosP
@@ -126,7 +126,7 @@ namespace SpaceBallistics
         // If "cosP" is close to 0, we assume that "rollDot" is +-omega[2], ie
         // omega[2] = omega_z is in this case translated into "rollDot",   not
         // into "yawDot" (whch remains 0, see above):
-        (Abs(m_cosP) < Tol)
+        (Abs(m_cosP) < DefaultTol<double>)
         ? (m_sinP > 0.0) ? a_omega[2] : (-a_omega[2])
         : (m_cosY * a_omega[0] + m_sinY * a_omega[1]) / m_cosP
       ),

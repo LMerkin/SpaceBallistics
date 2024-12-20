@@ -37,6 +37,7 @@ namespace SpaceBallistics
   private:
     using ME = MechElement  <LVSCKind>;
     using RS = RotationShell<LVSCKind, TrCone<LVSCKind>>;
+    using ME::TolFact;
 
     //=======================================================================//
     // Data Flds: Truncated Cone's Geometry:                                 //
@@ -179,6 +180,7 @@ namespace SpaceBallistics
   private:
     using ME = MechElement  <LVSCKind>;
     using RS = RotationShell<LVSCKind, SpherSegm<LVSCKind>>;
+    using ME::TolFact;
 
     //=======================================================================//
     // Data Flds: Spherical Segment's Geometry:                              //

@@ -26,8 +26,8 @@ namespace SpaceBallistics::DE440T
   void GetPlanetBarEqPV
   (
     TDB             a_tdb,
-    PosKVBarEq<B>*  a_pos,  // Output (Position)
-    VelKVBarEq<B>*  a_vel   // Output (Velocity); may be NULL
+    PosKV_BCRS<B>*  a_pos,  // Output (Position)
+    VelKV_BCRS<B>*  a_vel   // Output (Velocity); may be NULL
   );
 
   template<Body B>
@@ -35,8 +35,8 @@ namespace SpaceBallistics::DE440T
   (
     Body            a_body, // Same constraints for "a_obj" as above
     TDB             a_tdb,
-    PosKVBarEq<B>*  a_pos,  // Output (Position)
-    VelKVBarEq<B>*  a_vel   // Output (Velocity); may be NULL
+    PosKV_BCRS<B>*  a_pos,  // Output (Position)
+    VelKV_BCRS<B>*  a_vel   // Output (Velocity); may be NULL
   );
 
   // In the BaryC Ecliptical COS:
@@ -75,8 +75,8 @@ namespace SpaceBallistics::DE440T
   void GetPlanetsBarEqPVs
   (
     TDB             a_tdb,
-    PosKVBarEq<>    a_poss[10], // Output
-    VelKVBarEq<>    a_vels[10]  // Output (again, may be NULL)
+    PosKV_BCRS<>    a_poss[10], // Output
+    VelKV_BCRS<>    a_vels[10]  // Output (again, may be NULL)
   );
 
   void GetPlanetsBarEclPVs
@@ -93,16 +93,16 @@ namespace SpaceBallistics::DE440T
   void GetMoonGEqPV
   (
     TDB                         a_tdb,
-    PosKV_GCRS<Body::Moon>*     a_pos,
-    VelKV_GCRS<Body::Moon>*     a_vel
+    PosKV_GCRS<Body::Moon>*     a_pos,  // Output
+    VelKV_GCRS<Body::Moon>*     a_vel   // Output (again, may be NULL)
   );
 
   // In the GeoC Ecliptical Fixed-Axes COS:
   void GetMoonGEclPV
   (
     TDB                         a_tdb,
-    PosKVGeoEclFix<Body::Moon>* a_pos,
-    VelKVGeoEclFix<Body::Moon>* a_vel
+    PosKVGeoEclFix<Body::Moon>* a_pos,  // Output
+    VelKVGeoEclFix<Body::Moon>* a_vel   // Output (again, may be NULL)
   );
 
   //-------------------------------------------------------------------------//

@@ -62,7 +62,10 @@ namespace SpaceBallistics
     // "UnKnownMass": Param to be used for "MechElement"s when their mass is
     // not yet known (all real Masses are of course strictly positive):
     //
-    constexpr static Mass UnKnownMass = 0.0_kg;
+    constexpr static Mass   UnKnownMass = 0.0_kg;
+
+    // Tolerance Factor for various comparisons:
+    constexpr static double TolFact     = 1.0 + DefaultTol<double>;
 
   private:
     //=======================================================================//
@@ -261,6 +264,7 @@ namespace SpaceBallistics
     // Types and Consts:                                                     //
     //=======================================================================//
     using ME = MechElement<LVSCKind>;
+    using ME::TolFact;
 
   private:
     //=======================================================================//

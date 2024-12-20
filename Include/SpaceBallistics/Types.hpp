@@ -115,20 +115,20 @@ namespace SpaceBallistics
   // Some Standard Constants:                                                //
   //=========================================================================//
   // Standard Gravity (m/sec^2):
-  constexpr inline Acc      g0   = Acc(9.80665);
+  constexpr inline Acc      g0     = Acc(9.80665);
 
-  // Standard Atnospheric Pressure at Sea Level:
-  constexpr inline Pressure p0   = Pressure(101325.0);
+  // Standard Atmospheric Pressure at Sea Level (FIXME: Move it to the Earth
+  // Atmosphere Model!):
+  constexpr inline Pressure p0     = Pressure(101325.0);
 
-  // Specific Gas Constant for Dry Air (J/K):
-  constexpr inline auto     Rair = 287.0528 * Energy(1.0) / 1.0_K;
+  // Specific Gas Constant for Dry Air (J/K)    (FIXME: Move it to the Earth
+  // Atmosphere Model!):
+  constexpr inline auto     Rair   = 287.0528 * Energy(1.0) / 1.0_K;
 
-  //=========================================================================//
-  // Computation Tolerances:                                                 //
-  //=========================================================================//
-  // (Searching for a better place to define them...):
-  constexpr inline double Tol     = 100.0 * Eps<double>;
-  constexpr inline double TolFact = 1.0   + Tol;
+  // "Pi"-Related Consts lifted to "Angle"s:
+  constexpr inline Angle    PI     = Angle(Pi   <double>);
+  constexpr inline Angle    TWO_PI = Angle(TwoPi<double>);
+  constexpr inline Angle    PI_2   = Angle(Pi_2 <double>);
 }
 // End namespace SpaceBallistics
 

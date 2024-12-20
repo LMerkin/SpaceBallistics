@@ -39,7 +39,7 @@ namespace
     double       a_t,
     double const a_y    [ODEDim], // km
     double       a_y_dot[ODEDim], // km/sec
-    void*        // UNUSED
+    void*                         // UNUSED
   )
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
@@ -100,7 +100,7 @@ namespace
       sinMRA * accR[0] + cosMRA * accR[1],
       accR[2]
     );
-    // Put them back into the "UnTypes" C array:
+    // Put them back into the "UnTyped" C array:
     a_y_dot[3] = accF[0].Magnitude();
     a_y_dot[4] = accF[1].Magnitude();
     a_y_dot[5] = accF[2].Magnitude();
@@ -115,8 +115,9 @@ namespace
 //===========================================================================//
 int main()
 {
-  // System Definition: Presumably, for an explicit itegration method, no Jacob-
-  // ian of the RHS is required. There are no params either:
+  // System Definition:
+  // Presumably, for an explicit integration method, no Jacobian of the RHS is
+  // required. There are no params either:
   gsl_odeiv2_system ODE { ODERHS, nullptr, ODEDim, nullptr };
 
   // Initial Condition:

@@ -14,7 +14,7 @@ namespace DimTypes
   //=========================================================================//
   namespace SB = SpaceBallistics;
 
-  // Explicily allowing conversions of "Angle[_rad]" into "double":
+  // Allowing explicit conversions of "Angle[_rad]" into "double":
   template<>
   constexpr inline
   DimQ

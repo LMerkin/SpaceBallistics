@@ -495,7 +495,7 @@ namespace SpaceBallistics
         x -= dx;
 
         // Exit condition:
-        if (UNLIKELY(Abs(dx) < Tol))
+        if (UNLIKELY(Abs(dx) < DefaultTol<double>))
           break;
       }
       // If we got here w/o achieving the required precision, it's an error:

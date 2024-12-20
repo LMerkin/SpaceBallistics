@@ -38,11 +38,11 @@ int main()
 
     // Get the ICRS/BCRS (BaryC Equatorial J2000.0) Co-Ords of the Sun for this
     // time instant. The velocity is not required:
-    PosKVBarEq<Body::Sun>    posSun;
+    PosKV_BCRS<Body::Sun>    posSun;
     DE440T::GetPlanetBarEqPV<Body::Sun>  (tdb, &posSun,   nullptr);
 
     // Same for Earth:
-    PosKVBarEq<Body::Earth>  posEarth;
+    PosKV_BCRS<Body::Earth>  posEarth;
     DE440T::GetPlanetBarEqPV<Body::Earth>(tdb, &posEarth, nullptr);
 
     // GeoC Equatorial position of the Sun:

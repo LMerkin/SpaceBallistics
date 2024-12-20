@@ -197,7 +197,7 @@ namespace SpaceBallistics
       int           i = 0;
       for (; i < N; ++i)
       {
-        assert(- Tol < z  && z < TolFact);
+        assert(- DefaultTol<double> < z && z < TolFact);
         z = std::min(std::max(z, 0.0), 1.0);
 
         double z2   = Sqr(z);
@@ -212,7 +212,7 @@ namespace SpaceBallistics
         z -= dz;
 
         // Exit condition:
-        if (UNLIKELY(Abs(dz) < Tol))
+        if (UNLIKELY(Abs(dz) < DefaultTol<double>))
           break;
       }
       // If we got here w/o achieving the required precision, it's an error:
@@ -323,7 +323,7 @@ namespace SpaceBallistics
     // In this case, the formulas are relatively simple, so use the direct
     // computations:
     double x   = double(a_l / m_R);
-    assert(- Tol < x &&  x <= TolFact);
+    assert(- DefaultTol<double> < x &&  x <= TolFact);
     x = std::min(std::max(x, 0.0), 1.0);
 
     double cx  = 1.0 - x;

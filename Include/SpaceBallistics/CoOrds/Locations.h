@@ -136,7 +136,7 @@ namespace SpaceBallistics
       double dPhi    = double(To_Angle(a_to_phi    - a_from_phi));
       assert(Abs(dLambda) < 1e-3 && Abs(dPhi) < 1e-3);
 
-      if (Abs(dPhi) > Tol)
+      if (Abs(dPhi) > DefaultTol<double>)
       {
         // dPhi != 0, ie the Azimuth is not (+-Pi/2):
         double avgPhi = double (To_Angle (a_to_phi + a_from_phi)) / 2.0;
@@ -161,11 +161,11 @@ namespace SpaceBallistics
         return To_Angle_deg(Angle(A));
       }
       else
-      if (dLambda > Tol)
+      if (dLambda >  DefaultTol<double>)
         // Due East:
         return 90.0_deg;
       else
-      if (dLambda < -Tol)
+      if (dLambda < -DefaultTol<double>)
         // Due West:
         return 270.0_deg;
       else

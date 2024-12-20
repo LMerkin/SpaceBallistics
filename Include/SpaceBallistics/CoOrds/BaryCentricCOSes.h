@@ -61,14 +61,24 @@ namespace SpaceBallistics
     BaryCEqCOS() = delete;   // No objects construction at all!
   };
 
+  // Alias:
+  using BCRS = BaryCEqCOS;
+
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
   template<Body B   = Body::UNDEFINED>
-  using PosKVBarEq  = PosKV<BaryCEqCOS, B>;
+  using PosKVBarEq  = PosKV<BCRS, B>;
 
   template<Body B   = Body::UNDEFINED>
-  using VelKVBarEq  = VelKV<BaryCEqCOS, B>;
+  using VelKVBarEq  = VelKV<BCRS, B>;
+
+  // Aliases:
+  template<Body B   = Body::UNDEFINED>
+  using PosKV_BCRS  = PosKV<BCRS, B>;
+
+  template<Body B   = Body::UNDEFINED>
+  using VelKV_BCRS  = VelKV<BCRS, B>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 }

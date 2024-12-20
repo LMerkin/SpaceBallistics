@@ -386,6 +386,11 @@ namespace SpaceBallistics
     : m_MJS    (To_Time_sec( a_jyr_tt - Epoch_J2000_Yr))
     {}
 
+    // Directly constructing from MJS_TT: USE WITH CARE!
+    constexpr explicit TT(Time a_mjs_tt)
+    : m_MJS    (a_mjs_tt)
+    {}
+
     // From TDB (not "constexpr", as DE440T is required):
     explicit TT(TDB const& a_tdb);
 
@@ -456,7 +461,7 @@ namespace SpaceBallistics
       { return m_MJS >= a_right.m_MJS; }
 
     constexpr bool ApproxEquals
-      (TT a_right, double a_tol = Bits::CEMaths::Eps<double> * 100.0) const
+      (TT a_right, double a_tol = DefaultTol<double>) const
       { return m_MJS.ApproxEquals(a_right.m_MJS, a_tol); }
 
   private:
@@ -712,7 +717,12 @@ namespace SpaceBallistics
 
     // Directly constructing TDB from JD_TDB:
     constexpr explicit TDB (Time_day a_jd_tdb)
-    : m_MJS    (To_Time_sec(a_jd_tdb - Epoch_J2000))
+    : m_MJS     (To_Time_sec(a_jd_tdb - Epoch_J2000))
+    {}
+
+    // Directly constructing TDB from MJS_TDB: USE WITH CARE!
+    constexpr explicit TDB (Time a_mjs_tdb)
+    : m_MJS     (a_mjs_tdb)
     {}
 
     //-----------------------------------------------------------------------//
@@ -780,7 +790,7 @@ namespace SpaceBallistics
       { return m_MJS >= a_right.m_MJS; }
 
     constexpr bool  ApproxEquals
-      (TDB a_right, double a_tol = Bits::CEMaths::Eps<double> * 100.0) const
+      (TDB a_right, double a_tol = DefaultTol<double>) const
       { return m_MJS.ApproxEquals(a_right.m_MJS, a_tol); }
   };
 };

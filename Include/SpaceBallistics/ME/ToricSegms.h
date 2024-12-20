@@ -27,6 +27,7 @@ namespace SpaceBallistics
   private:
     using ME = MechElement  <LVSCKind>;
     using RS = RotationShell<LVSCKind, ToricSegm<LVSCKind>>;
+    using ME::TolFact;
 
     //=======================================================================//
     // Data Flds: Toric Segment's Geometry:                                  //
@@ -187,6 +188,7 @@ namespace SpaceBallistics
   private:
     using ME = MechElement  <LVSCKind>;
     using RS = RotationShell<LVSCKind, DoubleCylinder<LVSCKind>>;
+    using ME::TolFact;
 
     //=======================================================================//
     // Data Flds:                                                            //

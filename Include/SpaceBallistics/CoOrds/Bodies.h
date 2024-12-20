@@ -81,5 +81,22 @@ namespace SpaceBallistics
       (bsv == "EMB")     ? Body::EMB     :
       throw "Invalid Body";
   }
+
+  //-------------------------------------------------------------------------//
+  // Unification:                                                            //
+  //-------------------------------------------------------------------------//
+  // If one of the Arg Bodies is UNDEFINED, it unifies with any other one, and
+  // the result is UNDEFINED:
+  //
+  constexpr Body UnifyBodies(Body a_left, Body a_right)
+  {
+    return
+      (a_left == Body::UNDEFINED || a_right == Body::UNDEFINED)
+      ? Body::UNDEFINED
+      :
+      (a_left == a_right)
+      ? a_right
+      : throw "UnifyBodies failed";
+  }
 }
 // End namespace SpaceBallistics

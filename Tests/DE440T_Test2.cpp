@@ -105,10 +105,10 @@ int main(int argc, char* argv[])
   {
     TDB tdb(tt);
 
-    PosKVBarEq<Body::Earth> posE;
-    PosKVBarEq<Body::Sun>   posS;
-    VelKVBarEq<Body::Earth> velE;
-    VelKVBarEq<Body::Sun>   velS;
+    PosKV_BCRS<Body::Earth> posE;
+    PosKV_BCRS<Body::Sun>   posS;
+    VelKV_BCRS<Body::Earth> velE;
+    VelKV_BCRS<Body::Sun>   velS;
     DE440T::GetPlanetBarEqPV<Body::Earth>(tdb, &posE, &velE);
     DE440T::GetPlanetBarEqPV<Body::Sun>  (tdb, &posS, &velS);
 
