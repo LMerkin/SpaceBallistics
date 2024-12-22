@@ -5,7 +5,7 @@
 // FIXME: This implementation uses a GPL integrator which is NOT DimTypes-
 // aware. Must be replaced by our own DimTypes-based integrator:
 //    
-#include "SpaceBallistics/CoOrds/KeplerOrbits.hpp"
+#include "SpaceBallistics/CoOrds/TwoBodyOrbit.hpp"
 #include "SpaceBallistics/PhysForces/BodyData.hpp"
 #include "SpaceBallistics/PhysForces/DE440T.h"
 #include "SpaceBallistics/Maths/Dichotomy.hpp"
@@ -37,10 +37,10 @@ namespace
   //=========================================================================//
   // "MkTLO":                                                                //
   //=========================================================================//
-  // Computes an Elliptical Keplerian Approximation for the TransLunar Traject-
-  // ory (Orbit), in GCRS:
+  // Computes an Elliptical 2-Body Approximation for the TransLunar Trajectory
+  // (Orbit), in GCRS:
   //
-  EllipticOrbit<GCRS> MkTLO
+  TwoBodyOrbit<GCRS> MkTLO
   (
     // "a_t0" is the Evaluation Time. The Lunar "rendez-vois" of the SC will
     // occur at the first available opportunity after the last Moon  perigee
@@ -73,13 +73,13 @@ namespace
   )
   {
     //-----------------------------------------------------------------------//
-    // Instantaneous Keplerian Orbit of the Moon (@ a_t0):                   //
+    // Instantaneous 2-Body GeoCentric Orbit of the Moon (@ a_t0):           //
     //-----------------------------------------------------------------------//
     PosKV_GCRS<Body::Moon> posM;
     VelKV_GCRS<Body::Moon> velM;
     DE440T::GetMoonGEqPV(a_t0, &posM, &velM);
 
-    EllipticOrbit<GCRS, Body::Moon> moonOrbit(a_t0, posM, velM);
+    TwoBodyOrbit<GCRS, Body::Moon> moonOrbit(a_t0, posM, velM);
 
     //-----------------------------------------------------------------------//
     // Elements of the TLO:                                                  //
@@ -110,7 +110,8 @@ namespace
 
     // Construct the "provisional" "EllipticOrbit" object for the TLO (with a
     // dummy perigee Time as yet):
-    EllipticOrbit<GCRS> tlo0(a, e, I, Omega, omega, TDB{});
+    TwoBodyOrbit<GCRS> tlo0 =
+      TwoBodyOrbit<GCRS>::MkEllipticOrbit(a, e, I, Omega, omega, TDB{});
 
     // Finally, the perigee Time. This will be computed relative to the SCO in-
     // sertion time. To determine (approximately) the latter, first compute the
@@ -145,18 +146,18 @@ namespace
     fRM -= Angle(double((BodyData<Body::Moon>::Re + a_edge) / rRM));
 
     // Next time (after the previous Moon perigee) the Moon will be at that fRM:
-    Time tauM = moonOrbit.TimeSincePeriFocus(fRM).first;
+    Time tauM = moonOrbit.TimeSincePeriFocus(fRM);
     TDB  tRM  = moonOrbit.T() + tauM;
 
     // The corresp True Anomaly of the TLO:
     Angle fR  = lR - omega;
 
     // The TLO flight time from the perigee (XXX: it may change!) to the "fR":
-    Time tau  = tlo0.TimeSincePeriFocus(fR).first;
+    Time tau  = tlo0.TimeSincePeriFocus(fR);
     TDB  T    = tRM - tau;
 
     // Finally, the full TLO Elements:
-    return EllipticOrbit<GCRS>(a, e, I, Omega, omega, T);
+    return TwoBodyOrbit<GCRS>::MkEllipticOrbit(a, e, I, Omega, omega, T);
   }
 
   //=========================================================================//
@@ -264,7 +265,8 @@ int main()
   //------------------------------------------------------------------------//
   // XXX: Once again, it is currently assumed that the TLO
   // insertion occurs at the perigee; the perigee time is in general NOT "t0"!
-  EllipticOrbit<GCRS> tlo = MkTLO(t0);
+  //
+  TwoBodyOrbit<GCRS> tlo = MkTLO(t0);
 
   printf("TLO:\n\ta=%.3lf\n\tP=%.3lf\n\te=%.9lf\n\tQ=%.3lf\n\tI=%.6lf\n"
          "\tOmega=%.6lf\n\tomega=%.6lf\n\tM0=%.6lf\n\tT=%.3lf\n",
