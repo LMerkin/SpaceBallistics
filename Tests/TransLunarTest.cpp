@@ -14,6 +14,7 @@
 #include <gsl/gsl_errno.h>
 #include <iostream>
 #include <cstdio>
+#include <utility>
 
 using namespace SpaceBallistics;
 using namespace std;
@@ -38,9 +39,9 @@ namespace
   // "MkTLO":                                                                //
   //=========================================================================//
   // Computes an Elliptical 2-Body Approximation for the TransLunar Trajectory
-  // (Orbit), in GCRS:
+  // (Orbit), in GCRS. Returns the TLO and the Moon Orbit:
   //
-  TwoBodyOrbit<GCRS> MkTLO
+  std::pair<TwoBodyOrbit<GCRS>, TwoBodyOrbit<GCRS, Body::Moon>> MkTLO
   (
     // "a_t0" is the Evaluation Time. The Lunar "rendez-vois" of the SC will
     // occur at the first available opportunity after the last Moon  perigee
@@ -161,7 +162,10 @@ namespace
     T           -= advTime;
 
     // Finally, the full TLO Elements:
-    return TwoBodyOrbit<GCRS>::MkEllipticOrbit(a, e, I, Omega, omega, T);
+    TwoBodyOrbit<GCRS> tlo1 =
+      TwoBodyOrbit<GCRS>::MkEllipticOrbit(a, e, I, Omega, omega, T);
+
+    return std::make_pair(tlo1, moonOrbit);
   }
 
   //=========================================================================//
@@ -289,9 +293,10 @@ namespace
     // XXX: Once again, it is currently assumed that the TLO insertion occurs
     // at TLO the perigee. We assume that we are fying into the Moon Orbit pe-
     // rigee as well:
-    TwoBodyOrbit<GCRS> tlo = MkTLO(a_t0, a_fM, a_deltaQ, a_edge, a_leoH);
+    auto [tlo, mOr] = MkTLO(a_t0, a_fM, a_deltaQ, a_edge, a_leoH);
 
     if (a_verbose)
+    {
       printf("TLO:\n\ta=%.3lf\n\tP=%.3lf\n\te=%.9lf\n\tQ=%.3lf\n\tI=%.6lf\n"
              "\tOmega=%.6lf\n\tomega=%.6lf\n\tM0=%.6lf\n\tT=%.3lf\n",
              tlo.a()                    .Magnitude(),
@@ -302,8 +307,20 @@ namespace
              To_Angle_deg(tlo.Omega())  .Magnitude(),
              To_Angle_deg(tlo.omega())  .Magnitude(),
              To_Angle_deg(tlo.M0())     .Magnitude(),
-             tlo.T().GetTimeSinceEpoch().Magnitude());
+             tlo.T().GetJD().Magnitude());
 
+      printf("Moon:\n\ta=%.3lf\n\tP=%.3lf\n\te=%.9lf\n\tQ=%.3lf\n\tI=%.6lf\n"
+             "\tOmega=%.6lf\n\tomega=%.6lf\n\tM0=%.6lf\n\tT=%.3lf\n",
+             mOr.a()                    .Magnitude(),
+             mOr.P()                    .Magnitude(),
+             mOr.e(),
+             mOr.Q()                    .Magnitude(),
+             To_Angle_deg(mOr.I())      .Magnitude(),
+             To_Angle_deg(mOr.Omega())  .Magnitude(),
+             To_Angle_deg(mOr.omega())  .Magnitude(),
+             To_Angle_deg(mOr.M0())     .Magnitude(),
+             mOr.T().GetJD().Magnitude());
+    }
     // Get the initial Pos and Vel vectors for the TLO (at the TLO perigee,
     // hence f=0 here):
     PosKV_GCRS<> pos0;
@@ -333,9 +350,9 @@ namespace
     TDB const tTo   = tFrom + To_Time(10.0_day);
 
     // Min distance to the Moon center:
-    LenK        minRhoM    = LenK(+Inf<double>);
-    TDB         minRhoMTime;
-    VelKV_GCRS  minRhoMVel;  // Relative velocity at the closest approach
+    LenK         minRhoM    = LenK(+Inf<double>);
+    TDB          minRhoMTime;
+    VelKV_GCRS<> minRhoMVel;  // Relative velocity at the closest approach
 
     TDB t = tFrom;
     while (t < tTo)
@@ -362,10 +379,13 @@ namespace
       //---------------------------------------------------------------------//
       // Step Processing:                                                    //
       //---------------------------------------------------------------------//
+      // SC Velocity relative to the Moon:
+      VelKV_GCRS<> velMK = a_ctx->m_velEK - a_ctx->m_velEM;
+
       if (a_verbose)
-        printf("%.3lf\t%.3lf\t%.3lf\n",
+        printf("%.3lf\t%.3lf\t%.3lf\t%.3lf\n",
                a_ctx->m_mjs  .Magnitude(), a_ctx->m_rhoEK.Magnitude(),
-               a_ctx->m_rhoMK.Magnitude());
+               a_ctx->m_rhoMK.Magnitude(), VelK(velMK)   .Magnitude());
 
       // Minimum separation detection:
       if (a_ctx->m_rhoMK < minRhoM)
@@ -408,19 +428,10 @@ int main()
   //-------------------------------------------------------------------------//
   // Consts:                                                                 //
   //-------------------------------------------------------------------------//
-  TDB const       t0        {TT{UTC{{2025, 1, 1}}}};
-  constexpr Angle fM      = 0.0_rad;
-  constexpr LenK  leoH    = 200.0_km;
-  bool            verbose = false;
-
-  //-------------------------------------------------------------------------//
-  // Setup:                                                                  //
-  //-------------------------------------------------------------------------//
-  // GSL ODE Solver Initialisation:
-  // Presumably, for an explicit integration method, no Jacobian of the RHS is
-  // required:
-  Context ctx;
-  gsl_odeiv2_system ODE { ODERHS, nullptr, ODEDim, &ctx };
+  TDB const       t0{TT{UTC{{2025, 1, 1}}}};
+  constexpr Angle fM         = 0.0_rad;
+  constexpr LenK  leoH       = 200.0_km;
+  bool            verbose    = false;
 
   // Ranges for "deltaQ" and "edge":
   constexpr LenK deltaQ_from =  5000.0_km;
@@ -430,6 +441,15 @@ int main()
   constexpr LenK edge_from   =  2000.0_km;
   constexpr LenK edge_to     = 15000.0_km;
   constexpr LenK edge_step   =   250.0_km;
+
+  //-------------------------------------------------------------------------//
+  // Setup:                                                                  //
+  //-------------------------------------------------------------------------//
+  // GSL ODE Solver Initialisation:
+  // Presumably, for an explicit integration method, no Jacobian of the RHS is
+  // required:
+  Context ctx;
+  gsl_odeiv2_system ODE { ODERHS, nullptr, ODEDim, &ctx };
 
   // Construct the RKF45 Integrator with 10 sec initial TimeStep (used by the
   // Driver internally):
