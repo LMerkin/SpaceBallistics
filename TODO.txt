@@ -1,5 +1,4 @@
 -- Complete EllipsPV and possibly modify Locations
--- Complete TimeScales (implement FlightTime)
 -- Atmosphere model(s), at least for Earth
 -- AeroFin controls
 -- Complete the Soyuz-2.1b model

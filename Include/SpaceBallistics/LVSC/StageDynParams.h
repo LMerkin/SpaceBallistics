@@ -7,6 +7,7 @@
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/LVSC/LVSC.h"
 #include "SpaceBallistics/CoOrds/EmbeddedCOS.h"
+#include "SpaceBallistics/CoOrds/TimeScales.h"
 
 namespace SpaceBallistics
 {
@@ -19,10 +20,10 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   struct StageDynParams
   {
-    // TODO: TimeInstant in some TimeScale...
+    FlightTime            m_ft;
     Mass                  m_fullMass;     // Curr full mass of a Stage
-    Mass                  m_fuelMass;     // Curr mass of Fuel
-    Mass                  m_oxidMass;     // Curr mass of Oxidiser
+    Mass                  m_fuelMass;     // Curr mass of Fuel;     info only
+    Mass                  m_oxidMass;     // Curr mass of Oxidiser; info only
     MassRate              m_fullMassDot;  // Full Mass Time Derivative
     PosVEmb    <LVSCKind> m_com;          // Curr center of masses (x,  y,  z)
     VelVEmb    <LVSCKind> m_comDots;      // CoM  Embedded "Velocity"

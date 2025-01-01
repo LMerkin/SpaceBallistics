@@ -16,12 +16,12 @@ namespace SpaceBallistics
   //
   StageDynParams<LVSC::Soyuz21b> Soyuz21b_Stage3::GetDynParams
   (
-    Time                      a_t,
+    FlightTime                a_ft,
     ChamberDeflections const& a_chamber_defls
   )
   {
     // We currently do not allow any times prior to LiftOff:
-    assert(!IsNeg(a_t));
+    assert(SC::LiftOffTime <= a_ft);
 
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
@@ -33,7 +33,7 @@ namespace SpaceBallistics
     MassRate  oxidMassDot(NaN<double>);
     Force     absThrust  (NaN<double>);
 
-    if (a_t < IgnTime)        // Before Stage3 Ignition
+    if (a_ft < IgnTime)      // Before Stage3 Ignition
     {
       fullMass    = FullMass;
       fuelMass    = FuelMass;
@@ -43,9 +43,9 @@ namespace SpaceBallistics
       oxidMassDot = MassRate(0.0);
     }
     else
-    if (a_t < AftJetTime)     // Running at Full Thrust, with Aft (yet)
+    if (a_ft < AftJetTime)   // Running at Full Thrust, with Aft (yet)
     {
-      Time     dt = a_t      - IgnTime;
+      Time     dt = a_ft     - IgnTime;
       fullMass    = FullMass - EngineMR * dt;
       fuelMass    = FuelMass - FuelMR   * dt;
       oxidMass    = OxidMass - OxidMR   * dt;
@@ -54,10 +54,10 @@ namespace SpaceBallistics
       oxidMassDot = - OxidMR;
     }
     else
-    if (a_t < CutOffTime)     // Running at Full Thrust, w/o Aft
+    if (a_ft < CutOffTime)    // Running at Full Thrust, w/o Aft
     {
-      Time dt0    = a_t             - IgnTime;
-      Time dt1    = a_t             - AftJetTime;
+      Time dt0    = a_ft            - IgnTime;
+      Time dt1    = a_ft            - AftJetTime;
       fullMass    = AftJetFullMass  - EngineMR * dt1;
       fuelMass    = FuelMass        - FuelMR   * dt0;
       oxidMass    = OxidMass        - OxidMR   * dt0;
@@ -81,7 +81,7 @@ namespace SpaceBallistics
     (
       Mass egMass   = fullMass - fuelMass - oxidMass;
       assert
-        (egMass.ApproxEquals(a_t < AftJetTime ? EGMassBefore : EGMassAfter));
+        (egMass.ApproxEquals(a_ft < AftJetTime ? EGMassBefore : EGMassAfter));
     )
     // Also, the Fuel and Oxid masses must not be below the physical low
     // limits:
@@ -186,7 +186,7 @@ namespace SpaceBallistics
     assert(IsPos(oxidLevel));
 
     // Full = (Empty+Gases) + Fuel + Oxid:
-    ME fullME = (a_t < AftJetTime ? EGBeforeME : EGAfterME) + fuelME + oxidME;
+    ME fullME = (a_ft < AftJetTime ? EGBeforeME : EGAfterME) + fuelME + oxidME;
 
     // Double-check the Masses and the MassRate:
     assert(fullME.GetMass   ().ApproxEquals(fullMass)    &&
@@ -201,6 +201,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     return StageDynParams<LVSC::Soyuz21b>
     {
+      .m_ft          = a_ft,
       .m_fullMass    = fullMass,
       .m_fuelMass    = fuelMass,
       .m_oxidMass    = oxidMass,

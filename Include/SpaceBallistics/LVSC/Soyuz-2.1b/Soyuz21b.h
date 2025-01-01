@@ -9,6 +9,9 @@
 //
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
+#include "SpaceBallistics/LVSC/Stage1_Booster.h"
+#include "SpaceBallistics/LVSC/Stage2.h"
+#include "SpaceBallistics/LVSC/Stage3.h"
 
 namespace SpaceBallistics
 {

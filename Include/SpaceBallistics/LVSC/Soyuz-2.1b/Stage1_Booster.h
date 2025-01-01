@@ -277,6 +277,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // RD-107A Ignition Sequence:                                            //
     //-----------------------------------------------------------------------//
+    using FT = FlightTime;
+
     // Let t0=0 be the LiftOff ("Contact Separation") instant. Ignition occurs
     // at t0-15 sec (approx):
     // RD-107A thrust increases in stages  ("Preliminary", "1st Intermediate",
@@ -284,7 +286,7 @@ namespace SpaceBallistics
     // at "t0" and the "Main" (FullThrust) occurs at t0+6 sec:
     //
     constexpr static Time   IgnAdvance      = 15.0_sec;
-    constexpr static Time   FullThrustTime  =  6.0_sec;   // Aka "t1"
+    constexpr static FT     FullThrustTime  = FT(6.0_sec);  // Aka "t1"
 
     // Fuel and Oxidiser Mass @ t0=0. XXX: we assume that prior to t0, we run at
     // approx 25% on average (in reality, it changes over the time):
@@ -299,9 +301,12 @@ namespace SpaceBallistics
     // be insufficient for lift-off:
     constexpr static double LiftOffThrottlLevel = 0.75;
     constexpr static Mass   FuelMass1       =
-      FuelMass0 - FuelMR  * FullThrustTime  * LiftOffThrottlLevel;
+      FuelMass0 -
+      FuelMR  * (FullThrustTime - SC::LiftOffTime) * LiftOffThrottlLevel;
+
     constexpr static Mass   OxidMass1       =
-      OxidMass0 - OxidMR  * FullThrustTime  * LiftOffThrottlLevel;
+      OxidMass0 -
+      OxidMR  * (FullThrustTime - SC::LiftOffTime) * LiftOffThrottlLevel;
 
     //-----------------------------------------------------------------------//
     // RD-107A ShutDown Sequence:                                            //
@@ -309,9 +314,9 @@ namespace SpaceBallistics
     // XXX: We assume that the Main Engine and the Verniers are throttled to
     // the 75% level:
     constexpr static Time   ThrottlAdvance        = 5.7_sec;
-    constexpr static Time     ThrottlTime         =
+    constexpr static FT       ThrottlTime         =
       SC::Stage1CutOffTime -  ThrottlAdvance;
-    constexpr static Time     CutOffTime          = SC::Stage1CutOffTime;
+    constexpr static FT       CutOffTime          = SC::Stage1CutOffTime;
 
     // The Propellant Mass spent during the ShutDown sequence is:
     constexpr static double ShutDownThrottlLevel  = 0.75;
@@ -343,7 +348,7 @@ namespace SpaceBallistics
     // Then the Max Time of RD-107A operation from the LiftOff (t0=0) (NOT from
     // Ignition which occurs before the LiftOff) to the is the following. Simi-
     // lar to Stage2, this is the End-Time, not Duration:
-    constexpr static Time  MaxBurnTime      =
+    constexpr static FT    MaxBurnTime      =
       FullThrustTime + MaxFullThrustDur + ThrottlAdvance;
 
     // "CutOffTime" must be less than (but close to) the "MaxBurnTime":
@@ -360,12 +365,15 @@ namespace SpaceBallistics
     //
     constexpr static Time     H2O2Adv = 10.0_sec;
     constexpr static MassRate H2O2MR  =
-      (H2O2Mass - H2O2Rem) / (H2O2Adv + MaxBurnTime);
+      (H2O2Mass - H2O2Rem) / (MaxBurnTime + H2O2Adv - SC::LiftOffTime);
     static_assert(IsPos(H2O2MR));
 
     // H2O2 Masses at LiftOff (t0=0) and at "FullThrustTime" (t1):
-    constexpr static Mass     H2O2Mass0 = H2O2Mass  - H2O2Adv        * H2O2MR;
-    constexpr static Mass     H2O2Mass1 = H2O2Mass0 - FullThrustTime * H2O2MR;
+    constexpr static Mass     H2O2Mass0 =
+      H2O2Mass  - H2O2Adv  *  H2O2MR;
+
+    constexpr static Mass     H2O2Mass1 =
+      H2O2Mass0 - (FullThrustTime - SC::LiftOffTime) * H2O2MR;
 
     // So  the total MassRate (at Full Thrust) is:
     constexpr static MassRate FullMR  = EngineMR + H2O2MR;
@@ -374,7 +382,8 @@ namespace SpaceBallistics
     // unlike H2O2, N2 is not exhaused, only re-distributed over the Tank vol-
     // umes becoming available:
     //
-    constexpr static MassRate LiqN2MR = (LiqN2Mass0 - LiqN2Rem) / MaxBurnTime;
+    constexpr static MassRate LiqN2MR =
+      (LiqN2Mass0 - LiqN2Rem) / (MaxBurnTime - SC::LiftOffTime);
     static_assert(IsPos(LiqN2MR));
 
     // For testing: Minimal Mass of the Spent Stage2 (with all Remnants at their
@@ -385,12 +394,14 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Fuel, Oxid, H2O2 and LiqN2 Masses @ "CutOffTime":                     //
     //-----------------------------------------------------------------------//
-    constexpr static Mass     FuelMassC =
-      FuelMassT - FuelMRT * (CutOffTime - ThrottlTime);
-    constexpr static Mass     OxidMassC =
-      OxidMassT - OxidMRT * (CutOffTime - ThrottlTime);
-    constexpr static Mass    LiqN2MassC = LiqN2Mass0 - LiqN2MR * CutOffTime;
-    constexpr static Mass    H2O2MassC  = H2O2Mass0  - H2O2MR  * CutOffTime;
+    constexpr static Mass     FuelMassC  =
+      FuelMassT - FuelMRT  * (CutOffTime - ThrottlTime);
+    constexpr static Mass     OxidMassC  =
+      OxidMassT - OxidMRT  * (CutOffTime - ThrottlTime);
+    constexpr static Mass     LiqN2MassC =
+      LiqN2Mass0 - LiqN2MR * (CutOffTime - SC::LiftOffTime);
+    constexpr static Mass     H2O2MassC  =
+      H2O2Mass0  - H2O2MR  * (CutOffTime - SC::LiftOffTime);
 
    // Checks:
     static_assert
@@ -899,7 +910,7 @@ namespace SpaceBallistics
     static StageDynParams<LVSC::Soyuz21b>
     GetDynParams
     (
-      Time             a_t,
+      FT               a_ft,
       Pressure         a_p,           // Curr Atmospheric Pressure
       ME::VelVE const& a_v,           // In the ECOS
       Angle_deg        a_verns_defl,  // Same angle for both Verns

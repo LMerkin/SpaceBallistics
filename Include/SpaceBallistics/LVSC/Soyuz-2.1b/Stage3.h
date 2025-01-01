@@ -390,13 +390,15 @@ namespace SpaceBallistics
     //=======================================================================//
     // TimeLine Consts:                                                      //
     //=======================================================================//
-    constexpr static Time IgnTime     = SC::Stage3IgnTime;
-    constexpr static Time AftJetTime  = SC::Stage3AftJetTime;
-    constexpr static Time CutOffTime  = SC::Stage3CutOffTime;
+    using FT = FlightTime;
+    constexpr static FT  IgnTime     = SC::Stage3IgnTime;
+    constexpr static FT  AftJetTime  = SC::Stage3AftJetTime;
+    constexpr static FT  CutOffTime  = SC::Stage3CutOffTime;
 
     // Ordering of Events:
     static_assert
-      (IsPos(IgnTime) && IgnTime < AftJetTime && AftJetTime < CutOffTime);
+      (SC::LiftOffTime < IgnTime  && IgnTime < AftJetTime &&
+       AftJetTime      < CutOffTime);
 
     // Max Theoretical Burn Duration:
     constexpr static Time MaxBurnDur =
@@ -489,7 +491,7 @@ namespace SpaceBallistics
     //
     static StageDynParams<LVSC::Soyuz21b> GetDynParams
     (
-      Time                      a_t,
+      FT                        a_ft,
       ChamberDeflections const& a_chamber_defls
     );
   };

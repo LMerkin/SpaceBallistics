@@ -292,6 +292,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // RD-108A Ignition Sequence:                                            //
     //-----------------------------------------------------------------------//
+    using FT = FlightTime;
+
     // For RD-108A, we assume that FullThrust instant is the same as LiftOff
     // (Contact Separation), ie t0=0.
     // Preliminary thrust level (assumed to be a 25%) occurs notionally at -15
@@ -326,9 +328,9 @@ namespace SpaceBallistics
     constexpr static Time     ThrottlAdvance        = 6.0_sec;
     constexpr static Time     MainSDAdvance         = 5.0_sec;
 
-    constexpr static Time     CutOffTime      = SC::Stage2CutOffTime;
-    constexpr static Time     ThrottlTime     = CutOffTime - ThrottlAdvance;
-    constexpr static Time     MainCutOffTime  = CutOffTime - MainSDAdvance;
+    constexpr static FT       CutOffTime      = SC::Stage2CutOffTime;
+    constexpr static FT       ThrottlTime     = CutOffTime - ThrottlAdvance;
+    constexpr static FT       MainCutOffTime  = CutOffTime - MainSDAdvance;
 
     // Thus, the Propellant Mass spent during the ShutDown sequence is:
     constexpr static Mass     ShutDownSpentPropMass =
@@ -342,8 +344,10 @@ namespace SpaceBallistics
     static_assert(IsPos(FullThrustPropMass));
 
     // Fuel and Oxid Masses @ "ThrottlTime":
-    constexpr static Mass     FuelMassT = FuelMass0 - FuelMR  * ThrottlTime;
-    constexpr static Mass     OxidMassT = OxidMass0 - OxidMR  * ThrottlTime;
+    constexpr static Mass     FuelMassT =
+      FuelMass0 - FuelMR  * (ThrottlTime - SC::LiftOffTime);
+    constexpr static Mass     OxidMassT =
+      OxidMass0 - OxidMR  * (ThrottlTime - SC::LiftOffTime);
 
     // Between "ThrottlTime" and "MainCutOffTime", the following MassRates
     // apply:
@@ -370,10 +374,9 @@ namespace SpaceBallistics
     constexpr static Time  MaxFullThrustDur  =
       FullThrustPropMass / EngineMR;
 
-    // Then the Max Time of RD-108A operation (to CutOff) is the following. This
-    // is the End-Time, not Duration:
-    constexpr static Time  MaxBurnTime =
-      MaxFullThrustDur   + ThrottlAdvance;
+    // Then the Max Time of RD-108A operation (to CutOff) is the following:
+    constexpr static Time  MaxBurnDur  = MaxFullThrustDur + ThrottlAdvance;
+    constexpr static FT    MaxBurnTime = SC::LiftOffTime  + MaxBurnDur;
 
     // "CutOffTime" must be less than (but close to) the "MaxBurnTime":
     static_assert(CutOffTime < MaxBurnTime);
@@ -381,9 +384,9 @@ namespace SpaceBallistics
     // NB: In addition, there is a MassRate due to H2O2 burning   to drive the
     // TurboPumps; however, this MassRate does not formally participate in the
     // Thrust. We assume that H2O2 flow begins at FullThrust / LiftOff time
-    // and lasts for the whole "MaxBurnTime", with an exactly constant rate:
+    // and lasts for the whole "MaxBurnDur", with an exactly constant rate:
     //
-    constexpr static MassRate H2O2MR  = (H2O2Mass - H2O2Rem) / MaxBurnTime;
+    constexpr static MassRate H2O2MR  = (H2O2Mass - H2O2Rem) / MaxBurnDur;
     static_assert(IsPos(H2O2MR));
 
     // So  the total MassRate (at Full Thrust) is:
@@ -395,7 +398,7 @@ namespace SpaceBallistics
     // unlike H2O2, N2 is not exhaused, only re-distributed over the Tank vol-
     // umes becoming available:
     //
-    constexpr static MassRate LiqN2MR = (LiqN2Mass - LiqN2Rem) / MaxBurnTime;
+    constexpr static MassRate LiqN2MR = (LiqN2Mass - LiqN2Rem) / MaxBurnDur;
     static_assert(IsPos(LiqN2MR));
 
     // For testing: Minimal Mass of the Spent Stage2 (with all Remnants at their
@@ -406,12 +409,14 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Fuel, Oxid, H2O2 and LiqN2 Masses @ "CutOffTime":                     //
     //-----------------------------------------------------------------------//
-    constexpr static Mass     FuelMassC =
+    constexpr static Mass    FuelMassC  =
       FuelMassM - FuelMRM * (CutOffTime - MainCutOffTime);
-    constexpr static Mass     OxidMassC =
+    constexpr static Mass    OxidMassC  =
       OxidMassM - OxidMRM * (CutOffTime - MainCutOffTime);
-    constexpr static Mass    H2O2MassC  = H2O2Mass  - H2O2MR  * CutOffTime;
-    constexpr static Mass    LiqN2MassC = LiqN2Mass - LiqN2MR * CutOffTime;
+    constexpr static Mass    H2O2MassC  =
+      H2O2Mass  - H2O2MR  * (CutOffTime - SC::LiftOffTime);
+    constexpr static Mass    LiqN2MassC =
+      LiqN2Mass - LiqN2MR * (CutOffTime - SC::LiftOffTime);
 
     // Checks:
     static_assert
@@ -925,7 +930,7 @@ namespace SpaceBallistics
     static StageDynParams<LVSC::Soyuz21b>
     GetDynParams
     (
-      Time                   a_t,
+      FT                     a_ft,
       Pressure               a_p,      // Curr Atmospheric Pressure
       VernDeflections const& a_vern_defls
     );

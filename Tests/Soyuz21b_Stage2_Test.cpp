@@ -18,8 +18,8 @@ int main()
   //-------------------------------------------------------------------------//
   // Thrusts and Times:
   cout << "# Stage2MaxFullThrDur : " << S2::MaxFullThrustDur       << endl;
-  cout << "# Stage2CutOffTime    : " << S2::CutOffTime             << endl;
-  cout << "# Stage2MaxBurnTime   : " << S2::MaxBurnTime            << endl;
+  cout << "# Stage2CutOffTime    : " << Time(S2::CutOffTime)       << endl;
+  cout << "# Stage2MaxBurnTime   : " << Time(S2::MaxBurnTime)      << endl;
   cout << "# Stage2ThrustSL      : " << S2::ThrustEngSL    / g0    << endl;
   cout << "# Stage2ThrustVac     : " << S2::ThrustEngVac   / g0    << endl;
   cout << "# Stage2ThrustVernSL1 : " << S2::ThrustVernSL1  / g0    << endl;
@@ -80,7 +80,8 @@ int main()
 
   for (Time t = 0.0_sec; t <= 300.0_sec; t += tau)
   {
-    StageDynParams<LVSC::Soyuz21b> dp = S2::GetDynParams(t, p0, vernDefls0);
+    StageDynParams<LVSC::Soyuz21b> dp =
+      S2::GetDynParams(SC::LiftOffTime + t, p0, vernDefls0);
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois      [1]  == dp.m_mois      [2]  &&

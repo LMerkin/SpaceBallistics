@@ -793,5 +793,159 @@ namespace SpaceBallistics
       (TDB a_right, double a_tol = DefaultTol<double>) const
       { return m_MJS.ApproxEquals(a_right.m_MJS, a_tol); }
   };
+
+  //=========================================================================//
+  // "FlightTime":                                                           //
+  //=========================================================================//
+  // In seconds since LaunchTime (given as TT). XXX: Unfortunately, Launch Time
+  // cannot be provided statically; and using TT might not be a good idea for
+  // launches from extraterrestrial bodies; but for now, we are primarily con-
+  // cerned with launches from Earth, so using TT is justified:
+  //
+  class FlightTime
+  {
+  private:
+    //-----------------------------------------------------------------------//
+    // Data Flds:                                                            //
+    //-----------------------------------------------------------------------//
+    Time m_t;        // Time since Launch
+    TT   m_launchTT; // Launch instant (NaN if unknown or irrelevant)
+
+  public:
+    //-----------------------------------------------------------------------//
+    // Ctors:                                                                //
+    //-----------------------------------------------------------------------//
+    // Only the Time Since Launch is given (if at all):
+    //
+    constexpr explicit FlightTime(Time a_t = Time())
+    : m_t       (a_t),
+      m_launchTT(TT(Time(NaN<double>)))
+    {}
+
+    // Both the Time Since Launch and the Launch Instant are given:
+    //
+    constexpr FlightTime(Time a_t, TT a_launch)
+    : m_t       (a_t),
+      m_launchTT(TT(a_launch))
+    {}
+
+    // Copy Ctor is auto-generated:
+    constexpr FlightTime(FlightTime const&) = default;
+
+    //-----------------------------------------------------------------------//
+    // Assignment and Comparison:                                            //
+    //-----------------------------------------------------------------------//
+    // These ops are well-defined if both operands have the same finite Launch
+    // Instant, or one of the Launch Instants is NaN  (which is then installed
+    // in the result):
+    //
+    constexpr FlightTime& operator=  (FlightTime const& a_right)
+    {
+      bool   hasNaN = IsNaN(        m_launchTT.GetTimeSinceEpoch()) ||
+                      IsNaN(a_right.m_launchTT.GetTimeSinceEpoch());
+      assert(hasNaN || m_launchTT == a_right.m_launchTT);
+      m_t           = a_right.m_t;
+      if (hasNaN)
+        m_launchTT  = TT(Time(NaN<double>));
+      return *this;
+    }
+
+    constexpr bool operator== (FlightTime const& a_right) const
+    {
+      // Check whether the args are comparable at all:
+      assert(IsNaN(        m_launchTT.GetTimeSinceEpoch()) ||
+             IsNaN(a_right.m_launchTT.GetTimeSinceEpoch()) ||
+             m_launchTT == a_right.m_launchTT);
+      return m_t == a_right.m_t;
+    }
+
+    constexpr bool operator!= (FlightTime const& a_right) const
+      { return !(*this == a_right); }
+
+    constexpr bool operator>  (FlightTime const& a_right) const
+    {
+      // Check whether the args are comparable at all:
+      assert(IsNaN(        m_launchTT.GetTimeSinceEpoch()) ||
+             IsNaN(a_right.m_launchTT.GetTimeSinceEpoch()) ||
+             m_launchTT == a_right.m_launchTT);
+      return m_t >  a_right.m_t;
+    }
+
+    constexpr bool operator>= (FlightTime const& a_right) const
+    {
+      // Check whether the args are comparable at all:
+      assert(IsNaN(        m_launchTT.GetTimeSinceEpoch()) ||
+             IsNaN(a_right.m_launchTT.GetTimeSinceEpoch()) ||
+             m_launchTT == a_right.m_launchTT);
+      return m_t >= a_right.m_t;
+    }
+
+    constexpr bool operator<  (FlightTime const& a_right) const
+    {
+      // Check whether the args are comparable at all:
+      assert(IsNaN(        m_launchTT.GetTimeSinceEpoch()) ||
+             IsNaN(a_right.m_launchTT.GetTimeSinceEpoch()) ||
+             m_launchTT == a_right.m_launchTT);
+      return m_t <  a_right.m_t;
+    }
+
+    constexpr bool operator<= (FlightTime const& a_right) const
+    {
+      // Check whether the args are comparable at all:
+      assert(IsNaN(        m_launchTT.GetTimeSinceEpoch()) ||
+             IsNaN(a_right.m_launchTT.GetTimeSinceEpoch()) ||
+             m_launchTT == a_right.m_launchTT);
+      return m_t <= a_right.m_t;
+    }
+
+    //-----------------------------------------------------------------------//
+    // Arithmetic:                                                           //
+    //-----------------------------------------------------------------------//
+    constexpr FlightTime& operator+= (Time a_dt)
+    {
+      m_t += a_dt;
+      return *this;
+    }
+
+    constexpr FlightTime& operator-= (Time a_dt)
+    {
+      m_t -= a_dt;
+      return *this;
+    }
+
+    constexpr  FlightTime  operator+ (Time a_dt) const
+      { return FlightTime(m_t + a_dt, m_launchTT); }
+
+    constexpr  FlightTime  operator- (Time a_dt) const
+      { return FlightTime(m_t - a_dt, m_launchTT); }
+
+    // Again, the difference of "FlightTime"s is only defined if both operands
+    // have the same Launch Instant, or if at least one of them has NaN Launch
+    // Instant:
+    //
+    constexpr Time operator- (FlightTime a_right) const
+    {
+      assert(IsNaN(        m_launchTT.GetTimeSinceEpoch()) ||
+             IsNaN(a_right.m_launchTT.GetTimeSinceEpoch()) ||
+             m_launchTT == a_right.m_launchTT);
+      return m_t - a_right.m_t;
+    }
+
+    //-----------------------------------------------------------------------//
+    // Accessors:                                                            //
+    //-----------------------------------------------------------------------//
+    // Convertion to  "Time" yields Time Since Launch:
+    constexpr operator Time    () const { return m_t;        }
+
+    // Conversion to "TT" yields the absolute time; it requires LaunchTT to be
+    // valid:
+    constexpr operator TT      () const
+    {
+      assert(IsFinite(m_launchTT.GetTimeSinceEpoch()));
+      return m_launchTT;
+    }
+
+    constexpr TT       LaunchTT() const { return m_launchTT; }
+  };
 };
 // End namespace SpaceBallistics

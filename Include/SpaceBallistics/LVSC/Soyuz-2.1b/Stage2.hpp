@@ -13,12 +13,10 @@ namespace SpaceBallistics
   //=========================================================================//
   // "Soyuz21b_Stage2::GetDynParams":                                        //
   //=========================================================================//
-  // "a_t" is Flight Time since the "Contact Separation" event:
-  //
   StageDynParams<LVSC::Soyuz21b>
   Soyuz21b_Stage2::GetDynParams
   (
-    Time                   a_t,
+    FlightTime             a_ft,
     Pressure               a_p,      // Curr Atmospheric Pressure
     VernDeflections const& a_vern_defls
   )
@@ -27,7 +25,7 @@ namespace SpaceBallistics
     // Checks:                                                               //
     //-----------------------------------------------------------------------//
     // We currently do not allow any times prior to LiftOff:
-    assert(!IsNeg(a_t));
+    assert(SC::LiftOffTime <= a_ft);
 
     // The atmospheric pressure is >= 0 obviously:
     assert(!IsNeg(a_p));
@@ -55,13 +53,15 @@ namespace SpaceBallistics
     Force     absVernThrustVac1(NaN<double>);         // Each Vernier Chamber
     Force     absVernThrustSL1 (NaN<double>);
 
-    if (a_t < ThrottlTime)
+    Time      dt0        = a_ft - SC::LiftOffTime;
+
+    if (a_ft < ThrottlTime)
     {
       // Full-Thrust Mode:
-      fuelMass           = FuelMass0 - FuelMR  * a_t;
-      oxidMass           = OxidMass0 - OxidMR  * a_t;
-      h2o2Mass           = H2O2Mass  - H2O2MR  * a_t;
-      liqN2Mass          = LiqN2Mass - LiqN2MR * a_t;
+      fuelMass           = FuelMass0 - FuelMR  * dt0;
+      oxidMass           = OxidMass0 - OxidMR  * dt0;
+      h2o2Mass           = H2O2Mass  - H2O2MR  * dt0;
+      liqN2Mass          = LiqN2Mass - LiqN2MR * dt0;
       fuelMassDot        = - FuelMR;
       oxidMassDot        = - OxidMR;
       h2o2MassDot        = - H2O2MR;
@@ -73,14 +73,14 @@ namespace SpaceBallistics
       absVernThrustSL1   = ThrustVernSL1;
     }
     else
-    if (a_t < MainCutOffTime)
+    if (a_ft < MainCutOffTime)
     {
       // Throttled Mode (for both Main Engine and Verniers):
-      Time  dt           = a_t - ThrottlTime;
+      Time  dt           = a_ft      - ThrottlTime;
       fuelMass           = FuelMassT - FuelMRT * dt;
       oxidMass           = OxidMassT - OxidMRT * dt;
-      h2o2Mass           = H2O2Mass  - H2O2MR  * a_t;
-      liqN2Mass          = LiqN2Mass - LiqN2MR * a_t;
+      h2o2Mass           = H2O2Mass  - H2O2MR  * dt0;
+      liqN2Mass          = LiqN2Mass - LiqN2MR * dt0;
       fuelMassDot        = - FuelMRT;
       oxidMassDot        = - OxidMRT;
       h2o2MassDot        = - H2O2MR;
@@ -92,14 +92,14 @@ namespace SpaceBallistics
       absVernThrustSL1   = ThrustVernSL1  * ShutDownThrottlLevel;
     }
     else
-    if (a_t < CutOffTime)
+    if (a_ft < CutOffTime)
     {
       // Only the Verniers continue operation, in the Throttled Mode:
-      Time  dt           = a_t - MainCutOffTime;
+      Time  dt           = a_ft      - MainCutOffTime;
       fuelMass           = FuelMassM - FuelMRM * dt;
       oxidMass           = OxidMassM - OxidMRM * dt;
-      h2o2Mass           = H2O2Mass  - H2O2MR  * a_t;
-      liqN2Mass          = LiqN2Mass - LiqN2MR * a_t;
+      h2o2Mass           = H2O2Mass  - H2O2MR  * dt0;
+      liqN2Mass          = LiqN2Mass - LiqN2MR * dt0;
       fuelMassDot        = - FuelMRM;
       oxidMassDot        = - OxidMRM;
       h2o2MassDot        = - H2O2MR;
@@ -328,6 +328,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     return StageDynParams<LVSC::Soyuz21b>
     {
+      .m_ft          = a_ft,
       .m_fullMass    = fullMass,
       .m_fuelMass    = fuelMass,
       .m_oxidMass    = oxidMass,

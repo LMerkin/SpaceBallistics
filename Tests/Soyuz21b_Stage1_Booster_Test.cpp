@@ -20,8 +20,8 @@ int main()
   //-------------------------------------------------------------------------//
   // Thrusts and Times:
   cout << "# BoosterMaxFullThrDur  : " << B::MaxFullThrustDur         << endl;
-  cout << "# BoosterCutOffTime     : " << B::CutOffTime               << endl;
-  cout << "# BoosterMaxBurnTime    : " << B::MaxBurnTime              << endl;
+  cout << "# BoosterCutOffTime     : " << Time(B::CutOffTime)         << endl;
+  cout << "# BoosterMaxBurnTime    : " << Time(B::MaxBurnTime)        << endl;
   cout << "# BoosterThrustVac      : " << B::ThrustEngVac   / g0      << endl;
   cout << "# BoosterThrustVernSL1  : " << B::ThrustVernSL1  / g0      << endl;
   cout << "# BoosterThrustVernVac1 : " << B::ThrustVernVac1 / g0      << endl;

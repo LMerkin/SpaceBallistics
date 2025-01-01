@@ -50,7 +50,7 @@ int main()
   cout << '#' << endl;
 
   //-------------------------------------------------------------------------//
-  // Stage3 Params as a function of Flight Time:                             //
+  // Stage3 Params as a function of FlightTime:                              //
   //-------------------------------------------------------------------------//
   // XXX: Currently assuming no Thrust Vector Control:
   //
@@ -74,7 +74,8 @@ int main()
 
   for (Time t = t0; t <= t1; t += tau)
   {
-    StageDynParams<LVSC::Soyuz21b> dp = S3::GetDynParams(t, chamberDefls0);
+    FlightTime ft = SC::LiftOffTime + t;
+    StageDynParams<LVSC::Soyuz21b> dp = S3::GetDynParams(ft, chamberDefls0);
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois      [1]  == dp.m_mois      [2]  &&
@@ -83,13 +84,13 @@ int main()
 
     // XXX: Because the Mass, MoIs and CoM experience a jump, we have to re-init
     // our integration at that point:
-    if (t == t0 || (willJump && t >= S3::AftJetTime))
+    if (t == t0 || (willJump && ft >= S3::AftJetTime))
     {
       integrMass   = dp.m_fullMass;
       integrMoIX   = dp.m_mois[0];
       integrMoIY   = dp.m_mois[1];
       integrCoMX   = dp.m_com [0];
-      if (t >= S3::AftJetTime)
+      if (ft >= S3::AftJetTime)
         willJump   = false;
     }
     else
