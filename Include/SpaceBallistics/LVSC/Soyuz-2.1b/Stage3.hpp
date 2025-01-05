@@ -23,6 +23,10 @@ namespace SpaceBallistics
     // We currently do not allow any times prior to LiftOff:
     assert(SC::LiftOffTime <= a_ft);
 
+    // The absolute curr time must be defined in this case:
+    TT  tt = TT(a_ft);
+    assert(!tt.IsUnDef());
+
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
     //-----------------------------------------------------------------------//
@@ -129,7 +133,6 @@ namespace SpaceBallistics
         assert(false);
       }
     }
-    //
     //-----------------------------------------------------------------------//
     // Moments of Inertia and the Center of Masses:                          //
     //-----------------------------------------------------------------------//
@@ -151,17 +154,17 @@ namespace SpaceBallistics
       (fuelMass > FuelTankLowMidMC)
       ? // Fuel level is within the FuelTankUp:
         FuelTankUp .GetPropBulkME
-          (fuelMass - FuelTankLowMidMC,     fuelMassDot, &fuelLevel) +
+          (tt, fuelMass - FuelTankLowMidMC,     fuelMassDot, &fuelLevel) +
         FuelLowMidME
       :
       (fuelMass > FuelTankLowMC)
       ? // Fuel level is within the FuelTankMid:
         FuelTankMid.GetPropBulkME
-          (fuelMass - FuelTankLowMC,        fuelMassDot, &fuelLevel) +
+          (tt, fuelMass - FuelTankLowMC,        fuelMassDot, &fuelLevel) +
         FuelLowME
       :
         // Fuel level is within the FuelTankLow:
-        FuelTankLow.GetPropBulkME(fuelMass, fuelMassDot, &fuelLevel);
+        FuelTankLow.GetPropBulkME(tt, fuelMass, fuelMassDot, &fuelLevel);
     assert(IsPos(fuelLevel));
 
     // Oxid:
@@ -172,17 +175,17 @@ namespace SpaceBallistics
       (oxidMass > OxidTankLowMidMC)
       ? // Oxid level is within the OxidTankUp:
         OxidTankUp .GetPropBulkME
-          (oxidMass - OxidTankLowMidMC,     oxidMassDot, &oxidLevel) +
+          (tt, oxidMass - OxidTankLowMidMC,     oxidMassDot, &oxidLevel) +
         OxidLowMidME
       :
       (oxidMass > OxidTankLowMC)
       ? // Oxid level is within the OxidTankMid:
         OxidTankMid.GetPropBulkME
-          (oxidMass - OxidTankLowMC,        oxidMassDot, &oxidLevel) +
+          (tt, oxidMass - OxidTankLowMC,        oxidMassDot, &oxidLevel) +
         OxidLowME
       :
         // Oxid level is within the OxidTankLow:
-        OxidTankLow.GetPropBulkME(oxidMass, oxidMassDot, &oxidLevel);
+        OxidTankLow.GetPropBulkME(tt, oxidMass, oxidMassDot, &oxidLevel);
     assert(IsPos(oxidLevel));
 
     // Full = (Empty+Gases) + Fuel + Oxid:
@@ -210,7 +213,7 @@ namespace SpaceBallistics
       .m_comDots     = fullME.GetCoMDots(),
       .m_mois        = fullME.GetMoIs   (),
       .m_moiDots     = fullME.GetMoIDots(),
-      .m_thrust      = ForceVEmb<LVSC::Soyuz21b>(thrustX, thrustY, thrustZ)
+      .m_thrust      = ForceVEmb<LVSC::Soyuz21b>(tt, thrustX, thrustY, thrustZ)
     };
   }
 }

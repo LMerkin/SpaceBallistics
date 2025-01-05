@@ -444,6 +444,7 @@ namespace SpaceBallistics
     constexpr static TrC DeflectorConeProto =
       TrC
       (
+        TT::UnDef(),
         TopX - GridH + DeflConeH,       // Cone vertex point
         0.0_m,                          //  ... so its D=0
         TopD,                           // Lower Base  D
@@ -456,6 +457,7 @@ namespace SpaceBallistics
     constexpr static TrC EquipBayProto =
       TrC
       (
+        TT::UnDef(),
         DeflectorConeProto.GetLow()[0],
         TopD,
         EquipBayH,
@@ -472,6 +474,7 @@ namespace SpaceBallistics
     constexpr static TrC  OxidTankTopEnclProto =
       TrC
       (
+        TT::UnDef(),
         EquipBayProto.GetLow()[0],
         TopD,
         OxidTankTopD,
@@ -485,6 +488,7 @@ namespace SpaceBallistics
     constexpr static SpS OxidTankTopProto =
       SpS
       (
+        TT::UnDef(),
         true,                           // Facing Up
         OxidTankTopEnclProto.GetLow()[0],
         OxidTankTopD,
@@ -501,6 +505,7 @@ namespace SpaceBallistics
     constexpr static TrC OxidTankUpProto =
       TrC
       (
+        TT::UnDef(),
         OxidTankTopProto.GetLow()[0],
         OxidTankTopD,
         MaxD,
@@ -513,6 +518,7 @@ namespace SpaceBallistics
     constexpr static TrC OxidTankLowProto =
       TrC
       (
+        TT::UnDef(),
         OxidTankUpProto.GetLow()[0],
         MaxD,
         OxidTankLowD,
@@ -524,6 +530,7 @@ namespace SpaceBallistics
     constexpr static TrC OxidTankBtmEnclProto =
       TrC
       (
+        TT::UnDef(),
         OxidTankLowProto.GetLow()[0],
         OxidTankLowD,
         MinD,
@@ -536,6 +543,7 @@ namespace SpaceBallistics
     constexpr static SpS OxidTankBtmProto =
       SpS
       (
+        TT::UnDef(),
         false,                      // Facing Down
         OxidTankLowProto.GetLow()[0],
         MinD,
@@ -553,6 +561,7 @@ namespace SpaceBallistics
     constexpr static TrC OxidFuelEnclProto =
       TrC
       (
+        TT::UnDef(),
         OxidTankBtmEnclProto.GetLow()[0],
         MinD,
         OxidFuelEnclH,              // No propellant there
@@ -564,6 +573,7 @@ namespace SpaceBallistics
     constexpr static SpS FuelTankTopProto =
       SpS
       (
+        TT::UnDef(),
         true,                       // Facing Up!
         OxidFuelEnclProto.GetLow()[0],
         MinD,
@@ -577,6 +587,7 @@ namespace SpaceBallistics
     constexpr static TrC FuelTankMidProto =
       TrC
       (
+        TT::UnDef(),
         OxidFuelEnclProto.GetLow()[0],
         MinD,
         FuelTankMidH,
@@ -588,6 +599,7 @@ namespace SpaceBallistics
     constexpr static SpS FuelTankBtmProto =
       SpS
       (
+        TT::UnDef(),
         false,                      // Facing Down
         FuelTankMidProto.GetLow()[0],
         MinD,
@@ -604,6 +616,7 @@ namespace SpaceBallistics
     constexpr static TrC TailEnclProto =
       TrC
       (
+        TT::UnDef(),
         FuelTankMidProto.GetLow()[0],
         MinD,
         LowCylH - (OxidTankBtmEnclProto.GetLow()[0] -
@@ -615,6 +628,7 @@ namespace SpaceBallistics
     constexpr static Tor  H2O2TankTopProto =
       Tor
       (
+        TT::UnDef(),
         true,                       // Facing Up
         FuelTankBtmProto.GetLow()[0] - H2O2Gap - H2O2TankMinoR,
         2.0 * H2O2TankMinoR,
@@ -626,6 +640,7 @@ namespace SpaceBallistics
     constexpr static DCyl H2O2TankMidProto =
       DCyl
       (
+        TT::UnDef(),
         H2O2TankTopProto.GetLow()[0],
         MinD,
         MinD - 2.0 * H2O2TankMinoR,
@@ -637,6 +652,7 @@ namespace SpaceBallistics
     constexpr static Tor  H2O2TankBtmProto =
       Tor
       (
+        TT::UnDef(),
         false,                      // Facing Down
         H2O2TankMidProto.GetLow()[0],
         2.0 * H2O2TankMinoR,
@@ -652,15 +668,18 @@ namespace SpaceBallistics
     constexpr static Tor LiqN2TankTopProto =
       Tor
       (
+        TT::UnDef(),
         true,                       // Facing Up
         H2O2TankBtmProto.GetLow()[0] - H2O2Gap - LiqN2TankMinoR,
         2.0 * LiqN2TankMinoR,
         MinD,
         Propellants::LN2Dens
       );
+
     constexpr static Tor LiqN2TankBtmProto =
       Tor
       (
+        TT::UnDef(),
         false,                      // Facing Down
         LiqN2TankTopProto.GetLow()[0],
         2.0 * LiqN2TankMinoR,
@@ -780,6 +799,7 @@ namespace SpaceBallistics
     constexpr static PM  Engine =
       PM
       (
+        TT::UnDef(),
         EngineCoMX,
         0.0_m,
         0.0_m,

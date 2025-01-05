@@ -25,6 +25,7 @@ namespace SpaceBallistics
   constexpr void MechElement<LVSCKind>::Init
   (
     MechElement*    a_me,
+    TT              a_ecos_ts,
     Len  const      a_com     [3],
     Vel  const      a_com_dots[3],
     Mass            a_mass,
@@ -37,7 +38,7 @@ namespace SpaceBallistics
   {
     // NB: Even if "a_mass" is not final, it must be positive. In the context
     // under consideration, MassDot and MoIDots cannot be positive, since the
-    // ContrElement's mass is either constant or being exhausted:
+    // MechElement's mass is either constant or being exhausted:
     //
     assert(a_me != nullptr      &&
            IsPos(a_mass)        && !IsNeg(a_mois    [0]) &&
@@ -46,48 +47,38 @@ namespace SpaceBallistics
           !IsPos(a_moi_dots[1]) && !IsPos(a_moi_dots[1]) &&
           !IsNeg(a_encl_vol));
 
-    a_me->m_CoM[0]     = a_com     [0];
-    a_me->m_CoM[1]     = a_com     [1];
-    a_me->m_CoM[2]     = a_com     [2];
+    a_me->m_CoM      .Init(a_ecos_ts, a_com);
+    a_me->m_CoMDots  .Init(a_ecos_ts, a_com_dots);
+    a_me->m_mass    = a_mass;
+    a_me->m_massDot = a_mass_dot;
+    a_me->m_enclVol = a_encl_vol;
+    a_me->m_MoIs     .Init(a_ecos_ts, a_mois);
+    a_me->m_MoIDots  .Init(a_ecos_ts, a_moi_dots);
+    a_me->m_isFinal = a_is_final;
 
-    a_me->m_CoMDots[0] = a_com_dots[0];
-    a_me->m_CoMDots[1] = a_com_dots[1];
-    a_me->m_CoMDots[2] = a_com_dots[2];
-
-    a_me->m_mass       = a_mass;
-    a_me->m_massDot    = a_mass_dot;
-    a_me->m_enclVol    = a_encl_vol;
-
-    a_me->m_MoIs[0]    = a_mois    [0];
-    a_me->m_MoIs[1]    = a_mois    [1];
-    a_me->m_MoIs[2]    = a_mois    [2];
-
-    a_me->m_MoIDots[0] = a_moi_dots[0];
-    a_me->m_MoIDots[1] = a_moi_dots[1];
-    a_me->m_MoIDots[2] = a_moi_dots[2];
-
-    a_me->m_isFinal    = a_is_final;
+    // NB: HERE all "Vector3D"s are constructed, with the same "a_ecos_ts"!
   }
 
   //=========================================================================//
   // "MechElement" Default Ctor:                                             //
   //=========================================================================//
   // NB:
-  // (*) All numeric fields are initialised to 0s, not to NaNs, so the "empty"
-  //     obj (constructed by the Default Ctor) can be used as an initial value
-  //     for summation ("+", "+=", etc);
+  // (*) All numeric fields except the TimeStamp are initialised to 0s, not to
+  //     NaNs, so the "empty" obj (constructed by the Default Ctor) can be used
+  //     as an initial value for summation ("+", "+=", etc);
   // (*) "IsFinal" is set to "true", because the empty "MechElement" is typic-
   //     ally used as the base for "+" which requires Final operands:
+  // (*) Again, the same "TT::UnDef()" is installed in all "Vector3D"s:
   //
   template<LVSC LVSCKind>
   constexpr MechElement<LVSCKind>::MechElement()
-  : m_CoM    (0.0_m,  0.0_m,        0.0_m),
-    m_CoMDots(Vel    (0.0), Vel    (0.0), Vel    (0.0)),
+  : m_CoM    (TT::UnDef(),         0.0_m,         0.0_m,        0.0_m),
+    m_CoMDots(TT::UnDef(),     Vel(0.0),      Vel(0.0),     Vel(0.0)),
     m_mass   (0.0),
     m_massDot(0.0),
     m_enclVol(0.0),
-    m_MoIs   (MoI    (0.0), MoI    (0.0), MoI    (0.0)),
-    m_MoIDots(MoIRate(0.0), MoIRate(0.0), MoIRate(0.0)),
+    m_MoIs   (TT::UnDef(), MoI    (0.0), MoI     (0.0), MoI    (0.0)),
+    m_MoIDots(TT::UnDef(), MoIRate(0.0), MoIRate (0.0), MoIRate(0.0)),
     m_isFinal(true)
   {}
 
@@ -97,6 +88,7 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr MechElement<LVSCKind>::MechElement
   (
+    TT             a_ecos_ts,
     Len      const a_com     [3],
     Vel      const a_com_dots[3],
     Mass           a_mass,
@@ -107,8 +99,8 @@ namespace SpaceBallistics
     bool           a_is_final
   )
   {
-    Init(this,   a_com,      a_com_dots, a_mass, a_mass_dot, a_encl_vol,
-         a_mois, a_moi_dots, a_is_final);
+    Init(this,       a_ecos_ts, a_com,      a_com_dots,  a_mass,  a_mass_dot,
+         a_encl_vol, a_mois,    a_moi_dots, a_is_final);
   }
 
   //=========================================================================//
@@ -172,8 +164,9 @@ namespace SpaceBallistics
     assert(a_scale > 0.0);
     assert(IsPressnGas || IsZero(a_dens_dot));
 
-    // Create a copy of "a_der" using the Copy Ctor of Derived (which must
-    // indeed be derived from "MechElement"):
+    // Create a copy of "a_der" using the Copy Ctor of Derived ( which must
+    // indeed be derived from "MechElement"). In particulat, the ECOS TS is
+    // copied:
     Derived copy(a_der);
 
     // Cannot adjust the Mass once it has been finalised, or if any Rates are
@@ -214,6 +207,56 @@ namespace SpaceBallistics
   }
 
   //=========================================================================//
+  // "MechElement::GetECOSTS":                                               //
+  //=========================================================================//
+  template<LVSC  LVSCKind>
+  constexpr TT MechElement<LVSCKind>::GetECOSTS() const
+  {
+    // ECOS TSs of all "Vector3D"s must be identical. Check that, and return
+    // the common TS:
+    TT ts0 = m_CoM    .GetCOSTS();
+    DEBUG_ONLY
+    (
+    TT ts1 = m_CoMDots.GetCOSTS();
+    TT ts2 = m_MoIs   .GetCOSTS();
+    TT ts3 = m_MoIDots.GetCOSTS();
+    )
+    assert
+      ((ts0.IsUnDef() &&  ts1.IsUnDef() &&  ts2.IsUnDef() && ts3.IsUnDef()) ||
+       ((ts0 == ts1)  && (ts1 == ts2)   && (ts2 == ts3)));
+    return ts0;
+  }
+
+  //=========================================================================//
+  // "MechElement::UnifyECOSTSs":                                            //
+  //=========================================================================//
+  template<LVSC  LVSCKind>
+  constexpr void MechElement<LVSCKind>::UnifyECOSTSs
+    (MechElement const& a_right)
+  {
+    // Get the Common TimeStamps of the LHS and the RHS "Vector3D"s:
+    TT tsL = GetECOSTS();
+    TT tsR = a_right.GetECOSTS();
+
+    // They must be compatible:
+    DEBUG_ONLY(bool hasUnDef =  tsL.IsUnDef() || tsR.IsUnDef();)
+    assert(hasUnDef || tsL == tsR);
+
+    // Update all TimeStamps of the LHS, if the UnifiedTS is different from the
+    // existing "tsL". This can happen only if "tsL" was NOT "UnDef", but "tsR"
+    // is "UnDef", so the Unified TS becomes "UnDef" as well, and we need to in-
+    // stall in in the LHS "Vector3D"s:
+    //
+    if (!tsL.IsUnDef() && tsR.IsUnDef())
+    {
+      m_CoM    .GetCOSTS() = TT::UnDef();
+      m_CoMDots.GetCOSTS() = TT::UnDef();
+      m_MoIs   .GetCOSTS() = TT::UnDef();
+      m_MoIDots.GetCOSTS() = TT::UnDef();
+    }
+  }
+
+  //=========================================================================//
   // Addition / Subtraction of "MechElements"s:                              //
   //=========================================================================//
   // The operands must both have FINAL masses. Only one summand is allowed to
@@ -225,10 +268,14 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   template<LVSC  LVSCKind>
   constexpr MechElement<LVSCKind>& MechElement<LVSCKind>::operator+=
-    (MechElement<LVSCKind>  const& a_right)
+    (MechElement const& a_right)
   {
     assert(m_isFinal && a_right.m_isFinal &&
            !(IsZero(m_mass) && IsZero(a_right.m_mass)));
+
+    // Check  that the ECOS TS of the LHS and the RHS Vectors are consistent,
+    // and install the unified TS:
+    UnifyECOSTSs(a_right);
 
     // Memoise the orig Mass and MassDot -- required later:
     Mass     m0    = m_mass;
@@ -239,8 +286,8 @@ namespace SpaceBallistics
     m_massDot     += a_right.m_massDot;
     m_enclVol     += a_right.m_enclVol;
 
-    // For the CoM and CoMDots, do the weighted avg (but the total mass must
-    // be non-0):
+    // For the CoM and CoMDots, do the weighted avg (but the total mass must be
+    // non-0):
     assert(IsPos(m_mass));
     double mu0  = double(m0 / m_mass);
     assert(0.0 <= mu0 && mu0 <= 1.0);
@@ -270,7 +317,7 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   template<LVSC  LVSCKind>
   constexpr MechElement<LVSCKind> MechElement<LVSCKind>::operator+
-    (MechElement<LVSCKind> const& a_right)
+    (MechElement const& a_right)
   const
   {
     MechElement res = *this;
@@ -283,10 +330,14 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   template<LVSC  LVSCKind>
   constexpr MechElement<LVSCKind>& MechElement<LVSCKind>::operator-=
-    (MechElement<LVSCKind>  const& a_right)
+    (MechElement const& a_right)
   {
     assert(m_isFinal && a_right.m_isFinal &&
            !(IsZero(m_mass) && IsZero(a_right.m_mass)));
+
+    // Check  that the ECOS TS of the LHS and the RHS Vectors are consistent,
+    // and install the unified TS:
+    UnifyECOSTSs(a_right);
 
     // Memoise the orig Mass and MassDot -- required later:
     Mass     m0    = m_mass;
@@ -328,7 +379,7 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   template<LVSC  LVSCKind>
   constexpr MechElement<LVSCKind> MechElement<LVSCKind>::operator-
-    (MechElement<LVSCKind> const& a_right)
+    (MechElement const& a_right)
   const
   {
     MechElement res = *this;
@@ -341,7 +392,13 @@ namespace SpaceBallistics
   //=========================================================================//
   template<LVSC LVSCKind>
   constexpr PointMass<LVSCKind>::PointMass
-    (Len a_x0, Len a_y0, Len a_z0, Mass a_mass)
+  (
+    TT   a_ecos_ts,
+    Len  a_x0,
+    Len  a_y0,
+    Len  a_z0,
+    Mass a_mass
+  )
   : MechElement<LVSCKind>()     // Slightly sub-optimal...
   {
     Len  pt[3] { a_x0, a_y0, a_z0 };
@@ -365,7 +422,8 @@ namespace SpaceBallistics
     constexpr Vel     Vel0  [3] {Vel    (0.0), Vel    (0.0), Vel     (0.0)};
 
     MechElement<LVSCKind>::Init
-      (this, pt, Vel0, a_mass, MassRate(0.0), Vol(0.0), mois, Rates0, true);
+      (this,   a_ecos_ts, pt, Vel0, a_mass, MassRate(0.0), Vol(0.0), mois,
+       Rates0, true);
   }
 
   //=========================================================================//
@@ -378,6 +436,7 @@ namespace SpaceBallistics
   constexpr void RotationShell<LVSCKind, Derived>::Init
   (
     // Params for the Base Class ("MechElement"):
+    TT      a_ecos_ts,
     Area    a_side_surf_area,
     Vol     a_encl_vol,
     Mass    a_mass,     // If 0, then auto-calculated with SurfDens=1
@@ -545,8 +604,8 @@ namespace SpaceBallistics
 
     // Finally, invoke the Base Class Initialiser:
     MechElement<LVSCKind>::Init
-       (this, emptyCoM, emptyCoMDots, emptyMass, MDot0, a_encl_vol, emptyMoIs,
-        emptyMoIDots,   isFinal);
+       (this,       a_ecos_ts, emptyCoM,     emptyCoMDots, emptyMass, MDot0,
+        a_encl_vol, emptyMoIs, emptyMoIDots, isFinal);
   }
 
   //=========================================================================//
@@ -657,6 +716,7 @@ namespace SpaceBallistics
   constexpr MechElement<LVSCKind>
   RotationShell<LVSCKind, Derived>::GetPropBulkME
   (
+    TT       a_ecos_ts,        // Usually DEFINED at Run-Time
     Mass     a_prop_mass,      // >= 0; +oo means "FullPropellantLoad"
     MassRate a_prop_mass_dot,  // Must be <= 0 in general
     Len*     a_prop_level      // May be NULL, then not computed
@@ -745,11 +805,12 @@ namespace SpaceBallistics
     //     this is OK because by SurfArea we mean that of the Shell (with
     //     some non-0 SurfDens), whereas in this case, the Shell is not
     //     included in the result;
+    // (*) "a_ecos_ts" from the CallER is installed in the results;
     // (*) the result is Final:
     //
     return MechElement<LVSCKind>
-      (com, comDots, a_prop_mass, a_prop_mass_dot, propVol, mois, moiDots,
-       true);
+      (a_ecos_ts, com, comDots, a_prop_mass, a_prop_mass_dot, propVol, mois,
+       moiDots,   true);
   }
 }
 // End namespace SpaceBallistics

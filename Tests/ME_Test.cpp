@@ -41,10 +41,10 @@ int main()
 
   // Upper Base is @ X=0; therefore, the center is @ (-HCyl/2):
   constexpr Len       XCCyl       = -HCyl / 2.0;
-  constexpr TC        cyl(0.0_m, D,  HCyl, rho, surfMassCyl);
+  constexpr TC        cyl{TT::UnDef(), 0.0_m, D,  HCyl, rho, surfMassCyl};
 
   // Computed CoM and MoIs for the Solid Cylinder (3D):
-  constexpr   ME propCyl = cyl.GetPropBulkME(propMassCyl);
+  constexpr   ME propCyl = cyl.GetPropBulkME(TT::UnDef(), propMassCyl);
   auto const& comCyl     = propCyl.GetCoM ();
   auto const& moisCyl    = propCyl.GetMoIs();
 
@@ -98,11 +98,11 @@ int main()
   constexpr Mass emptyMassHS = TwoPi<double> * R2 * sigma;
   constexpr Mass emptyMassS  = 2.0 * emptyMassHS;
 
-  constexpr SpS  upHS (true,  R, D, rho, emptyMassHS);
-  constexpr SpS  lowHS(false, R, D, rho, emptyMassHS);
+  constexpr SpS  upHS (TT::UnDef(), true,  R, D, rho, emptyMassHS);
+  constexpr SpS  lowHS(TT::UnDef(), false, R, D, rho, emptyMassHS);
 
-  constexpr ME   upPropME    = upHS .GetPropBulkME(propMassHS);
-  constexpr ME   lowPropME   = lowHS.GetPropBulkME(propMassHS);
+  constexpr ME   upPropME    = upHS .GetPropBulkME(TT::UnDef(), propMassHS);
+  constexpr ME   lowPropME   = lowHS.GetPropBulkME(TT::UnDef(), propMassHS);
 
   auto const&    upCoM       = upPropME .GetCoM ();
   auto const&    upMoIs      = upPropME .GetMoIs();
@@ -183,11 +183,11 @@ int main()
   constexpr Mass  emptyMassHT = sHT * sigma;
   constexpr Mass  emptyMassT  = 2.0 * emptyMassHT;
 
-  constexpr TS upHT (true,  R, D, TD, rho, emptyMassHT);
-  constexpr TS lowHT(false, R, D, TD, rho, emptyMassHT);
+  constexpr TS upHT (TT::UnDef(), true,  R, D, TD, rho, emptyMassHT);
+  constexpr TS lowHT(TT::UnDef(), false, R, D, TD, rho, emptyMassHT);
 
-  constexpr ME upHTPropME     = upHT .GetPropBulkME(propMassHT);
-  constexpr ME lowHTPropME    = lowHT.GetPropBulkME(propMassHT);
+  constexpr ME upHTPropME     = upHT .GetPropBulkME(TT::UnDef(), propMassHT);
+  constexpr ME lowHTPropME    = lowHT.GetPropBulkME(TT::UnDef(), propMassHT);
 
   auto const&  upHTCoM        = upHTPropME .GetCoM ();
   auto const&  upHTMoIs       = upHTPropME .GetMoIs();
@@ -278,10 +278,10 @@ int main()
   constexpr Mass  emptyMassDC  = sDC  * sigma;
 
   // Upper Base is @ X=R; therefore, the center is @ (R-HCyl/2):
-  constexpr Len   XCDC         = R - HCyl / 2.0;
-  constexpr DC    dc(R, 2.0*Q, 2.0*R, HCyl, rho, emptyMassDC);
+  constexpr Len   XCDC         =  R - HCyl / 2.0;
+  constexpr DC    dc(TT::UnDef(), R, 2.0*Q,  2.0*R, HCyl, rho, emptyMassDC);
 
-  constexpr ME    dcPropME     = dc.GetPropBulkME(propMassDC);
+  constexpr ME    dcPropME     = dc.GetPropBulkME(TT::UnDef(), propMassDC);
   auto const&     dcCoM        = dcPropME.GetCoM ();
   auto const&     dcMoIs       = dcPropME.GetMoIs();
 

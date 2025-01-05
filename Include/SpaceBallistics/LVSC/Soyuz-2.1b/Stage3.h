@@ -145,6 +145,7 @@ namespace SpaceBallistics
     constexpr static TrC ForeSectionProto  =
       TrC
       (
+        TT::UnDef(),
         ForeX0,                         // Up @ X=0
         D,
         ForeH,
@@ -157,6 +158,7 @@ namespace SpaceBallistics
     constexpr static SpS FuelTankUpProto  =
       SpS
       (
+        TT::UnDef(),
         true,                           // Facing Up
         ForeSectionProto.GetLow()[0],   // Base @ Low (Bottom) of ForeSection
         D,
@@ -165,6 +167,7 @@ namespace SpaceBallistics
     constexpr static TrC FuelTankMidProto =
       TrC
       (
+        TT::UnDef(),
         ForeSectionProto.GetLow()[0],   // Up   @ Low (Bottom) of ForeSection
         D,
         FuelTankMidH,
@@ -173,6 +176,7 @@ namespace SpaceBallistics
     constexpr static SpS FuelTankLowProto =
       SpS
       (
+        TT::UnDef(),
         false,                          // Facing Low
         FuelTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of FuelTankMid
         D,
@@ -187,6 +191,7 @@ namespace SpaceBallistics
     constexpr static TrC EquipBayProto =
       TrC
       (
+        TT::UnDef(),
         FuelTankMidProto.GetLow()[0],   // Up @ Low (Bottom) of FuelTankMid
         D,
         EquipBayH,
@@ -199,6 +204,7 @@ namespace SpaceBallistics
     constexpr static SpS OxidTankUpProto =
       SpS
       (
+        TT::UnDef(),
         true,                           // Facing Up
         EquipBayProto.GetLow()[0],      // Base @ Low (Bottom) of EquipBay
         D,
@@ -207,6 +213,7 @@ namespace SpaceBallistics
     constexpr static TrC OxidTankMidProto =
       TrC
       (
+        TT::UnDef(),
         EquipBayProto.GetLow()[0],      // Up @   Low (Bottom) of EquipBay
         D,
         OxidTankMidH,
@@ -215,6 +222,7 @@ namespace SpaceBallistics
     constexpr static SpS OxidTankLowProto =
       SpS
       (
+        TT::UnDef(),
         false,                          // Facing Low
         OxidTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of OxidTankMid
         D,
@@ -248,6 +256,7 @@ namespace SpaceBallistics
     constexpr static TrC AftSection =
       TrC
       (
+        TT::UnDef(),
         OxidTankMidProto.GetLow()[0],   // Base @ Low (Bottom) of OxidTankMid
         D,
         AftH,
@@ -261,6 +270,7 @@ namespace SpaceBallistics
     constexpr static PM  Engine =
       PM
       (
+        TT::UnDef(),
         OxidTankMidProto.GetLow()[0] - EngineH / 3.0,
         0.0_m,
         0.0_m,

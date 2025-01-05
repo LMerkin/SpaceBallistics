@@ -3,7 +3,7 @@
 //                    "Src/LVSC/Soyuz-2.1b/Stage1.cpp":                      //
 //                         Actual Code Generation                            //
 //===========================================================================//
-#include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage1_Booster.h"
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage1_Booster.hpp"
 
 namespace SpaceBallistics
 {

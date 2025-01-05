@@ -6,16 +6,11 @@
 #pragma  once
 #include "SpaceBallistics/CoOrds/Vector3D.hpp"
 #include "SpaceBallistics/CoOrds/Locations.h"
+#include "SpaceBallistics/CoOrds/TimeScales.h"
 #include <type_traits>
 
 namespace SpaceBallistics
 {
-  //=========================================================================//
-  // Fwd Decls of TimeScales:                                                //
-  //=========================================================================//
-  class TT;
-  class TDB;
-
   //=========================================================================//
   // "TopoCEqFixCOS" Struct:                                                 //
   //=========================================================================//
@@ -23,7 +18,12 @@ namespace SpaceBallistics
   // GCRS), but the Origin is a Location ("L") on the Body, NOT the Body Center.
   // Suitable for computation of TopoCentric Ephemerides in astronomical appls.
   // The Origin of this COS is rotating (and otherwise moving) in the inertial
-  // space, but the Axes are fixed:
+  // space, but the Axes are fixed.
+  // IMPORTANT: Similar to BodyCentric COSes, TopoCentric COSes are SnapShots,
+  // so eg Location's Velocity and Acceleration  are NOT  identical 0s in the
+  // resp TopoCentric COS. The TimeStamp of such a SnapShot cannot be installed
+  // in the COS type itself (because it is typically known at run-time only);
+  // rather, it is inslalled in the corresp "Vector3D"s:
   //
   template<Body BBody, Location<BBody> const* L>
   struct TopoCEqFixCOS
@@ -217,15 +217,20 @@ namespace SpaceBallistics
   requires(IsTopoCRotCOS<TCOS>)
   {
     // Position is changed by parallel translation; all other vectors remain un-
-    // changed:
+    // changed. But this is only possible if both COSes have compatible Time-
+    // Stamps:
+    TT uniTT = a_body_c.UnifyCOSTSs(TCOS::Loc->PosKV().GetCOSTS());
     return
       IsAnyLen<DQ>
       ? Vector3D<DQ, TCOS, B>
-        { a_body_c.x() - TCOS::Loc->PosKV().x(),
+        {
+          uniTT,
+          a_body_c.x() - TCOS::Loc->PosKV().x(),
           a_body_c.y() - TCOS::Loc->PosKV().y(),
-          a_body_c.z() - TCOS::Loc->PosKV().z() }
+          a_body_c.z() - TCOS::Loc->PosKV().z()
+        }
       : Vector3D<DQ, TCOS, B>
-        { a_body_c.x(), a_body_c.y(), a_body_c.z() };
+        { uniTT, a_body_c.x(), a_body_c.y(), a_body_c.z() };
   }
 
   //-------------------------------------------------------------------------//
@@ -239,15 +244,20 @@ namespace SpaceBallistics
      Vector3D<DQ, BodyCRotCOS<BBody>,    B> ToBodyC
     (Vector3D<DQ, TopoCRotCOS<BBody, L>, B> const& a_topo_c)
   {
+    // Again, unify the TimeStamps:
+    TT uniTT = a_topo_c.UnifyCOSTSs(L->PosKV().GetCOSTS());
     return
       IsAnyLen<DQ>
       ? PosKVRot<BBody, B>
-        { L->PosKV().x() + a_topo_c.x(),
+        {
+          uniTT,
+          L->PosKV().x() + a_topo_c.x(),
           L->PosKV().y() + a_topo_c.y(),
-          L->PosKV().z() + a_topo_c.z() }
+          L->PosKV().z() + a_topo_c.z()
+        }
       :
         Vector3D<DQ, BodyCRotCOS<BBody>, B>
-        { a_topo_c.x(), a_topo_c.y(), a_topo_c.z() };
+        { uniTT, a_topo_c.x(), a_topo_c.y(), a_topo_c.z() };
   }
 
   //=========================================================================//

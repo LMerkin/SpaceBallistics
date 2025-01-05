@@ -48,13 +48,39 @@ namespace SpaceBallistics
     AngVel m_deltaDot;
     VelK   m_rhoDot;    // Radial Velocity
 
+    // TimeStamp of the COS from "Vector3D"s used in construction of this
+    // "SpherPV" (if any):
+    typename Bits::TSWrapper<COS>::TS m_cosTS;
+
   public:
-    // Default Ctor,  Copy Ctor, Assignment and Equality are auto-generated;
-    // in particular, the Default Ctor initialises all flds to 0:
-    SpherPV             ()                     = default;
+    //-----------------------------------------------------------------------//
+    // Default Ctor:                                                         //
+    //-----------------------------------------------------------------------//
+    // Initialises all flds to 0 except the TimeStamp:
+    SpherPV     ()
+    : m_alpha   (),
+      m_delta   (),
+      m_rho     (),
+      m_alphaDot(),
+      m_deltaDot(),
+      m_rhoDot  (),
+      m_cosTS   (Bits::TSWrapper<COS>::TS::UnDef())
+    {}
+
+    // Copy Ctor and Assignment are auto-generated:
     SpherPV             (SpherPV const&)       = default;
     SpherPV& operator=  (SpherPV const&)       = default;
-    bool         operator== (SpherPV const&) const = default;
+
+    // Equality must take into account the COS TS:
+    bool     operator== (SpherPV const& a_right) const
+    {
+      assert(m_cosTS.IsUndef() || a_right.m_cosTS.IsUnDef() ||
+             m_cosTS == a_right.m_cosTS);
+      return
+        m_alpha    == a_right.m_alpha    && m_delta    == a_right.m_delta    &&
+        m_rho      == a_right.m_rho      && m_alphaDot == a_right.m_alphaDot &&
+        m_deltaDot == a_right.m_deltaDot && m_rhoDot   == a_right.m_rhoDot;
+    }
 
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
@@ -69,7 +95,7 @@ namespace SpaceBallistics
     : SpherPV()     // Zero-out all components by default
     {
       // Position:
-      m_rho      = LenK(a_pos);
+      m_rho           = LenK(a_pos);
       assert(IsPos(m_rho));
 
       double sinDelta = double(a_pos.z() / m_rho);
@@ -108,8 +134,13 @@ namespace SpaceBallistics
 
           assert((Sqr(m_deltaDot) + Sqr(cosDelta * m_alphaDot)).ApproxEquals
                  (Sqr(1.0_rad) * Vtr2 / Sqr(m_rho)));
+
+          // Also, COS TS of "a_vel" must be compatible with that of "a_pos":
+          a_pos.CheckCOSTSs(a_vel.GetCOSTS());
         )
       }
+      // Then it is sufficient to propagate the COST TS from "a_pos":
+      m_cosTS = a_pos.GetCOSTS();
     }
 
     //-----------------------------------------------------------------------//
@@ -125,7 +156,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Other Way Round: Pos and Vel Vectors from "SpherPV":                  //
     //-----------------------------------------------------------------------//
-    // Returning both vectors together is more efficient:
+    // Returning both vectors together for efficiency:
     //
     constexpr std::pair<PosKV<COS, B>, VelKV<COS, B>> GetPVVectors() const
     {
@@ -156,7 +187,11 @@ namespace SpaceBallistics
                                   Sqr(m_rho *      m_deltaDot / 1.0_rad);
         assert(V2.ApproxEquals(Sqr(Vx) + Sqr(Vy) + Sqr(Vz)));
       )
-      return std::make_pair(PosKV<COS, B>(x, y, z), VelKV<COS, B>(Vx, Vy, Vz));
+      return std::make_pair
+             (
+               PosKV<COS, B>(m_cosTS,  x,  y,  z),
+               VelKV<COS, B>(m_cosTS, Vx, Vy, Vz)
+             );
     }
   };
 

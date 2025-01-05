@@ -17,6 +17,7 @@ namespace SpaceBallistics
   template<LVSC    LVSCKind>
   constexpr TrCone<LVSCKind>::TrCone
   (
+    TT      a_ecos_ts,   // May be UnDef
     Len     a_xu,        // Upper Base Center (Upper=Larger-X axis end)
     Len     a_yu,        //
     Len     a_zu,        //
@@ -109,8 +110,9 @@ namespace SpaceBallistics
     // Initialise the Parent Classes' Flds: NB: For (xu,yu,zu), IsUp=true:
     RS::Init
     (
-      sideSurfArea,  enclVol, a_empty_mass,  a_cosA, a_sinA, a_cosP, a_sinP,
-      a_xu, a_yu, a_zu, true, a_h, JE0, JE1, KE,     a_rho
+      a_ecos_ts,  sideSurfArea, enclVol, a_empty_mass,
+      a_cosA,     a_sinA,       a_cosP,  a_sinP,
+      a_xu, a_yu, a_zu,   true, a_h,     JE0, JE1, KE,  a_rho
     );
   }
 
@@ -123,6 +125,7 @@ namespace SpaceBallistics
   template<LVSC    LVSCKind>
   constexpr TrCone<LVSCKind>::TrCone
   (
+    TT      a_ecos_ts,    // May be UnDef
     Len     a_xu,         // Upper (Larger-X)  Base Center
     Len     a_du,         // Upper (Larger-X)  Base Diameter
     Len     a_dl,         // Lower (Smaller-X) Base Diameter
@@ -130,22 +133,23 @@ namespace SpaceBallistics
     Density a_rho,        // 0 may be OK
     Mass    a_empty_mass  // May be UnKnown
   )
-  : TrCone(a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0, a_du, a_dl, a_h, a_rho,
-           a_empty_mass)
+  : TrCone(a_ecos_ts, a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+           a_du, a_dl, a_h, a_rho, a_empty_mass)
   {}
 
   // As above, but with dU=dL, ie a Cylinder:
   template<LVSC    LVSCKind>
   constexpr TrCone<LVSCKind>::TrCone
   (
+    TT      a_ecos_ts,    // May be UnDef
     Len     a_xu,         // Upper (Larger-X)  Base Center
     Len     a_d,          // Diameter of both  Bases
     Len     a_h,          // Height
     Density a_rho,        // 0 may be OK
     Mass    a_empty_mass  // May be UnKnown
   )
-  : TrCone(a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0, a_d, a_d, a_h, a_rho,
-           a_empty_mass)
+  : TrCone(a_ecos_ts, a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+           a_d,  a_d, a_h,  a_rho, a_empty_mass)
   {}
 
   //=========================================================================//
@@ -278,6 +282,7 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr SpherSegm<LVSCKind>::SpherSegm
   (
+    TT      a_ecos_ts,     // May be UnDef
     bool    a_facing_up,
     Len     a_xb,          // Base center
     Len     a_yb,          //
@@ -379,8 +384,9 @@ namespace SpaceBallistics
     // NB: (xb,yb,zb) is the Base Center, so for it, BaseIsUp = !IsFacingUp:
     RS::Init
     (
-      sideSurfArea, enclVol, a_empty_mass, a_cosA,  a_sinA, a_cosP, a_sinP,
-      a_xb, a_yb, a_zb, !a_facing_up, a_h,    JE0, JE1, KE, a_rho
+      a_ecos_ts,  sideSurfArea, enclVol, a_empty_mass,
+      a_cosA,     a_sinA,       a_cosP,  a_sinP,
+      a_xb, a_yb, a_zb,   !a_facing_up,  a_h,    JE0, JE1, KE,  a_rho
     );
   }
 
@@ -393,6 +399,7 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr SpherSegm<LVSCKind>::SpherSegm
   (
+    TT      a_ecos_ts,    // May be UnDef
     bool    a_facing_up,
     Len     a_xb,         // Base center X co-ord
     Len     a_d,          // Base diameter
@@ -400,8 +407,8 @@ namespace SpaceBallistics
     Density a_rho,        // 0 may be OK
     Mass    a_empty_mass  // May be UnKnown
   )
-  : SpherSegm(a_facing_up, a_xb,  0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
-              a_d,    a_h, a_rho, a_empty_mass)
+  : SpherSegm(a_ecos_ts, a_facing_up, a_xb, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+              a_d,  a_h, a_rho, a_empty_mass)
   {}
 
   // As above, but with d/2 = h, ie a HemiSpehere:
@@ -409,14 +416,15 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr SpherSegm<LVSCKind>::SpherSegm
   (
+    TT      a_ecos_ts,    // May be UnDef
     bool    a_facing_up,
     Len     a_xb,         // Base center X co-ord
     Len     a_d,          // Base diameter
     Density a_rho,        // 0 may be OK
     Mass    a_empty_mass  // May be UnKnown
   )
-  : SpherSegm(a_facing_up,    a_xb,  0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
-              a_d, a_d / 2.0, a_rho, a_empty_mass)
+  : SpherSegm(a_ecos_ts, a_facing_up, a_xb,  0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+              a_d, a_d / 2.0,  a_rho, a_empty_mass)
   {}
 
   //=========================================================================//

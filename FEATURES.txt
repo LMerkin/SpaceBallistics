@@ -1,0 +1,45 @@
+(1) All computations are over "DimQ"s. Thus, mix-up of physical dimensions or
+    units is impossible, due to compile-time checks.
+
+(2) Compile-time evaluations (using "constexpr" qualifiers) are preformed
+    wherever possible and practical, for extra safety (because they are
+    automatically guarded against UB) and for run-time efficiency.
+
+(3) All "Vector3D" are parametrised by CoOrd Systems (COSes). This prevents
+    (at compile-time) mix-up of vectors specified in different COSes. In
+    particular, BodyCentric COSes are statically parametrised by the resp
+    Body, TopoCentric ones -- by the statically-defined Location, Embedded
+    COSes -- by the corresp LV/SC type.
+
+(4) All "Vector3D" are parametrised by the Body characterised by that Vector.
+    This pervents (at compile-time, unless the Body is UNDEFINED) mix-up of
+    Vectors pertinent to different Bodies. Type-safe combining of Bodies in
+    "Vector3D" expressions (eg for computation of relative positions or velo-
+    cities) is supported, verified at compiled-time.
+
+(5) All "Vector3D" contain TimeStamps which characterise the SnapShot time of
+    the corresp COS (which is in most cases non-inertial). This is important
+    because non-inertial COSes indeed have the semantics of SnapShots (other-
+    wise, the position, velocity and acceleration of any Body in the corresp
+    BodyCentric COS would be identical 0, which is not useful). However,
+    because the TimeStamps of such SnapShots are typically variable and only
+    known at run-time, they cannot be installed statically in the COS types.
+    Instead, they are maintained dynamically within "Vector3D".
+    For the avoidance of doubt, a TimeStamp in a (say) Position Vector of a
+    certain Body (see (4)) is NOT the time of that position -- rather, it is
+    the time of the COS SnapShot used to characterise that position.
+
+(6) Different TimeScales are supported -- UTC, TT, TDB, FlightTime (over TT),
+    with explicit conversions between them. Due to (generally speaking) rela-
+    tivistic nature of the equations of motion, each COS is characterised by
+    its own TimeScale. "Time" by itself (as a "DimQ") is only used for measur-
+    ing Time Intervals, not Time Instants. In particular, "FlightTime" contains
+    a TT of Launch Instant, and provides a link from relative ("since launch")
+    to absolute (TT) time.
+
+(7) Conversions of "Vector3D" between different COSes are via explicit
+    conversion functions only. In some cases, such conversions are "constexpr"
+    (can be performed at compile-time, eg when the Earth Precession/Nutation/
+    Rotation model is involved); in other cases, they can only be done at
+    run-time (via the DE440T).
+

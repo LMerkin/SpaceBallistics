@@ -55,6 +55,7 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr ToricSegm
     (
+      TT      a_ecos_ts,     // May be UnDef
       bool    a_facing_up,
       Len     a_xb,          // Over-All   Segment Base Center
       Len     a_yb,          //
@@ -78,12 +79,13 @@ namespace SpaceBallistics
     //
     constexpr ToricSegm
     (
+      TT      a_ecos_ts,     // May be UnDef
       bool    a_facing_up,
-      Len     a_xb,       // Over-All Segment Base Center (X-CoOrd)
-      Len     a_d,        // Cross-Section Base Diameter
-      Len     a_h,        // Cross-Section Height
-      Len     a_D,        // Over-All Segment Diameter
-      Density a_rho,      // 0 may be OK (if holds no Propellant)
+      Len     a_xb,          // Over-All Segment Base Center (X-CoOrd)
+      Len     a_d,           // Cross-Section Base Diameter
+      Len     a_h,           // Cross-Section Height
+      Len     a_D,           // Over-All Segment Diameter
+      Density a_rho,         // 0 may be OK (if holds no Propellant)
       Mass    a_empty_mass = ME::UnKnownMass
     );
 
@@ -91,11 +93,12 @@ namespace SpaceBallistics
     //
     constexpr ToricSegm
     (
+      TT      a_ecos_ts,     // May be UnDef
       bool    a_facing_up,
-      Len     a_xb,       // Over-All Segment Base Center (X-CoOrd)
-      Len     a_d,        // Cross-Section Base Diameter
-      Len     a_D,        // Over-All Segment Diameter
-      Density a_rho,      // 0 may be OK (if holds no Propellant)
+      Len     a_xb,          // Over-All Segment Base Center (X-CoOrd)
+      Len     a_d,           // Cross-Section Base Diameter
+      Len     a_D,           // Over-All Segment Diameter
+      Density a_rho,         // 0 may be OK (if holds no Propellant)
       Mass    a_empty_mass = ME::UnKnownMass
     );
 
@@ -210,6 +213,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     constexpr DoubleCylinder
     (
+      TT      a_ecos_ts,     // May be UnDef
       Len     a_xu,          // Upper  Base Center
       Len     a_yu,          //
       Len     a_zu,          //
@@ -231,6 +235,7 @@ namespace SpaceBallistics
     //
     constexpr DoubleCylinder
     (
+      TT      a_ecos_ts,     // May be UnDef
       Len     a_xu,          // Upper  Base Center
       Len     a_D,           // Outer Diameter
       Len     a_d,           // Inner Diameter

@@ -420,6 +420,7 @@ namespace SpaceBallistics
     constexpr static TrC TopTopConeProto =
       TrC
       (
+        TT::UnDef(),
         TopX,     TopY,  TopZ,
         CosAlpha, SinAlpha,
         CosPsi,   SinPsi,
@@ -434,6 +435,7 @@ namespace SpaceBallistics
     constexpr static SpS OxidTankTopProto =
       SpS
       (
+        TT::UnDef(),
         true,                   // Facing Up
         TopTopConeProto.GetLow()[0],
         TopTopConeProto.GetLow()[1],
@@ -449,6 +451,7 @@ namespace SpaceBallistics
     constexpr static TrC OxidTankUpProto =
       TrC
       (
+        TT::UnDef(),
         TopTopConeProto.GetLow()[0],
         TopTopConeProto.GetLow()[1],
         TopTopConeProto.GetLow()[2],
@@ -462,6 +465,7 @@ namespace SpaceBallistics
     constexpr static TrC OxidTankMidProto =
       TrC
       (
+        TT::UnDef(),
         OxidTankUpProto.GetLow()[0],
         OxidTankUpProto.GetLow()[1],
         OxidTankUpProto.GetLow()[2],
@@ -475,6 +479,7 @@ namespace SpaceBallistics
     constexpr static SpS OxidTankBtmProto =
       SpS
       (
+        TT::UnDef(),
         false,                  // Facing Down
         OxidTankMidProto.GetLow()[0],
         OxidTankMidProto.GetLow()[1],
@@ -491,6 +496,7 @@ namespace SpaceBallistics
     constexpr static TrC InterTankProto =
       TrC
       (
+        TT::UnDef(),
         OxidTankMidProto.GetLow()[0],
         OxidTankMidProto.GetLow()[1],
         OxidTankMidProto.GetLow()[2],
@@ -507,6 +513,7 @@ namespace SpaceBallistics
     constexpr static SpS FuelTankTopProto =
       SpS
       (
+        TT::UnDef(),
         true,                   // Facing Up
         InterTankProto.GetLow()[0],
         InterTankProto.GetLow()[1],
@@ -521,6 +528,7 @@ namespace SpaceBallistics
     constexpr static TrC FuelTankMidProto =
       TrC
       (
+        TT::UnDef(),
         InterTankProto.GetLow()[0],
         InterTankProto.GetLow()[1],
         InterTankProto.GetLow()[2],
@@ -534,6 +542,7 @@ namespace SpaceBallistics
     constexpr static SpS FuelTankBtmProto =
       SpS
       (
+        TT::UnDef(),
         false,                  // Facing Down
         FuelTankMidProto.GetLow()[0],
         FuelTankMidProto.GetLow()[1],
@@ -552,6 +561,7 @@ namespace SpaceBallistics
     constexpr static TrC TailCylEnclProto =
       TrC
       (
+        TT::UnDef(),
         FuelTankMidProto.GetLow()[0],
         FuelTankMidProto.GetLow()[1],
         FuelTankMidProto.GetLow()[2],
@@ -581,6 +591,7 @@ namespace SpaceBallistics
     constexpr static Tor LiqN2TankTopProto   =
       Tor
       (
+        TT::UnDef(),
         true,                   // Facing Up
         LiqN2TankBaseCentrX, LiqN2TankBaseCentrY, LiqN2TankBaseCentrZ,
         CosAlpha,     SinAlpha,
@@ -594,6 +605,7 @@ namespace SpaceBallistics
     constexpr static Tor LiqN2TankBtmProto =
       Tor
       (
+        TT::UnDef(),
         false,                  // Facing Down
         LiqN2TankBaseCentrX, LiqN2TankBaseCentrY, LiqN2TankBaseCentrZ,
         CosAlpha,     SinAlpha,
@@ -619,6 +631,7 @@ namespace SpaceBallistics
     constexpr static Tor H2O2TankTopProto  =
       Tor
       (
+        TT::UnDef(),
         true,                   // Facing Up
         H2O2TankBaseCentrX, H2O2TankBaseCentrY, H2O2TankBaseCentrZ,
         CosAlpha,     SinAlpha,
@@ -632,6 +645,7 @@ namespace SpaceBallistics
     constexpr static Tor H2O2TankBtmProto =
       Tor
       (
+        TT::UnDef(),
         false,                  // Facing Down
         H2O2TankBaseCentrX, H2O2TankBaseCentrY, H2O2TankBaseCentrZ,
         CosAlpha,     SinAlpha,
@@ -758,6 +772,7 @@ namespace SpaceBallistics
     constexpr static PM  Engine     =
       PM
       (
+        TT::UnDef(),
         EngineCoMX, EngineCoMY, EngineCoMZ,
         EngMass
       );
@@ -855,7 +870,7 @@ namespace SpaceBallistics
     // LiqN2:
     constexpr static ME LiqN2BtmME        = LiqN2TankBtm.GetPropBulkME();
     // H2O2:
-    constexpr static ME H2O2BtmME         = H2O2TankBtm.GetPropBulkME();
+    constexpr static ME H2O2BtmME         = H2O2TankBtm .GetPropBulkME();
 
   public:
     //=======================================================================//

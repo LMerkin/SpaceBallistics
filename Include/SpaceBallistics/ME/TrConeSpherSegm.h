@@ -90,6 +90,7 @@ namespace SpaceBallistics
     //
     constexpr TrCone
     (
+      TT      a_ecos_ts,   // May be UnDef
       Len     a_xu,        // Upper Base Center (Upper=Larger-X axis end)
       Len     a_yu,        //
       Len     a_zu,        //
@@ -112,17 +113,19 @@ namespace SpaceBallistics
     //
     constexpr TrCone
     (
-      Len     a_xu,       // Upper (Larger-X)  Base Center
-      Len     a_du,       // Upper (Larger-X)  Base Diameter
-      Len     a_dl,       // Lower (Smaller-X) Base Diameter
-      Len     a_h,        // Height
-      Density a_rho,      // 0 may be OK
+      TT      a_ecos_ts,   // May be UnDef
+      Len     a_xu,        // Upper (Larger-X)  Base Center
+      Len     a_du,        // Upper (Larger-X)  Base Diameter
+      Len     a_dl,        // Lower (Smaller-X) Base Diameter
+      Len     a_h,         // Height
+      Density a_rho,       // 0 may be OK
       Mass    a_empty_mass = ME::UnKnownMass
     );
 
     // As above, but with dU=dL, ie a Cylinder:
     constexpr TrCone
     (
+      TT      a_ecos_ts,  // May be UnDef
       Len     a_xu,       // Upper (Larger-X)  Base Center
       Len     a_d,        // Diameter of both  Bases
       Len     a_h,        // Height
@@ -229,6 +232,7 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr SpherSegm
     (
+      TT      a_ecos_ts,     // May be UnDef
       bool    a_facing_up,
       Len     a_xb,          // Base center
       Len     a_yb,          //
@@ -251,11 +255,12 @@ namespace SpaceBallistics
     //
     constexpr SpherSegm
     (
+      TT      a_ecos_ts,     // May be UnDef
       bool    a_facing_up,
-      Len     a_xb,       // Base center X co-ord
-      Len     a_d,        // Base diameter
-      Len     a_h,        // Height
-      Density a_rho,      // 0 may be OK
+      Len     a_xb,          // Base center X co-ord
+      Len     a_d,           // Base diameter
+      Len     a_h,           // Height
+      Density a_rho,         // 0 may be OK
       Mass    a_empty_mass = ME::UnKnownMass
     );
 
@@ -263,10 +268,11 @@ namespace SpaceBallistics
     //
     constexpr SpherSegm
     (
+      TT      a_ecos_ts,     // May be UnDef
       bool    a_facing_up,
-      Len     a_xb,       // Base center X co-ord
-      Len     a_d,        // Base diameter
-      Density a_rho,      // 0 may be OK
+      Len     a_xb,          // Base center X co-ord
+      Len     a_d,           // Base diameter
+      Density a_rho,         // 0 may be OK
       Mass    a_empty_mass = ME::UnKnownMass
     );
 

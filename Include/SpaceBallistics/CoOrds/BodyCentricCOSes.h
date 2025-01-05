@@ -12,6 +12,20 @@
 namespace SpaceBallistics
 {
   //=========================================================================//
+  // IMPORTANT REMARK:                                                       //
+  //=========================================================================//
+  // For the avoidance of doubt, all BodyCentric COSes are NON-INERTIAL.  They
+  // are considered to be SnapShots; in particular, the velocity, acceleration
+  // etc of the Body itself in any BodyCentric COS are NOT identical 0s.
+  // The transformations between BodyCentric COSes and other COSes (eg the in-
+  // ertial BaryCentric ones) would necessarily involve the SnapShot time as a
+  // parameter. Ideally, those parameters would be installed as properties in
+  // the BodyCentric COS types; unfortunately,  this is not possible because
+  // the SnapShot TimeStamp is usually known at run-time only.   Rather, the
+  // SnapShot TimeStamp of the SnapShot is installed in all "Vector3D"s refer-
+  // ring to any COS.
+  //
+  //=========================================================================//
   // "BodyCEqFixCOS" Class:                                                  //
   //=========================================================================//
   // BodyCentric Equatorial Fixed-Axes COS:
@@ -105,8 +119,11 @@ namespace SpaceBallistics
     Vector3D<DQ, GeoCEqFixCOS, B>           const& a_geo
   )
   {
+    // NB: For BaryCentric COS, the only meaningful TimeStamp is UnDef:
     return Vector3D<DQ, BaryCEqCOS, B>
-           { a_earth.x() + a_geo.x(),
+           { 
+             TDB::UnDef(),
+             a_earth.x() + a_geo.x(),
              a_earth.y() + a_geo.y(),
              a_earth.z() + a_geo.z()
            };
@@ -121,8 +138,17 @@ namespace SpaceBallistics
     Vector3D<DQ, BaryCEqCOS, Body::Earth> const& a_earth
   )
   {
+    // XXX: Here the TimeStamp is UnDef because:
+    // (1) we cannot get a specific TimeStamp here anyway;
+    // (2) it is consistent with the semantics of "-" where both args have the
+    //     UnDef TimeStamp;
+    // (3) furthermore, it must formally be TT  (because the result is in
+    //     "GeoCEqFixCOS"), although we subtract "BaryCEqCOS" "Vector3D"s
+    //     which use TDB!
     return Vector3D<DQ, GeoCEqFixCOS, B>
-           { a_body.x() - a_earth.x(),
+           {
+             TT::UnDef(),
+             a_body.x() - a_earth.x(),
              a_body.y() - a_earth.y(),
              a_body.z() - a_earth.z()
            };
@@ -237,8 +263,11 @@ namespace SpaceBallistics
     Vector3D<DQ, GeoCEclFixCOS, B>           const& a_geo
   )
   {
+    // NB: Again, there the TimeStamp is UnDef:
     return Vector3D<DQ, BaryCEclCOS, B>
-           { a_earth.x() + a_geo.x(),
+           {
+             TDB::UnDef(),
+             a_earth.x() + a_geo.x(),
              a_earth.y() + a_geo.y(),
              a_earth.z() + a_geo.z()
            };
@@ -253,8 +282,13 @@ namespace SpaceBallistics
     Vector3D<DQ, BaryCEclCOS, Body::Earth> const& a_earth
   )
   {
+    // XXX: Again, here we cannot install any specific TimeStamp.  Furthermore,
+    // it must formally be TT (because the result is "GeoCEclFixCOS"), although
+    // we subtract "BaryCEclCOS" "Vector3D"s which use TDB!
     return Vector3D<DQ, GeoCEclFixCOS, B>
-           { a_body.x() - a_earth.x(),
+           {
+             TT::UnDef(),
+             a_body.x() - a_earth.x(),
              a_body.y() - a_earth.y(),
              a_body.z() - a_earth.z()
            };

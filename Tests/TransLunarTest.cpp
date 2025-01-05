@@ -5,6 +5,7 @@
 // FIXME: This implementation uses a GPL integrator which is NOT DimTypes-
 // aware. Must be replaced by our own DimTypes-based integrator:
 //    
+#include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include "SpaceBallistics/CoOrds/TwoBodyOrbit.hpp"
 #include "SpaceBallistics/PhysForces/BodyData.hpp"
 #include "SpaceBallistics/PhysForces/DE440T.h"
@@ -193,9 +194,11 @@ namespace
     Time mjs_tdb{a_mjs_tdb};
     TDB      tdb{  mjs_tdb};
 
+    // XXX: For GCRS and BCRS, we currently use "UnDef"s TimeStamps:
+
     // SC (index "K") Pos and Vel in the GCRS (ie relative to Earth):
-    PosKV_GCRS<> posEK {LenK(a_y[0]), LenK(a_y[1]), LenK(a_y[2])};
-    VelKV_GCRS<> velEK {VelK(a_y[3]), VelK(a_y[4]), VelK(a_y[5])};
+    PosKV_GCRS<> posEK {TT::UnDef(), LenK(a_y[0]), LenK(a_y[1]), LenK(a_y[2])};
+    VelKV_GCRS<> velEK {TT::UnDef(), VelK(a_y[3]), VelK(a_y[4]), VelK(a_y[5])};
 
     // GeoCentric position and Velocity of the Moon:
     PosKV_GCRS<Body::Moon>    posEM;

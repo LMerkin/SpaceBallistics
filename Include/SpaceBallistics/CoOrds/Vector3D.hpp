@@ -6,10 +6,29 @@
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
+#include "SpaceBallistics/CoOrds/TimeScales.h"
 #include <type_traits>
 
 namespace SpaceBallistics
 {
+  namespace Bits
+  {
+    //=======================================================================//
+    // "TSWrapper":                                                          //
+    //=======================================================================//
+    // XXX: In some very degenerate cases "COS" may be "void" (in tests only),
+    // in which case "TDB" is assumed by default.
+    // XXX: For some strange reason,     this selector functionality cannot be
+    // implemented using "std::conditional": the latter tries to evaluate both
+    // the "then" and the "else" branches, so:
+    //
+    template<typename COS>
+    struct TSWrapper       { using TS = typename COS::TimeScale; };
+
+    template<>
+    struct TSWrapper<void> { using TS = TDB; };
+  }
+
   //=========================================================================//
   // "Vector3D" Class:                                                       //
   //=========================================================================//
@@ -18,43 +37,81 @@ namespace SpaceBallistics
   // are also allowed w/o any safety risks).
   // IN ADDITION, the "Vector3D" type is parameterised by the CoOrdinate System
   // ("COS") and OPTIONALLY, by the Body this Vector describes (or UNKNOWN if
-  // eg it is a SpaceCraft rather than a well-known Body):
+  // eg it is a SpaceCraft rather than a well-known Body).
+  // IMPORTANT: All Non-Inertial (Non-BaryCentric) COSes are actually SnapShots
+  // taken as some Time Instant. Unfortunately, it is not possible to install
+  // that Time Instant statically into the COS type,  because it is typically
+  // known at run-time only. Instead, we install it the "Vector3D".
+  // Thus, for the avoidance of doubt, the TimeStamp of a "Vector3D"  (say, a
+  // Position vector of "B") does NOT mean that it is a position of "B" at the
+  // TimeStamp; rather, it is a position of "B" at some time (not embedded in
+  // "Vector3D") given in the COS SnapShotted at the given TimeStamp:
   //
   template<typename DQ, typename COS, Body B = Body::UNDEFINED>
   class Vector3D
   {
+  public:
+    //-----------------------------------------------------------------------//
+    // TimeScale Used:                                                       //
+    //-----------------------------------------------------------------------//
+    using TS = typename Bits::TSWrapper<COS>::TS;
+
   private:
     //-----------------------------------------------------------------------//
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
     typedef DQ DQArr3[3];
-    DQArr3  m_arr;   // Initialised to 0s by default
+    TS      m_cosTS; // COS SnapShot TimeStamp
+    DQArr3  m_arr;
 
   public:
     //-----------------------------------------------------------------------//
     // Ctors, Assignment, Equality:                                          //
     //-----------------------------------------------------------------------//
-    // Default Ctor, Copy Ctor, Assignment and Equality:are auto-generated; us-
-    // ing the Default Ctor of "DQ":
-    //
-    constexpr Vector3D            ()                      = default;
-    constexpr Vector3D            (Vector3D const&)       = default;
-    constexpr Vector3D& operator= (Vector3D const&)       = default;
-    constexpr bool      operator==(Vector3D const&) const = default;
+    // Default Ctor: TimeStamp is set to UnDef, the actual Array to 0s:
+    constexpr Vector3D()
+    : m_cosTS(TS::UnDef()),
+      m_arr  ()
+    {}
+
+    // Copy Ctor and assignment are auto-generated:
+    constexpr Vector3D            (Vector3D const&) = default;
+    constexpr Vector3D& operator= (Vector3D const&) = default;
 
     // Non-Default Ctors:
-    constexpr Vector3D(DQ a_x, DQ a_y, DQ a_z)
-    : m_arr{ a_x, a_y, a_z }
+    constexpr Vector3D(TS a_cos_ts, DQ a_x, DQ a_y, DQ a_z)
+    : m_cosTS(a_cos_ts),
+      m_arr { a_x, a_y, a_z }
     {}
 
-    constexpr Vector3D(DQArr3 const& a_arr)
-    : m_arr{ a_arr[0], a_arr[1], a_arr[2] }
+    constexpr Vector3D(TS a_cos_ts, DQArr3 const& a_arr)
+    : m_cosTS(a_cos_ts),
+      m_arr{  a_arr[0], a_arr[1], a_arr[2] }
     {}
+
+    // "Init":
+    constexpr void Init(TS a_cos_ts, DQ const a_arr[3])
+    {
+      m_cosTS  = a_cos_ts;
+      m_arr[0] = a_arr[0];
+      m_arr[1] = a_arr[1];
+      m_arr[2] = a_arr[2];
+    }
+
+    // NB: Equality is undefined (not just "false") if the COS TimeStamps do
+    // not match:
+    constexpr bool operator== (Vector3D const& a_right) const
+    {
+      CheckCOSTSs(a_right.GetCOSTS());
+      return m_arr[0] == a_right.m_arr[0] &&
+             m_arr[1] == a_right.m_arr[1] &&
+             m_arr[2] == a_right.m_arr[2];
+    }
 
     //-----------------------------------------------------------------------//
     // Accessors for Entries:                                                //
     //-----------------------------------------------------------------------//
-    // NB: Entries are in general MUTABLE:
+    // NB: Entries are MUTABLE for outsize callERs (but not the TimeStamp):
     //
     // By Index:
     constexpr DQ& operator[] (int a_i)
@@ -70,20 +127,28 @@ namespace SpaceBallistics
     }
 
     // By Name:
-    constexpr DQ&       x()       { return m_arr[0]; }
-    constexpr DQ const& x() const { return m_arr[0]; }
+    constexpr DQ&        x()       { return m_arr[0]; }
+    constexpr DQ const&  x() const { return m_arr[0]; }
 
-    constexpr DQ&       y()       { return m_arr[1]; }
-    constexpr DQ const& y() const { return m_arr[1]; }
+    constexpr DQ&        y()       { return m_arr[1]; }
+    constexpr DQ const&  y() const { return m_arr[1]; }
 
-    constexpr DQ&       z()       { return m_arr[2]; }
-    constexpr DQ const& z() const { return m_arr[2]; }
+    constexpr DQ&        z()       { return m_arr[2]; }
+    constexpr DQ const&  z() const { return m_arr[2]; }
+
+    // For the COS TimeStamp:
+    constexpr TS  GetCOSTS() const { return m_cosTS;  }
+
+    // XXX: In some very rare cases (eg in "MechElement"), we may need writable
+    // access to the COS TimeStamp. USE IT WITH EXTREME CARE!
+    constexpr TS& GetCOSTS()       { return m_cosTS;  }
 
     //-----------------------------------------------------------------------//
     // Vector Space Operations:                                              //
     //-----------------------------------------------------------------------//
     // XXX:  In "+", if one of the Arg Vectors is with  UNDEFINED Body, the type
-    // check is relaxed, as the result will also be for UNDEFINED:
+    // check is relaxed, as the result will also be for UNDEFINED.  But the COS
+    // TimeStamps must match:
     //
     template<Body R>
     constexpr  Vector3D<DQ, COS, UnifyBodies(B,R)>
@@ -91,6 +156,7 @@ namespace SpaceBallistics
     {
       return   Vector3D<DQ, COS, UnifyBodies(B,R)>
       (
+        UnifyCOSTSs(a_right.GetCOSTS()),
         x() + a_right.x(),
         y() + a_right.y(),
         z() + a_right.z()
@@ -99,7 +165,9 @@ namespace SpaceBallistics
 
     constexpr Vector3D& operator+= (Vector3D const& a_right)
     {
-      // But here no unification is attempted:
+      // No unification of "Body"es is attempted here -- they must match to
+      // begin with; COS TimeStamps are still unified:
+      m_cosTS   = UnifyCOSTSs(a_right.GetCOSTS());
       m_arr[0] += a_right.m_arr[0];
       m_arr[1] += a_right.m_arr[1];
       m_arr[2] += a_right.m_arr[2];
@@ -107,7 +175,8 @@ namespace SpaceBallistics
     }
 
     // XXX:  In "-", if one of the Arg Vectors is with  UNDEFINED Body, the type
-    // check is relaxed, as the result will also be for UNDEFINED:
+    // check is relaxed, as the result will also be for UNDEFINED.   Again, the
+    // COS TimeStamps must match:
     //
     template<Body R>
     constexpr  Vector3D<DQ, COS, UnifyBodies(B,R)>
@@ -115,6 +184,7 @@ namespace SpaceBallistics
     {
       return   Vector3D<DQ, COS, UnifyBodies(B,R)>
       (
+        UnifyCOSTSs(a_right.GetCOSTS()),
         x() - a_right.x(),
         y() - a_right.y(),
         z() - a_right.z()
@@ -123,7 +193,9 @@ namespace SpaceBallistics
 
     constexpr Vector3D& operator-= (Vector3D const& a_right)
     {
-      // But here no unification is attempted:
+      // No unification of "Body"es is attempted here -- they must match to
+      // begin with; COS TimeStamps are still unified:
+      m_cosTS   = UnifyCOSTSs(a_right.GetCOSTS());
       m_arr[0] -= a_right.m_arr[0];
       m_arr[1] -= a_right.m_arr[1];
       m_arr[2] -= a_right.m_arr[2];
@@ -138,7 +210,7 @@ namespace SpaceBallistics
     const
     {
       return Vector3D<decltype(DQ(1.0) * DT(1.0)), COS, B>
-             (m_arr[0] * a_k, m_arr[1] * a_k, m_arr[2] * a_k);
+             {m_cosTS,  m_arr[0] * a_k, m_arr[1] * a_k, m_arr[2] * a_k};
     }
 
     // In-place multiplication is only possible for a "double" scalar:
@@ -164,7 +236,7 @@ namespace SpaceBallistics
     {
       assert(!IsZero(a_k));
       return Vector3D<decltype(DQ(1.0) / DT(1.0)), COS, B>
-             (m_arr[0] / a_k, m_arr[1] / a_k, m_arr[2] / a_k);
+             {m_cosTS,  m_arr[0] / a_k, m_arr[1] / a_k, m_arr[2] / a_k};
     }
 
     // Overloading (NOT Specialisation) of the above:
@@ -174,8 +246,8 @@ namespace SpaceBallistics
     {
       assert(!IsZero(a_k));
       return Vector3D<double, COS, B>
-             (double(m_arr[0] / a_k), double(m_arr[1] / a_k),
-              double(m_arr[2] / a_k));
+             {m_cosTS,                double(m_arr[0] / a_k),
+              double(m_arr[1] / a_k), double(m_arr[2] / a_k)};
     }
 
     // In-place division is only possible for a "double" scalar:
@@ -192,12 +264,12 @@ namespace SpaceBallistics
     // Vector Length:                                                        //
     //-----------------------------------------------------------------------//
     // Implemented simply as conversion to the underlying type, as well as the
-    // "EuclNorm":
+    // "EuclidNorm":
     //
-    constexpr operator DQ() const
+    constexpr operator DQ()   const
       { return SqRt(Sqr(x()) + Sqr(y()) + Sqr(z())); }
 
-    constexpr DQ EuclNorm() const { return operator DQ(); }
+    constexpr DQ EuclidNorm() const { return operator DQ(); }
 
     //-----------------------------------------------------------------------//
     // Dot Product:                                                          //
@@ -205,7 +277,10 @@ namespace SpaceBallistics
     template<typename  DT>
     constexpr decltype(DQ(1.0) * DT(1.0)) DotProd
       (Vector3D<DT, COS, B> const& a_right) const
-    { return x() * a_right.x() + y() * a_right.y() + z() * a_right.z(); }
+    {
+      CheckCOSTSs(a_right.GetCOSTS());
+      return x() * a_right.x() + y() * a_right.y() + z() * a_right.z();
+    }
 
     template<typename DT>
     constexpr friend decltype(DQ(1.0) * DT(1.0)) DotProd
@@ -225,6 +300,7 @@ namespace SpaceBallistics
       return
         Vector3D<decltype(DQ(1.0) * DT(1.0)), COS, B>
         {
+          UnifyCOSTSs(a_right.GetCOSTS()),
           y() * a_right.z() - z() * a_right.y(),
           z() * a_right.x() - x() * a_right.z(),
           x() * a_right.y() - y() * a_right.x()
@@ -249,6 +325,10 @@ namespace SpaceBallistics
     )
     const
     {
+      // XXX: Approximate Equality is undefined (not just "false") if COS Time-
+      // Stamps do not match:
+      CheckCOSTSs(a_right.GetCOSTS());
+
       return x().ApproxEquals(a_right.x(), a_tol) &&
              y().ApproxEquals(a_right.y(), a_tol) &&
              z().ApproxEquals(a_right.z(), a_tol);
@@ -261,6 +341,19 @@ namespace SpaceBallistics
     //
     DQArr3 const& GetArr() const { return m_arr; }
     DQArr3&       GetArr()       { return m_arr; }
+
+    //-----------------------------------------------------------------------//
+    // COS TimeStamps Mgmt:                                                  //
+    //-----------------------------------------------------------------------//
+    constexpr void CheckCOSTSs(TS DEBUG_ONLY(a_right)) const
+      { assert(m_cosTS.IsUnDef() || a_right.IsUnDef() || m_cosTS == a_right); }
+
+    constexpr TS UnifyCOSTSs  (TS a_right) const
+    {
+      bool    hasUnDef =  m_cosTS.IsUnDef() || a_right.IsUnDef();
+      assert (hasUnDef || m_cosTS == a_right);
+      return  hasUnDef ?  TS::UnDef() : m_cosTS;
+    }
   };
 
   //=========================================================================//

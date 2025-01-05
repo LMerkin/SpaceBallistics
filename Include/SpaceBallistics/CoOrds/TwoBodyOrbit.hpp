@@ -104,7 +104,7 @@ namespace SpaceBallistics
       // The Angular Momentum Vector:                                        //
       //---------------------------------------------------------------------//
       auto angMom = CrossProd(a_pos, a_vel);
-      m_h         = angMom.EuclNorm();
+      m_h         = angMom.EuclidNorm();
 
       // Degenetate Case: RectiLinear orbit:
       bool isRect = false;

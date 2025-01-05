@@ -158,14 +158,18 @@ namespace SpaceBallistics
     // Furthermore, the columns of PN are actually the unit vectors  of the
     // "GeoCDynEqFixCOS" (with the Dynamic Equator and Mean Ecliptic of the
     // "ERMEpoch") in the GCRS system, so we can return them one-by-one as
-    // GCRS vectors (assuming they are pos vectors of unit length):
+    // GCRS vectors (assuming they are pos vectors of unit length).
+    // XXX: BUT: Which TimeStamp is to be associated with GCRS? The latter
+    // has Fixed Axes and Moving Origin, but the Origin is irrelevant here.
+    // So set the TimeStamp to UNDEFINED:
     //
     // Col0: The X axis of "GeoCDynEqFixCOS": Points to the Equinox of the
-    // "ERMEpoch":
+    // "ERMEpoch", so install the latter as the COS TS
     constexpr PosKV_GCRS<> GetGeoCDynEqFixX() const
     {
       return  PosKV_GCRS<>
-              {m_PN(0,0) * 1.0_km, m_PN(1,0) * 1.0_km, m_PN(2,0) * 1.0_km};
+              { TT::UnDef(),
+                m_PN(0,0) * 1.0_km, m_PN(1,0) * 1.0_km, m_PN(2,0) * 1.0_km };
     }
 
     // Col1: The Y axis of "GeoCDynEqFixCOS": Just complements the X and Z
@@ -173,16 +177,17 @@ namespace SpaceBallistics
     constexpr PosKV_GCRS<> GetGeoCDynEqFixY() const
     {
       return  PosKV_GCRS<>
-              {m_PN(0,1) * 1.0_km, m_PN(1,1) * 1.0_km, m_PN(2,1) * 1.0_km};
+              { TT::UnDef(),
+                m_PN(0,1) * 1.0_km, m_PN(1,1) * 1.0_km, m_PN(2,1) * 1.0_km };
     }
 
     // Col2: The Z axis of "GeoCDynEqFixCOS": Points to the (Equatorial) North
     //       Pole  of the  "ERMEpoch":
-    //
     constexpr PosKV_GCRS<> GetGeoCDynEqFixZ() const
     {
       return  PosKV_GCRS<>
-              {m_PN(0,2) * 1.0_km, m_PN(1,2) * 1.0_km, m_PN(2,2) * 1.0_km};
+              { TT::UnDef(),
+                m_PN(0,2) * 1.0_km, m_PN(1,2) * 1.0_km, m_PN(2,2) * 1.0_km };
     }
 
   private:

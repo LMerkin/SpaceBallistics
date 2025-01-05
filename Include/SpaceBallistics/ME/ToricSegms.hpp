@@ -16,6 +16,7 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr ToricSegm<LVSCKind>::ToricSegm
   (
+    TT      a_ecos_ts,     // May be UnDef
     bool    a_facing_up,
     Len     a_xb,          // Over-All   Segment Base Center
     Len     a_yb,          //
@@ -103,8 +104,10 @@ namespace SpaceBallistics
     // NB: (xb,yb,zb) is the Base Center, so BaseIsUp = !IsFacingUp:
     RS::Init
     (
-      sideSurfArea, enclVol, a_empty_mass, a_cosA, a_sinA, a_cosP, a_sinP,
-      a_xb,   a_yb, a_zb,   !a_facing_up,  a_h,    JE0,    JE1,    KE,
+      a_ecos_ts, sideSurfArea, enclVol, a_empty_mass,
+      a_cosA,    a_sinA,       a_cosP,  a_sinP,
+      a_xb,      a_yb,         a_zb,   !a_facing_up,
+      a_h,       JE0,          JE1,     KE,
       a_rho
     );
   }
@@ -118,6 +121,7 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr ToricSegm<LVSCKind>::ToricSegm
   (
+    TT      a_ecos_ts,    // May be UnDef
     bool    a_facing_up,
     Len     a_xb,         // Over-All Segment Base Center (X-CoOrd)
     Len     a_d,          // Cross-Section Base Diameter
@@ -126,8 +130,8 @@ namespace SpaceBallistics
     Density a_rho,        // 0 may be OK (if holds no Propellant)
     Mass    a_empty_mass  // May be UnKnown
   )
-  : ToricSegm(a_facing_up,   a_xb,  0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
-              a_d, a_h, a_D, a_rho, a_empty_mass)
+  : ToricSegm(a_ecos_ts, a_facing_up, a_xb,  0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+              a_d,  a_h, a_D,  a_rho, a_empty_mass)
   {}
 
   // As above, but with d/2 = h, ie the Cross-Section is a HemiSpehere:
@@ -135,6 +139,7 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr ToricSegm<LVSCKind>::ToricSegm
   (
+    TT      a_ecos_ts,    // May be UnDef
     bool    a_facing_up,
     Len     a_xb,         // Over-All Segment Base Center (X-CoOrd)
     Len     a_d,          // Cross-Section Base Diameter
@@ -142,8 +147,8 @@ namespace SpaceBallistics
     Density a_rho,        // 0 may be OK (if holds no Propellant)
     Mass    a_empty_mass  // May be UnKnown
   )
-  : ToricSegm(a_facing_up,    a_xb, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
-                a_d, a_d / 2.0, a_D,  a_rho, a_empty_mass)
+  : ToricSegm(a_ecos_ts, a_facing_up, a_xb, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0,
+              a_d,       a_d / 2.0,   a_D,  a_rho, a_empty_mass)
   {}
 
   //=========================================================================//
@@ -438,6 +443,7 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr DoubleCylinder<LVSCKind>::DoubleCylinder
   (
+    TT      a_ecos_ts,     // May be UnDef
     Len     a_xu,          // Upper  Base Center
     Len     a_yu,          //
     Len     a_zu,          //
@@ -489,8 +495,9 @@ namespace SpaceBallistics
     // NB: (xu,yu,zu) is the Upper Base Center, so BaseIsUp = true here:
     RS::Init
     (
-      sideSurfArea, enclVol,  a_empty_mass, a_cosA, a_sinA, a_cosP, a_sinP,
-      a_xu, a_yu, a_zu, true, a_h,     JE0, JE1,    KE,     a_rho
+      a_ecos_ts,  sideSurfArea, enclVol, a_empty_mass,
+      a_cosA,     a_sinA,       a_cosP,  a_sinP,
+      a_xu, a_yu, a_zu,   true, a_h,     JE0, JE1, KE,  a_rho
     );
   }
 
@@ -503,6 +510,7 @@ namespace SpaceBallistics
   template<LVSC LVSCKind>
   constexpr DoubleCylinder<LVSCKind>::DoubleCylinder
   (
+    TT      a_ecos_ts,     // May be UnDef
     Len     a_xu,          // Upper  Base Center
     Len     a_D,           // Outer Diameter
     Len     a_d,           // Inner Diameter
@@ -511,7 +519,7 @@ namespace SpaceBallistics
     Mass    a_empty_mass   // May be UnKnown
   )
   : DoubleCylinder
-      (a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0, a_D, a_d, a_h, a_rho,
+      (a_ecos_ts, a_xu, 0.0_m, 0.0_m, 1.0, 0.0, 1.0, 0.0, a_D, a_d, a_h, a_rho,
        a_empty_mass)
   {}
 

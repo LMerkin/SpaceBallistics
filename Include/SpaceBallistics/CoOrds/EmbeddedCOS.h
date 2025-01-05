@@ -5,6 +5,7 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/CoOrds/Vector3D.hpp"
+#include "SpaceBallistics/CoOrds/TimeScales.h"
 #include "SpaceBallistics/LVSC/LVSC.h"
 
 namespace SpaceBallistics
@@ -20,16 +21,24 @@ namespace SpaceBallistics
   //         XXX: This is debatable. Typically,  the EmbeddedCOS is used during
   //         the LV Ascent-to-Orbit phase, in which case TT should be used. But
   //         it could also be used for some "deep-space" SC operations, in which
-  //         case TDB is perhaps more appropriate.  So we use TT by default but
-  //         allow overriding it if really required:
-  class TT;
-
-  template<LVSC LVSCKind, typename TS = TT>
+  //         case TDB is perhaps more appropriate.  So we use TT for now.
+  // IMPORTANT: For the avoidance of doubt, "EmbeddedCOS" is a SnapShot of such
+  //         a COS, taken at some time instant. Otherwise, the LV/SC velocity,
+  //         angular velocity, acceleration, angular acceleration etc,  in the
+  //         "EmbeddedCOS" would be indentical 0s. Thus, transformation between
+  //         the "EmbeddedCOS" and other COSes would always involve the time in-
+  //         stant corresponding to which the SnapShot coprresponds.   Ideally,
+  //         that time instant should be made an "EmbeddedCOS" param, but it is
+  //         not possible to do so statically in C++,  since the SnapShot  Time-
+  //         Stamp is usually known at run-time only. For this reason, the Time-
+  //         Stamp is installed in the "Vector3D" instead.
+  //
+  template<LVSC LVSCKind>
   struct EmbeddedCOS
   {
     constexpr static bool HasFixedAxes   = false;
     constexpr static bool HasFixedOrigin = false;
-    using TimeScale = TS;
+    using TimeScale                      = TT;
 
     EmbeddedCOS() = delete;	  // No objects construction at all!
   };
@@ -41,34 +50,34 @@ namespace SpaceBallistics
   // a template param for the Body which is characterised by those Vectors: it
   // is typically the same LVSC, ie "Body::UNDEFINED":
   //
-  template<LVSC LVSCKind, typename TS = TT>
-  using PosVEmb     = PosV    <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using PosVEmb     = PosV    <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using VelVEmb     = VelV    <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using VelVEmb     = VelV    <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using AccVEmb     = AccV    <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using AccVEmb     = AccV    <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using ForceVEmb   = ForceV  <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using ForceVEmb   = ForceV  <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using AngVelVEmb  = AngVelV <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using AngVelVEmb  = AngVelV <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using AngAccVEmb  = AngAccV <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using AngAccVEmb  = AngAccV <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using AngMomVEmb  = AngMomV <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using AngMomVEmb  = AngMomV <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using TorqVEmb    = TorqV   <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using TorqVEmb    = TorqV   <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using MoIVEmb     = MoIV    <EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using MoIVEmb     = MoIV    <EmbeddedCOS<LVSCKind>>;
 
-  template<LVSC LVSCKind, typename TS = TT>
-  using MoIRateVEmb = MoIRateV<EmbeddedCOS<LVSCKind, TS>>;
+  template<LVSC LVSCKind>
+  using MoIRateVEmb = MoIRateV<EmbeddedCOS<LVSCKind>>;
 }
 // End namespace SpaceBallistics

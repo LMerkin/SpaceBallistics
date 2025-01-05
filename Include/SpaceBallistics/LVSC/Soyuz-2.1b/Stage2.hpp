@@ -27,6 +27,10 @@ namespace SpaceBallistics
     // We currently do not allow any times prior to LiftOff:
     assert(SC::LiftOffTime <= a_ft);
 
+    // The absolute curr time must be defined in this case:
+    TT  tt = TT(a_ft);
+    assert(!tt.IsUnDef());
+
     // The atmospheric pressure is >= 0 obviously:
     assert(!IsNeg(a_p));
 
@@ -210,17 +214,17 @@ namespace SpaceBallistics
       (fuelMass > FuelTankBtmMidMC)
       ? // Fuel level is within the FuelTankTop:
         FuelTankTop.GetPropBulkME
-          (fuelMass - FuelTankBtmMidMC,     fuelMassDot,  &fuelLevel) +
+          (tt, fuelMass - FuelTankBtmMidMC,     fuelMassDot,  &fuelLevel) +
         FuelBtmMidME
       :
       (fuelMass > FuelTankBtmMC)
       ? // Fuel level is within the FuelTankMid:
         FuelTankMid.GetPropBulkME
-          (fuelMass - FuelTankBtmMC,        fuelMassDot,  &fuelLevel) +
+          (tt, fuelMass - FuelTankBtmMC,        fuelMassDot,  &fuelLevel) +
         FuelBtmME
       :
         // Fuel level is within the FuelTankBtm:
-        FuelTankBtm.GetPropBulkME(fuelMass, fuelMassDot,  &fuelLevel);
+        FuelTankBtm.GetPropBulkME(tt, fuelMass, fuelMassDot,  &fuelLevel);
     assert(IsPos(fuelLevel));
 
     // Oxid:
@@ -230,23 +234,23 @@ namespace SpaceBallistics
       (oxidMass > OxidTankBtmLowUpMC)
       ? // Oxid level is within the OxidTankTop:
         OxidTankTop.GetPropBulkME
-          (oxidMass - OxidTankBtmLowUpMC,   oxidMassDot,  &oxidLevel) +
+          (tt, oxidMass - OxidTankBtmLowUpMC,   oxidMassDot,  &oxidLevel) +
         OxidBtmLowUpME
       :
       (oxidMass > OxidTankBtmLowMC)
       ? // Oxid level is within the OxidTankUp:
         OxidTankUp .GetPropBulkME
-          (oxidMass - OxidTankBtmLowMC,     oxidMassDot,  &oxidLevel) +
+          (tt, oxidMass - OxidTankBtmLowMC,     oxidMassDot,  &oxidLevel) +
         OxidBtmLowME
       :
       (oxidMass > OxidTankBtmMC)
       ? // Oxid level is within the OxidTankLow:
         OxidTankLow.GetPropBulkME
-          (oxidMass - OxidTankBtmMC,        oxidMassDot,  &oxidLevel) +
+          (tt, oxidMass - OxidTankBtmMC,        oxidMassDot,  &oxidLevel) +
         OxidBtmME
       :
         // Oxid level is within the OxidTankBtm:
-        OxidTankBtm.GetPropBulkME(oxidMass, oxidMassDot,  &oxidLevel);
+        OxidTankBtm.GetPropBulkME(tt, oxidMass, oxidMassDot,  &oxidLevel);
     assert(IsPos(oxidLevel));
 
     // H2O2:
@@ -256,17 +260,17 @@ namespace SpaceBallistics
       (h2o2Mass > H2O2TankBtmMidMC)
       ? // H2O2 level is within the H2O2TankTop:
         H2O2TankTop.GetPropBulkME
-          (h2o2Mass - H2O2TankBtmMidMC,     h2o2MassDot,  &h2o2Level) +
+          (tt, h2o2Mass - H2O2TankBtmMidMC,     h2o2MassDot,  &h2o2Level) +
         H2O2BtmMidME
       :
       (h2o2Mass > H2O2TankBtmMC)
       ? // H2O2 level is within the H2H2TankMid:
         H2O2TankMid.GetPropBulkME
-          (h2o2Mass - H2O2TankBtmMC,        h2o2MassDot,  &h2o2Level) +
+          (tt, h2o2Mass - H2O2TankBtmMC,        h2o2MassDot,  &h2o2Level) +
         H2O2BtmME
       :
         // H2O2 level is within the H2O2TankBtm:
-        H2O2TankBtm.GetPropBulkME(h2o2Mass, h2o2MassDot,  &h2o2Level);
+        H2O2TankBtm.GetPropBulkME(tt, h2o2Mass, h2o2MassDot,  &h2o2Level);
     assert(IsPos(h2o2Level));
 
     // LiqN2:
@@ -276,11 +280,11 @@ namespace SpaceBallistics
       (liqN2Mass > LiqN2TankBtmMC)
       ? // LiqN2 level is within the LiqN2TankTop:
         LiqN2TankTop.GetPropBulkME
-          (liqN2Mass - LiqN2TankBtmMC,        liqN2MassDot, &liqN2Level) +
+          (tt, liqN2Mass - LiqN2TankBtmMC,        liqN2MassDot, &liqN2Level) +
         LiqN2BtmME
       :
         // LiqN2 level is within the LiqN2TankBtm:
-        LiqN2TankBtm.GetPropBulkME(liqN2Mass, liqN2MassDot, &liqN2Level);
+        LiqN2TankBtm.GetPropBulkME(tt, liqN2Mass, liqN2MassDot, &liqN2Level);
     assert(IsPos(liqN2Level));
 
     // Gaseous N2:
@@ -337,7 +341,7 @@ namespace SpaceBallistics
       .m_comDots     = fullME.GetCoMDots(),
       .m_mois        = fullME.GetMoIs   (),
       .m_moiDots     = fullME.GetMoIDots(),
-      .m_thrust      = ForceVEmb<LVSC::Soyuz21b>(thrustX, thrustY, thrustZ)
+      .m_thrust      = ForceVEmb<LVSC::Soyuz21b>(tt, thrustX, thrustY, thrustZ)
     };
   }
 }

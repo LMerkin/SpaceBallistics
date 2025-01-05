@@ -44,8 +44,11 @@ namespace
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
     // Equatorial Fixed-Axes COS ("EqFixCOS"):
+    // FIXME: For the moment, we use UnDef as the TimeStamp of all COSes, to
+    // avoid conversion of "a_t" back into TDB:
+    //
     PosKVEqFix<Body::Moon> posF
-      {To_Len_km(Len(a_y[0])), To_Len_km(Len(a_y[1])), To_Len_km(Len(a_y[2]))};
+      {TDB::UnDef(), Len_km(a_y[0]), Len_km(a_y[1]), Len_km(a_y[2])};
     Time t(a_t);
 
     // ("UnTyped") derivatives of those Co-Ords are the corresp Velocities:
@@ -70,12 +73,13 @@ namespace
     // Co-Ords in the Rotating system via those in the Fixed one:
     PosKVRot<Body::Moon> posR
     (
+      TDB::UnDef(),
       cosMRA * posF[0] + sinMRA * posF[1],
       cosMRA * posF[1] - sinMRA * posF[0],
       posF[2]
     );
     // Acceleration in the Rotating System: Must be cleared first:
-    AccVRot<Body::Moon> accR(Acc(0.0), Acc(0.0), Acc(0.0));
+    AccVRot<Body::Moon> accR{TDB::UnDef(), Acc(0.0), Acc(0.0), Acc(0.0)};
 
     // Now try to compute the actual acceleration:
     // collision with the Lunar surface; 
@@ -96,14 +100,15 @@ namespace
     // If OK: Convert "accR"  back into the EqFixCOS:
     AccVEqFix<Body::Moon> accF
     (
+      TDB::UnDef(),
       cosMRA * accR[0] - sinMRA * accR[1],
       sinMRA * accR[0] + cosMRA * accR[1],
       accR[2]
     );
     // Put them back into the "UnTyped" C array:
-    a_y_dot[3] = accF[0].Magnitude();
-    a_y_dot[4] = accF[1].Magnitude();
-    a_y_dot[5] = accF[2].Magnitude();
+    a_y_dot[3] = To_Len_km(accF[0]).Magnitude();
+    a_y_dot[4] = To_Len_km(accF[1]).Magnitude();
+    a_y_dot[5] = To_Len_km(accF[2]).Magnitude();
 
     // All Done!
     return 0;

@@ -3,7 +3,7 @@
 //                            "Tests/ERM_Test.cpp":                          //
 //        Sun Longitude at Noon for a Year Containing a Leap Second          //
 //===========================================================================//
-#include "SpaceBallistics/CoOrds/TimeScales.h"
+#include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include "SpaceBallistics/CoOrds/TopoCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/SpherPV.hpp"
 #include "SpaceBallistics/PhysForces/DE440T.h"

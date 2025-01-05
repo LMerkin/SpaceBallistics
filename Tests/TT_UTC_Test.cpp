@@ -2,7 +2,7 @@
 //===========================================================================//
 //                         "Tests/TT_UTC_Test.cpp":                          //
 //===========================================================================//
-#include "SpaceBallistics/CoOrds/TimeScales.h"
+#include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include <cstdlib>
 #include <cstdio>
 
@@ -55,9 +55,9 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  for (int i = 0; i < UTC::NLS; ++i)
+  for (int i = 0; i < TBits::NLS; ++i)
   {
-    auto [y, m, d] = UTC::LeapSecondDates[i];
+    auto [y, m, d] = TBits::LeapSecondDates[i];
 
     // It may only be end of June or end of December:
     assert((m == 6 && d == 30) || (m == 12 && d == 31));

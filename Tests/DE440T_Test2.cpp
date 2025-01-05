@@ -7,10 +7,11 @@
 #ifdef   NDEBUG
 #undef   NDEBUG
 #endif
-#include "SpaceBallistics/PhysForces/DE440T.h"
-#include "SpaceBallistics/PhysForces/EarthRotationModel.h"
+#include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include "SpaceBallistics/CoOrds/GeoCDynEqFixCOS.h"
 #include "SpaceBallistics/CoOrds/SpherPV.hpp"
+#include "SpaceBallistics/PhysForces/DE440T.h"
+#include "SpaceBallistics/PhysForces/EarthRotationModel.h"
 #include "SpaceBallistics/Maths/RotationMatrices.hpp"
 #include "SpaceBallistics/Utils.hpp"
 #include <cstdio>
@@ -210,8 +211,8 @@ int main(int argc, char* argv[])
     // Output:
     printf("%04d-%02d-%02d_%02d:%02d:%03.3lf\t"
              "%02.0lf:%02.0lf:%02.06lf\t"
-           "%c%02.0lf %02.0lf %02.06lf\t"
-             "%.2lf\t%.2lf\t%.3lf\n", 
+           "%c%02.0lf_%02.0lf_%02.06lf\t"
+             "%.3lf\t%.2lf\t%.2lf\t%.3lf\n",
            utc.m_year, utc.m_month, utc.m_day,
            utc.m_hour, utc.m_min,   utc.m_sec,
            get<0>(hms).Magnitude(), get<1>(hms).Magnitude(),
@@ -219,6 +220,7 @@ int main(int argc, char* argv[])
            get<0>(dms) < 0  ? '-' : get<0>(dms) > 0 ? '+' : ' ',
            get<1>(dms).Magnitude(), get<2>(dms).Magnitude(),
            get<3>(dms).Magnitude(),
+           LenK(posES).Magnitude(),
            alphaDotSD.Magnitude(),  deltaDotSD.Magnitude(),
            radVel.Magnitude());
   }

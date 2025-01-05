@@ -7,6 +7,7 @@
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/LVSC/LVSC.h"
 #include "SpaceBallistics/CoOrds/EmbeddedCOS.h"
+#include "SpaceBallistics/CoOrds/TimeScales.h"
 #include <boost/container/static_vector.hpp>
 #include <cassert>
 #include <initializer_list>
@@ -71,7 +72,8 @@ namespace SpaceBallistics
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
-    // Over-All Dynamical Params of this "MechElement":
+    // Over-All Dynamical Params of this "MechElement". ECOS TS is not stored
+    // on its own, but appears in all Vectors:
     //
     PosVE       m_CoM;         // (X,Y,Z) co-ords of the Center of Masses
     VelVE       m_CoMDots;     // Velocity of the moving CoM
@@ -97,6 +99,7 @@ namespace SpaceBallistics
     constexpr static void Init
     (
       MechElement*    a_me,
+      TT              a_ecos_ts,  // TT::UnDef() is OK
       Len  const      a_com     [3],
       Vel  const      a_com_dots[3],
       Mass            a_mass,
@@ -107,14 +110,20 @@ namespace SpaceBallistics
       bool            a_is_final
     );
 
+    //=======================================================================//
+    // ECOS TSs Mgmt Utils:                                                  //
+    //=======================================================================//
+    constexpr TT   GetECOSTS() const;
+    constexpr void UnifyECOSTSs(MechElement const& a_right);
+
   public:
     //=======================================================================//
     // Default Ctor:                                                         //
     //=======================================================================//
     // NB:
-    // (*) All numeric fields are initialised to 0s, not to NaNs, so the "empty"
-    //     obj (constructed by the Default Ctor) can be used as an initial value
-    //     for summation ("+", "+=", etc);
+    // (*) All numeric fields (apart from TT) are initialised to 0s, not NaNs,
+    //     so the "empty" obj (constructed by the Default Ctor) can be used as
+    //     an initial value for summation ("+", "+=", etc);
     // (*) "IsFinal" is set to "true", because the empty "MechElement" is typic-
     //     ally used as the base for "+" which requires Final operands:
     //
@@ -125,6 +134,7 @@ namespace SpaceBallistics
     //=======================================================================//
     constexpr MechElement
     (
+      TT             a_ecos_ts,
       Len      const a_com     [3],
       Vel      const a_com_dots[3],
       Mass           a_mass,
@@ -165,7 +175,7 @@ namespace SpaceBallistics
     //     risation Gas; in this case,
     //
     template<bool IsPressnGas = false, typename Derived>
-    constexpr static  Derived ProRateMass
+    constexpr static Derived ProRateMass
     (
       Derived const& a_der,
       double         a_scale,
@@ -227,11 +237,8 @@ namespace SpaceBallistics
     // entirely belongs to the 1st one:
     //
     constexpr MechElement& operator+= (MechElement const& a_right);
-
     constexpr MechElement  operator+  (MechElement const& a_right) const;
-
     constexpr MechElement& operator-= (MechElement const& a_right);
-
     constexpr MechElement  operator-  (MechElement const& a_right) const;
   };
 
@@ -247,7 +254,14 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
-    constexpr PointMass(Len a_x0, Len a_y0, Len a_z0, Mass a_mass);
+    constexpr PointMass
+    (
+      TT   a_ecos_ts,
+      Len  a_x0,
+      Len  a_y0,
+      Len  a_z0,
+      Mass a_mass
+    );
   };
 
   //=========================================================================//
@@ -333,6 +347,7 @@ namespace SpaceBallistics
     constexpr void Init
     (
       // Params for the Base Class ("MechElement"):
+      TT      a_tt,
       Area    a_side_surf_area,
       Vol     a_encl_vol,
       Mass    a_mass,     // If 0, then auto-calculated with SurfDens=1
@@ -420,6 +435,7 @@ namespace SpaceBallistics
     //
     constexpr MechElement<LVSCKind> GetPropBulkME
     (
+      TT       a_ecos_ts       = TT::UnDef(),       // But usually  DEFINED
       Mass     a_prop_mass     = Mass(Inf<double>), // >= 0; +oo => FullLoad
       MassRate a_prop_mass_dot = MassRate(0.0),     // Must be <= 0 in gen
       Len*     a_prop_level    = nullptr            // Not computed if NULL
