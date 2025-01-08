@@ -42,8 +42,8 @@ namespace SpaceBallistics::Soyuz21b_Consts
 
   // Stage1 (Blocks B, V, G, D) CutOff and Separation time (earlier versions of
   // the RD-107 engine could burn for up to 140 sec):
-  constexpr inline FT     Stage1CutOffTime (117.7_sec);
-  constexpr inline FT     Stage1SepTime    (118.1_sec);  // Or 118.9 ?
+  constexpr inline FT     Stage1CutOffTime (118.2_sec);  // Or 117.7 ?
+  constexpr inline FT     Stage1SepTime    (118.9_sec);  // Or 118.1 ?
 
   // Fairing jettisoning time. This is probably NOT a constant, it depends  on
   // mission profile. Some srcs say ~157 sec, ~183 sec, ~228 sec; "Luna-25" was

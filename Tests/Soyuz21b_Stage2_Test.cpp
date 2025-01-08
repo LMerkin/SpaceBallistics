@@ -3,6 +3,7 @@
 //                     "Tests/Soyuz21b_Stage2_Test.cpp":                     //
 //===========================================================================//
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
+#include "TestUtils.hpp"
 
 //===========================================================================//
 // "main":                                                                   //
@@ -61,6 +62,9 @@ int main()
   //-------------------------------------------------------------------------//
   // Stage2 Params as a function of Flight Time:                             //
   //-------------------------------------------------------------------------//
+  // We need a well-defined LiftOff Time:
+  FlightTime const LiftOffTime(0.0_sec, TTofStr("2025-01-01_00:00:00"));
+
   // XXX: Currently assuming no Thrust Vector Control, and Sea-Level Atmospheric
   // Pressure:
   S2::VernDeflections const vernDefls0; // All 0s by default
@@ -81,7 +85,7 @@ int main()
   for (Time t = 0.0_sec; t <= 300.0_sec; t += tau)
   {
     StageDynParams<LVSC::Soyuz21b> dp =
-      S2::GetDynParams(SC::LiftOffTime + t, p0, vernDefls0);
+      S2::GetDynParams(LiftOffTime + t, p0, vernDefls0);
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois      [1]  == dp.m_mois      [2]  &&

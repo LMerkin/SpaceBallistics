@@ -295,7 +295,9 @@ namespace SpaceBallistics
     using FT = FlightTime;
 
     // For RD-108A, we assume that FullThrust instant is the same as LiftOff
-    // (Contact Separation), ie t0=0.
+    // (Contact Separation), ie t0=0:
+    constexpr static FT       FullThrustTime  = SC::LiftOffTime;
+
     // Preliminary thrust level (assumed to be a 25%) occurs notionally at -15
     // sec, for both the Main Engine and the Vernier Engines (XXX: in reality,
     // the ignition sequence is more complex).
@@ -311,9 +313,19 @@ namespace SpaceBallistics
     constexpr static Mass     OxidMass0       =
       OxidMass - OxidMR * IgnAdvance * IgnThrottlLevel;
 
+    // H2O2 and LiqN2 masses are unchanged prior to LiftOff:
+    constexpr static Mass     H2O2Mass0       = H2O2Mass;
+    constexpr static Mass     LiqN2Mass0      = LiqN2Mass;
+    constexpr static Mass     GasN2Mass0      = GasN2Mass;
+
+    // Thus, the FullMass at LiftOff (t0=0):
     constexpr static Mass     FullMass0       =
       FullMass - ((FuelMass + OxidMass) - (FuelMass0 + OxidMass0));
     static_assert(FullMass0 < FullMass);
+
+    // This is the same as masses at FullThrustTime (tF=t0=0):
+    constexpr static Mass     FuelMassF       = FuelMass0;
+    constexpr static Mass     OxidMassF       = OxidMass0;
 
     //-----------------------------------------------------------------------//
     // RD-108A Shut-Down Sequence:                                           //

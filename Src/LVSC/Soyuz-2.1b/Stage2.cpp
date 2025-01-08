@@ -3,4 +3,7 @@
 //                    "Src/LVSC/Soyuz-2.1b/Stage2.cpp":                      //
 //                         Actual Code Generation                            //
 //===========================================================================//
-#include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.hpp"
+#ifdef   STAGE1
+#undef   STAGE1
+#endif
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Stages1-2.hpp"

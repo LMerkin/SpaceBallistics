@@ -98,23 +98,23 @@ namespace SpaceBallistics
     constexpr static Len      OxidTankUpD  = TopConeD;
  
     // Below is the Main ("Mid") part of the OxidTank, which is another TrCone.
-    // Its diameter increases from "OxidTankUpD" to "OxidTankMidD":
+    // Its diameter increases from "OxidTankUpD" to "OxidTankLowD":
     constexpr static Len      MaxD         = 2.680_m;
     constexpr static Len      MainTrCH     = 11.565_m; // XXX: Manually Adjusted
-    constexpr static Len      OxidTankMidH = 8.25_m;   // ditto
-    constexpr static Len      OxidTankMidD =
-      OxidTankUpD  + (MaxD - OxidTankUpD)  * double(OxidTankMidH / MainTrCH);
+    constexpr static Len      OxidTankLowH = 8.25_m;   // ditto
+    constexpr static Len      OxidTankLowD =
+      OxidTankUpD  + (MaxD - OxidTankUpD)  * double(OxidTankLowH / MainTrCH);
 
     // Below is the InterTank section which is empty by itself and serves as an
     // enclosure for the OxidTankBtm and FuelTankTop SpherSegms:
     constexpr static Len      InterTankH   = 1.075_m;
-    constexpr static Len      InterTankUpD = OxidTankMidD;
+    constexpr static Len      InterTankUpD = OxidTankLowD;
     constexpr static Len      InterTankLoD =
       InterTankUpD + (MaxD - OxidTankUpD)  * double(InterTankH   / MainTrCH);
 
     // OxidTankBtm:
     constexpr static Len      OxidTankBtmH = 0.48_m;
-    constexpr static Len      OxidTankBtmD = OxidTankMidD;
+    constexpr static Len      OxidTankBtmD = OxidTankLowD;
 
     //-----------------------------------------------------------------------//
     // FuelTank:                                                             //
@@ -127,7 +127,7 @@ namespace SpaceBallistics
     // FuelTankMid: Its up diameter is "FuelTankTopD" and the low diameter is
     // "MaxD":
     constexpr static Len      FuelTankMidH =
-      MainTrCH - OxidTankMidH - InterTankH;
+      MainTrCH - OxidTankLowH - InterTankH;
     static_assert(IsPos(FuelTankMidH));
 
     // Then the cylindrical enclosure of the FuelTankBtm, H2O2Tank, LiqN2 Tank
@@ -210,10 +210,11 @@ namespace SpaceBallistics
     constexpr static Mass     N2Mass       = 265.0_kg;
     constexpr static Mass     FullMass     = EmptyMass + FuelMass + OxidMass +
                                              H2O2Mass  + N2Mass;
-    // N2Mass is split into a Liquid and Gaseous Phases, the initial masses are:
-    constexpr static Mass     LiqN2Mass0   = 256.0_kg;
-    constexpr static Mass     GasN2Mass0   = 9.0_kg;
-    static_assert(LiqN2Mass0 + GasN2Mass0 == N2Mass);
+    // N2Mass is split into a Liquid and Gaseous Phases, the initial masses are
+    // (we assume they are the same before and at LiftOff):
+    constexpr static Mass     LiqN2Mass    = 256.0_kg;
+    constexpr static Mass     GasN2Mass    = 9.0_kg;
+    static_assert(LiqN2Mass + GasN2Mass == N2Mass);
 
     // UnSpendable Remnants of the Fuel and Oxidiser in Stage2 at the engine
     // cut-off time.   NB: The Remnants are about 1% of the corresp initial
@@ -283,10 +284,10 @@ namespace SpaceBallistics
     // at t0-15 sec (approx):
     // RD-107A thrust increases in stages  ("Preliminary", "1st Intermediate",
     // "2nd Intermediate", "Main"), where the "2nd Intermediate" occurs right
-    // at "t0" and the "Main" (FullThrust) occurs at t0+6 sec:
+    // at "t0" (LiftOff) and the "Main" (FullThrust) occurs at t0+6 sec:
     //
     constexpr static Time   IgnAdvance      = 15.0_sec;
-    constexpr static FT     FullThrustTime  = FT(6.0_sec);  // Aka "t1"
+    constexpr static FT     FullThrustTime  = FT(6.0_sec);  // Aka "tF"
 
     // Fuel and Oxidiser Mass @ t0=0. XXX: we assume that prior to t0, we run at
     // approx 25% on average (in reality, it changes over the time):
@@ -296,27 +297,34 @@ namespace SpaceBallistics
     constexpr static Mass   OxidMass0       =
       OxidMass  - OxidMR  * IgnAdvance * IgnThrottlLevel;
 
-    // Fuel and Oxidiser Mass @ "FullThrustTime" ("t1", shortly after Lift-Off).
     // Prior to that, we assume a 75% throttling level, otherwise the thrust may
-    // be insufficient for lift-off:
+    // be insufficient  for LiftOff:
     constexpr static double LiftOffThrottlLevel = 0.75;
-    constexpr static Mass   FuelMass1       =
-      FuelMass0 -
-      FuelMR  * (FullThrustTime - SC::LiftOffTime) * LiftOffThrottlLevel;
 
-    constexpr static Mass   OxidMass1       =
-      OxidMass0 -
-      OxidMR  * (FullThrustTime - SC::LiftOffTime) * LiftOffThrottlLevel;
+    // Between LiftOff and FullThrustTime, the following MassRates apply:
+    constexpr static MassRate FuelMRL       = FuelMR * LiftOffThrottlLevel;
+    constexpr static MassRate OxidMRL       = OxidMR * LiftOffThrottlLevel;
+
+    // For H2O2 and N2, see below (the "BurnTimes" section)...
+
+    // Fuel and Oxidiser Mass @ "FullThrustTime" ("tF"):
+    constexpr static Mass   FuelMassF       =
+      FuelMass0 - FuelMRL * (FullThrustTime - SC::LiftOffTime);
+
+    constexpr static Mass   OxidMassF       =
+      OxidMass0 - OxidMRL * (FullThrustTime - SC::LiftOffTime);
 
     //-----------------------------------------------------------------------//
     // RD-107A ShutDown Sequence:                                            //
     //-----------------------------------------------------------------------//
-    // XXX: We assume that the Main Engine and the Verniers are throttled to
-    // the 75% level:
+    // XXX: We assume that the Main Engine and the Verniers are throttled  to
+    // the 75% level simultaneously, and then cut off simulataneously (unlike
+    // Stage2):
     constexpr static Time   ThrottlAdvance        = 5.7_sec;
     constexpr static FT       ThrottlTime         =
       SC::Stage1CutOffTime -  ThrottlAdvance;
     constexpr static FT       CutOffTime          = SC::Stage1CutOffTime;
+    constexpr static FT       MainCutOffTime      = CutOffTime;
 
     // The Propellant Mass spent during the ShutDown sequence is:
     constexpr static double ShutDownThrottlLevel  = 0.75;
@@ -325,14 +333,14 @@ namespace SpaceBallistics
 
     // Thus, the Propellant Mass left for the FullThrust Mode:
     constexpr static Mass     FullThrustPropMass  =
-      FuelMass1 + OxidMass1 - ShutDownSpentPropMass - FuelRem - OxidRem;
+      FuelMassF + OxidMassF - ShutDownSpentPropMass - FuelRem - OxidRem;
     static_assert(IsPos(FullThrustPropMass));
 
     // Fuel and Oxid Masses @ "ThrottlTime":
     constexpr static Mass     FuelMassT =
-      FuelMass1 - FuelMR   * (ThrottlTime - FullThrustTime);
+      FuelMassF - FuelMR   * (ThrottlTime - FullThrustTime);
     constexpr static Mass     OxidMassT =
-      OxidMass1 - OxidMR   * (ThrottlTime - FullThrustTime);
+      OxidMassF - OxidMR   * (ThrottlTime - FullThrustTime);
 
     // Between ThrottlTime and CutOffTime, the following MassRates apply:
     constexpr static MassRate FuelMRT   = FuelMR * ShutDownThrottlLevel;
@@ -368,23 +376,30 @@ namespace SpaceBallistics
       (H2O2Mass - H2O2Rem) / (MaxBurnTime + H2O2Adv - SC::LiftOffTime);
     static_assert(IsPos(H2O2MR));
 
-    // H2O2 Masses at LiftOff (t0=0) and at "FullThrustTime" (t1):
+    // H2O2 Mass at LiftOff (t0=0):
     constexpr static Mass     H2O2Mass0 =
       H2O2Mass  - H2O2Adv  *  H2O2MR;
 
-    constexpr static Mass     H2O2Mass1 =
-      H2O2Mass0 - (FullThrustTime - SC::LiftOffTime) * H2O2MR;
+    // Unlike H2O2, we assume that LiqN2 and GasN2 Masses are completely unch-
+    // anged prior to LiftOff.  That is, vaporisation of LiqN2 starts at Lift-
+    // Off (not some time before it) and is also linear over time.    However,
+    // unlike H2O2, N2 is not exhaused, only re-distributed over the Tank vol-
+    // umes becoming available:
+    constexpr static Mass     LiqN2Mass0 = LiqN2Mass;
+    constexpr static Mass     GasN2Mass0 = GasN2Mass;
+    constexpr static MassRate LiqN2MR    =
+      (LiqN2Mass0 - LiqN2Rem) / (MaxBurnTime - SC::LiftOffTime);
+    static_assert(IsPos(LiqN2MR));
+
+    // FullMass at LiftOff (t0=0): NB: Unlike Stage2, some H2O2 has already been
+    // spent at this time:
+    constexpr static Mass   FullMass0       =
+      FullMass - (FuelMass - FuelMass0) - (OxidMass - OxidMass0)
+               - (H2O2Mass - H2O2Mass0);
+    static_assert(FullMass0 < FullMass);
 
     // So  the total MassRate (at Full Thrust) is:
     constexpr static MassRate FullMR  = EngineMR + H2O2MR;
-
-    // We assume that vaporisation of LiqN2 is also linear over time. however,
-    // unlike H2O2, N2 is not exhaused, only re-distributed over the Tank vol-
-    // umes becoming available:
-    //
-    constexpr static MassRate LiqN2MR =
-      (LiqN2Mass0 - LiqN2Rem) / (MaxBurnTime - SC::LiftOffTime);
-    static_assert(IsPos(LiqN2MR));
 
     // For testing: Minimal Mass of the Spent Stage2 (with all Remnants at their
     // minimal physical levels):
@@ -395,9 +410,9 @@ namespace SpaceBallistics
     // Fuel, Oxid, H2O2 and LiqN2 Masses @ "CutOffTime":                     //
     //-----------------------------------------------------------------------//
     constexpr static Mass     FuelMassC  =
-      FuelMassT - FuelMRT  * (CutOffTime - ThrottlTime);
+      FuelMassT  - FuelMRT * (CutOffTime - ThrottlTime);
     constexpr static Mass     OxidMassC  =
-      OxidMassT - OxidMRT  * (CutOffTime - ThrottlTime);
+      OxidMassT  - OxidMRT * (CutOffTime - ThrottlTime);
     constexpr static Mass     LiqN2MassC =
       LiqN2Mass0 - LiqN2MR * (CutOffTime - SC::LiftOffTime);
     constexpr static Mass     H2O2MassC  =
@@ -461,8 +476,8 @@ namespace SpaceBallistics
         Propellants::LOxDens
       );
 
-    // Main (Mid): another TrCone:
-    constexpr static TrC OxidTankMidProto =
+    // Main (Low): another TrCone:
+    constexpr static TrC OxidTankLowProto =
       TrC
       (
         TT::UnDef(),
@@ -471,7 +486,7 @@ namespace SpaceBallistics
         OxidTankUpProto.GetLow()[2],
         CosAlpha,     SinAlpha,
         CosPsi,       SinPsi,
-        OxidTankUpD,  OxidTankMidD,  OxidTankMidH,
+        OxidTankUpD,  OxidTankLowD,  OxidTankLowH,
         Propellants::LOxDens
       );
 
@@ -481,12 +496,12 @@ namespace SpaceBallistics
       (
         TT::UnDef(),
         false,                  // Facing Down
-        OxidTankMidProto.GetLow()[0],
-        OxidTankMidProto.GetLow()[1],
-        OxidTankMidProto.GetLow()[2],
+        OxidTankLowProto.GetLow()[0],
+        OxidTankLowProto.GetLow()[1],
+        OxidTankLowProto.GetLow()[2],
         CosAlpha,     SinAlpha,
         CosPsi,       SinPsi,
-        OxidTankMidD, OxidTankBtmH,
+        OxidTankLowD, OxidTankBtmH,
         Propellants::LOxDens
       );
 
@@ -497,9 +512,9 @@ namespace SpaceBallistics
       TrC
       (
         TT::UnDef(),
-        OxidTankMidProto.GetLow()[0],
-        OxidTankMidProto.GetLow()[1],
-        OxidTankMidProto.GetLow()[2],
+        OxidTankLowProto.GetLow()[0],
+        OxidTankLowProto.GetLow()[1],
+        OxidTankLowProto.GetLow()[2],
         CosAlpha,     SinAlpha,
         CosPsi,       SinPsi,
         InterTankUpD, InterTankLoD, InterTankH,
@@ -667,7 +682,7 @@ namespace SpaceBallistics
       (
         // Components for which we provide the TotalMass (below):
         { &TopTopConeProto,
-          &OxidTankTopProto,  &OxidTankUpProto,  &OxidTankMidProto,
+          &OxidTankTopProto,  &OxidTankUpProto,  &OxidTankLowProto,
           &OxidTankBtmProto,
           &InterTankProto,
           &FuelTankTopProto,  &FuelTankMidProto, &FuelTankBtmProto,
@@ -697,8 +712,8 @@ namespace SpaceBallistics
     constexpr static TrC OxidTankUp   =
       ME::ProRateMass(OxidTankUpProto,   ScaleFactor);
 
-    constexpr static TrC OxidTankMid  =
-      ME::ProRateMass(OxidTankMidProto,  ScaleFactor);
+    constexpr static TrC OxidTankLow  =
+      ME::ProRateMass(OxidTankLowProto,  ScaleFactor);
 
     constexpr static SpS OxidTankBtm  =
       ME::ProRateMass(OxidTankBtmProto,  ScaleFactor);
@@ -785,7 +800,7 @@ namespace SpaceBallistics
     //
     constexpr static ME  EmptyME  =
       TopTopCone   +
-      OxidTankTop  + OxidTankUp   + OxidTankMid + OxidTankBtm +
+      OxidTankTop  + OxidTankUp   + OxidTankLow + OxidTankBtm +
       InterTank    +
       FuelTankTop  + FuelTankMid  + FuelTankBtm +
       TailCylEncl  +
@@ -803,11 +818,11 @@ namespace SpaceBallistics
     // Oxid:
     constexpr static Mass OxidTankTopMC      = OxidTankTop.GetPropMassCap();
     constexpr static Mass OxidTankUpMC       = OxidTankUp .GetPropMassCap();
-    constexpr static Mass OxidTankMidMC      = OxidTankMid.GetPropMassCap();
+    constexpr static Mass OxidTankLowMC      = OxidTankLow.GetPropMassCap();
     constexpr static Mass OxidTankBtmMC      = OxidTankBtm.GetPropMassCap();
     // Unions:
-    constexpr static Mass OxidTankBtmMidMC   = OxidTankBtmMC    + OxidTankMidMC;
-    constexpr static Mass OxidTankBtmMidUpMC = OxidTankBtmMidMC + OxidTankUpMC;
+    constexpr static Mass OxidTankBtmLowMC   = OxidTankBtmMC    + OxidTankLowMC;
+    constexpr static Mass OxidTankBtmLowUpMC = OxidTankBtmLowMC + OxidTankUpMC;
 
     // Fuel:
     constexpr static Mass FuelTankTopMC      = FuelTankTop.GetPropMassCap();
@@ -826,7 +841,7 @@ namespace SpaceBallistics
 
   public:
     // Maximum Theoretical Capacities of the resp Tanks:
-    constexpr static Mass OxidTankMC   = OxidTankBtmMidUpMC + OxidTankTopMC;
+    constexpr static Mass OxidTankMC   = OxidTankBtmLowUpMC + OxidTankTopMC;
     constexpr static Mass FuelTankMC   = FuelTankBtmMidMC   + FuelTankTopMC;
     constexpr static Mass LiqN2TankMC  = LiqN2TankTopMC     + LiqN2TankBtmMC;
     constexpr static Mass H2O2TankMC   = H2O2TankTopMC      + H2O2TankBtmMC;
@@ -849,13 +864,13 @@ namespace SpaceBallistics
     // Oxid:
     constexpr static ME OxidTopME         = OxidTankTop.GetPropBulkME();
     constexpr static ME OxidUpME          = OxidTankUp .GetPropBulkME();
-    constexpr static ME OxidMidME         = OxidTankMid.GetPropBulkME();
+    constexpr static ME OxidLowME         = OxidTankLow.GetPropBulkME();
     constexpr static ME OxidBtmME         = OxidTankBtm.GetPropBulkME();
     // Unions:
-    constexpr static ME OxidBtmMidME      = OxidBtmME      + OxidMidME;
-    constexpr static ME OxidBtmMidUpME    = OxidBtmMidME   + OxidUpME;
+    constexpr static ME OxidBtmLowME      = OxidBtmME      + OxidLowME;
+    constexpr static ME OxidBtmLowUpME    = OxidBtmLowME   + OxidUpME;
     // The whole maximum Oxid bulk:
-    constexpr static ME OxidME            = OxidBtmMidUpME + OxidTopME;
+    constexpr static ME OxidME            = OxidBtmLowUpME + OxidTopME;
 
     //Fuel:
     constexpr static ME FuelTopME         = FuelTankTop.GetPropBulkME();
@@ -880,8 +895,9 @@ namespace SpaceBallistics
     // Thrust Vector Control:                                                //
     //-----------------------------------------------------------------------//
     // Achieved via 2 Gimbaled Vernier Chambers. A Pair of Vernier Chambers is
-    // located (notionally) in the XY or XZ plane. They are gimbaled SIMULTANE-
-    // OUSLY (NOT independently) within the GimbalAmpl in the Tangential Plane.
+    // located (notionally) in the XY or XZ plane. Each of them can be gimbaled
+    // (independently of the other one) within the GimbalAmpl in the Tangential
+    // Plane.
     // Similar to Stages 3 and 2, we assume that Gimbaling (Deflection) Angle is
     // positive when the corresp Verniers are deflected Counter-Clock-Wise wrt
     // the corresp rotation axis (same as the "attachment direction" of this
@@ -893,10 +909,11 @@ namespace SpaceBallistics
     //
     // When viewed from +X, positive deflection angle corredponds to a Counter-
     // Clock-Wise movement of the Nozzles projections in the YZ plane.   Thus,
-    // gimbaling of a Booster Block is characterised by just 1 angle with the
-    // following amplitude:
+    // gimbaling of a Booster Block is characterised by 2 angles with the foll-
+    // owing amplitude:
     //
     constexpr static Angle_deg VernGimbalAmpl = Angle_deg(45.0);
+    using            VernDeflections          = std::array<Angle_deg, 2>;
 
     //-----------------------------------------------------------------------//
     // AeroFin Control:                                                      //
@@ -925,11 +942,11 @@ namespace SpaceBallistics
     static StageDynParams<LVSC::Soyuz21b>
     GetDynParams
     (
-      FT               a_ft,
-      Pressure         a_p,           // Curr Atmospheric Pressure
-      ME::VelVE const& a_v,           // In the ECOS
-      Angle_deg        a_verns_defl,  // Same angle for both Verns
-      Angle_deg        a_aerofin_defl // AeroFin deflection angle
+      FT                     a_ft,
+      Pressure               a_p,             // Curr Atmospheric Pressure
+      VernDeflections const& a_vern_defls,
+      ME::VelVE       const& a_v,             // In the ECOS
+      Angle_deg              a_aerofin_defl   // AeroFin deflection angle
     );
   };
 

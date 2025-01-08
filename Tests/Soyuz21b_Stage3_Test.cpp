@@ -3,6 +3,7 @@
 //                    "Tests/Soyuz21b_State3_Test.cpp":                      //
 //===========================================================================//
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage3.h"
+#include "TestUtils.hpp"
 #include <iostream>
 
 int main()
@@ -52,8 +53,10 @@ int main()
   //-------------------------------------------------------------------------//
   // Stage3 Params as a function of FlightTime:                              //
   //-------------------------------------------------------------------------//
+  // We need a well-defined LiftOff Time:
+  FlightTime const LiftOffTime(0.0_sec, TTofStr("2025-01-01_00:00:00"));
+
   // XXX: Currently assuming no Thrust Vector Control:
-  //
   S3::ChamberDeflections const chamberDefls0; // All 0s by default
 
   // To verify the validity of Mass and MoI "Dots", we integrate them and compa-
@@ -74,7 +77,8 @@ int main()
 
   for (Time t = t0; t <= t1; t += tau)
   {
-    FlightTime ft = SC::LiftOffTime + t;
+    FlightTime ft = LiftOffTime + t;
+
     StageDynParams<LVSC::Soyuz21b> dp = S3::GetDynParams(ft, chamberDefls0);
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&

@@ -1,10 +1,15 @@
 // vim:ts=2:et
 //===========================================================================//
-//               "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.hpp":               //
-//         Mathematical Model of the "Soyuz-2.1b" Stage2 ("Block A")         //
+//               "SpaceBallistics/LVSC/Soyuz-2.1b/Stages1-2.hpp":            //
+//                      Mathematical Model of "Soyuz-2.1b"                   //
+//     Stage2 (Block 'A') and Stage1 Boosters (Blocks 'B', 'V', 'G', 'D')    //
 //===========================================================================//
 #pragma  once
+#ifdef   STAGE1
+#include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage1_Booster.h"
+#else
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
+#endif
 #include "SpaceBallistics/Utils.hpp"
 #include "SpaceBallistics/ME/TanksPressrn.hpp"
 
@@ -13,12 +18,23 @@ namespace SpaceBallistics
   //=========================================================================//
   // "Soyuz21b_Stage2::GetDynParams":                                        //
   //=========================================================================//
+# ifdef STAGE1
+  template<char Block>
+  StageDynParams<LVSC::Soyuz21b>
+  Soyuz21b_Stage1_Booster<Block>::GetDynParams
+# else
   StageDynParams<LVSC::Soyuz21b>
   Soyuz21b_Stage2::GetDynParams
+# endif
   (
     FlightTime             a_ft,
-    Pressure               a_p,      // Curr Atmospheric Pressure
+    Pressure               a_p,               // Curr Atmospheric Pressure
     VernDeflections const& a_vern_defls
+#   ifdef STAGE1
+    , // Extra params for AeroFin Ctls:
+    ME::VelVE const&       /*a_v*/,           // In the ECOS
+    Angle_deg              /*a_aerofin_defl*/ // AeroFin deflection angle
+#   endif
   )
   {
     //-----------------------------------------------------------------------//
@@ -37,11 +53,18 @@ namespace SpaceBallistics
     // Check the MassRates at FullThrust:
     static_assert((OxidMR + FuelMR + H2O2MR).ApproxEquals(FullMR));
 
+    // Check the Timings:
+    static_assert(SC::LiftOffTime <= FullThrustTime &&
+                  FullThrustTime  <  ThrottlTime    &&
+                  ThrottlTime     <  MainCutOffTime &&
+                  MainCutOffTime  <= CutOffTime);
+
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
     //-----------------------------------------------------------------------//
     // XXX: We assume for simplicity that both "Vac" and "SL" Thrust values are
-    // throttled in the same proportion:
+    // throttled in the same proportion, and the throttling levels  of the Main
+    // Engines and the Verniers are the same:
     Mass      fuelMass         (NaN<double>);
     Mass      oxidMass         (NaN<double>);
     Mass      h2o2Mass         (NaN<double>);
@@ -57,96 +80,137 @@ namespace SpaceBallistics
     Force     absVernThrustVac1(NaN<double>);         // Each Vernier Chamber
     Force     absVernThrustSL1 (NaN<double>);
 
-    Time      dt0        = a_ft - SC::LiftOffTime;
+    Time      dt0       = a_ft - SC::LiftOffTime;
+    assert(!IsNeg(dt0));
 
+#   ifdef STAGE1
+    if (a_ft < FullThrustTime)
+    {
+      // The first seconds after LiftOff, for Stage1 only. For Stage2, this mode
+      // is not present, since it develops FullThrust already at LiftOff time:
+      fuelMass          = FuelMass0  - FuelMRL * dt0;
+      oxidMass          = OxidMass0  - OxidMRL * dt0;
+      h2o2Mass          = H2O2Mass0  - H2O2MR  * dt0;
+      liqN2Mass         = LiqN2Mass0 - LiqN2MR * dt0;
+
+      fuelMassDot       = - FuelMRL;
+      oxidMassDot       = - OxidMRL;
+      h2o2MassDot       = - H2O2MR;    // H2O2 and LiqN2 rates are constant...
+      liqN2MassDot      = - LiqN2MR;   //
+
+      absMainThrustVac  = ThrustMainVac  * LiftOffThrottlLevel;
+      absMainThrustSL   = ThrustMainSL   * LiftOffThrottlLevel;
+      absVernThrustVac1 = ThrustVernVac1 * LiftOffThrottlLevel;
+      absVernThrustSL1  = ThrustVernSL1  * LiftOffThrottlLevel;
+    }
+    else
+#   endif
     if (a_ft < ThrottlTime)
     {
-      // Full-Thrust Mode:
-      fuelMass           = FuelMass0 - FuelMR  * dt0;
-      oxidMass           = OxidMass0 - OxidMR  * dt0;
-      h2o2Mass           = H2O2Mass  - H2O2MR  * dt0;
-      liqN2Mass          = LiqN2Mass - LiqN2MR * dt0;
-      fuelMassDot        = - FuelMR;
-      oxidMassDot        = - OxidMR;
-      h2o2MassDot        = - H2O2MR;
-      liqN2MassDot       = - LiqN2MR;
+      // Full-Thrust Mode, for both Stage1 and Stage2.
+      // For Stage2, FullThrustTime == LiftOffTime:
+      Time    dtF       = a_ft - FullThrustTime;
 
-      absMainThrustVac   = ThrustMainVac;
-      absMainThrustSL    = ThrustMainSL;
-      absVernThrustVac1  = ThrustVernVac1;
-      absVernThrustSL1   = ThrustVernSL1;
+      fuelMass          = FuelMassF  - FuelMR  * dtF;
+      oxidMass          = OxidMassF  - OxidMR  * dtF;
+      h2o2Mass          = H2O2Mass0  - H2O2MR  * dt0;
+      liqN2Mass         = LiqN2Mass0 - LiqN2MR * dt0;
+
+      fuelMassDot       = - FuelMR;
+      oxidMassDot       = - OxidMR;
+      h2o2MassDot       = - H2O2MR;
+      liqN2MassDot      = - LiqN2MR;
+
+      absMainThrustVac  = ThrustMainVac;
+      absMainThrustSL   = ThrustMainSL;
+      absVernThrustVac1 = ThrustVernVac1;
+      absVernThrustSL1  = ThrustVernSL1;
     }
     else
     if (a_ft < MainCutOffTime)
     {
-      // Throttled Mode (for both Main Engine and Verniers):
-      Time  dt           = a_ft      - ThrottlTime;
-      fuelMass           = FuelMassT - FuelMRT * dt;
-      oxidMass           = OxidMassT - OxidMRT * dt;
-      h2o2Mass           = H2O2Mass  - H2O2MR  * dt0;
-      liqN2Mass          = LiqN2Mass - LiqN2MR * dt0;
-      fuelMassDot        = - FuelMRT;
-      oxidMassDot        = - OxidMRT;
-      h2o2MassDot        = - H2O2MR;
-      liqN2MassDot       = - LiqN2MR;
+      // Throttled Mode (for both Main Engine and Verniers), Stage1 and Stage2.
+      // For Stage1, MainCutOffTime = CutOffTime  (ie the Main Engine  and the
+      // Verniers are cut off simultaneously),   whereas for Stage2,
+      // MainCutOffTime < CutOffTime:
+      Time  dtT         = a_ft       - ThrottlTime;
+      assert(!IsNeg(dtT));
 
-      absMainThrustVac   = ThrustMainVac  * ShutDownThrottlLevel;
-      absMainThrustSL    = ThrustMainSL   * ShutDownThrottlLevel;
-      absVernThrustVac1  = ThrustVernVac1 * ShutDownThrottlLevel;
-      absVernThrustSL1   = ThrustVernSL1  * ShutDownThrottlLevel;
+      fuelMass          = FuelMassT  - FuelMRT * dtT;
+      oxidMass          = OxidMassT  - OxidMRT * dtT;
+      h2o2Mass          = H2O2Mass0  - H2O2MR  * dt0;
+      liqN2Mass         = LiqN2Mass0 - LiqN2MR * dt0;
+
+      fuelMassDot       = - FuelMRT;
+      oxidMassDot       = - OxidMRT;
+      h2o2MassDot       = - H2O2MR;
+      liqN2MassDot      = - LiqN2MR;
+
+      absMainThrustVac  = ThrustMainVac  * ShutDownThrottlLevel;
+      absMainThrustSL   = ThrustMainSL   * ShutDownThrottlLevel;
+      absVernThrustVac1 = ThrustVernVac1 * ShutDownThrottlLevel;
+      absVernThrustSL1  = ThrustVernSL1  * ShutDownThrottlLevel;
     }
+#   ifndef STAGE1
     else
     if (a_ft < CutOffTime)
     {
-      // Only the Verniers continue operation, in the Throttled Mode:
-      Time  dt           = a_ft      - MainCutOffTime;
-      fuelMass           = FuelMassM - FuelMRM * dt;
-      oxidMass           = OxidMassM - OxidMRM * dt;
-      h2o2Mass           = H2O2Mass  - H2O2MR  * dt0;
-      liqN2Mass          = LiqN2Mass - LiqN2MR * dt0;
-      fuelMassDot        = - FuelMRM;
-      oxidMassDot        = - OxidMRM;
-      h2o2MassDot        = - H2O2MR;
-      liqN2MassDot       = - LiqN2MR;
+      // For Stage2 only: In this mode, only the Verniers continue operation,
+      // in the Throttled Mode, prior to the complete CutOff:
+      Time  dtM         = a_ft       - MainCutOffTime;
+      assert(!IsNeg(dtM));
 
-      absMainThrustVac   = Force   (0.0);
-      absMainThrustSL    = Force   (0.0);
-      absVernThrustVac1  = ThrustVernVac1 * ShutDownThrottlLevel;
-      absVernThrustSL1   = ThrustVernSL1  * ShutDownThrottlLevel;
+      fuelMass          = FuelMassM  - FuelMRM * dtM;
+      oxidMass          = OxidMassM  - OxidMRM * dtM;
+      h2o2Mass          = H2O2Mass0  - H2O2MR  * dt0;
+      liqN2Mass         = LiqN2Mass0 - LiqN2MR * dt0;
+
+      fuelMassDot       = - FuelMRM;
+      oxidMassDot       = - OxidMRM;
+      h2o2MassDot       = - H2O2MR;
+      liqN2MassDot      = - LiqN2MR;
+
+      absMainThrustVac  = Force   (0.0);
+      absMainThrustSL   = Force   (0.0);
+      absVernThrustVac1 = ThrustVernVac1 * ShutDownThrottlLevel;
+      absVernThrustSL1  = ThrustVernSL1  * ShutDownThrottlLevel;
     }
+#   endif
     else
     {
-      fuelMass           = FuelMassC;
-      oxidMass           = OxidMassC;
-      h2o2Mass           = H2O2MassC;
-      liqN2Mass          = LiqN2MassC;
-      fuelMassDot        = MassRate(0.0);
-      oxidMassDot        = MassRate(0.0);
-      h2o2MassDot        = MassRate(0.0);
-      liqN2MassDot       = MassRate(0.0);
+      // After CuttOff, for Stage1 and Stage2: Trivial:
+      fuelMass          = FuelMassC;
+      oxidMass          = OxidMassC;
+      h2o2Mass          = H2O2MassC;
+      liqN2Mass         = LiqN2MassC;
 
-      absMainThrustVac   = Force   (0.0);
-      absMainThrustSL    = Force   (0.0);
-      absVernThrustVac1  = Force   (0.0);
-      absVernThrustSL1   = Force   (0.0);
+      fuelMassDot       = MassRate(0.0);
+      oxidMassDot       = MassRate(0.0);
+      h2o2MassDot       = MassRate(0.0);
+      liqN2MassDot      = MassRate(0.0);
+
+      absMainThrustVac  = Force   (0.0);
+      absMainThrustSL   = Force   (0.0);
+      absVernThrustVac1 = Force   (0.0);
+      absVernThrustSL1  = Force   (0.0);
     }
     //
     // "fullMass" is "FullMass0" (at LiftOff) minus the mass of Fuel, Oxid and
-    // H2O2 spent (Once again, N2O2 is NOT spent):
-    Mass  fuelSpent      = FuelMass0 - fuelMass;
-    Mass  oxidSpent      = OxidMass0 - oxidMass;
-    Mass  h2o2Spent      = H2O2Mass  - h2o2Mass;
+    // H2O2 spent since LiftOff  (once again, N2O2 is NOT spent):
+    Mass  fuelSpent     = FuelMass0 - fuelMass;
+    Mass  oxidSpent     = OxidMass0 - oxidMass;
+    Mass  h2o2Spent     = H2O2Mass0 - h2o2Mass;
     assert(!(IsNeg(fuelSpent) || IsNeg(oxidSpent) || IsNeg(h2o2Spent)));
 
-    Mass       fullMass  = FullMass0 - (fuelSpent  + oxidSpent   + h2o2Spent);
-    DEBUG_ONLY(MassRate fullMassDot  = fuelMassDot + oxidMassDot + h2o2MassDot;)
+    Mass  fullMass      = FullMass0 - (fuelSpent  + oxidSpent   + h2o2Spent);
+    DEBUG_ONLY(MassRate fullMassDot = fuelMassDot + oxidMassDot + h2o2MassDot;)
 
     // Check the Curr Masses and MassRates:
-    assert(MinEndMass <= fullMass  && fullMass  <= FullMass0 &&
-           FuelRem    <= fuelMass  && fuelMass  <= FuelMass0 &&
-           OxidRem    <= oxidMass  && oxidMass  <= OxidMass0 &&
-           H2O2Rem    <= h2o2Mass  && h2o2Mass  <= H2O2Mass  &&
-           LiqN2Rem   <= liqN2Mass && liqN2Mass <= LiqN2Mass &&
+    assert(MinEndMass <= fullMass  && fullMass  <= FullMass0  &&
+           FuelRem    <= fuelMass  && fuelMass  <= FuelMass0  &&
+           OxidRem    <= oxidMass  && oxidMass  <= OxidMass0  &&
+           H2O2Rem    <= h2o2Mass  && h2o2Mass  <= H2O2Mass0  &&
+           LiqN2Rem   <= liqN2Mass && liqN2Mass <= LiqN2Mass0 &&
            !(IsPos(fuelMassDot) || IsPos(oxidMassDot) || IsPos(h2o2MassDot) ||
              IsPos(liqN2MassDot)));
 
@@ -169,33 +233,59 @@ namespace SpaceBallistics
     Force thrustY;  // Initially 0
     Force thrustZ;  // ditto
 
-    // Consider VernGimbalAngles of all 4 Vernier Chambers.  The formulas here
-    // are the same as for Stage3, because the Stage2 Verniers and Stage3 Main
-    // (Gimbaled) Chambers are installed in the same planes:
-    //
-    for (size_t i = 0; i < 4; ++i)
+    // Consider VernGimbalAngles of all Vernier Chambers (2 for Stage1, 4 for
+    // Stage2). The formulas here are the same as for Stage3, because the Stage1
+    // and Stage2 Verniers and Stage3 Main (Gimbaled) Chambers are deflected in
+    // the same planes!
+    // The number of Verniers:
+    int const NV = int(a_vern_defls.size());
+#   ifdef STAGE1
+    assert(NV == 2);
+#   else
+    assert(NV == 4);
+#   endif
+
+    for (int i = 0; i < NV; ++i)
     {
-      Angle_deg  A   = a_vern_defls[i];
+      Angle_deg  A   = a_vern_defls[size_t(i)];
       assert(Abs(A) <= VernGimbalAmpl);
 
       double sinA = Sin(double(To_Angle(A)));
       double cosA = Cos(double(To_Angle(A)));
+
+      // The X component of the Vernier Thrust has the same expression for any
+      // Venrnier and for both Stage1 and Stage2:
       thrustX    += absVernThrust1 * cosA;
 
-      // NB: The ThrustVector rotation in the YZ plane is OPPOSITE to the
-      // corresp Vernier Deflection:
+      // The YZ component of the Vernier Thrust:
+      // (*) the ThrustVector rotation in the YZ plane is OPPOSITE  to the
+      //     corresp Vernier Deflection;
+      // (*) for Stage1, the Vernier Deflection Plane is determined by the
+      //     BlockID ('B', 'V', 'G', 'D'), and is the same for both Verniers
+      //     (though their Deflection Angles may differ);
+      // (*) for Stage2, the Vernier Deflection Plane is determined by the
+      //     VernierID ("i"), and
+      //     (i=0) <-> 'B', (i=1) <-> 'V', (i=2) <-> 'G', (i=3) <-> 'D':
+#     ifdef STAGE1
+      switch (Block)
+#     else
       switch (i)
+#     endif
       {
-      case 0:
+      case  0 :
+      case 'B':
         thrustZ += absVernThrust1 * sinA;
         break;
-      case 1:
+      case  1 :
+      case 'V':
         thrustY -= absVernThrust1 * sinA;
         break;
-      case 2:
+      case  2 :
+      case 'G':
         thrustZ -= absVernThrust1 * sinA;
         break;
-      case 3:
+      case  3 :
+      case 'D':
         thrustY += absVernThrust1 * sinA;
         break;
       default:
@@ -206,10 +296,12 @@ namespace SpaceBallistics
     // Moments of Inertia and the Center of Masses:                          //
     //-----------------------------------------------------------------------//
     // XXX: Similar to Stage3, "fuelLevel", "oxidLevel" and "h2o2Level" are
-    // provided for debugging purposes only:
-    //
-    // Fuel:
+    // provided for testing purposes only:
+    //-----------------------------------------------------------------------//
+    // Fuel: BulkME and Level, for both Stage1 and Stage2:                   //
+    //-----------------------------------------------------------------------//
     Len fuelLevel(NaN<double>);
+
     ME fuelME =
       (fuelMass > FuelTankBtmMidMC)
       ? // Fuel level is within the FuelTankTop:
@@ -225,9 +317,12 @@ namespace SpaceBallistics
       :
         // Fuel level is within the FuelTankBtm:
         FuelTankBtm.GetPropBulkME(tt, fuelMass, fuelMassDot,  &fuelLevel);
+
     assert(IsPos(fuelLevel));
 
-    // Oxid:
+    //-----------------------------------------------------------------------//
+    // Oxid: BulkME and Level, for both Stage1 and Stage2:                   //
+    //-----------------------------------------------------------------------//
     Len oxidLevel(NaN<double>);
 
     ME oxidME =
@@ -251,29 +346,43 @@ namespace SpaceBallistics
       :
         // Oxid level is within the OxidTankBtm:
         OxidTankBtm.GetPropBulkME(tt, oxidMass, oxidMassDot,  &oxidLevel);
+
     assert(IsPos(oxidLevel));
 
-    // H2O2:
+    //-----------------------------------------------------------------------//
+    // H2O2: BulkME and Level:                                               //
+    //-----------------------------------------------------------------------//
+    // Stage2 has an extra H2O2 Tank section ("Mid") which is absent in Stage1:
+    //
     Len h2o2Level(NaN<double>);
 
     ME h2o2ME =
+#     ifndef STAGE1
       (h2o2Mass > H2O2TankBtmMidMC)
-      ? // H2O2 level is within the H2O2TankTop:
+      ? // H2O2 level is within the H2O2TankTop (Stage1 only):
         H2O2TankTop.GetPropBulkME
           (tt, h2o2Mass - H2O2TankBtmMidMC,     h2o2MassDot,  &h2o2Level) +
         H2O2BtmMidME
       :
+#     endif
       (h2o2Mass > H2O2TankBtmMC)
-      ? // H2O2 level is within the H2H2TankMid:
+      ? // H2O2 level is within the H2H2TankMid(Stage2) or H2H2TankTop(Stage1):
+#     ifndef STAGE1
         H2O2TankMid.GetPropBulkME
+#     else
+        H2O2TankTop.GetPropBulkME
+#     endif
           (tt, h2o2Mass - H2O2TankBtmMC,        h2o2MassDot,  &h2o2Level) +
         H2O2BtmME
       :
         // H2O2 level is within the H2O2TankBtm:
         H2O2TankBtm.GetPropBulkME(tt, h2o2Mass, h2o2MassDot,  &h2o2Level);
+
     assert(IsPos(h2o2Level));
 
-    // LiqN2:
+    //-----------------------------------------------------------------------//
+    // LiqN2: BulkME and Level, for both Stage1 and Stage2:                  //
+    //-----------------------------------------------------------------------//
     Len liqN2Level(NaN<double>);
 
     ME liqN2ME =
@@ -287,12 +396,16 @@ namespace SpaceBallistics
         LiqN2TankBtm.GetPropBulkME(tt, liqN2Mass, liqN2MassDot, &liqN2Level);
     assert(IsPos(liqN2Level));
 
-    // Gaseous N2:
+    //-----------------------------------------------------------------------//
+    // Gaseous N2:                                                           //
+    //-----------------------------------------------------------------------//
     // Unlike Stage3, here we cannot neglect the effects  of the Tank Pressuri-
     // sation Gases (in this case, N2), because their mass is relatively large.
     // N2 is NOT spent (exhausted), but its distribution within the Tanks chan-
     // ges over the time. Gasesous N2 is concentrated in the upper parts of the
     // Fuel and Oxid Tanks, gradually increasing in volume.
+    // The following logic is the same for Stage1 and Stage2:
+    //
     // The "complementary" ("CME") parts of the Fuel, Oxid and LiqN2 bulks
     // (which are actually filled with Gaseous N2):
     //
@@ -311,7 +424,9 @@ namespace SpaceBallistics
       );
     assert((liqN2ME.GetMass() + gasN2ME.GetMass()).ApproxEquals(N2Mass));
 
-    // We can now construct the FullME:
+    //-----------------------------------------------------------------------//
+    // We can now construct the FullME (for both Stage1 and Stage2):         //
+    //-----------------------------------------------------------------------//
     ME fullME = EmptyME  + fuelME + oxidME + h2o2ME + liqN2ME + gasN2ME;
 
     // Double-check the Masses and the MassRate:

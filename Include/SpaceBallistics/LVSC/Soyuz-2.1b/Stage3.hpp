@@ -137,7 +137,7 @@ namespace SpaceBallistics
     // Moments of Inertia and the Center of Masses:                          //
     //-----------------------------------------------------------------------//
     // NB:
-    // (*) "fuelLevel" and "oxidLevel" are hooks provided for debugging purposes
+    // (*) "fuelLevel" and "oxidLevel" are hooks provided for testing purposes
     //     only;
     // (*) Gases (primarily He) are considered along with the EmptyMass; redist-
     //     ribution of Gases within Stage3 is NOT taken into account, whereas in
@@ -145,8 +145,9 @@ namespace SpaceBallistics
     //     the "empty" space above the remaining Fuel and Oxid.   However, this
     //     effect is considered negligible for Stage3 (though may have some imp-
     //     act on the Moments of Inertia for Stage2):
-    //
-    // Fuel:
+    //-----------------------------------------------------------------------//
+    // Fuel: BulkME and Level:                                               //
+    //-----------------------------------------------------------------------//
     assert(IsPos(fuelMass) && fuelMass <= FuelMass && FuelMass < FuelTankMC);
     Len fuelLevel(NaN<double>);
 
@@ -167,7 +168,9 @@ namespace SpaceBallistics
         FuelTankLow.GetPropBulkME(tt, fuelMass, fuelMassDot, &fuelLevel);
     assert(IsPos(fuelLevel));
 
-    // Oxid:
+    //-----------------------------------------------------------------------//
+    // Oxid: BulkME and Level:                                               //
+    //-----------------------------------------------------------------------//
     Len oxidLevel(NaN<double>);
     assert(IsPos(oxidMass) && oxidMass <= OxidMass && OxidMass < OxidTankMC);
 
@@ -188,7 +191,9 @@ namespace SpaceBallistics
         OxidTankLow.GetPropBulkME(tt, oxidMass, oxidMassDot, &oxidLevel);
     assert(IsPos(oxidLevel));
 
-    // Full = (Empty+Gases) + Fuel + Oxid:
+    //-----------------------------------------------------------------------//
+    // Full = (Empty+Gases) + Fuel + Oxid:                                   //
+    //-----------------------------------------------------------------------//
     ME fullME = (a_ft < AftJetTime ? EGBeforeME : EGAfterME) + fuelME + oxidME;
 
     // Double-check the Masses and the MassRate:
