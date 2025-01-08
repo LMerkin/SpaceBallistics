@@ -80,7 +80,8 @@ int main()
   //
   constexpr B::VernDeflections vernDefls0; // All 0s by default
   constexpr ME::VelVE          v0;         //
-  constexpr Angle_deg          fin0 = 0.0_deg;
+  constexpr ME::VelVE          wind0;      //
+  constexpr Angle_deg          fin0;       //
 
   // To verify the validity of Mass and MoI "Dots", we integrate them and compa-
   // re the results with the analytical Mass and MoIs:
@@ -101,7 +102,7 @@ int main()
   for (Time t = 0.0_sec; t <= 120.0_sec; t += tau)
   {
     StageDynParams<LVSC::Soyuz21b> dp =
-      B::GetDynParams(LiftOffTime + t, p0, vernDefls0, v0, fin0);
+      B::GetDynParams(LiftOffTime + t, p0, vernDefls0, v0, wind0, fin0);
 
     if (IsZero(t))
     {

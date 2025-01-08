@@ -324,49 +324,5 @@ namespace SpaceBallistics
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
   using MoIRateVTopLaunch = MoIRateV<TopoCLaunchCOS<BBody, L>, B>;
-
-  //=========================================================================//
-  // "AtmCOS" and "VelVAtm":                                                 //
-  //=========================================================================//
-  // "AtmCOS" is a placeholder used to define "VelVAtm" which is the Velocity
-  // Vector relative to the Body's Atmosphere (for various aerodynamic comput-
-  // ations).
-  // In this case, the "B" Body is certainly an LVSC, so "UNDEFINED": no extra
-  // template param is provided:
-  //
-  template<Body BBody, Location<BBody> const* L>
-  struct AtmCOS
-  {
-    constexpr static  Body BaseBody       = BBody;
-    constexpr static  bool HasFixedAxes   = false;
-    constexpr static  bool HasFixedOrigin = false;
-    using TimeScale = std::conditional_t<BBody == Body::Earth, TT, TDB>;
-    static_assert(L != nullptr);
-    AtmCOS() = delete; // No objects of this type are to be created
-  };
-
-  template<Body BBody, Location<BBody> const* L>
-  using VelVAtm  =  VelV<AtmCOS<BBody, L>>;
-
-  // "GetVelVAtm":
-  // Velocity vector relative to the Atmosphere ("VelVAtm") can be constructed
-  // from the TopoC Velocity and TopoC Wind Velocity,  in either  the "Rot" or
-  // "Launch" COSes:
-  //
-  template<Body BBody, Location<BBody> const* L>
-  VelVAtm <BBody, L>   GetVelVAtm
-  (
-    VelVTopRot   <BBody, L> const& a_vel,
-    VelVTopRot   <BBody, L> const& a_wind_vel
-  )
-  { return a_vel - a_wind_vel; }
-
-  template<Body BBody, Location<BBody> const* L>
-  VelVAtm <BBody, L>   GetVelVAtm
-  (
-    VelVTopLaunch<BBody, L> const& a_vel,
-    VelVTopLaunch<BBody, L> const& a_wind_vel
-  )
-  { return a_vel - a_wind_vel; }
 }
 // End namespave SpaceBallistics

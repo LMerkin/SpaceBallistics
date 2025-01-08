@@ -31,8 +31,10 @@ namespace SpaceBallistics
     Pressure               a_p,               // Curr Atmospheric Pressure
     VernDeflections const& a_vern_defls
 #   ifdef STAGE1
-    , // Extra params for AeroFin Ctls:
-    ME::VelVE const&       /*a_v*/,           // In the ECOS
+    ,
+    // Extra params for AeroFin Ctls:
+    ME::VelVE const&       /*a_v*/,           // In the ECOS SnapShot
+    ME::VelVE const&       /*a_w*/,           // ditto
     Angle_deg              /*a_aerofin_defl*/ // AeroFin deflection angle
 #   endif
   )

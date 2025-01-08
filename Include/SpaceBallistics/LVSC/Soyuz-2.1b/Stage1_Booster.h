@@ -943,10 +943,11 @@ namespace SpaceBallistics
     GetDynParams
     (
       FT                     a_ft,
-      Pressure               a_p,             // Curr Atmospheric Pressure
+      Pressure               a_p,           // Curr Atmospheric Pressure
       VernDeflections const& a_vern_defls,
-      ME::VelVE       const& a_v,             // In the ECOS
-      Angle_deg              a_aerofin_defl   // AeroFin deflection angle
+      ME::VelVE       const& a_v,           // LV vel     in the ECOS SnapShot
+      ME::VelVE       const& a_w,           // Wind speed in the ECOS SnapShot
+      Angle_deg              a_aerofin_defl // AeroFin deflection angle
     );
   };
 
@@ -958,4 +959,4 @@ namespace SpaceBallistics
   using Soyuz21b_BlockG = Soyuz21b_Stage1_Booster<'G'>;
   using Soyuz21b_BlockD = Soyuz21b_Stage1_Booster<'D'>;
 }
-// End namespace SpaceBallistivs
+// End namespace SpaceBallistics
