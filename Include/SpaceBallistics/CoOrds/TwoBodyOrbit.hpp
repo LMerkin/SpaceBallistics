@@ -130,7 +130,7 @@ namespace SpaceBallistics
         Vector3D<DimLess, COS, B> k = angMom / m_h;
 
         // Orbit Inclination:
-        m_I   = Angle(ACos(double(k.z())));
+        m_I   = Angle(ACos(k.z()));
         assert(0.0_rad <= m_I && m_I <= PI);
 
         // Are we close to I=0 or I=Pi?
@@ -359,7 +359,7 @@ namespace SpaceBallistics
         // True Anomaly @ "a_t0": This is really an Angle:
         if (m_kind == Kind::Hyperbolic)
         {
-          m_f0 = Angle(2.0 * ATan(m_S * TanH(double(m_E0 / 2.0))));
+          m_f0 = Angle(2.0 * ATan(m_S * TanH(To_DimLess(m_E0 / 2.0))));
           assert(-PI < m_f0 && m_f0 < PI);
         }
         else
@@ -384,7 +384,7 @@ namespace SpaceBallistics
           m_E0 = - m_E0;
 
         // True Anomaly @ "a_t0": This is really an Angle:
-        m_f0 = Angle(2.0 * ATan(double(m_E0)));
+        m_f0 = Angle(2.0 * ATan(To_DimLess(m_E0)));
         assert(-PI < m_f0 && m_f0 < PI);
 
         // The Mean Anomaly analogue  (consistent with "m_n" defined above):

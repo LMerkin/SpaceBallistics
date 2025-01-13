@@ -123,17 +123,38 @@ namespace SpaceBallistics
   constexpr inline Angle    PI_2   = Angle(Pi_2 <double>);
 
   //=========================================================================//
-  // Elementary Trigonometric Functions on "Angle"s, for convenience:        //
+  // Helpers for "Angle"s and "DimLess" qtys:                                //
   //=========================================================================//
-  // XXX: HOWEVER, they will hide similar functions for "double"s -- which may
-  // actually be a good idea:
-  constexpr double Sin(Angle a_x) { return DimTypes::Sin(a_x.Magnitude()); }
-  constexpr double Cos(Angle a_x) { return DimTypes::Cos(a_x.Magnitude()); }
-  constexpr double Tan(Angle a_x) { return DimTypes::Tan(a_x.Magnitude()); }
-
-  // Explicit conversion of "Angle[_rad]" into "DimLess":
+  // Explicit conversion of "Angle[_rad]" into "DimLess".
+  // XXX: Using "Magnitude()" for efficiency, instead of division by "1.0_rad":
+  //
   constexpr  DimLess To_DimLess(Angle a_angle)
     { return DimLess(a_angle.Magnitude());   }
+
+  // Trignomometric Functions on "Angle"s. XXX: HOWEVER, they will hide similar
+  // functions on "double"s -- but that may actually be a good idea:
+  //
+  constexpr double     Sin (Angle a_x)
+    { return DimTypes::Sin (double(To_DimLess(a_x))); }
+
+  constexpr double     Cos (Angle a_x)
+    { return DimTypes::Cos (double(To_DimLess(a_x))); }
+
+  constexpr double     Tan (Angle a_x)
+    { return DimTypes::Tan (double(To_DimLess(a_x))); }
+
+  // Elementary Unary functions of Non-Angular "DimLess" qtys:
+  constexpr double ASin (DimLess a_x) { return DimTypes::ASin (double(a_x)); }
+  constexpr double ACos (DimLess a_x) { return DimTypes::ACos (double(a_x)); }
+  constexpr double ATan (DimLess a_x) { return DimTypes::ATan (double(a_x)); }
+  constexpr double Exp  (DimLess a_x) { return DimTypes::Exp  (double(a_x)); }
+  constexpr double Log  (DimLess a_x) { return DimTypes::Log  (double(a_x)); }
+  constexpr double SinH (DimLess a_x) { return DimTypes::SinH (double(a_x)); }
+  constexpr double CosH (DimLess a_x) { return DimTypes::CosH (double(a_x)); }
+  constexpr double TanH (DimLess a_x) { return DimTypes::TanH (double(a_x)); }
+  constexpr double ASinH(DimLess a_x) { return DimTypes::ASinH(double(a_x)); }
+  constexpr double ACosH(DimLess a_x) { return DimTypes::ACosH(double(a_x)); }
+  constexpr double ATanH(DimLess a_x) { return DimTypes::ATanH(double(a_x)); }
 }
 // End namespace SpaceBallistics
 
