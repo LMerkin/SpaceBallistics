@@ -10,7 +10,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include "SpaceBallistics/PhysForces/DE440T.h"
+#include "SpaceBallistics/PhysEffects/DE440T.h"
 
 int main(int argc, char* argv[])
 {

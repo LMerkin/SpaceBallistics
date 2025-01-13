@@ -117,20 +117,72 @@ namespace SpaceBallistics
   // Standard Gravity (m/sec^2):
   constexpr inline Acc      g0     = Acc(9.80665);
 
-  // Standard Atmospheric Pressure at Sea Level (FIXME: Move it to the Earth
-  // Atmosphere Model!):
-  constexpr inline Pressure p0     = Pressure(101325.0);
-
-  // Specific Gas Constant for Dry Air (J/K)    (FIXME: Move it to the Earth
-  // Atmosphere Model!):
-  constexpr inline auto     Rair   = 287.0528 * Energy(1.0) / 1.0_K;
-
   // "Pi"-Related Consts lifted to "Angle"s:
   constexpr inline Angle    PI     = Angle(Pi   <double>);
   constexpr inline Angle    TWO_PI = Angle(TwoPi<double>);
   constexpr inline Angle    PI_2   = Angle(Pi_2 <double>);
+
+  //=========================================================================//
+  // Elementary Trigonometric Functions on "Angle"s, for convenience:        //
+  //=========================================================================//
+  // XXX: HOWEVER, they will hide similar functions for "double"s -- which may
+  // actually be a good idea:
+  constexpr double Sin(Angle a_x) { return DimTypes::Sin(a_x.Magnitude()); }
+  constexpr double Cos(Angle a_x) { return DimTypes::Cos(a_x.Magnitude()); }
+  constexpr double Tan(Angle a_x) { return DimTypes::Tan(a_x.Magnitude()); }
+
+  // Explicit conversion of "Angle[_rad]" into "DimLess":
+  constexpr  DimLess To_DimLess(Angle a_angle)
+    { return DimLess(a_angle.Magnitude());   }
 }
 // End namespace SpaceBallistics
+
+namespace DimTypes
+{
+  namespace SB = SpaceBallistics;
+
+  //-------------------------------------------------------------------------//
+  // Explicit conversions of "Angle[_rad]" into "double":                    //
+  //-------------------------------------------------------------------------//
+  // XXX: This function is in the form of "operator double", and therefore, it
+  // must be defined in the same namespace ("DimTypes") as the original "DimQ"s:
+  //
+  template<>
+  constexpr inline
+  DimQ
+  <
+    SB::DimQ_Encs::DimExp(unsigned(SB::DimsE::Angle)),
+    SB::DimQ_Encs::MkUnit(unsigned(SB::DimsE::Angle), 0), // 0=rad: fund unit
+    SB::DimQ_RepT,
+    SB::DimQ_MaxDims
+  >
+  ::operator double() const 
+  {
+    using ThisDimQ = std::remove_cv_t<std::remove_reference_t<decltype(*this)>>;
+    static_assert(std::is_same_v<ThisDimQ, SB::Angle_rad>);
+    return double(SB::To_DimLess(*this));
+  }
+
+  //-------------------------------------------------------------------------//
+  // Similarly, converting "Angle_deg" into "double", via "Angle" (rad):     //
+  //-------------------------------------------------------------------------//
+  template<>
+  constexpr inline
+  DimQ
+  <
+    SB::DimQ_Encs::DimExp(unsigned(SB::DimsE::Angle)),
+    SB::DimQ_Encs::MkUnit(unsigned(SB::DimsE::Angle), 1), // 1=deg
+    SB::DimQ_RepT,
+    SB::DimQ_MaxDims
+  >
+  ::operator double() const
+  {
+    using ThisDimQ = std::remove_cv_t<std::remove_reference_t<decltype(*this)>>;
+    static_assert(std::is_same_v<ThisDimQ, SB::Angle_deg>);
+    return double(SB::To_Angle(*this));
+  }
+}
+// End namespace DimTypes
 
 //===========================================================================//
 // Support for using "std::format" with our "DimQ"s:                         //

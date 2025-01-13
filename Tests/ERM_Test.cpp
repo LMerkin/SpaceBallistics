@@ -6,9 +6,9 @@
 #include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include "SpaceBallistics/CoOrds/TopoCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/SpherPV.hpp"
-#include "SpaceBallistics/PhysForces/DE440T.h"
-#include "SpaceBallistics/PhysForces/EarthRotationModel.h"
-#include "SpaceBallistics/PhysForces/BodyData.hpp"
+#include "SpaceBallistics/PhysEffects/DE440T.h"
+#include "SpaceBallistics/PhysEffects/EarthRotationModel.h"
+#include "SpaceBallistics/PhysEffects/BodyData.hpp"
 
 int main()
 {

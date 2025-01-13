@@ -48,17 +48,23 @@ namespace SpaceBallistics
   // We probably do not need any other DQs here:
   //
   template<Body BBody,  Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using PosKVTopEqFix = PosKV<TopoCEqFixCOS<BBody, L>, B>;
+  using DimLessVTopEqFix = DimLessV<TopoCEqFixCOS<BBody, L>, B>;
 
   template<Body BBody,  Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelKVTopEqFix = VelKV<TopoCEqFixCOS<BBody, L>, B>;
+  using PosKVTopEqFix    = PosKV   <TopoCEqFixCOS<BBody, L>, B>;
+
+  template<Body BBody,  Location<BBody> const* L, Body B = Body::UNDEFINED>
+  using VelKVTopEqFix    = VelKV   <TopoCEqFixCOS<BBody, L>, B>;
 
   // Aliases for Vectors in the "TopoC_GCRS":
   template<Location<Body::Earth> const* L,        Body B = Body::UNDEFINED>
-  using PosKVTopGCRS  = PosKV<TopoC_GCRS<L>, B>;
+  using DimLessTopGCRS   = DimLessV<TopoC_GCRS<L>,  B>;
 
   template<Location<Body::Earth> const* L,        Body B = Body::UNDEFINED>
-  using VelKVTopGCRS  = VelKV<TopoC_GCRS<L>, B>;
+  using PosKVTopGCRS     = PosKV   <TopoC_GCRS<L>,  B>;
+
+  template<Location<Body::Earth> const* L,        Body B = Body::UNDEFINED>
+  using VelKVTopGCRS     = VelKV   <TopoC_GCRS<L>,  B>;
 
   //=========================================================================//
   // "TopoCRotCOS_ENZ" Struct:                                               //
@@ -92,6 +98,9 @@ namespace SpaceBallistics
   // NB: Using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others;
   // the "ENZ" suffix stands for "East(X)-North(Y)-Zenith(Z)":
   //
+  template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
+  using DimLessVTopRotENZ  = DimLessV<TopoCRotCOS_ENZ<BBody, L>, B>;
+
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
   using PosKVTopRotENZ     = PosKV   <TopoCRotCOS_ENZ<BBody, L>, B>;
 
@@ -169,38 +178,41 @@ namespace SpaceBallistics
   // NB: Using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
   //
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using PosKVTopRot   = PosKV   <TopoCRotCOS<BBody, L>, B>;
+  using DimLessVTopRot = DimLessV<TopoCRotCOS<BBody,  L>, B>;
+
+  template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
+  using PosKVTopRot    = PosKV   <TopoCRotCOS<BBody,  L>, B>;
 
   // "VelK" and "Vel":
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelKVTopRot    = VelKV   <TopoCRotCOS<BBody, L>, B>;
+  using VelKVTopRot    = VelKV   <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using VelVTopRot     = VelV    <TopoCRotCOS<BBody, L>, B>;
+  using VelVTopRot     = VelV    <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AccVTopRot     = AccV    <TopoCRotCOS<BBody, L>, B>;
+  using AccVTopRot     = AccV    <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using ForceVTopRot   = ForceV  <TopoCRotCOS<BBody, L>, B>;
+  using ForceVTopRot   = ForceV  <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngVelVTopRot  = AngVelV <TopoCRotCOS<BBody, L>, B>;
+  using AngVelVTopRot  = AngVelV <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngAccVTopRot  = AngAccV <TopoCRotCOS<BBody, L>, B>;
+  using AngAccVTopRot  = AngAccV <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using AngMomVTopRot  = AngMomV <TopoCRotCOS<BBody, L>, B>;
+  using AngMomVTopRot  = AngMomV <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using TorqVTopRot    = TorqV   <TopoCRotCOS<BBody, L>, B>;
+  using TorqVTopRot    = TorqV   <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using MoIVTopRot     = MoIV    <TopoCRotCOS<BBody, L>, B>;
+  using MoIVTopRot     = MoIV    <TopoCRotCOS<BBody,  L>, B>;
 
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
-  using MoIRateVTopRot = MoIRateV<TopoCRotCOS<BBody, L>, B>;
+  using MoIRateVTopRot = MoIRateV<TopoCRotCOS<BBody,  L>, B>;
 
   //=========================================================================//
   // Vector Transforms between the "{Body,Topo}CRotCOS"es:                   //
@@ -291,6 +303,9 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // NB: Using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
   //
+  template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
+  using DimLessVTopLaunch = DimLessV<TopoCLaunchCOS<BBody, L>, B>;
+
   template<Body BBody, Location<BBody> const* L, Body B = Body::UNDEFINED>
   using PosKVTopLaunch    = PosKV   <TopoCLaunchCOS<BBody, L>, B>;
 

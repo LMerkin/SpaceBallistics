@@ -7,7 +7,7 @@
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/CoOrds/Vector3D.hpp"
 #include "SpaceBallistics/CoOrds/TimeScales.h"
-#include "SpaceBallistics/PhysForces/BodyData.hpp"
+#include "SpaceBallistics/PhysEffects/BodyData.hpp"
 #include "SpaceBallistics/Maths/RotationMatrices.hpp"
 #include <cassert>
 
@@ -127,14 +127,14 @@ namespace SpaceBallistics
         //-------------------------------------------------------------------//
         //  "k" is the unit vector orthogonal to the Orbital Plane. It is well-
         //  defined for non-RectLin orbits:
-        Vector3D<double, COS, B> k = angMom / m_h;
+        Vector3D<DimLess, COS, B> k = angMom / m_h;
 
         // Orbit Inclination:
-        m_I     = Angle(ACos(k.z()));
+        m_I   = Angle(ACos(double(k.z())));
         assert(0.0_rad <= m_I && m_I <= PI);
 
         // Are we close to I=0 or I=Pi?
-        constexpr double Near1 = 1.0 - 1e-6;
+        constexpr DimLess Near1(1.0 - 1e-6);
         Iis0  = k.z() >  Near1;
         IisPi = k.z() < -Near1;
 
@@ -159,8 +159,8 @@ namespace SpaceBallistics
         if (LIKELY(!(Iis0 || IisPi)))
         {
           double cosl0 =
-            double((a_pos.x() * Cos(double(m_Omega))  +
-                    a_pos.y() * Sin(double(m_Omega))) / r);
+            double((a_pos.x() * Cos(m_Omega)  +
+                    a_pos.y() * Sin(m_Omega)) / r);
           m_l0 = Angle(ACos(cosl0));      // In [0 .. Pi] initially
 
           // Possibly adjust "l0" in the generic case:
@@ -326,7 +326,7 @@ namespace SpaceBallistics
         {
           m_f0 =
             (LIKELY(m_E0 != PI)
-            ? Angle(2.0 * ATan(m_S * Tan(double(m_E0 / 2.0))))
+            ? Angle(2.0 * ATan(m_S * Tan(m_E0 / 2.0)))
             : PI);
           // Initially in (-Pi, Pi]; then:
           m_f0 = To2Pi(m_f0);
@@ -336,7 +336,7 @@ namespace SpaceBallistics
         assert(0.0_rad <  m_f0 && m_f0 < TWO_PI);
 
         // Mean Anomaly @ "a_t0" (Kepler's Equation):
-        m_M0 = m_E0 - Angle(m_e * Sin(double(m_E0)));
+        m_M0 = m_E0 - Angle(m_e * Sin(m_E0));
         assert(0.0_rad <= m_E0 && m_E0 < TWO_PI);
         break;
       }
@@ -576,12 +576,12 @@ namespace SpaceBallistics
         assert(m_S > 0.0);
         Angle E =
           (a_f != PI)
-          ? Angle(2.0 * ATan(Tan(double(a_f) / 2.0) / m_S))
+          ? Angle(2.0 * ATan(Tan(a_f / 2.0) / m_S))
           : PI;
         E = To2Pi(E);
 
         // Mean Anomaly (Kepler's Equation):
-        Angle  M = To2Pi(E - Angle(m_e * Sin(double(E))));
+        Angle  M = To2Pi(E - Angle(m_e * Sin(E)));
         return M / m_n;
       }
 
@@ -591,7 +591,7 @@ namespace SpaceBallistics
 
         // Eccentric Anomaly analogue:
         // Unlike the Ctor, here we do not need "E" and "M" to be Angles:
-        double E = 2.0 * ATanH(Tan(double(a_f) / 2.0) / m_S);
+        double E = 2.0 * ATanH(Tan(a_f / 2.0) / m_S);
 
         // Mean Anomaly (Kepler's Equation analogue):
         double M = m_e * SinH(E) - E;
@@ -603,7 +603,7 @@ namespace SpaceBallistics
         assert(m_e == 1.0);
 
         // Eccentric Anomaly analogue:
-        double E = Tan(double(a_f / 2.0));
+        double E = Tan(a_f / 2.0);
 
         // Mean Anomaly analogue (Barker's Equation):
         double M = E * (Sqr(E) / 3.0);
@@ -644,7 +644,7 @@ namespace SpaceBallistics
     // Radius-Vector as a function of True Anomaly:                          //
     //-----------------------------------------------------------------------//
     constexpr LenK GetR(Angle a_f) const
-      { return m_p / (1.0 + m_e * Cos(double(a_f))); }
+      { return m_p / (1.0 + m_e * Cos(a_f)); }
 
     //-----------------------------------------------------------------------//
     // Position and Velocity Vectors as functions of True Anomaly:           //
@@ -657,8 +657,8 @@ namespace SpaceBallistics
     )
     const
     {
-      double cosf   = Cos(double(a_f));
-      double sinf   = Sin(double(a_f));
+      double cosf = Cos(a_f);
+      double sinf = Sin(a_f);
 
       //---------------------------------------------------------------------//
       // Position:                                                           //
@@ -732,10 +732,10 @@ namespace SpaceBallistics
       // Then r = TM1 * r1, where:
       Mtx33 TM1;
 
-      double cosOm = Cos(double(m_Omega));
-      double sinOm = Sin(double(m_Omega));
-      double cosI  = Cos(double(m_I));
-      double sinI  = Sin(double(m_I));
+      double cosOm = Cos(m_Omega);
+      double sinOm = Sin(m_Omega);
+      double cosI  = Cos(m_I);
+      double sinI  = Sin(m_I);
 
       // XXX: The following sign factor "s" accounts for the "RetroGrade" motion
       // when I > Pi/2:

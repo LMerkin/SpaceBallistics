@@ -10,10 +10,10 @@
 #include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include "SpaceBallistics/CoOrds/GeoCDynEqFixCOS.h"
 #include "SpaceBallistics/CoOrds/SpherPV.hpp"
-#include "SpaceBallistics/PhysForces/DE440T.h"
-#include "SpaceBallistics/PhysForces/EarthRotationModel.h"
+#include "SpaceBallistics/PhysEffects/DE440T.h"
+#include "SpaceBallistics/PhysEffects/EarthRotationModel.h"
 #include "SpaceBallistics/Maths/RotationMatrices.hpp"
-#include "SpaceBallistics/Utils.hpp"
+#include "SpaceBallistics/AngleUtils.hpp"
 #include "TestUtils.hpp"
 #include <cstdio>
 #include <cstdlib>

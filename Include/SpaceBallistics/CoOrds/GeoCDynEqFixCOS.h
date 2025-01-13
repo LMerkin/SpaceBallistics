@@ -3,7 +3,7 @@
 //                 "SpaceBallistics/CoOrds/GeoCDynEqFixCOS.h":               //
 //===========================================================================//
 #pragma  once
-#include "SpaceBallistics/PhysForces/EarthRotationModel.hpp"
+#include "SpaceBallistics/PhysEffects/EarthRotationModel.hpp"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
 #include "SpaceBallistics/Maths/RotationMatrices.hpp"
 
@@ -44,10 +44,13 @@ namespace SpaceBallistics
   // Vectors in "GeoCDynEqFixCOS":                                           //
   //-------------------------------------------------------------------------//
   template<int EpochY, Body B = Body::UNDEFINED>
-  using PosKV_GeoDynEqFix = PosKV<GeoCDynEqFixCOS<EpochY>, B>;
+  using DimLessV_GeoDynEqFix  = DimLessV<GeoCDynEqFixCOS<EpochY>, B>;
 
   template<int EpochY, Body B = Body::UNDEFINED>
-  using VelKV_GeoDynEqFix = VelKV<GeoCDynEqFixCOS<EpochY>, B>;
+  using PosKV_GeoDynEqFix     = PosKV   <GeoCDynEqFixCOS<EpochY>, B>;
+
+  template<int EpochY, Body B = Body::UNDEFINED>
+  using VelKV_GeoDynEqFix     = VelKV   <GeoCDynEqFixCOS<EpochY>, B>;
 
   //-------------------------------------------------------------------------//
   // "GeoCDynEqFixCOS" <-> GCRS Vector Conversions:                          //

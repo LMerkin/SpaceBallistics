@@ -4,7 +4,6 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
-#include "SpaceBallistics/Utils.hpp"
 
 namespace SpaceBallistics
 {
@@ -87,8 +86,8 @@ namespace SpaceBallistics
     //
     constexpr static Mtx33 MkR1(Angle a_theta)
     {
-      double cosTh  = Cos(double(a_theta));
-      double sinTh  = Sin(double(a_theta));
+      double cosTh  = Cos(a_theta);
+      double sinTh  = Sin(a_theta);
       Mtx33  R1;
       R1(0,0) = 1.0;    R1(0,1) =  0.0;     R1(0,2) =  0.0;
       R1(1,0) = 0.0;    R1(1,1) =  cosTh;   R1(1,2) =  sinTh;
@@ -98,8 +97,8 @@ namespace SpaceBallistics
 
     constexpr static Mtx33 MkR2(Angle a_theta)
     {
-      double cosTh  = Cos(double(a_theta));
-      double sinTh  = Sin(double(a_theta));
+      double cosTh  = Cos(a_theta);
+      double sinTh  = Sin(a_theta);
       Mtx33  R2;
       R2(0,0) =  cosTh;   R2(0,1) =  0.0;   R2(0,2) = sinTh;
       R2(1,0) =  0.0;     R2(1,1) =  1.0;   R2(1,2) = 0.0;
@@ -109,8 +108,8 @@ namespace SpaceBallistics
 
     constexpr static Mtx33 MkR3(Angle a_theta)
     {
-      double cosTh  = Cos(double(a_theta));
-      double sinTh  = Sin(double(a_theta));
+      double cosTh  = Cos(a_theta);
+      double sinTh  = Sin(a_theta);
       Mtx33  R3;
       R3(0,0) =  cosTh;   R3(0,1) = sinTh;  R3(0,2) = 0.0;
       R3(1,0) = -sinTh;   R3(1,1) = cosTh;  R3(1,2) = 0.0;

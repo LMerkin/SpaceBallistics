@@ -160,10 +160,10 @@ namespace SpaceBallistics
     //
     constexpr std::pair<PosKV<COS, B>, VelKV<COS, B>> GetPVVectors() const
     {
-      double cA = Cos(double(m_alpha));
-      double sA = Sin(double(m_alpha));
-      double cD = Cos(double(m_delta));
-      double sD = Sin(double(m_delta));
+      double cA = Cos(m_alpha);
+      double sA = Sin(m_alpha);
+      double cD = Cos(m_delta);
+      double sD = Sin(m_delta);
 
       LenK   x  = m_rho * cD * cA;
       LenK   y  = m_rho * cD * sA;

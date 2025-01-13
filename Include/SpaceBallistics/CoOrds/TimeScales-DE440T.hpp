@@ -5,7 +5,7 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/CoOrds/TimeScales.h"
-#include "SpaceBallistics/PhysForces/DE440T.h"
+#include "SpaceBallistics/PhysEffects/DE440T.h"
 
 namespace SpaceBallistics
 {

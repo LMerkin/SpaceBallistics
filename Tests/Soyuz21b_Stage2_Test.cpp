@@ -3,6 +3,7 @@
 //                     "Tests/Soyuz21b_Stage2_Test.cpp":                     //
 //===========================================================================//
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
+#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.h"
 #include "TestUtils.hpp"
 
 //===========================================================================//
@@ -12,7 +13,8 @@ int main()
 {
   using namespace std;
   using namespace SpaceBallistics;
-  using      S2 = Soyuz21b_Stage2;
+  using     S2  = Soyuz21b_Stage2;
+  namespace EAM = EarthAtmosphereModel;
 
   //-------------------------------------------------------------------------//
   // Geometry and Mass Params:                                               //
@@ -85,7 +87,7 @@ int main()
   for (Time t = 0.0_sec; t <= 300.0_sec; t += tau)
   {
     StageDynParams<LVSC::Soyuz21b> dp =
-      S2::GetDynParams(LiftOffTime + t, p0, vernDefls0);
+      S2::GetDynParams(LiftOffTime + t, vernDefls0, EAM::P0);
 
     assert(IsZero(dp.m_com[1]) && IsZero(dp.m_com[2]) &&
            dp.m_mois      [1]  == dp.m_mois      [2]  &&

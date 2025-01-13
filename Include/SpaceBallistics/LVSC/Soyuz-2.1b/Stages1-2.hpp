@@ -7,10 +7,11 @@
 #pragma  once
 #ifdef   STAGE1
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage1_Booster.h"
+#include "SpaceBallistics/PhysEffects/PlateAeroDyn.hpp"
 #else
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
 #endif
-#include "SpaceBallistics/Utils.hpp"
+#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.h"
 #include "SpaceBallistics/ME/TanksPressrn.hpp"
 
 namespace SpaceBallistics
@@ -28,14 +29,15 @@ namespace SpaceBallistics
 # endif
   (
     FlightTime             a_ft,
-    Pressure               a_p,               // Curr Atmospheric Pressure
-    VernDeflections const& a_vern_defls
+    VernDeflections const& a_vern_defls,
+    Pressure               a_p              // Curr Atmospheric Pressure
 #   ifdef STAGE1
     ,
     // Extra params for AeroFin Ctls:
-    ME::VelVE const&       /*a_v*/,           // In the ECOS SnapShot
-    ME::VelVE const&       /*a_w*/,           // ditto
-    Angle_deg              /*a_aerofin_defl*/ // AeroFin deflection angle
+    Density                a_rho,           // Curr Atmospheric Density
+    ME::VelVE const&       a_v,             // In the ECOS SnapShot
+    ME::VelVE const&       a_w,             // ditto
+    Angle_deg              a_aerofin_defl   // AeroFin deflection angle
 #   endif
   )
   {
@@ -60,6 +62,8 @@ namespace SpaceBallistics
                   FullThrustTime  <  ThrottlTime    &&
                   ThrottlTime     <  MainCutOffTime &&
                   MainCutOffTime  <= CutOffTime);
+
+    namespace EAM = EarthAtmosphereModel;
 
     //-----------------------------------------------------------------------//
     // Current Masses and Thrust:                                            //
@@ -224,8 +228,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Adjust the Thrust values to the curr atmospheric pressure:
     //
-    double slC  = double(a_p / p0);    // 1 when we are @ SL
-    double vacC = 1.0 - slC;           // 1 when we are in Vac
+    double slC  = double(a_p / EAM::P0); // 1 when we are @ SL
+    double vacC = 1.0 - slC;             // 1 when we are in Vac
     assert(0.0 <= slC && slC <= 1.0 && 0 <= vacC && vacC <= 1.0);
 
     Force absMainThrust  = vacC * absMainThrustVac  + slC * absMainThrustSL;
@@ -252,8 +256,8 @@ namespace SpaceBallistics
       Angle_deg  A   = a_vern_defls[size_t(i)];
       assert(Abs(A) <= VernGimbalAmpl);
 
-      double sinA = Sin(double(To_Angle(A)));
-      double cosA = Cos(double(To_Angle(A)));
+      double sinA = Sin(To_Angle(A));
+      double cosA = Cos(To_Angle(A));
 
       // The X component of the Vernier Thrust has the same expression for any
       // Venrnier and for both Stage1 and Stage2:
@@ -429,7 +433,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // We can now construct the FullME (for both Stage1 and Stage2):         //
     //-----------------------------------------------------------------------//
-    ME fullME = EmptyME  + fuelME + oxidME + h2o2ME + liqN2ME + gasN2ME;
+    ME fullME = EmptyME + fuelME + oxidME + h2o2ME + liqN2ME + gasN2ME;
 
     // Double-check the Masses and the MassRate:
     assert(fuelME .GetMass   ().ApproxEquals(fuelMass));
@@ -443,6 +447,38 @@ namespace SpaceBallistics
     assert(h2o2ME .GetMassDot().ApproxEquals(h2o2MassDot));
     assert(liqN2ME.GetMassDot().ApproxEquals(liqN2MassDot));
     assert(fullME .GetMassDot().ApproxEquals(fullMassDot));
+
+    //-----------------------------------------------------------------------//
+    // Moments from AeroFins:                                                //
+    //-----------------------------------------------------------------------//
+#   ifdef STAGE1
+    // Normal Unit Vector to the AeroFin:
+    DimLessVEmb<LVSC::Soyuz21b> n;   // Initially, all components are 0s
+
+    Angle  theta = To_Angle(a_aerofin_defl);
+    n.x()        = Cos(theta);
+
+    switch (Block)
+    {
+      case 'B':
+        n.z() =   Sin(theta);
+        break;
+      case 'V':
+        n.y() = - Sin(theta);
+        break;
+      case 'G':
+        n.z() = - Sin(theta);
+        break;
+      case 'D':
+        n.y() =   Sin(theta);
+        break;
+      default:
+        assert(false);
+    }
+    // AeroDynamic Force  on the AeroFin:
+    ForceVEmb<LVSC::Soyuz21b> aeroFinF =
+      PlateAeroDyn(a_v, a_w, n, a_p, a_rho, EAM::GammaAir, AeroFinS);
+#   endif
 
     //-----------------------------------------------------------------------//
     // Make the Result:                                                      //

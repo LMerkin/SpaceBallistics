@@ -5,10 +5,10 @@
 //===========================================================================//
 #pragma once
 #include "SpaceBallistics/Types.hpp"
-#include "SpaceBallistics/Utils.hpp"
+#include "SpaceBallistics/AngleUtils.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
-#include "SpaceBallistics/PhysForces/BodyData.hpp"
+#include "SpaceBallistics/PhysEffects/BodyData.hpp"
 #include <utility>
 #include <tuple>
 
@@ -83,15 +83,15 @@ namespace SpaceBallistics
       // a = Re, b = Rp:
       // XXX: We do NOT apply any simplifications in the case Flat==0 here:
       auto   a2  = Sqr(Re);
-      LenK   bt  = Rp * Tan(double(m_phi));
+      LenK   bt  = Rp * Tan(m_phi);
       auto   bt2 = Sqr(bt);
       auto   bbt = Rp * bt;
       LenK   d   = SqRt(a2 + bt2);
       // (x,z) in the cross-section through the axis and the given point:
       LenK   x   = a2  / d;
       LenK   z   = bbt / d;
-      m_r[0]     = x * Cos(double(m_lambda));    // BodyC x
-      m_r[1]     = x * Sin(double(m_lambda));    // BodyC y
+      m_r[0]     = x * Cos(m_lambda);            // BodyC x
+      m_r[1]     = x * Sin(m_lambda);            // BodyC y
       m_r[2]     = z;                            // BodyC z
       m_rho      = SqRt(Sqr(a2) + Sqr(bbt)) / d; // BodyC r
     }
@@ -132,40 +132,42 @@ namespace SpaceBallistics
     {
       // The vector should be sufficiently short, otherwise the approximations
       // used below may not be valid:
-      double dLambda = double(To_Angle(a_to_lambda - a_from_lambda));
-      double dPhi    = double(To_Angle(a_to_phi    - a_from_phi));
-      assert(Abs(dLambda) < 1e-3 && Abs(dPhi) < 1e-3);
+      Angle  dLambda = To_Angle(a_to_lambda - a_from_lambda);
+      Angle  dPhi    = To_Angle(a_to_phi    - a_from_phi);
+      assert(Abs(dLambda) < 0.001_rad && Abs(dPhi) < 0.001_rad);
+      Angle  Tol(DefaultTol<double>);
 
-      if (Abs(dPhi) > DefaultTol<double>)
+      if (Abs(dPhi) > Tol)
       {
         // dPhi != 0, ie the Azimuth is not (+-Pi/2):
-        double avgPhi = double (To_Angle (a_to_phi + a_from_phi)) / 2.0;
-        double tgA    = dLambda /
-                        (dPhi * FlatC * SqRt(1.0 + Sqr(FlatC * Tan(avgPhi))));
-        double A      = ATan(tgA);
+        Angle  avgPhi = To_Angle (a_to_phi + a_from_phi) / 2.0;
+        double tgA    =
+          double(dLambda /
+                (dPhi * FlatC * SqRt(1.0 + Sqr(FlatC * Tan(avgPhi)))));
+        Angle  A(ATan(tgA));
 
         // "A" is in (-Pi/2 .. +Pi/2), modify it to [0..2*Pi):
-        if (dPhi < 0.0)
+        if (IsNeg(dPhi))
         {
-          assert(A  < 0.0);
-          A += Pi<double>;
+          assert(IsNeg(A));
+          A += PI;
         }
         else
-        if (dLambda < 0.0)
+        if (IsNeg(dLambda))
         {
-          assert(A  < 0.0);
-          A += TwoPi<double>;
+          assert(IsNeg(A));
+          A += TWO_PI;
         }
         // We should get 0 <= A < 2*Pi, but cannot formally assert that due to
         // possible rounding errors:
-        return To_Angle_deg(Angle(A));
+        return To_Angle_deg(A);
       }
       else
-      if (dLambda >  DefaultTol<double>)
+      if (dLambda >  Tol)
         // Due East:
         return 90.0_deg;
       else
-      if (dLambda < -DefaultTol<double>)
+      if (dLambda < -Tol)
         // Due West:
         return 270.0_deg;
       else

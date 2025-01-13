@@ -3,7 +3,7 @@
 //                            "PrecNutTest.cpp":                             //
 //             Test for Long-Term Earth Precession and Nutations             //
 //===========================================================================//
-#include "SpaceBallistics/PhysForces/EarthRotationModel.hpp"
+#include "SpaceBallistics/PhysEffects/EarthRotationModel.hpp"
 #include "SpaceBallistics/CoOrds/SpherPV.hpp"
 
 int main(int argc, char* argv[])

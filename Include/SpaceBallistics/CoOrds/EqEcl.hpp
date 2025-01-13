@@ -7,7 +7,7 @@
 #include "SpaceBallistics/CoOrds/Vector3D.hpp"
 #include "SpaceBallistics/CoOrds/BaryCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
-#include "SpaceBallistics/PhysForces/EarthRotationModel.h"
+#include "SpaceBallistics/PhysEffects/EarthRotationModel.h"
 #include "SpaceBallistics/Maths/RotationMatrices.hpp"
 #include <type_traits>
 

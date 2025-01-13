@@ -7,10 +7,9 @@
 //    
 #include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include "SpaceBallistics/CoOrds/TwoBodyOrbit.hpp"
-#include "SpaceBallistics/PhysForces/BodyData.hpp"
-#include "SpaceBallistics/PhysForces/DE440T.h"
+#include "SpaceBallistics/PhysEffects/BodyData.hpp"
+#include "SpaceBallistics/PhysEffects/DE440T.h"
 #include "SpaceBallistics/Maths/Dichotomy.hpp"
-#include "SpaceBallistics/Utils.hpp"
 #include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_errno.h>
 #include <iostream>

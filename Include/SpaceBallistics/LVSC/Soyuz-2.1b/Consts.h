@@ -47,7 +47,8 @@ namespace SpaceBallistics::Soyuz21b_Consts
 
   // Fairing jettisoning time. This is probably NOT a constant, it depends  on
   // mission profile. Some srcs say ~157 sec, ~183 sec, ~228 sec; "Luna-25" was
-  // 211.95 sec:
+  // 211.95 sec. So we provide a range instead of a fixed value:
+  //
   constexpr inline FT     FairingJetTimeMin(157.0_sec);  // XXX ???
   constexpr inline FT     FairingJetTimeMax(228.0_sec);
 
@@ -85,7 +86,7 @@ namespace SpaceBallistics::Soyuz21b_Consts
   // (So that Stages can, to some extent, be modeled imdependently of each
   // other):
   //
-  constexpr inline Len    X0                     = 0.0_m; // Top of Stage3
-  constexpr inline Len    Stage3Len              = 6.745_m;
+  constexpr inline Len    X0        = 0.0_m; // Top of Stage3
+  constexpr inline Len    Stage3Len = 6.745_m;
 }
 // End namespace SpaceBallistics

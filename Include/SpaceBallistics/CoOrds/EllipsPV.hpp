@@ -6,7 +6,7 @@
 #pragma  once
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
-#include "SpaceBallistics/PhysForces/BodyData.hpp"
+#include "SpaceBallistics/PhysEffects/BodyData.hpp"
 
 namespace SpaceBallistics
 {
@@ -98,10 +98,10 @@ namespace SpaceBallistics
     constexpr std::pair<PosKVRot<BBody, B>, VelKVRot<BBody>, B>
     GetPVVectors() const
     {
-      double   cosL  = Cos(double(m_lambda));
-      double   sinL  = Sin(double(m_lambda));
-      double   cosP  = Cos(double(m_phi));
-      double   sinP  = Sin(double(m_phi));
+      double   cosL  = Cos(m_lambda);
+      double   sinL  = Sin(m_lambda);
+      double   cosP  = Cos(m_phi);
+      double   sinP  = Sin(m_phi);
 
       // Position:
       double   tanP  = sinP / cosP;

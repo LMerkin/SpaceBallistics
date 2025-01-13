@@ -925,9 +925,10 @@ namespace SpaceBallistics
     // available photo).  Larger values would probably cause too large angles
     // of attack.
     // AeroFin is rotatable along the same "block attachment direction" as used
-    // for Verniers Gimbaling (that is, -Y, -Z, +Y or +Z).  Rotation angle is
-    // positive when rotation is performed Counter-Clock-Wise as viewed  from
-    // the corresp end of the rotation axis (similar to Verniers deflection):
+    // for Verniers Gimbaling: B: -Y, V: -Z, G: +Y, D: +Z.
+    // Rotation angle is positive when rotation is performed Counter-Clock-Wise
+    // as viewed  from the corresp end of the rotation axis (similar to Verniers
+    // deflection):
     //
     constexpr static Angle_deg AeroFinAmpl    = Angle_deg(30.0);
 
@@ -943,8 +944,9 @@ namespace SpaceBallistics
     GetDynParams
     (
       FT                     a_ft,
-      Pressure               a_p,           // Curr Atmospheric Pressure
       VernDeflections const& a_vern_defls,
+      Pressure               a_p,           // Curr Atmospheric Pressure
+      Density                a_rho,         // Curr Atmospheric Density
       ME::VelVE       const& a_v,           // LV vel     in the ECOS SnapShot
       ME::VelVE       const& a_w,           // Wind speed in the ECOS SnapShot
       Angle_deg              a_aerofin_defl // AeroFin deflection angle

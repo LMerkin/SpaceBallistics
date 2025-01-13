@@ -146,6 +146,15 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Vector Space Operations:                                              //
     //-----------------------------------------------------------------------//
+    // First of all, Unary "+" and "-":
+    //
+    constexpr Vector3D operator+ () const { return *this;  }
+
+    constexpr Vector3D operator- () const
+      { return  Vector3D { m_cosTS, - x(), - y(), - z() }; }
+
+    // Now the Binary ops:
+    //
     // XXX:  In "+", if one of the Arg Vectors is with  UNDEFINED Body, the type
     // check is relaxed, as the result will also be for UNDEFINED.  But the COS
     // TimeStamps must match:
@@ -234,20 +243,9 @@ namespace SpaceBallistics
     constexpr Vector3D<decltype(DQ(1.0) / DT(1.0)), COS, B> operator/ (DT a_k)
     const
     {
-      assert(!IsZero(a_k));
+      assert(!::SpaceBallistics::IsZero(a_k));
       return Vector3D<decltype(DQ(1.0) / DT(1.0)), COS, B>
              {m_cosTS,  m_arr[0] / a_k, m_arr[1] / a_k, m_arr[2] / a_k};
-    }
-
-    // Overloading (NOT Specialisation) of the above:
-    // Division by a "DQ" will produce a vector of "double"s:
-    //
-    constexpr Vector3D<double, COS, B> operator/ (DQ a_k) const
-    {
-      assert(!IsZero(a_k));
-      return Vector3D<double, COS, B>
-             {m_cosTS,                double(m_arr[0] / a_k),
-              double(m_arr[1] / a_k), double(m_arr[2] / a_k)};
     }
 
     // In-place division is only possible for a "double" scalar:
@@ -270,6 +268,14 @@ namespace SpaceBallistics
       { return SqRt(Sqr(x()) + Sqr(y()) + Sqr(z())); }
 
     constexpr DQ EuclidNorm() const { return operator DQ(); }
+
+    // "IsZero": Is it a zero-vector?
+    constexpr bool IsZero()   const
+    {
+      return ::SpaceBallistics::IsZero(x()) &&
+             ::SpaceBallistics::IsZero(y()) &&
+             ::SpaceBallistics::IsZero(z());
+    }
 
     //-----------------------------------------------------------------------//
     // Dot Product:                                                          //
@@ -354,60 +360,85 @@ namespace SpaceBallistics
       assert (hasUnDef || m_cosTS == a_right);
       return  hasUnDef ?  TS::UnDef() : m_cosTS;
     }
+
+    //-----------------------------------------------------------------------//
+    // "To_Len[_m]", "To_Len_km" Conversions:                                //
+    //-----------------------------------------------------------------------//
+    // Extending similar functions acting on Scalar "DimQs" to "Vector3D", just
+    // for convenience:
+    //
+    constexpr Vector3D<decltype(::SpaceBallistics::To_Len(DQ(1.0))), COS, B>
+    To_Len()  const
+    {
+      return
+        Vector3D<decltype(::SpaceBallistics::To_Len(DQ(1.0))), COS, B>
+        {
+          m_cosTS,
+          ::SpaceBallistics::To_Len(x()),
+          ::SpaceBallistics::To_Len(y()),
+          ::SpaceBallistics::To_Len(z())
+        };
+    }
+
+    constexpr Vector3D<decltype(::SpaceBallistics::To_Len(DQ(1.0))), COS, B>
+    To_Len_m() const
+      { return this->To_Len(); }
+
+    constexpr Vector3D<decltype(::SpaceBallistics::To_Len_km(DQ(1.0))), COS, B>
+    To_Len_km() const
+    {
+      return
+        Vector3D<decltype(::SpaceBallistics::To_Len_km(DQ(1.0))), COS, B>
+        {
+          m_cosTS,
+          ::SpaceBallistics::To_Len_km(x()),
+          ::SpaceBallistics::To_Len_km(y()),
+          ::SpaceBallistics::To_Len_km(z())
+        };
+    }
+
+    //=======================================================================//
+    // "ToUnDefBody":                                                        //
+    //=======================================================================//
+    // Any Ref or Ptr to a Body-Specific Vector can be cast into one with
+    // Body::UNDEFINED. Since "reinterpret_cast" is used, these functions
+    // are NOT "constexpr":
+    //
+    Vector3D<DQ, COS, Body::UNDEFINED> const&   ToUnDefBody() const
+    { return
+        reinterpret_cast<Vector3D<DQ, COS, Body::UNDEFINED> const&> (*this); }
+
+    Vector3D<DQ, COS, Body::UNDEFINED>&         ToUnDefBody()
+      { return reinterpret_cast<Vector3D<DQ, COS, Body::UNDEFINED>&>(*this); }
   };
 
   //=========================================================================//
-  // "ToGeneric":                                                            //
+  // "ToSpecBody":                                                           //
   //=========================================================================//
-  // Any Ref or Ptr to a Body-Specific Vector can be cast into the Generic one
-  // (with Body::UNDEFINED). Since "reinterpret_casr" is used, these functions
-  // are NOT "constexpr":
-  //
-  template<typename DQ,  typename COS, Body B>
-  Vector3D<DQ, COS, Body::UNDEFINED> const&
-    ToGeneric(Vector3D<DQ, COS, B>   const& a_vec)
-  { return reinterpret_cast<Vector3D<DQ, COS, B> const&>(a_vec); }
-
-  template<typename DQ,  typename COS, Body B>
-  Vector3D<DQ, COS, Body::UNDEFINED> const*
-    ToGeneric(Vector3D<DQ, COS, B>   const* a_vec)
-  { return reinterpret_cast<Vector3D<DQ, COS, B> const*>(a_vec); }
-
-  template<typename DQ,  typename COS, Body B>
-  Vector3D<DQ, COS, Body::UNDEFINED>&
-    ToGeneric(Vector3D<DQ, COS, B>  & a_vec)
-  { return reinterpret_cast<Vector3D<DQ, COS, B>&>(a_vec); }
-
-  template<typename DQ,  typename COS, Body B>
-  Vector3D<DQ, COS, Body::UNDEFINED>*
-    ToGeneric(Vector3D<DQ, COS, B>  * a_vec)
-  { return reinterpret_cast<Vector3D<DQ, COS, B>*>(a_vec); }
-
-  //=========================================================================//
-  // "ToSpecific":                                                           //
-  //=========================================================================//
-  // The inverse of "ToGeneric": Converting a Ref or Ptr to the Generic Vector,
-  // into a Body-Specific one. USE WITH EXTREME CARE!
+  // The inverse of "ToUnDefBody": Converting a Ref or Ptr to the Vector with
+  // an UnDef Body, into a Body-Specific one.  THESE FUNCTIONS SHOULD BE USED
+  // WITH EXTREME CARE! They are currently only used in DE440T, for optimisa-
+  // tion:
   //
   template<Body B,  typename DQ,  typename COS>
   Vector3D<DQ, COS, B> const&
-    ToSpecific(Vector3D<DQ, COS, Body::UNDEFINED> const&  a_vec)
-  { return reinterpret_cast<Vector3D<DQ, COS, B>  const&>(a_vec); }
+    ToSpecBody(Vector3D<DQ, COS, Body::UNDEFINED>  const&  a_vec)
+    { return reinterpret_cast<Vector3D<DQ, COS, B> const&>(a_vec); }
 
   template<Body B,  typename DQ,  typename COS>
   Vector3D<DQ, COS, B> const*
-    ToSpecific(Vector3D<DQ, COS, Body::UNDEFINED> const*  a_vec)
-  { return reinterpret_cast<Vector3D<DQ, COS, B>  const*>(a_vec); }
+    ToSpecBody(Vector3D<DQ, COS, Body::UNDEFINED>  const*  a_vec)
+    { return reinterpret_cast<Vector3D<DQ, COS, B> const*>(a_vec); }
 
   template<Body B,  typename DQ,  typename COS>
   Vector3D<DQ, COS, B>&
-    ToSpecific(Vector3D<DQ, COS, Body::UNDEFINED>&  a_vec)
-  { return reinterpret_cast<Vector3D<DQ, COS, B> &>(a_vec); }
+    ToSpecBody(Vector3D<DQ, COS, Body::UNDEFINED>&    a_vec)
+    { return reinterpret_cast<Vector3D<DQ, COS, B> &>(a_vec); }
 
   template<Body B,  typename DQ,  typename COS>
   Vector3D<DQ, COS, B>*
-    ToSpecific(Vector3D<DQ, COS, Body::UNDEFINED>*  a_vec)
-  { return reinterpret_cast<Vector3D<DQ, COS, B> *>(a_vec); }
+    ToSpecBody(Vector3D<DQ, COS, Body::UNDEFINED>*    a_vec)
+    { return reinterpret_cast<Vector3D<DQ, COS, B> *>(a_vec); }
 
   //=========================================================================//
   // Common Mechanical "Vector3D"s:                                          //
@@ -421,6 +452,7 @@ namespace SpaceBallistics
   template<typename COS,   Body B = Body::UNDEFINED> \
   using T##V = Vector3D<T, COS, B>;
 
+  DCL_VEC(DimLess)  // DimLess  (eg directional vector)
   DCL_VEC(Len)      // Position Vector ("Radius-Vector")
   DCL_VEC(LenK)     // Position Vector (AstroDynamical, km)
   DCL_VEC(Vel)      // Velocity Vector

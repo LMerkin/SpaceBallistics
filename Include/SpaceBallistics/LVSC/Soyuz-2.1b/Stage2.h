@@ -963,8 +963,8 @@ namespace SpaceBallistics
     GetDynParams
     (
       FT                     a_ft,
-      Pressure               a_p,      // Curr Atmospheric Pressure
-      VernDeflections const& a_vern_defls
+      VernDeflections const& a_vern_defls,
+      Pressure               a_p       // Curr Atmospheric Pressure
     );
   };
 }

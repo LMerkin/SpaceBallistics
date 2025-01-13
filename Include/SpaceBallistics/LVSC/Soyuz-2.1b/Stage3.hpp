@@ -5,7 +5,6 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage3.h"
-#include "SpaceBallistics/Utils.hpp"
 
 namespace SpaceBallistics
 {
@@ -109,8 +108,8 @@ namespace SpaceBallistics
       Angle_deg  A   = a_chamber_defls[i];
       assert(Abs(A) <= GimbalAmpl);
 
-      double sinA = Sin(double(To_Angle(A)));
-      double cosA = Cos(double(To_Angle(A)));
+      double sinA = Sin(To_Angle(A));
+      double cosA = Cos(To_Angle(A));
       thrustX    += chamberThrust * cosA;
 
       // NB: The ThrustVector rotation in the YZ plane is OPPOSITE to the

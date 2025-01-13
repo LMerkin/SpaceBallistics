@@ -51,6 +51,9 @@ namespace SpaceBallistics
   // is typically the same LVSC, ie "Body::UNDEFINED":
   //
   template<LVSC LVSCKind>
+  using DimLessVEmb = DimLessV<EmbeddedCOS<LVSCKind>>;
+
+  template<LVSC LVSCKind>
   using PosVEmb     = PosV    <EmbeddedCOS<LVSCKind>>;
 
   template<LVSC LVSCKind>

@@ -7,10 +7,10 @@
 // FIXME: This implementation uses a GPL integrator which is NOT DimTypes-
 // aware. Must be replaced by our own DimTypes-based integrator:
 //
-#include "SpaceBallistics/PhysForces/GravityFld.hpp"
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/Locations.h"
+#include "SpaceBallistics/PhysEffects/GravityFld.hpp"
 #include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_errno.h>
 #include <iostream>

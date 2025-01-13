@@ -36,13 +36,16 @@ namespace SpaceBallistics
   };
 
   //-------------------------------------------------------------------------//
-  // Position and Velocity Vectors and Tensors in this COS:                  //
+  // Position and Velocity Vectors in this COS:                              //
   //-------------------------------------------------------------------------//
-  template<Body B   = Body::UNDEFINED>
-  using PosKVBarEcl = PosKV<BaryCEclCOS, B>;
+  template<Body B      = Body::UNDEFINED>
+  using DimLessVBarEcl = DimLessV<BaryCEclCOS, B>;
 
-  template<Body B   = Body::UNDEFINED>
-  using VelKVBarEcl = VelKV<BaryCEclCOS, B>;
+  template<Body B      = Body::UNDEFINED>
+  using PosKVBarEcl    = PosKV   <BaryCEclCOS, B>;
+
+  template<Body B      = Body::UNDEFINED>
+  using VelKVBarEcl    = VelKV   <BaryCEclCOS, B>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 
@@ -67,18 +70,24 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Position and Velocity Vectors and Tensors in this COS:                  //
   //-------------------------------------------------------------------------//
-  template<Body B   = Body::UNDEFINED>
-  using PosKVBarEq  = PosKV<BCRS, B>;
+  template<Body B     = Body::UNDEFINED>
+  using DimLessVBarEq = DimLessV<BCRS, B>;
 
-  template<Body B   = Body::UNDEFINED>
-  using VelKVBarEq  = VelKV<BCRS, B>;
+  template<Body B     = Body::UNDEFINED>
+  using PosKVBarEq    = PosKV   <BCRS, B>;
+
+  template<Body B     = Body::UNDEFINED>
+  using VelKVBarEq    = VelKV   <BCRS, B>;
 
   // Aliases:
-  template<Body B   = Body::UNDEFINED>
-  using PosKV_BCRS  = PosKV<BCRS, B>;
+  template<Body B     = Body::UNDEFINED>
+  using DimLessV_VCRS = DimLessV<BCRS, B>;
 
-  template<Body B   = Body::UNDEFINED>
-  using VelKV_BCRS  = VelKV<BCRS, B>;
+  template<Body B     = Body::UNDEFINED>
+  using PosKV_BCRS    = PosKV   <BCRS, B>;
+
+  template<Body B     = Body::UNDEFINED>
+  using VelKV_BCRS    = VelKV   <BCRS, B>;
 
   // XXX: Currently no need to consider other Vectors in this COS yet...
 }

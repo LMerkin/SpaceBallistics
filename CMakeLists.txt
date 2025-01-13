@@ -175,11 +175,11 @@ ADD_LIBRARY(${PROJECT_NAME} STATIC
   Src/LVSC/Soyuz-2.1b/Stage1.cpp
   Src/LVSC/Soyuz-2.1b/Stage2.cpp
   Src/LVSC/Soyuz-2.1b/Stage3.cpp
-  Src/PhysForces/GravityFld-Earth.cpp
-  Src/PhysForces/GravityFld-Moon.cpp
-  Src/PhysForces/DE440T.cpp
-  Src/PhysForces/DE440T-Data.cpp
-  Src/PhysForces/EarthRotationModel.cpp)
+  Src/PhysEffects/GravityFld-Earth.cpp
+  Src/PhysEffects/GravityFld-Moon.cpp
+  Src/PhysEffects/DE440T.cpp
+  Src/PhysEffects/DE440T-Data.cpp
+  Src/PhysEffects/EarthRotationModel.cpp)
 
 #=============================================================================#
 # Tests:                                                                      #
