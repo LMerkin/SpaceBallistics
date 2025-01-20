@@ -97,15 +97,21 @@ namespace SpaceBallistics
       double cL0 = TwoPi<double> * double(alpha);
       double s   = SqRt(1.0 - M2);
       double cL  = cL0 / (s - 0.5 * M2 * cL0 / (1.0 + s));
-      assert(cL > 0.0);
 
-      // The absolute value of the Lift Force:
-      Force  L   = cL * a_rho * Sqr(V) / 2.0 * a_S;
+      // We should normally have cL > 0;   if not (which may happen for M close
+      // enoygh to 1, with sufficiently large "alpha"), then this approximation
+      // is not good enough, and we need a full TranSonic theory:
+      if (cL > 0.0)
+      {
+        // The absolute value of the Lift Force:
+        Force  L   = cL * a_rho * Sqr(V) / 2.0 * a_S;
 
-      // And the Lift Force Vector, decomposed over the "n" and "V" vectors:
-      ForceV<COS> F = L / cosAlpha * (n - (sinAlpha / V) * flow);
-      assert(F.EuclidNorm().ApproxEquals(L));
-      return std::make_tuple(F, M, cL);
+        // And the Lift Force Vector, decomposed over the "n" and "V" vectors:
+        ForceV<COS> F = L / cosAlpha * (n - (sinAlpha / V) * flow);
+        assert(F.EuclidNorm().ApproxEquals(L));
+        return std::make_tuple(F, M, cL);
+      }
+      // Otherwise, fall through to the TranSonic mode...
     }
     else
     if (M > 1.2)
@@ -175,11 +181,12 @@ namespace SpaceBallistics
         // Solve the equation nu(Mup) = nu(M) + alpha, so Mup > Mu:
         // Say M=5 is a reasonable upper bound for the Dichotomic search,
         // since above that, we would have a HyperSonic flow anyway, and
-        // this model would not be applicable:
+        // this model would not be applicable. But to be on a safe side,
+        // set M=10 as the upper bound for the root search:
         //
         double z   = nu(M)  +  double(alpha);
         auto   nu0 = [z, &nu] (double a_M) -> double { return nu(a_M) - z; };
-        double Mup = Dichotomy(nu0, M, 5.0, DefaultTol<double>);
+        double Mup = Dichotomy(nu0, M, 10.0,  DefaultTol<double>);
         assert(Mup > M);
 
         // And then the pressure ratio above the Plate:
@@ -202,7 +209,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // If we got here: TranSonic Flow:                                       //
     //-----------------------------------------------------------------------//
-    // TODO:
+    // FIXME: TODO:
     return std::make_tuple(ForceV<COS>(), M, 0.0);
   }
 }

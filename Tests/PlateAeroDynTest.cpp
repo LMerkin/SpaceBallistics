@@ -38,7 +38,14 @@ int main(int argc, char* argv[])
       PlateAeroDyn(v, w, n, EAM::P0, EAM::Rho0, EAM::GammaAir, S);
     double M2         =  Sqr(M);
 
-    cout << M << '\t'   << cR      << '\t'
+    // And the approximate "cR" from a linearised model, for small "alpha",
+    // in the supersonic case only:
+    double cRappr     =
+      (M > 1.4)
+      ? 4.0 * double(alpha) * SqRt((1.0 + Sqr(double(alpha))) / (M2 - 1.0))
+      : cR;
+
+    cout << M << '\t'   << cR      << '\t'  << cRappr << '\t'
          << F.x().Magnitude() / M2 << '\t'
          << F.y().Magnitude() / M2 << '\t'
          << F.z().Magnitude() / M2 << endl;
