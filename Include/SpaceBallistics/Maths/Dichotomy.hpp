@@ -12,14 +12,16 @@ namespace SpaceBallistics
   //=========================================================================//
   // "Dichotomy" Function:                                                   //
   //=========================================================================//
-  template<typename F, typename T>
+  template <typename F, typename T>
   constexpr T Dichotomy(F const& a_f, T a_a, T a_b, T a_eps)
   {
-    assert(a_a < a_b);
+    assert(a_a  < a_b);
     auto fa = a_f(a_a);
     auto fb = a_f(a_b);
 
-    while (true)
+    constexpr int MaxIters = 1000;
+    int i = 0;
+    for (;  i < MaxIters; ++i)
     {
       if (UNLIKELY(IsZero(fa)))
         return a_a;
@@ -38,6 +40,8 @@ namespace SpaceBallistics
 
       // Continue:
       auto fm = a_f(m);
+      if (UNLIKELY(IsZero(fm)))
+        return m;
 
       if ((IsNeg(fa) && IsPos(fm)) || (IsPos(fa) && IsNeg(fm)))
       {
@@ -51,7 +55,9 @@ namespace SpaceBallistics
         fa  = fm;
       }
     }
-    __builtin_unreachable();
+    // If we got here, divergence (XXX???) had occured:
+    assert(false);
+    return T(NaN<double>);
   }
 }
 // End namespace SpaceBallistics

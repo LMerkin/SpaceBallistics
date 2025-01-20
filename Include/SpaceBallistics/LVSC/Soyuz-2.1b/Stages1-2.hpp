@@ -476,8 +476,8 @@ namespace SpaceBallistics
         assert(false);
     }
     // AeroDynamic Force  on the AeroFin:
-    ForceVEmb<LVSC::Soyuz21b> aeroFinF =
-      PlateAeroDyn(a_v, a_w, n, a_p, a_rho, EAM::GammaAir, AeroFinS);
+    auto res = PlateAeroDyn(a_v, a_w, n, a_p, a_rho, EAM::GammaAir, AeroFinS);
+    ForceVEmb<LVSC::Soyuz21b> aeroFinF = std::get<0>(res);
 #   endif
 
     //-----------------------------------------------------------------------//
