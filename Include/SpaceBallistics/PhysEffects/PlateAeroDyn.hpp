@@ -72,9 +72,9 @@ namespace SpaceBallistics
     assert(!IsNeg(alpha) && alpha <= PI_2);
 
     // FIXME: We currently do not allow too large Angles of Attack -- our model
-    // cannot handle them. So impose the following constraint   (up to 30.0_deg
-    // is OK):
-    assert(alpha < 0.6_rad);
+    // cannot handle them. So impose the following constraint   (up to 20.0_deg
+    // is certainly OK):
+    assert(alpha < 0.35_rad);
 
     // If the Angle of Attack  is 0, the aerodynamic force is 0 in all regimes,
     // and the TotalCoeff is also 0:
@@ -100,18 +100,16 @@ namespace SpaceBallistics
 
       // We should normally have cL > 0;   if not (which may happen for M close
       // enoygh to 1, with sufficiently large "alpha"), then this approximation
-      // is not good enough, and we need a full TranSonic theory:
-      if (cL > 0.0)
-      {
-        // The absolute value of the Lift Force:
-        Force  L   = cL * a_rho * Sqr(V) / 2.0 * a_S;
+      // is not good enough:
+      assert(cL > 0.0);
 
-        // And the Lift Force Vector, decomposed over the "n" and "V" vectors:
-        ForceV<COS> F = L / cosAlpha * (n - (sinAlpha / V) * flow);
-        assert(F.EuclidNorm().ApproxEquals(L));
-        return std::make_tuple(F, M, cL);
-      }
-      // Otherwise, fall through to the TranSonic mode...
+      // The absolute value of the Lift Force:
+      Force  L   = cL * a_rho * Sqr(V) / 2.0 * a_S;
+
+      // And the Lift Force Vector, decomposed over the "n" and "V" vectors:
+      ForceV<COS> F = L / cosAlpha * (n - (sinAlpha / V) * flow);
+      assert(F.EuclidNorm().ApproxEquals(L));
+      return std::make_tuple(F, M, cL);
     }
     else
     if (M > 1.2)
@@ -155,62 +153,66 @@ namespace SpaceBallistics
       // of an oblique shock weak wave we have a detached strong shock wave  in
       // front of the Plate. So check for the method applicability:
       //
-      if (f(xL) < 0.0 && f(xR) > 0.0)
-      {
-        // OK, perform a simple dichotomic search for the solution:
-        double x = Dichotomy(f, xL, xR, DefaultTol<double>);
+      assert(f(xL) < 0.0 && f(xR) > 0.0);
 
-        // x = tan(beta), where "beta" is the obliquity of the shock wave:
-        double sinBeta  = x / SqRt(Sqr(x) + 1.0);
-        double Mn2      = Sqr(M * sinBeta);
+      // OK, perform a simple dichotomic search for the solution:
+      double x = Dichotomy(f, xL, xR, DefaultTol<double>);
 
-        // The pressure ratio underneath the Plate. NB: We normally have Mn2 > 1
-        // and p21 > 1, but this is not so in some margin cases:
-        double p21      = 1.0 +  2.0 * a_gamma / (a_gamma + 1.0) * (Mn2 - 1.0);
+      // x = tan(beta), where "beta" is the obliquity of the shock wave:
+      double sinBeta  = x / SqRt(Sqr(x) + 1.0);
+      double Mn2      = Sqr(M * sinBeta);
 
-        // Now the Prandtl-Meyer Expansion Flow above the Plate:
-        double e        = SqRt((a_gamma + 1.0) / (a_gamma - 1.0));
-        auto   nu       =
-          [e](double a_M) -> double
-          {
-            assert(a_M > 1.0);
-            double sM  = SqRt(Sqr(a_M) - 1.0);
-            return e   * ATan(sM  / e) - ATan(sM);
-          };
-        // nu(1) = 0, nu(M > 1) is a monotonically-increasing function.
-        // Solve the equation nu(Mup) = nu(M) + alpha, so Mup > Mu:
-        // Say M=5 is a reasonable upper bound for the Dichotomic search,
-        // since above that, we would have a HyperSonic flow anyway, and
-        // this model would not be applicable. But to be on a safe side,
-        // set M=10 as the upper bound for the root search:
-        //
-        double z   = nu(M)  +  double(alpha);
-        auto   nu0 = [z, &nu] (double a_M) -> double { return nu(a_M) - z; };
-        double Mup = Dichotomy(nu0, M, 10.0,  DefaultTol<double>);
-        assert(Mup > M);
+      // The pressure ratio underneath the Plate. NB: We normally have Mn2 > 1
+      // and p21 > 1, but this is not so in some margin cases:
+      double p21      = 1.0 +  2.0 * a_gamma / (a_gamma + 1.0) * (Mn2 - 1.0);
 
-        // And then the pressure ratio above the Plate:
-        double g1  = (a_gamma - 1.0) / 2.0;
-        double gp  =  a_gamma / (a_gamma - 1.0);
-        double p31 = std::pow((1.0 + g1 * M2) / (1.0 + g1 * Sqr(Mup)), gp);
-        assert(p31 < 1.0);
+      // Now the Prandtl-Meyer Expansion Flow above the Plate:
+      double e        = SqRt((a_gamma + 1.0) / (a_gamma - 1.0));
+      auto   nu       =
+        [e](double a_M) -> double
+        {
+          assert(a_M > 1.0);
+          double sM  = SqRt(Sqr(a_M) - 1.0);
+          return e   * ATan(sM  / e) - ATan(sM);
+        };
+      // nu(1) = 0, nu(M > 1) is a monotonically-increasing function.
+      // Solve the equation nu(Mup) = nu(M) + alpha, so Mup > Mu:
+      // Say M=5 is a reasonable upper bound for the Dichotomic search,
+      // since above that, we would have a HyperSonic flow anyway, and
+      // this model would not be applicable. But to be on a safe side,
+      // set M=10 as the upper bound for the root search:
+      //
+      double z   = nu(M)  +  double(alpha);
+      auto   nu0 = [z, &nu] (double a_M) -> double { return nu(a_M) - z; };
+      double Mup = Dichotomy(nu0, M, 10.0,  DefaultTol<double>);
+      assert(Mup > M);
 
-        // Finally, the total aerodynamic force (in the direction of "n"). It
-        // should normally be positive in that direction:
-        assert(p31 < p21);
-        Force  T   = (p21 - p31) * a_p * a_S;
+      // And then the pressure ratio above the Plate:
+      double g1  = (a_gamma - 1.0) / 2.0;
+      double gp  =  a_gamma / (a_gamma - 1.0);
+      double p31 = std::pow((1.0 + g1 * M2) / (1.0 + g1 * Sqr(Mup)), gp);
+      assert(p31 < 1.0);
 
-        // The effective TotalCoeff:
-        double cR  = double(T / (a_rho * Sqr(V) / 2.0 * a_S));
-        return std::make_tuple(T * n, M, cR);
-      }
-      // Otherwise, fall through to the TranSonic mode...
+      // Finally, the total aerodynamic force (in the direction of "n"). It
+      // should normally be positive in that direction:
+      assert(p31 < p21);
+      Force  T   = (p21 - p31) * a_p * a_S;
+
+      // The effective TotalCoeff:
+      double cR  = double(T / (a_rho * Sqr(V) / 2.0 * a_S));
+      return std::make_tuple(T * n, M, cR);
     }
-    //-----------------------------------------------------------------------//
-    // If we got here: TranSonic Flow:                                       //
-    //-----------------------------------------------------------------------//
-    // FIXME: TODO:
-    return std::make_tuple(ForceV<COS>(), M, 0.0);
+    else
+    {
+      //---------------------------------------------------------------------//
+      // If we got here: TranSonic Flow:                                     //
+      //---------------------------------------------------------------------//
+      // XXX: There is no easy-to-apply theory in this case. We will simply
+      // provide a polynomial approximation, matching the h
+      //
+      return std::make_tuple(ForceV<COS>(), M, 0.0);
+    }
+    __builtin_unreachable();
   }
 }
 // End namespace SpaceBallistics

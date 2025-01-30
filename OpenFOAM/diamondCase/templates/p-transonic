@@ -1,0 +1,29 @@
+// vim:syntax=cpp:ts=2:et
+#include "VarArgs"
+//===========================================================================//
+dimensions      [1 -1 -2 0 0 0 0];
+internalField   uniform __p0__;
+
+boundaryField
+{
+  InLet
+  {
+    type        fixedValue;
+    value       uniform __p0__;
+  }
+
+  OutLet
+  {
+    type        waveTransmissive;
+    gamma       1.4;
+    psi         thermo:psi;
+    // NB: "lInf" should (empirically) be set to about 10% of our Chord:
+    lInf        0.1;
+    fieldInf    __p0__;
+  }
+
+  DiamondWall
+  {
+    type        zeroGradient;
+  }
+}

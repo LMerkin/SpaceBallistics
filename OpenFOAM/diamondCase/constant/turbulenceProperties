@@ -1,0 +1,24 @@
+// vim:syntax=cpp:ts=2:et
+//
+simulationType  RASModel;
+
+RAS
+{
+  RASModel      kOmegaSST;   // Turbulence model; alt: SpalartAllmaras
+  turbulence    on;
+  printCoeffs   on;
+
+  // XXX: IMPORTANT:
+  // For RASModel=kOmegaSST, we need the following initial conditions:
+  // 0/U        Velicity Field
+  // 0/p        Static Pressure Field
+  // 0/T        Temperatire Field (since the flow is compressible!)
+  // 0/phi      Flux Field (usually "calculated")
+  // 0/nut      Turbulent Kinematic Viscosity
+  // 0/k        Turbulent Kinetic Energy
+  // 0/omega    Specific Turbulence Dissipation Rate
+  //
+  // And for RASModel=SpalartAllmaras, the following extra init conds are
+  // required:
+  // 0/nuTilda
+}

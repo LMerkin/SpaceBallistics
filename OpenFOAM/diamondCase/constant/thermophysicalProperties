@@ -1,0 +1,44 @@
+// vim:syntax=cpp:ts=2:et
+//===========================================================================//
+thermoType
+{
+  type            hePsiThermo;
+  mixture         pureMixture;
+  transport       const;
+  thermo          hPsi;
+  equationOfState perfectGas;
+  specie          specie;
+  energy          sensibleInternalEnergy;
+}
+
+mixture
+{
+  specie
+  {
+    molWeight   28.97;
+  }
+
+  thermodynamics
+  {
+    // Air Specific Heat Capacity at Constant Pressure:
+    Cp          1005;
+
+    // XXX: Hf is not needed (only used in combustion cases):
+    Hf          0;
+  }
+
+  transport
+  {
+    // XXX: This value must be consistent with that in
+    // "constant/transportProperties":
+    mu          1.85e-5;
+
+    // Prandtl number (for 300k!)
+    Pr          0.72;
+  }
+
+  equationOfState
+  {
+    R           287.0528;
+  }
+}

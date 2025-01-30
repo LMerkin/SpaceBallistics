@@ -23,7 +23,9 @@ int main(int argc, char* argv[])
     return 1;
   }
   Angle alpha = To_Angle(Angle_deg(atof(argv[1])));
-  DimLessV<ECOS>        n { TT(), Sin(alpha), Cos(alpha), 0.0  };
+  double sinAlpha = Sin(alpha);
+  double cosAlpha = Cos(alpha);
+  DimLessV<ECOS>        n { TT(), sinAlpha, cosAlpha, 0.0  };
 
   // Assume there is no wind:
   constexpr VelV<ECOS> w { TT(), Vel(0.0), Vel(0.0), Vel(0.0) };
@@ -36,19 +38,24 @@ int main(int argc, char* argv[])
     VelV<ECOS>  v { TT(), -Vx,  Vel(0.0), Vel(0.0) };
     auto   [F, M, cR] =
       PlateAeroDyn(v, w, n, EAM::P0, EAM::Rho0, EAM::GammaAir, S);
+    Force  R          =  F.EuclidNorm();
     double M2         =  Sqr(M);
+
+    // Get the List and Drag coeffs from "cR":
+    double cL         =  IsZero(R) ? 0.0 : cR * double(F.y() / R);
+    double cD         =  IsZero(R) ? 0.0 : cR * double(F.x() / R);
 
     // And the approximate "cR" from a linearised model, for small "alpha",
     // in the supersonic case only:
-    double cRappr     =
-      (M > 1.4)
-      ? 4.0 * double(alpha) * SqRt((1.0 + Sqr(double(alpha))) / (M2 - 1.0))
-      : cR;
+    double cLappr     = (M > 1.4) ? double(alpha) * 4.0 / SqRt(M2 - 1.0) : cL;
+    double cDappr     = (M > 1.4) ? double(alpha) * cLappr               : cD;
 
-    cout << M << '\t'   << cR      << '\t'  << cRappr << '\t'
-         << F.x().Magnitude() / M2 << '\t'
-         << F.y().Magnitude() / M2 << '\t'
-         << F.z().Magnitude() / M2 << endl;
+    cout << M      << '\t' << cR     << '\t'
+         << cL     << '\t' << cD     << '\t'
+         << cLappr << '\t' << cDappr << '\t'
+         << F.x().Magnitude() / M2   << '\t'
+         << F.y().Magnitude() / M2   << '\t'
+         << F.z().Magnitude() / M2   << endl;
   }
   return 0;
 }

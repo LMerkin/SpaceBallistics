@@ -1,0 +1,9 @@
+// vim:syntax=cpp:ts=2:et
+__Uoo__       10;
+__UooX__      10;
+__cosAlpha__  1;
+__sinAlpha__  0;
+__UooY__      0;
+__T0__        300;
+__p0__        101325;
+__rho0_       1.225;

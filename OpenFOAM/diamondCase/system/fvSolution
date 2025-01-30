@@ -1,0 +1,69 @@
+// vim:syntax=cpp:ts=2:et
+/*--------------------------------*- C++ -*----------------------------------*\
+|      OpenFOAM: The Open Source CFD Toolbox                                  |
+|      Website:  https://www.openfoam.com                                      |
+\*---------------------------------------------------------------------------*/
+#include "VarParams"
+
+solvers
+{
+  "p"
+  {
+    solver          GAMG;
+    tolerance       1e-6;
+    relTol          0.1;
+    smoother        GaussSeidel;
+    nPreSweeps      0;
+    nPostSweeps     2;
+  }
+
+  "U"
+  {
+    solver          PBiCG;
+    preconditioner  DIC;
+    tolerance       1e-6;
+    relTol          0.1;
+  }
+
+  "k"
+  {
+    solver          PBiCG;
+    preconditioner  DIC;
+    tolerance       1e-6;
+    relTol          0.1;
+  }
+
+  "omega"
+  {
+    solver          PBiCG;
+    preconditioner  DIC;
+    tolerance       1e-6;
+    relTol          0.1;
+  }
+}
+
+SIMPLE
+{
+  nOuterCorrectors 1;
+  nCorrectors       1;
+  nNonOrthogonalCorrectors 0;
+  residualControl
+  {
+    p   1e-4;
+    U   1e-4;
+    k   1e-4;
+    omega   1e-4;
+  }
+}
+
+pressureCorrection
+{
+  pRefCell         0;
+  pRefValue        __p0__;
+}
+
+PISO
+{
+  nOuterCorrectors 3;
+  nCorrectors      2;
+}

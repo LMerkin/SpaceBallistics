@@ -1,0 +1,29 @@
+// vim:syntax=cpp:ts=2:et
+#include "VarArgs"
+//===========================================================================//
+dimensions      [1 -1 -2 0 0 0 0];
+
+internalField   uniform __p0__;
+
+boundaryField
+{
+  InLet
+  {
+    type        fixedValue;
+    value       uniform __p0__;
+  }
+
+  OutLet
+  {
+    // XXX: Here we can use either "zeroGradient" or "fixedValue"; use the
+    // latter for the moment:
+    type        fixedValue;
+    value       uniform __p0__;
+  }
+
+  DiamondWall
+  {
+    type        zeroGradient;
+  }
+}
+//===========================================================================//

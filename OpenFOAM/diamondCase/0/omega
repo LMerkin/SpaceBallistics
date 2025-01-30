@@ -1,0 +1,27 @@
+// vim:syntax=cpp:ts=2:et
+//
+dimensions      [0 0 -1 0 0 0 0];
+
+// XXX: "omega" is related to turbulence properties; the value of 28.7 is
+// approximate:
+internalField   uniform 28.7;
+
+boundaryField
+{
+  InLet
+  {
+    type        fixedValue;
+    value       uniform 28.7;
+  }
+
+  OutLet
+  {
+    type        zeroGradient;
+  }
+
+  DiamondWall
+  {
+    type        omegaWallFunction;  // Required for walls
+    value       uniform 28.7;
+  }
+}

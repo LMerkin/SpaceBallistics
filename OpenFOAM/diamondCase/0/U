@@ -1,0 +1,34 @@
+// vim:syntax=cpp:ts=2:et
+//===========================================================================//
+#include      "VarParams"
+
+dimensions    [0 1 -1 0 0 0 0];
+
+// NB: "internalField" is not much important for steady-state simulations;
+// it is recommended to set it to the same values as the "InLet":
+//
+internalField uniform (__UooX__ __UooY__ 0)
+
+boundaryField
+{
+  InLet
+  {
+    type      fixedValue;
+    value     uniform (__UooX__ __UooY__ 0);
+  }
+
+  OutLet
+  {
+    // NB: For "U", "zeroGradient" should work in all regimes:
+    type      zeroGradient;
+  }
+
+  DiamiondWall
+  {
+    // NB: For inviscous flow, the boundary condition must be "slip" (which
+    // allows for non-0 tangential velocities, rather "fixedValue 0" (which
+    // would imply a viscous boundary layer):
+    type      slip;
+  }
+}
+//===========================================================================//

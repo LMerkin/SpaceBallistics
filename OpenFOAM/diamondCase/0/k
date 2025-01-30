@@ -1,0 +1,24 @@
+// vim:syntax=cpp:ts=2:et
+//
+dimensions      [0 2 -2 0 0 0 0];
+
+internalField   uniform 0.375;
+
+boundaryField
+{
+  InLet
+  {
+    type        fixedValue;
+    value       uniform 0.375;
+  }
+
+  OutLet
+  {
+    type        zeroGradient;
+  }
+
+	DiamondWall
+  {
+    type        zeroGradient;
+  }
+}
