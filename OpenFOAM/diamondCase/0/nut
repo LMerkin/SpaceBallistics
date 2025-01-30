@@ -22,4 +22,9 @@ boundaryField
     type fixedValue;
     value uniform 0;
   }
+
+  BackAndFront
+  {
+    type        empty;
+  }
 }

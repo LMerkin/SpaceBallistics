@@ -2,15 +2,16 @@
 /*--------------------------------*- C++ -*----------------------------------*\
 | Force coefficients file for calculating drag, lift, and moment              |
 \*---------------------------------------------------------------------------*/
-foamFile
+FoamFile
 {
   version   2.0;
   format    ascii;
+  arch      "LSB;label=32;scalar=64";
   class     dictionary;
   location  "system";
   object    forceCoeffs;
 }
-#include "VarParams"
+#include "../VarParams"
 
 //===========================================================================//
 forces

@@ -11,7 +11,7 @@ foamFile
   object    transportProperties;
 }
 
-#include "VarParams"
+#include "../VarParams"
 
 thermophysicalModel  idealGas;  // The thermophysical model (ideal gas for air)
 transportModel       Newtonian; // The viscosity model (for compressible flow)

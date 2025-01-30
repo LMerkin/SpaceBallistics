@@ -1,5 +1,5 @@
 // vim:syntax=cpp:ts=2:et
-#include "VarArgs"
+#include "../VarArgs"
 //===========================================================================//
 dimensions      [1 -1 -2 0 0 0 0];
 
@@ -24,6 +24,11 @@ boundaryField
   DiamondWall
   {
     type        zeroGradient;
+  }
+
+  BackAndFront
+  {
+    type        empty;
   }
 }
 //===========================================================================//

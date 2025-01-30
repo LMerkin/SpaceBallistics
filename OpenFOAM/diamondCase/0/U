@@ -1,6 +1,6 @@
 // vim:syntax=cpp:ts=2:et
 //===========================================================================//
-#include      "VarParams"
+#include      "../VarParams"
 
 dimensions    [0 1 -1 0 0 0 0];
 
@@ -29,6 +29,11 @@ boundaryField
     // allows for non-0 tangential velocities, rather "fixedValue 0" (which
     // would imply a viscous boundary layer):
     type      slip;
+  }
+
+  BackAndFront
+  {
+    type        empty;
   }
 }
 //===========================================================================//

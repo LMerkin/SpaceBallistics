@@ -1,5 +1,5 @@
 // vim:syntax=cpp:ts=2:et
-#include "VarParams"
+#include "../VarParams"
 //===========================================================================//
 dimensions      [0 0 0 1 0 0 0];
 
@@ -24,6 +24,11 @@ boundaryField
     // XXX: Since there is no flow normal to the Wall, we can assume that
     // there is no (normal) "T" gradient either:
     type        zeroGradient;
+  }
+
+  BackAndFront
+  {
+    type        empty;
   }
 }
 //===========================================================================//

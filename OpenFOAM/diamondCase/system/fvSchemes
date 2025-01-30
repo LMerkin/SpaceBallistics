@@ -6,15 +6,16 @@
 |   \\  /    A nd           | Web:      www.openfoam.com                      |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
-foamFile
+FoamFile
 {
     version     2.0;
     format      ascii;
+		arch        "LSB;label=32;scalar=64";
     class       dictionary;
     location    "system";
     object      fvSchemes;
 }
-
+//===========================================================================//
 // Time schemes:
 ddtSchemes
 {
@@ -62,7 +63,7 @@ interpolationSchemes
 snGradSchemes
 {
     // XXX: The following is more stable in case of shock waves:
-    default         limitedLinear 1
+    default         limitedLinear 1;
 }
 
 // Wall distance calculation:
@@ -71,4 +72,3 @@ wallDist
     method          meshWave;
 }
 //===========================================================================//
-

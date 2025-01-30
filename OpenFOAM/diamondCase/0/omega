@@ -24,4 +24,9 @@ boundaryField
     type        omegaWallFunction;  // Required for walls
     value       uniform 28.7;
   }
+
+  BackAndFront
+  {
+    type        empty;
+  }
 }

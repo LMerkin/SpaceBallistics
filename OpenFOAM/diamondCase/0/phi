@@ -23,4 +23,9 @@ boundaryField
     type        calculated;
     value       uniform 0;
   }
+
+  BackAndFront
+  {
+    type        empty;
+  }
 }

@@ -21,4 +21,9 @@ boundaryField
   {
     type        zeroGradient;
   }
+
+  BackAndFront
+  {
+    type        empty;
+  }
 }
