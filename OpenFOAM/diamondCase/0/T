@@ -1,34 +1,50 @@
 // vim:syntax=cpp:ts=2:et
-#include "../VarParams"
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2412                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+  version       2.0;
+  format        ascii;
+  arch          "LSB;label=32;scalar=64";
+  class         volScalarField;
+  location      "0";
+  object        T;
+}
 //===========================================================================//
+#include "../VarParams"
+
 dimensions      [0 0 0 1 0 0 0];
 
-internalField   uniform __T0__;
+internalField   uniform $__T0__;
 
 boundaryField
 {
-  InLet
+  inLet
   {
     type        fixedValue;
-    value       uniform __T0__;
+    value       uniform $__T0__;
   }
 
-  OutLet
+  outLet
   {
     // "zeroGradient" for "T" is OK for all regimes:
     type        zeroGradient;
   }
 
-  DiamondWall
+  diamondWall
   {
     // XXX: Since there is no flow normal to the Wall, we can assume that
     // there is no (normal) "T" gradient either:
     type        zeroGradient;
   }
 
-  BackAndFront
+  backAndFront
   {
     type        empty;
   }
 }
-//===========================================================================//

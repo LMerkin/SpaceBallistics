@@ -1,24 +1,47 @@
 // vim:syntax=cpp:ts=2:et
-#include "../VarArgs"
-//===========================================================================//
-dimensions      [1 -1 -2 0 0 0 0];
-internalField   uniform __p0__;
-boundaryField
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2412                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
 {
-  InLet
-  {
-    type        fixedValue;
-    value       uniform __p0__;
-  }
-
-  OutLet
-  {
-    type        zeroGradient;
-  }
-
-  DiamondWall
-  {
-    type        zeroGradient;
-  }
+  version       2.0;
+  format        ascii;
+  arch          "LSB;label=32;scalar=64";
+  class         dictionary;
+  location      "0";
+  object        p;
 }
 //===========================================================================//
+#include        "../VarParams"
+
+dimensions      [1 -1 -2 0 0 0 0];
+
+internalField   uniform $__p0__;
+
+boundaryField
+{
+  inLet
+  {
+    type        fixedValue;
+    value       uniform $__p0__;
+  }
+
+  outLet
+  {
+    type        zeroGradient;
+  }
+
+  diamondWall
+  {
+    type        zeroGradient;
+  }
+
+  backAndFront
+  {
+    type        empty;
+  }
+}

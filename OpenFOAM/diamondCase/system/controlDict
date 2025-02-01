@@ -8,19 +8,19 @@
 \\*--------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
-    format      ascii;
-    arch        "LSB;label=32;scalar=64";
-    class       dictionary;
-    location    "system";
-    object      controlDict;
+  version       2.0;
+  format        ascii;
+  arch          "LSB;label=32;scalar=64";
+  class         dictionary;
+  location      "system";
+  object        controlDict;
 }
 //===========================================================================//
 application     rhoSimpleFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         1000;       // For convergence ctl only; adjust if necessary
+endTime         5000;       // For convergence ctl only; adjust if necessary
 deltaT          1;          // Must be > 0, but the act value does not matter?
 writeControl    timeStep;
 writeInterval   100;
@@ -34,4 +34,3 @@ runTimeModifiable false;    // No need to reload the files at run time
 adjustTimeStep  no;
 maxCo           0.5;        // Stability/ConvSpeed ctl: Co=(U+a)*dt/dx
 maxDeltaT       1;          // Maximum allowed deltaT
-//===========================================================================//

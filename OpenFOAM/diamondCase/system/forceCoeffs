@@ -11,15 +11,15 @@ FoamFile
   location  "system";
   object    forceCoeffs;
 }
+//===========================================================================//
 #include "../VarParams"
 
-//===========================================================================//
 forces
 {
   type            forceCoeffs;
   functionObjectLibs ("libforces.so");
 
-  patches         (DiamondWall);
+  patches         (diamondWall);
 
   // Lift direction (normal to the AirFlow, eg in y-direction):
   liftDir         (0 1 0);
@@ -33,7 +33,7 @@ forces
 
   // Air density at reference conditions (kg/m3), adjust as needed.
   // XXX: other air properties are in constant/transportProperties:
-  rhoInf          __rho0__;
+  rhoInf          $__rho0__;
 
   // Center of rotation, typically at the object's center:
   CofR            (5 3 0.5);
@@ -54,7 +54,7 @@ forces
 
   // Params for determining the Lift and Drag coefficients:
   // XXX: "magUInf" must be consistent with the values given in "0/U":
-  magUInf         __Uoo__;
+  magUInf         $__Uoo__;
 
   // XXX: "Aref" is the Characteristic Area, used in the Lift and Drag coeffs
   // computation. We neglect the Y-thickness of the Diamond, and provide the
@@ -67,4 +67,3 @@ forces
   // the geometry specified in "constant/polyMesh/blockMeshDict":
   lRef            1;
 }
-//===========================================================================//

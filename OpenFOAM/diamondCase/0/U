@@ -1,29 +1,47 @@
 // vim:syntax=cpp:ts=2:et
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2412                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+  version     2.0;
+  format      ascii;
+  arch        "LSB;label=32;scalar=64";
+  class       volVectorField;
+  location    "0";
+  object      T;
+}
 //===========================================================================//
 #include      "../VarParams"
 
 dimensions    [0 1 -1 0 0 0 0];
 
 // NB: "internalField" is not much important for steady-state simulations;
-// it is recommended to set it to the same values as the "InLet":
+// it is recommended to set it to the same values as the "inLet":
 //
-internalField uniform (__UooX__ __UooY__ 0)
+internalField uniform ($__UooX__ $__UooY__ 0);
 
 boundaryField
 {
-  InLet
+  inLet
   {
-    type      fixedValue;
-    value     uniform (__UooX__ __UooY__ 0);
+    type      pressureInletOutletVelocity;
+    psi       thermo;
+    gamma     1.4;
+    value     uniform ($__UooX__ $__UooY__ 0);
   }
 
-  OutLet
+  outLet
   {
     // NB: For "U", "zeroGradient" should work in all regimes:
     type      zeroGradient;
   }
 
-  DiamiondWall
+  diamondWall
   {
     // NB: For inviscous flow, the boundary condition must be "slip" (which
     // allows for non-0 tangential velocities, rather "fixedValue 0" (which
@@ -31,9 +49,8 @@ boundaryField
     type      slip;
   }
 
-  BackAndFront
+  backAndFront
   {
-    type        empty;
+    type      empty;
   }
 }
-//===========================================================================//

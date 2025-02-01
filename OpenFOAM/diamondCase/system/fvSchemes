@@ -8,12 +8,12 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
-    format      ascii;
-		arch        "LSB;label=32;scalar=64";
-    class       dictionary;
-    location    "system";
-    object      fvSchemes;
+  version     2.0;
+  format      ascii;
+  arch        "LSB;label=32;scalar=64";
+  class       dictionary;
+  location    "system";
+  object      fvSchemes;
 }
 //===========================================================================//
 // Time schemes:
@@ -27,30 +27,29 @@ ddtSchemes
 gradSchemes
 {
     default         Gauss linear;
+    grad(p)         leastSquares;
 }
 
 // Divergence schemes:
 divSchemes
 {
     default         none;
-
-    div(phi,U)      Gauss linearUpwind grad(U);
-    div(phi,k)      Gauss upwind;
+    div(phi,U)      Gauss limitedLinearV 1; // Or "Gauss upwind"???
     div(phi,alpha)  Gauss upwind;          // Convective term for other scalars
     div(phi,k)      Gauss upwind;          // Turbulent kinetic energy
     div(phi,omega)  Gauss upwind;          // Turbulent dissipation
-    div(phi,e)      Gauss upwind;          // Energy equation
-    div(phi,omega)  Gauss upwind;
+    div(phi,K)      Gauss upwind;
+    div(phi,h)      Gauss upwind;
 
     // Viscous stress term (since we model the turbulence effects):
-    div((muEff*dev(T(grad(U))))) Gauss linear;
+    div((muEff*dev(T(grad(U)))))        Gauss linear;
+    div(((rho*nuEff)*dev2(T(grad(U))))) Gauss linear;
 }
 
 // Laplacian schemes:
 laplacianSchemes
 {
-    default                Gauss linear corrected;
-    laplacian(nuTilda,U)   Gauss linear;
+    default         Gauss linear corrected;
 }
 
 // Interpolation schemes:
@@ -71,4 +70,3 @@ wallDist
 {
     method          meshWave;
 }
-//===========================================================================//

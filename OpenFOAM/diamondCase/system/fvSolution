@@ -8,12 +8,12 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
-    format      ascii;
-    arch        "LSB;label=32;scalar=64";
-    class       dictionary;
-    location    "system";
-    object      fvSolution;
+  version     2.0;
+  format      ascii;
+  arch        "LSB;label=32;scalar=64";
+  class       dictionary;
+  location    "system";
+  object      fvSolution;
 }
 //===========================================================================//
 #include "../VarParams"
@@ -23,60 +23,78 @@ solvers
   "p"
   {
     solver          GAMG;
-    tolerance       1e-6;
-    relTol          0.1;
+    tolerance       1e-8;
+    relTol          1e-6;
     smoother        GaussSeidel;
-    nPreSweeps      0;
+    nPreSweeps      1;
     nPostSweeps     2;
   }
 
   "U"
   {
     solver          PBiCG;
-    preconditioner  DIC;
-    tolerance       1e-6;
-    relTol          0.1;
+    preconditioner  DILU;
+    tolerance       1e-8;
+    relTol          1e-6;
   }
 
   "k"
   {
     solver          PBiCG;
-    preconditioner  DIC;
-    tolerance       1e-6;
-    relTol          0.1;
+    preconditioner  DILU;
+    tolerance       1e-8;
+    relTol          1e-6;
   }
 
   "omega"
   {
     solver          PBiCG;
-    preconditioner  DIC;
-    tolerance       1e-6;
-    relTol          0.1;
+    preconditioner  DILU;
+    tolerance       1e-8;
+    relTol          1e-6;
+  }
+
+  "h"
+  {
+    solver          PBiCG;
+    preconditioner  DILU;
+    tolerance       1e-8;
+    relTol          1e-6;
   }
 }
 
 SIMPLE
 {
-  nOuterCorrectors 1;
-  nCorrectors       1;
-  nNonOrthogonalCorrectors 0;
+  nOuterCorrectors  3;
+  nCorrectors       3;
+  nNonOrthogonalCorrectors 3;
+  pMin              100;
+  pMax              1e7;
+
   residualControl
   {
-    p   1e-4;
-    U   1e-4;
-    k   1e-4;
-    omega   1e-4;
+    p     5e-3;
+    U     5e-3;
+    k     5e-3;
+    omega 5e-3;
+    h     5e-3;
   }
 }
 
-pressureCorrection
+relaxationFactors
 {
-  pRefCell         0;
-  pRefValue        __p0__;
-}
+  fields
+  {
+    T       0.3;
+    p       0.3;
+    rho     0.001;
+  }
 
-PISO
-{
-  nOuterCorrectors 3;
-  nCorrectors      2;
+  equations
+  {
+    U       0.3;
+    h       0.3;
+    k       0.3;
+    omega   0.3;
+  }
 }

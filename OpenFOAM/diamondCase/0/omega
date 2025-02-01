@@ -1,5 +1,21 @@
 // vim:syntax=cpp:ts=2:et
-//
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2412                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+  version       2.0;
+  format        ascii;
+  arch          "LSB;label=32;scalar=64";
+  class         volScalarField;
+  location      "0";
+  object        omega;
+}
+//===========================================================================//
 dimensions      [0 0 -1 0 0 0 0];
 
 // XXX: "omega" is related to turbulence properties; the value of 28.7 is
@@ -8,24 +24,24 @@ internalField   uniform 28.7;
 
 boundaryField
 {
-  InLet
+  inLet
   {
     type        fixedValue;
     value       uniform 28.7;
   }
 
-  OutLet
+  outLet
   {
     type        zeroGradient;
   }
 
-  DiamondWall
+  diamondWall
   {
     type        omegaWallFunction;  // Required for walls
     value       uniform 28.7;
   }
 
-  BackAndFront
+  backAndFront
   {
     type        empty;
   }

@@ -1,14 +1,32 @@
 // vim:syntax=cpp:ts=2:et
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2412                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+  version   2.0;
+  format    ascii;
+  arch      "LSB;label=32;scalar=64";
+  class     dictionary;
+  location  "constant";
+  object    thermophysicalProperties;
+}
 //===========================================================================//
+#include "../VarParams"
+
 thermoType
 {
   type            hePsiThermo;
   mixture         pureMixture;
-  transport       const;
-  thermo          hPsi;
+  transport       sutherland;
+  thermo          hConst;
   equationOfState perfectGas;
   specie          specie;
-  energy          sensibleInternalEnergy;
+  energy          sensibleEnthalpy;
 }
 
 mixture
@@ -29,12 +47,12 @@ mixture
 
   transport
   {
-    // XXX: This value must be consistent with that in
-    // "constant/transportProperties":
-    mu          1.85e-5;
-
     // Prandtl number (for 300k!)
-    Pr          0.72;
+    Pr          $__Pr__;
+
+    // "As", "Ts" are Sutherland constants:
+    As          1.458e-6;
+    Ts          110.4;
   }
 
   equationOfState
