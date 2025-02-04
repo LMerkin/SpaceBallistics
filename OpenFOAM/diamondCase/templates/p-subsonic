@@ -33,8 +33,9 @@ boundaryField
   outLet
   {
     // XXX: Here we can use either "zeroGradient" or "fixedValue"; use the
-    // former for the moment:
-    type        zeroGradient;
+    // latter for the moment:
+    type        fxiedValue;
+    value       uniform $__p0__;
   }
 
   diamondWall

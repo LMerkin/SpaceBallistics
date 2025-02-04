@@ -16,7 +16,7 @@ FoamFile
   object    thermophysicalProperties;
 }
 //===========================================================================//
-#include "../VarParams"
+#include    "../VarParams"
 
 thermoType
 {
@@ -39,7 +39,8 @@ mixture
   thermodynamics
   {
     // Air Specific Heat Capacity at Constant Pressure:
-    Cp          1005;
+    // Cp = R * gamma / (gamma - 1):
+    Cp          1004.6848
 
     // XXX: Hf is not needed (only used in combustion cases):
     Hf          0;
@@ -47,10 +48,10 @@ mixture
 
   transport
   {
-    // Prandtl number (for 300k!)
+    // Prandtl number:
     Pr          $__Pr__;
 
-    // "As", "Ts" are Sutherland constants:
+    // "As", "Ts" are the Sutherland constants:
     As          1.458e-6;
     Ts          110.4;
   }

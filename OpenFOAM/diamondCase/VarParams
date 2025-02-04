@@ -1,8 +1,13 @@
 // vim:syntax=cpp:ts=2:et
-__Uoo__       350;
-__UooX__      350;
-__UooY__      0;
-__T0__        300;
+#include      "AU"
+// Environmental consts (may depend on the altitude):
 __p0__        101325;
-__rho0_       1.225;
+__rho0__      1.225;
+__T0__        288.15;
 __Pr__        0.9;
+// Derived values:
+__alpha__     #eval{ $__alphaDeg__ / 57.2957795131};
+__cosAlpha__  #eval{ cos($__alpha__)};
+__sinAlpha__  #eval{ sin($__alpha__)};
+__UooX__      #eval{ $__Uoo__ * $__cosAlpha__};
+__UooY__      #eval{ $__Uoo__ * $__sinAlpha__};
