@@ -18,12 +18,17 @@ FoamFile
 //===========================================================================//
 #include "../VarParams"
 
-simulationType  RAS;         // XXX: Alt.: laminar
+simulationType  RAS;
+// Alt.:        laminar
 
 RAS
 {
-  RASModel      kOmegaSST;   // Turbulence model; XXX: alt: SpalartAllmaras
+  // Turbulence model:
+  RASModel      kOmegaSST;
+  // Alt:       SpalartAllmaras
   turbulence    on;
+  // Alt:       off
+
   printCoeffs   on;
   Pr            $__Pr__;
   Prt           0.9;

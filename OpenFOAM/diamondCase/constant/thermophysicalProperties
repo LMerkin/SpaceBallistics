@@ -23,6 +23,7 @@ thermoType
   type            hePsiThermo;
   mixture         pureMixture;
   transport       sutherland;
+  // Alt:         const;
   thermo          hConst;
   equationOfState perfectGas;
   specie          specie;
@@ -40,7 +41,7 @@ mixture
   {
     // Air Specific Heat Capacity at Constant Pressure:
     // Cp = R * gamma / (gamma - 1):
-    Cp          1004.6848
+    Cp          1004.6848;
 
     // XXX: Hf is not needed (only used in combustion cases):
     Hf          0;
@@ -51,7 +52,8 @@ mixture
     // Prandtl number:
     Pr          $__Pr__;
 
-    // "As", "Ts" are the Sutherland constants:
+    // "As", "Ts" are the Sutherland constants
+    // (if thermoType.transport == sutherland):
     As          1.458e-6;
     Ts          110.4;
   }

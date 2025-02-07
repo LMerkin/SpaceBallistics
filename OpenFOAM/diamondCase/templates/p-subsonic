@@ -34,7 +34,7 @@ boundaryField
   {
     // XXX: Here we can use either "zeroGradient" or "fixedValue"; use the
     // latter for the moment:
-    type        fxiedValue;
+    type        fixedValue;
     value       uniform $__p0__;
   }
 

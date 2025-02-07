@@ -26,7 +26,8 @@ boundaryField
 {
   inLet
   {
-    type        zeroGradient
+    // XXX: "fixedValue" may be OK as well:
+    type        zeroGradient;
   }
 
   outLet

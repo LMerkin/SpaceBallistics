@@ -16,7 +16,7 @@ FoamFile
   object      fvSolution;
 }
 //===========================================================================//
-#include "../VarParams"
+#include      "../VarParams"
 
 solvers
 {
@@ -28,6 +28,7 @@ solvers
     smoother        GaussSeidel;
     nPreSweeps      1;
     nPostSweeps     2;
+    minIter         3;
   }
 
   "U"
@@ -36,6 +37,7 @@ solvers
     preconditioner  DILU;
     tolerance       1e-8;
     relTol          1e-6;
+    minIter         3;
   }
 
   "k"
@@ -44,6 +46,7 @@ solvers
     preconditioner  DILU;
     tolerance       1e-8;
     relTol          1e-6;
+    minIter         3;
   }
 
   "omega"
@@ -52,6 +55,7 @@ solvers
     preconditioner  DILU;
     tolerance       1e-8;
     relTol          1e-6;
+    minIter         3;
   }
 
   "h"
@@ -60,29 +64,45 @@ solvers
     preconditioner  DILU;
     tolerance       1e-8;
     relTol          1e-6;
+    minIter         3;
+  }
+
+  // XXX: Is this always correct?
+  "rho"
+  {
+    solver          diagonal;
   }
 }
 
 SIMPLE
 {
+  // XXX: What does it mean exactly? -- These params apparently make more harm
+  // than good...
+  // transonic      yes;
+  // consistent     yes;
+
   nOuterCorrectors  3;
   nCorrectors       3;
   nNonOrthogonalCorrectors 3;
-  pMin              100;
-  pMax              1e7;
+  pMin              1e4;
+  pMax              1e6;
+
+  // The following may be required in the SuperSonic mode:
+  #include          "pCorr"
 
   residualControl
   {
-    p     5e-3;
-    U     5e-3;
-    k     5e-3;
-    omega 5e-3;
-    h     5e-3;
+    p     1e-2;
+    U     1e-2;
+    k     1e-2;
+    omega 1e-2;
+    h     1e-2;
   }
 }
 
 relaxationFactors
 {
+  // XXX: May need to reduce them further?
   fields
   {
     T       0.3;

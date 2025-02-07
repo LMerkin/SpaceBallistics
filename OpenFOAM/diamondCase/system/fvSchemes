@@ -26,20 +26,37 @@ ddtSchemes
 // Gradient schemes:
 gradSchemes
 {
+    // Alt:         cellLimited Gauss linear 1;
     default         Gauss linear;
+
     grad(p)         leastSquares;
+    // Alt:         cellLimited Gauss linear 0.333;
+
+    grad(h)         Gauss linear;
+    // Alt:         cellLimited Gauss linear 0.333;
 }
 
 // Divergence schemes:
 divSchemes
 {
     default         none;
-    div(phi,U)      Gauss limitedLinearV 1; // Or "Gauss upwind"???
-    div(phi,alpha)  Gauss upwind;          // Convective term for other scalars
-    div(phi,k)      Gauss upwind;          // Turbulent kinetic energy
-    div(phi,omega)  Gauss upwind;          // Turbulent dissipation
+
+    div(phi,U)      Gauss limitedLinearV 1;
+    // Alt:         bounded Gauss vanLeerV 1;
+
     div(phi,K)      Gauss upwind;
+    // Alt:         bounded Gauss limitedLinear 1;
+
     div(phi,h)      Gauss upwind;
+    // Alt:         bounded Gauss limitedLinear 1;
+
+    div(phid,p)     bounded Gauss limitedLinear 1;
+    // ???
+
+    // Others:
+    div(phi,alpha)  Gauss upwind;
+    div(phi,k)      Gauss upwind;
+    div(phi,omega)  Gauss upwind;
 
     // Viscous stress term (since we model the turbulence effects):
     div((muEff*dev(T(grad(U)))))        Gauss linear;
@@ -50,6 +67,7 @@ divSchemes
 laplacianSchemes
 {
     default         Gauss linear corrected;
+    // Alt:         Gauss linear limited 1;
 }
 
 // Interpolation schemes:
@@ -62,7 +80,7 @@ interpolationSchemes
 snGradSchemes
 {
     // XXX: The following is more stable in case of shock waves:
-    default         limitedLinear 1;
+    default         limited 1;
 }
 
 // Wall distance calculation:
