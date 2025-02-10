@@ -29,9 +29,7 @@ boundaryField
 {
   inLet
   {
-    type      pressureInletOutletVelocity;
-    psi       thermo;
-    gamma     1.4;
+    type      fixedValue;
     value     uniform ($__UooX__ $__UooY__ 0);
   }
 

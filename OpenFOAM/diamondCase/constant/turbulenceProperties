@@ -16,34 +16,34 @@ FoamFile
   object        turbulenceProperties;
 }
 //===========================================================================//
-#include "../VarParams"
+simulationType  laminar;   // FOr Turbulence effects, set simulationType=RAS
 
-simulationType  RAS;
-// Alt.:        laminar
-
+/*
+#include        "../VarParams"
 RAS
 {
-  // Turbulence model:
-  RASModel      kOmegaSST;
-  // Alt:       SpalartAllmaras
+  // Turbulence Model:
+  RASModel      kOmegaSST; // Alt: SpalartAllmaras
   turbulence    on;
-  // Alt:       off
 
   printCoeffs   on;
-  Pr            $__Pr__;
+  Pr            $__Pr0__;
   Prt           0.9;
-
-  // XXX: IMPORTANT:
-  // For RASModel=kOmegaSST, we need the following initial conditions:
-  // 0/U        Velicity Field
-  // 0/p        Static Pressure Field
-  // 0/T        Temperatire Field (since the flow is compressible!)
-  // 0/phi      Flux Field (usually "calculated")
-  // 0/nut      Turbulent Kinematic Viscosity
-  // 0/k        Turbulent Kinetic Energy
-  // 0/omega    Specific Turbulence Dissipation Rate
-  //
-  // And for RASModel=SpalartAllmaras, the following extra init conds are
-  // required:
-  // 0/nuTilda
 }
+*/
+
+// XXX: IMPORTANT:
+// 0/U        Velocity Field
+// 0/p        Static Pressure Field
+// 0/T        Temperatire Field (since the flow is compressible!)
+
+// For simulationType=RAS and RAS.RASModel=kOmegaSST, the following extra
+// initial conds are required:
+// 0/phi      Flux Field (usually "calculated")
+// 0/nut      Turbulent Kinematic Viscosity
+// 0/k        Turbulent Kinetic Energy
+// 0/omega    Specific Turbulence Dissipation Rate
+//
+// And for RASModel=SpalartAllmaras, the following extra init conds are
+// required:
+// 0/nuTilda

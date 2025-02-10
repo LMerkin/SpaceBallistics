@@ -5,41 +5,40 @@
 # How manu processes to run in parallel:
 NPar=8
 
+AbsPath0=$(realpath $0)
+TopDir=$(dirname $AbsPath0)
+a=$(awk '/__a0__/{print ($2 + 0)}' $TopDir/../diamondCase/VarParams)
+
 shopt -s nullglob
-#AllCases=(/tmp/DiamondCases/*/*)
-AllCases=(/tmp/DiamondCases/10/2*)
+dcDir=/var/tmp/DiamondCases
+cd $dcDir
 
-NC=${#AllCases[@]}
-from=0
-while [[ $from -lt $NC ]]
+#=============================================================================#
+#AllCases=($*/*)
+AllCases=(05/{{0..5}?0,6{0..6}0})
+#=============================================================================#
+AllTargs=${AllCases[@]/%/\/Coeffs}
+
+# Generate the Makefile cotaining dependenies on the srcs likely to change:
+echo "all: ${AllTargs[@]}" > Makefile
+for c  in  ${AllCases[@]}
 do
-	# Take at most $NPar list elements:
-	to=$((from + NPar - 1))
-	[[ $to -lt $NC ]] || to=$((NC - 1))
-
-	# Run the batch {$from .. $to} of cases:
-	for j in $(seq $from $to)
-	do
-		# Run the "j"th case:
-		caseDir=${AllCases[$j]}
-		V=$(basename $caseDir)
-		( \
-		 cd $caseDir && \
- 	   rhoSimpleFoam >& RSF.log && \
-     rhoSimpleFoam -postProcess -func forceCoeffs -latestTime >& PP.log && \
-		 awk -v V=$V '/Cd:/{Cd=$2}/Cl:/{Cl=$2}END{print V, V/340.294, Cd, Cl}' \
-			 PP.log > Coeffs \
-		) &
-	done
-	# Wait for all parallel processes to complete:
-	wait
-	# To the next batch:
-	from=$((to + 1))
+  V=$(basename $c)
+  echo -e \
+    "\n$c/Coeffs: $c/system/fvSchemes $c/system/fvSolution" \
+    "$c/constant/thermophysicalProperties"   \
+    "$c/constant/turbulenceProperties\n\tcd $c &&" \
+    "rhoSimpleFoam >& RSF.log &&" \
+    "rhoSimpleFoam -postProcess -func forceCoeffs -latestTime >& PP.log &&" \
+    "awk -v V=$V -v a=$a -f $TopDir/DiamondCoeffs.awk PP.log > Coeffs" \
+    >> Makefile
 done
+exit 0
+
+# Run "make" for all cases, creating at most $NPar parallel processes:
+make -j $NPar
 
 # Collect the Coeffs for each AngleOfAttack, for all M vals:
-for a in /tmp/DiamondCases/*
-do
-	cd $a
-	cat */Coeffs > Coeffs
-done
+AllCoeffs=(*/*/Coeffs)
+[[ ${#AllCoeffs[@]} -eq 0 ]] || cat ${AllCoeffs[@]} > Coeffs
+

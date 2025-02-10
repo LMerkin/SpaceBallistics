@@ -24,42 +24,32 @@ ddtSchemes
 
 gradSchemes
 {
-    default         cellLimited Gauss linear 1;
-    // default      Gauss linear;
-
-    grad(p)         cellLimited Gauss linear 0.333;
+    default         Gauss linear;
+    grad(U)         cellMDLimited Gauss linear 1;
     // grad(p)      leastSquares;
-
-    grad(h)         cellLimited Gauss linear 0.333;
-    // default      Gauss linear;
 }
 
-// NB: "bounded" divSchemes are applicable because we are in a Steady-State.
-// XXX: Yet, some schemes are NOT "bounded" -- making them "bounded" would
-// impede convergence!
+// NB: "bounded" divSchemes are applicable because we are in a Steady-State:
 divSchemes
 {
     default         none;
 
-    div(phi,U)      Gauss limitedLinearV 1;
-    // div(phi,U)   bounded Gauss vanLeerV 1;
+    div(phi,U)      bounded Gauss linearUpwindV grad(U);
+    // div(phi,U)   bounded Gauss linearUpwind  grad(U);
+    // div(phi,U)   bounded Gauss Minmod;
 
     div(phi,K)      bounded Gauss limitedLinear 1;
-    // div(phi,K)   Gauss upwind;
-
     div(phi,h)      bounded Gauss limitedLinear 1;
-    // div(phi,h)   Gauss upwind;
 
-    div(phid,p)     Gauss limitedLinear 1;
-
+    div(phid,p)     bounded Gauss limitedLinear 1;
     div(((rho*nuEff)*dev2(T(grad(U))))) Gauss linear;
 }
 
-// XXX: "laplacianSchemes" are required in inviscid cases as well, don't drop
+// XXX: "laplacianSchemes" are required in inviscid cases as well, don't remove
 // them!
 laplacianSchemes
 {
-    default         Gauss linear limited 1;
+    default         Gauss linear limited 0.5;
     // default      Gauss linear corrected;
 }
 
@@ -70,8 +60,8 @@ interpolationSchemes
 
 snGradSchemes
 {
-    // XXX: The following is more stable in case of shock waves:
-    default         limited 1;
+    default         limited 0.5;
+    // default      corrected;
 }
 
 // Wall distance calculation: XXX: Do we really need it?

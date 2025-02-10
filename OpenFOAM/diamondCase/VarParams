@@ -4,7 +4,8 @@
 __p0__        101325;
 __rho0__      1.225;
 __T0__        288.15;
-__Pr__        0.9;
+__a0__        340.294;
+__Pr0__       0.7155;
 // Derived values:
 __alpha__     #eval{ $__alphaDeg__ / 57.2957795131};
 __cosAlpha__  #eval{ cos($__alpha__)};

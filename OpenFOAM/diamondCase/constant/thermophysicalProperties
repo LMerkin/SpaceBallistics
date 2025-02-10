@@ -22,8 +22,7 @@ thermoType
 {
   type            hePsiThermo;
   mixture         pureMixture;
-  transport       sutherland;
-  // Alt:         const;
+  transport       const;    // Viscosity is independent of T
   thermo          hConst;
   equationOfState perfectGas;
   specie          specie;
@@ -34,6 +33,7 @@ mixture
 {
   specie
   {
+    nMoles      1;          // XXX: Why do we really need this?
     molWeight   28.97;
   }
 
@@ -50,16 +50,10 @@ mixture
   transport
   {
     // Prandtl number:
-    Pr          $__Pr__;
-
-    // "As", "Ts" are the Sutherland constants
-    // (if thermoType.transport == sutherland):
-    As          1.458e-6;
-    Ts          110.4;
-  }
-
-  equationOfState
-  {
-    R           287.0528;
+    Pr          $__Pr0__;
+    mu          0;
   }
 }
+
+// IMPORTANT: Specify once again that the Mode is Steady:
+dpdt no;

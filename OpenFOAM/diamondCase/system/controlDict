@@ -20,7 +20,7 @@ application     rhoSimpleFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         5000;       // For convergence ctl only; adjust if necessary
+endTime         15000;      // For convergence ctl only; adjust if necessary
 deltaT          1;          // Must be > 0, but the act value does not matter?
 writeControl    timeStep;
 writeInterval   100;

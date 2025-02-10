@@ -38,9 +38,7 @@ boundaryField
 
   diamondWall
   {
-    // XXX: Since there is no flow normal to the Wall, we can assume that
-    // there is no (normal) "T" gradient either:
-    type        zeroGradient;
+    type        slip;
   }
 
   backAndFront

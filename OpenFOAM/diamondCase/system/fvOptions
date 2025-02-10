@@ -8,40 +8,19 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-  version       2.0;
-  format        ascii;
-  arch          "LSB;label=32;scalar=64";
-  class         volScalarField;
-  location      "0";
-  object        p;
+  version     2.0;
+  format      ascii;
+  arch        "LSB;label=32;scalar=64";
+  class       dictionary;
+  location    "system";
+  object      fvOptions;
 }
 //===========================================================================//
-#include        "../VarParams"
-
-dimensions      [1 -1 -2 0 0 0 0];
-
-internalField   uniform $__p0__;
-
-boundaryField
+limitT
 {
-  inLet
-  {
-    type        fixedValue;
-    value       uniform $__p0__;
-  }
-
-  outLet
-  {
-    type        zeroGradient;
-  }
-
-  diamondWall
-  {
-    type        slip;
-  }
-
-  backAndFront
-  {
-    type        empty;
-  }
+	type          limitTemperature;
+	active        yes;
+	min           100;
+	max           1000;
+	selectionMode all;
 }
