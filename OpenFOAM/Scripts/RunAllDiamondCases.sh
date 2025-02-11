@@ -15,7 +15,7 @@ cd $dcDir
 
 #=============================================================================#
 #AllCases=($*/*)
-AllCases=(05/{{0..5}?0,6{0..6}0})
+AllCases=(05/{090,{1..5}?0,6{0..6}0})
 #=============================================================================#
 AllTargs=${AllCases[@]/%/\/Coeffs}
 
@@ -33,7 +33,6 @@ do
     "awk -v V=$V -v a=$a -f $TopDir/DiamondCoeffs.awk PP.log > Coeffs" \
     >> Makefile
 done
-exit 0
 
 # Run "make" for all cases, creating at most $NPar parallel processes:
 make -j $NPar
