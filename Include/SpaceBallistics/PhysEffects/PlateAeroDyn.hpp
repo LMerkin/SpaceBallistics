@@ -48,12 +48,12 @@ namespace SpaceBallistics
       return std::make_tuple(ForceV<COS>(), 0.0, NaN<double>);
 
     // The Speed of Sound:
-    Vel       a     = SqRt(a_gamma * a_p / a_rho);
-    assert(IsPos(a));
+    Vel       A     = SqRt(a_gamma * a_p / a_rho);
+    assert(IsPos(A));
 
     // The flow Mach number (notionally, @ +oo distance from the Plate):
     Vel       V     = Vel(flow);
-    double    M     = double(V / a);
+    double    M     = double(V / A);
     double    M2    = Sqr(M);
     assert(IsPos(V) && M > 0.0);
 

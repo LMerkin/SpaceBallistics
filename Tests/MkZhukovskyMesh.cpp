@@ -161,22 +161,22 @@ int main(int argc, char* argv[])
   int NSquares = (NEllipses - 1) * NP;
   fprintf(f, "NELEM= %d\n", NSquares);
 
-  int p = 0;
+  int s = 0;
   for (int e = 0; e < NEllipses-1; ++e)  // For all Ellipses but the last
   {
     // First, process all points on this Ellipse in [0 .. NP-2]:
-    for (int i = 0; i < NP-1; ++i, ++p)
+    for (int i = 0; i < NP-1; ++i, ++s)
       // NB: Code=9 is for the Square;
-      // the "generic" square is made of points (p, p+1, p+NP+1, p+NP), where
+      // the "generic" square is made of points (s, s+1, s+NP+1, s+NP), where
       // the first two lie on this ellipse, and the last two  -- on the  next
       // ellipse:
-      fprintf(f, "9 %d %d %d %d   %d\n", p, p+1,    p+1+NP, p+NP, p);
+      fprintf(f, "9 %d %d %d %d   %d\n", s, s+1,    s+1+NP, s+NP, s);
 
     // The last square (i==NP-1):
-    fprintf  (f, "9 %d %d %d %d   %d\n", p, p-NP+1, p+1,    p+NP, p);
-    ++p;
+    fprintf  (f, "9 %d %d %d %d   %d\n", s, s-NP+1, s+1,    s+NP, s);
+    ++s;
   }
-  assert(p == TotPts - NP && p == NSquares);   // Except the outer-most ellipse
+  assert(s == TotPts - NP && s == NSquares);   // Except the outer-most ellipse
 
   //-------------------------------------------------------------------------//
   // Generate the Boundaries ("Markers"):                                    //
