@@ -2,8 +2,8 @@
 #=============================================================================#
 #                        "Scipts/RunAllDiamondCases.sh":                      #
 #=============================================================================#
-# How manu processes to run in parallel:
-NPar=8
+# How many processes to run in parallel:
+NPar=$(( $(nproc) / 2 ))
 
 AbsPath0=$(realpath $0)
 TopDir=$(dirname $AbsPath0)
@@ -22,10 +22,11 @@ echo "all: ${AllTargs[@]}" > Makefile
 for c  in  ${AllCases[@]}
 do
   M=$(basename $c)
+  alpha=$(dirname $c)
   echo -e \
     "\n$c/Coeffs: $c/Config.cfg\n\tcd $c &&" \
     "SU2_CFD Config.cfg >& cfd.log &&" \
-    "awk -v M=$M -f $TopDir/EWCoeffs.awk cfd.log > Coeffs" \
+    "awk -v M=$M -v alpha=$alpha -f $TopDir/EWCoeffs.awk cfd.log > Coeffs" \
     >> Makefile
 done
 
