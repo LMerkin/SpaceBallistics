@@ -9,7 +9,7 @@ AbsPath0=$(realpath $0)
 TopDir=$(dirname $AbsPath0)
 
 shopt -s nullglob
-ewDir=/tmp/EllipticWing
+ewDir=~/Tmp/EllipticWing
 cd $ewDir
 
 #=============================================================================#
@@ -21,12 +21,12 @@ AllTargs=${AllCases[@]/%/\/Coeffs}
 echo "all: ${AllTargs[@]}" > Makefile
 for c  in  ${AllCases[@]}
 do
-  M=$(basename $c)
   alpha=$(dirname $c)
+  M=$(basename $c)
   echo -e \
     "\n$c/Coeffs: $c/Config.cfg\n\tcd $c &&" \
     "SU2_CFD Config.cfg >& cfd.log &&" \
-    "awk -v M=$M -v alpha=$alpha -f $TopDir/EWCoeffs.awk cfd.log > Coeffs" \
+    "awk -v alpha=$alpha -v M=$M -f $TopDir/EWCoeffs.awk cfd.log > Coeffs" \
     >> Makefile
 done
 

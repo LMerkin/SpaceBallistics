@@ -7,7 +7,7 @@ TopDir=$(dirname $AbsPath0)
 cd $TopDir/../EllipticWing
 
 # Clean everything up:
-ewDir=/tmp/EllipticWing
+ewDir=~/Tmp/EllipticWing
 rm -fr $ewDir
 mkdir  $ewDir
 

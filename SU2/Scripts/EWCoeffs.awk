@@ -1,1 +1,1 @@
-BEGIN{FS="|"}{if(NF==8){CD=$6;CL=$7}}END{print alpha,M,CD,CL}
+BEGIN{FS="|"}{if(NF==7){CD=$5;CL=$6}}END{print alpha,M,CD,CL}
