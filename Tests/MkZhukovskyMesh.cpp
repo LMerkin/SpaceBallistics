@@ -68,17 +68,13 @@ int main(int argc, char* argv[])
   // for a viscous (Boundary Layer) problem:
   Vel    Uoo(NaN<double>);
 
-  // Whether the Mesh is to be generated fotr use with Wall Functions; only eff-
-  // ective if "Uoo" is set:
-  bool   withWallFuncs  = false;
-
-  // The default value of y^+ to be used with Wall Functions:
-  double yPlusWall      = 50.0;
+  // The default value of y^+:
+  double yPlus   = 25.0;
 
   // Possibly modify them from the command-line params:
   while (true)
   {
-    int c = getopt(argc, argv, "K:N:A:U:Y:o:Wh");
+    int c = getopt(argc, argv, "K:N:A:U:y:o:h");
     if (c < 0)
       break;
 
@@ -100,11 +96,8 @@ int main(int argc, char* argv[])
     case 'U':
       Uoo     = Vel(atof(optarg));
       break;
-    case 'W':
-      withWallFuncs = true;
-      break;
-    case 'Y':
-      yPlusWall     = atof(optarg);
+    case 'y':
+      yPlus   = atof(optarg);
       break;
     case 'h':
     default:
@@ -115,17 +108,17 @@ int main(int argc, char* argv[])
       cerr << "\t-A {Semi-Major Axis of the Whole Mesh, m; default: "
            << aMax.Magnitude()  << '}'        << endl;
       cerr << "\t-o {Output File; default: "  << outFile << '}'       << endl;
-      cerr << "\t-U {FreeStream Velocity, m/sec; default: UnDefined}" << endl;
-      cerr << "\t-W: set withWallFuncs=true"  << endl;
-      cerr << "\t-Y {y^+ for use with WallFuncs; default: " << yPlusWall
-           << '}' << endl;
+      cerr << "\t-U {FreeStream Velocity, m/sec; default: UnDefined => "
+              " No Boundary Layer}"           << endl;
+      cerr << "\t-y {The y^+ value for the inner-most mesh layer; default: "
+           << yPlus << '}' << endl;
       cerr << "\t-h: display this help"       << endl;
       return 1;
     }
   }
   // Verify the params:
-  if (K <= 1.0 || NO < 16 || aMax < 1.5_m || outFile.empty() ||
-      yPlusWall < 1.0     || (IsFinite(Uoo) && !IsPos(Uoo)))
+  if (K <= 1.0 || NO < 16 || aMax < 1.5_m || outFile.empty() || yPlus < 1.0 ||
+     (IsFinite(Uoo) && !IsPos(Uoo)))
   {
     cerr << "ERROR: Invalid Param(s)" << endl;
     return 1;
@@ -146,10 +139,6 @@ int main(int argc, char* argv[])
   Len const a0(0.5 * (1.0 / r0 + r0));
   Len const b0(0.5 * (1.0 / r0 - r0));
   assert(IsPos(b0) && b0 < a0 && a0 > 1.0_m);
-
-  // The minimal transversal mesh size (in m) in the BoundaryLayer depends on
-  // the value of "y+":
-  double const yPlus = withWallFuncs ? yPlusWall : 1.0;
 
   // Kinematic Viscosity of the Air (at 15 C = 288.15 K):
   constexpr auto nu  = 1.47e-5 * Area(1.0) / 1.0_sec;
