@@ -8,7 +8,6 @@
 #include "SpaceBallistics/LVSC/LVSC.h"
 #include "SpaceBallistics/CoOrds/EmbeddedCOS.h"
 #include "SpaceBallistics/CoOrds/TimeScales.h"
-#include <boost/container/static_vector.hpp>
 #include <cassert>
 #include <initializer_list>
 

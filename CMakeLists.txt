@@ -7,8 +7,8 @@
 #=============================================================================#
 # Export flags for convenience when using Vim's YCM plugin:
 #
-CMAKE_MINIMUM_REQUIRED(VERSION 3.30)
-CMAKE_POLICY(          VERSION 3.30)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.27)
+CMAKE_POLICY(          VERSION 3.27)
 
 IF (NOT UNIX)
   MESSAGE(FATAL_ERROR "Non-UNIX platforms are not supported")
@@ -51,9 +51,6 @@ ENDIF()
 # Extend the PkgConfig search path (for *.pc files) -- useful for those modules
 # which can be found via PkgConfig:
 SET(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${ENV_PREFIX}/lib/pkgconfig")
-
-# Boost (no specific version checks); here used as a Headers-Only library:
-FIND_PACKAGE(Boost  REQUIRED)
 
 # GSL:
 FIND_PACKAGE(GSL REQUIRED)
