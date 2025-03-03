@@ -2,14 +2,11 @@
 #=============================================================================#
 #                        "Scipts/RunAllDiamondCases.sh":                      #
 #=============================================================================#
-# How many processes to run in parallel:
-NPar=$(( $(nproc) / 2 ))
-
-ewDir=/var/tmp/EllipticWing
+ewDir=~/Tmp/EW
 cd $ewDir
 
-# Run "make" for all cases, creating at most $NPar parallel processes:
-make -j $NPar
+# Run "make" for all cases:
+make >& make.log
 
 # Collect the Coeffs for each AngleOfAttack, for all M vals:
 shopt -s nullglob
