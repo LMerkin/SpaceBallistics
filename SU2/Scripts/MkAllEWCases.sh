@@ -24,7 +24,7 @@ $TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
 # Generate All Cases under "$ewDir":                                          #
 #-----------------------------------------------------------------------------#
 # Angle of Attack, in deg:
-for alphaDeg in {0..30..1}
+for alphaDeg in {0..30..3}
 do
 	# NB: The Convergence Criterion Field depends on "alphaDeg":
 	if [ $alphaDeg -eq 0 ]
@@ -44,23 +44,14 @@ do
     mkdir -p $caseDir
 
     # Copy the Config-Euler.cfg over:
-    cp Config-Euler.cfg $caseDir/C.cfg
+    cp Config-Euler.cfg $caseDir/Cfg
 
-    # Install the variable params.
-    # NB: The MaxCFL depends on the Mach Number:
-    if [ $M100 -le 30 -o $M100 -ge 170 ]
-		then
-			MaxCFL=1
-		else
-			MaxCFL=0.1
-		fi
-    cat >> $caseDir/C.cfg <<EOF
+    # Install the variable params:
+    cat >> $caseDir/Cfg <<EOF
 MACH_NUMBER= $M
 AOA= $alphaDeg
-CFL_ADAPT_PARAM= (0.618, 1.618, 0.01, $MaxCFL, 1E-5)
 CONV_FIELD= $ConvFld
 EOF
-
     # There is no need to copy the Mesh file; symlink will do:
     ln -s $ewDir/MeshEW.su2 $caseDir/MeshEW.su2
   done
@@ -80,9 +71,9 @@ do
   alpha=$(dirname $c)
   M=$(basename $c)
   echo -e \
-    "\n$c/Coeffs: $c/C.cfg\n\tcd $c &&" \
-    "SU2_CFD -t $NProc C.cfg >& cfd.log &&" \
-    "awk -v alpha=$alpha -v M=$M -f $TopDir/EWCoeffs.awk cfd.log > Coeffs" \
+    "\n$c/Coeffs: $c/Cfg\n\tcd $c &&" \
+    "SU2_CFD -t $NProc Cfg >& Log &&" \
+    "awk -v alpha=$alpha -v M=$M -f $TopDir/EWCoeffs.awk Log > Coeffs" \
     >> Makefile
 done
 # Generation Done!
