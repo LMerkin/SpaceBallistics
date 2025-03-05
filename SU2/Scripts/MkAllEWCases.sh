@@ -16,9 +16,8 @@ ewDir=~/Tmp/EW
 rm -fr $ewDir
 mkdir  $ewDir
 
-# Generate the Mesh File:
-$TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
-	-A 10 -N 256 -o $ewDir/MeshEW.su2
+# Generate the Mesh File with the default params:
+$TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh -o $ewDir/MeshEW.su2
 
 #-----------------------------------------------------------------------------#
 # Generate All Cases under "$ewDir":                                          #
