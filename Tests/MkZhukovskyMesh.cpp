@@ -18,31 +18,6 @@
 using namespace SpaceBallistics;
 using namespace std;
 
-namespace
-{
-  //=========================================================================//
-  // Approximation for the Perimeter of the Ellipse:                         //
-  //=========================================================================//
-  Len PerEll(Len a, Len b)
-  {
-    assert(a > b && IsPos(b));
-    double h = Sqr(double((a-b)/(a+b)));
-    assert(0 < h && h < 1);
-
-    constexpr double c1 =    1.0 /       4.0;
-    constexpr double c2 =    1.0 /      64.0;
-    constexpr double c3 =    1.0 /     256.0;
-    constexpr double c4 =   25.0 /   16384.0;
-    constexpr double c5 =   49.0 /   65536.0;
-    constexpr double c6 =  441.0 / 1048576.0;
-    constexpr double c7 = 1089.0 / 4194304.0;
-    double corr =
-      ((((((c7 * h + c6) * h + c5) * h + c4) * h + c3) * h + c2) * h + c1) * h;
-
-    return Pi<double> * (a + b) * (1.0 + corr);
-  }
-}
-
 //===========================================================================//
 // "main":                                                                   //
 //===========================================================================//
@@ -56,10 +31,10 @@ int main(int argc, char* argv[])
 
   // Number of Points along each Ellipse
   // (in the Outer, ie Non-Boundary, Region); must be a power of 2:
-  int    NO      = 256;
+  int    NO      = 512;
 
   // The over-all size of the mesh:
-  Len  aMax      = 7.5_m;
+  Len  aMax      = 20.0_m;
 
   // The output file:
   string outFile = "mesh.su2";
@@ -69,7 +44,7 @@ int main(int argc, char* argv[])
   Vel    Uoo(NaN<double>);
 
   // The default value of y^+:
-  double yPlus   = 25.0;
+  double yPlus   = 50.0;
 
   // Possibly modify them from the command-line params:
   while (true)
@@ -148,7 +123,7 @@ int main(int argc, char* argv[])
   int NB = NO;
   if (withBoundLayer)
   {
-    Len perim0 = PerEll(a0, b0);
+    Len perim0 = Pi<double>  * (a0  + b0);
     Len hB     = 7.5 * yPlus * ((nu / Uoo).IPow<13>() * 1.0_m).RPow<1,14>();
     NB         = int(bit_ceil(unsigned(Round(double(perim0 / hB)))));
     if (NB <= NO)
@@ -189,9 +164,6 @@ int main(int argc, char* argv[])
 
   while (LIKELY(a <= aMax))
 	{
-    // Perimeter of this ellipse and the "small arc" length:
-    Len dl = PerEll(a, b) / double(np);
-
     // Generate the ellipse with the given "a" and "b":
     double dPhi = TwoPi<double> / double(np);
     for (int i = 0; i < np; ++i)
@@ -217,10 +189,11 @@ int main(int argc, char* argv[])
       : NO;
     assert(NP % np == 0);
 
-    // The semi-major axis increment should be equal to the orthogonal step,
-    // which is in turn approx equal to the "dl" (if we want the mesh elements
-    // to be ~ squares):
-    a        += dl;
+    // The semi-major axis increment is the orthogonal step at phi=0, which should
+    // be equal to the tangential step (to get the ~ square mesh elements near the
+    // tips of the airfoil), so (using the OLD "dPhi" here):
+    Len da    = b * dPhi;
+    a        += da;
     double r  = (a - SqRt(Sqr(a) - Area(1.0))).Magnitude();
     b         = Len(0.5 * (1.0 / r - r));
     assert(b < a);
