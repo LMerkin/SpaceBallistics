@@ -41,15 +41,15 @@ int main(int argc, char* argv[])
 
   // The FreeStream velocity. It is only required if the mesh is to be generated
   // for a viscous (Boundary Layer) problem:
-  Vel    Uoo(NaN<double>);
+  double Moo     = NaN<double>;
 
   // The default value of y^+:
-  double yPlus   = 50.0;
+  double yPlus   = 30.0;
 
   // Possibly modify them from the command-line params:
   while (true)
   {
-    int c = getopt(argc, argv, "K:N:A:U:y:o:h");
+    int c = getopt(argc, argv, "K:N:A:M:y:o:h");
     if (c < 0)
       break;
 
@@ -68,8 +68,8 @@ int main(int argc, char* argv[])
     case 'o':
       outFile = string(optarg);
       break;
-    case 'U':
-      Uoo     = Vel(atof(optarg));
+    case 'M':
+      Moo     = atof(optarg);
       break;
     case 'y':
       yPlus   = atof(optarg);
@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
       cerr << "\t-A {Semi-Major Axis of the Whole Mesh, m; default: "
            << aMax.Magnitude()  << '}'        << endl;
       cerr << "\t-o {Output File; default: "  << outFile << '}'       << endl;
-      cerr << "\t-U {FreeStream Velocity, m/sec; default: UnDefined => "
+      cerr << "\t-M {FreeStream Mach Number; default: UnDefined => "
               " No Boundary Layer}"           << endl;
       cerr << "\t-y {The y^+ value for the inner-most mesh layer; default: "
            << yPlus << '}' << endl;
@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
   }
   // Verify the params:
   if (K <= 1.0 || NO < 16 || aMax < 1.5_m || outFile.empty() || yPlus < 1.0 ||
-     (IsFinite(Uoo) && !IsPos(Uoo)))
+     (IsFinite(Moo) && !IsPos(Moo)))
   {
     cerr << "ERROR: Invalid Param(s)" << endl;
     return 1;
@@ -101,8 +101,8 @@ int main(int argc, char* argv[])
   if (!outFile.ends_with(".su2"))
     outFile.append(".su2");
 
-  // If "Uoo" is set, the BoundaryLayer-aware mesh will be constructed:
-  bool const withBoundLayer = IsFinite(Uoo);
+  // If "Moo" is set, the BoundaryLayer-aware mesh will be constructed:
+  bool const withBoundLayer = IsFinite(Moo);
 
   // The Radius of the circle which is the Zhukovsky Conformal Inverse-Image of
   // the Thin Elliptical AirFoil secton (a Circle).    XXX: This param is NOT a
@@ -115,8 +115,14 @@ int main(int argc, char* argv[])
   Len const b0(0.5 * (1.0 / r0 - r0));
   assert(IsPos(b0) && b0 < a0 && a0 > 1.0_m);
 
-  // Kinematic Viscosity of the Air (at 15 C = 288.15 K):
+  // Kinematic Viscosity of the Air (at 15 C = 288.15 K): TODO: make it variable:
   constexpr auto nu  = 1.47e-5 * Area(1.0) / 1.0_sec;
+
+  // Speed of Sound again (at 15 C = 288.15 K); TODO: make it variable:
+  constexpr Vel  Va  = Vel(340.294);
+
+  // The FreeStream Air Velocity:
+  Vel const Uoo      = Moo * Va;
 
   // Then the thickness of the inner-most mesh layer (corrsep to the Viscous
   // Boundary Layer) can be approximated as:
