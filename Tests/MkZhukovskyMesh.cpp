@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
   double Moo     = NaN<double>;
 
   // The default value of y^+:
-  double yPlus   = 30.0;
+  double yPlus   = 60.0;
 
   // Possibly modify them from the command-line params:
   while (true)
@@ -195,9 +195,9 @@ int main(int argc, char* argv[])
       : NO;
     assert(NP % np == 0);
 
-    // The semi-major axis increment is the orthogonal step at phi=0, which should
-    // be equal to the tangential step (to get the ~ square mesh elements near the
-    // tips of the airfoil), so (using the OLD "dPhi" here):
+    // The semi-major axis increment is the orthogonal step at phi=0, which
+    // should be equal to the tangential step (to get the ~ square mesh els
+    // near the tips of the airfoil), so (using the OLD "dPhi" here):
     Len da    = b * dPhi;
     a        += da;
     double r  = (a - SqRt(Sqr(a) - Area(1.0))).Magnitude();
@@ -320,7 +320,12 @@ int main(int argc, char* argv[])
   for (int i = fFrom; i <= fTo; ++i)
     fprintf(f, "3 %d %d\n", i, (i != fTo) ? (i+1) : fFrom);
 
-  // All Done:
+  //-------------------------------------------------------------------------//
+  // Store the generation params at the end:                                 //
+  //-------------------------------------------------------------------------//
+  if (withBoundLayer)
+    fprintf(f, "%% M=%lf, y+=%lf\n", Moo, yPlus);
+
   fclose(f);
   return 0;
 }

@@ -10,7 +10,7 @@ ewDir=~/Tmp/EW-Euler
 #-----------------------------------------------------------------------------#
 # Top Matter:                                                                 #
 #-----------------------------------------------------------------------------#
-# Generate the Mesh File with the default params:
+# Generate the Mesh File:
 $TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
 	-N 512 \
 	-o $ewDir/MeshEW.su2
@@ -85,7 +85,7 @@ do
 
 $c/DL: $c/Log
 	cd $c && awk -v alpha=$alpha -v M=$M -f $TopDir/EWCoeffs.awk Log > DL
-$c/Log: $c/Cfg
+$c/Log: $c/Cfg $c/MeshEW.su2
 	cd $c && SU2_CFD Cfg >& Log
 EOF
 done

@@ -1,0 +1,26 @@
+"Spikes" are due to Wall Functions =>
+	to get rid of the "spikes" altogether (eg to enable automatic convergence ctl),
+    switch off the Wall Functions (see below)
+
+Computation of wall coefficients (y+) did not converge in TOO_MANY points =>
+	decrease the "y+" value in Mesh generator
+
+NB: If Wall Functions are NOT used, "y+" in the Mesh Generator should be <= 10.
+  Small "y+" values result in very time-consuming iterations,
+  but the number of iterations required for convergence decreases dramatically:
+  say 30k for y+ = 30, 10k for y+ = 10, 1k for y+ = 5 :
+  smaller y+ => less oscillations; for y+ = 5, possibly no oscillations at all
+
+y+ < 1 in TOO_MANY points (with Wall Functions) =>
+	harmless, but may increase the "y+" value in Mesh generator
+
+Local Divergence (say T_Wall < 0 and then NaN encountered) =>
+	Reduce CFL_NUMBER;
+  sometimes, reduce WALLMODEL_RELFAC (?)
+	if nothing helps, switch off the Wall Functions altogether
+    (if so, may need to re-generate the Mesh with "y+" value <= 30)
+
+Global Divergence (say large-scale oscillations) =>
+	make sure the Mesh is good enough;
+	reduce CFL_NUMBER
+	
