@@ -1,7 +1,9 @@
 CLASS (with Static Members only)    NAMESPACE
 --------------------------------    ---------------------------------
 
-More flexible initialisation				Init at declaration only
+More flexible initialisation:				Init at declaration only
+e.g. via a ctor of a dummy global
+obj
 
 Visibility control									All entities are visible from outside
 (private, protected, public)

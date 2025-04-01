@@ -1,0 +1,72 @@
+Your results showing a complex Mach-number dependency of the lift coefficient \(C_L\) for a symmetric elliptical airfoil at moderate angle of attack (5°) are intriguing, but also physically explainable. Let’s reason step-by-step through the observed behavior:
+
+---
+
+### Recap of Observations (for clarity):
+
+- **Low subsonic (M = 0.1)**: \( C_L \approx 0.8 \) (high lift)
+- **Local minimum around M = 0.3**: \( C_L \approx 0.65 \)
+- **"Double-top" maximum around transonic region (M ≈ 0.8 and 0.95)**: \( C_L \approx 1.0 \)
+- **Decrease after approaching M = 1**.
+
+---
+
+## 1. Is the minimum around \( M \approx 0.3 \) physically reasonable?
+
+**Yes**, it is plausible from an aerodynamic standpoint. The Mach number influences pressure distributions on an airfoil surface due to compressibility effects—even mild compressibility at relatively low-subsonic Mach numbers.
+
+- At very low Mach numbers (e.g., \(M=0.1\)), compressibility effects are negligible. The lift produced is close to incompressible aerodynamic predictions.
+- As Mach number increases slightly (towards ~0.3), subtle compressibility effects begin to emerge. This can lead to a mild alteration in pressure distributions, potentially decreasing the effective camber (pressure-side vs. suction-side distributions). Even for a symmetric airfoil at angle of attack, this might slightly reduce lift. Typically, this change would not be dramatic, but small local minima or plateaus in \( C_L \) around Mach 0.2–0.4 are known phenomena.
+
+**Physical explanation**: The Mach number around 0.3–0.4 corresponds to initial noticeable compressibility adjustments. While often minimal, it can cause a subtle redistribution of pressures (particularly a slight reduction in suction peak strength and distribution), leading to a slightly lower lift. This behavior is documented in some classic aerodynamic references (e.g., Abbott & Von Doenhoff’s "Theory of Wing Sections," or Anderson’s "Fundamentals of Aerodynamics") as compressibility starts slightly affecting lift generation.
+
+---
+
+## 2. The "Double-top" maximum around \( M \approx 0.8 \) and \( 0.95 \):
+
+The formation of a **double peak** (instead of a single peak) near transonic conditions is unusual but can be physically realistic. Let’s examine what could physically happen:
+
+- As the Mach number approaches transonic speeds (\(M \approx 0.75-0.8\)), regions of locally supersonic flow appear, typically over the upper surface. These supersonic "pockets" can significantly alter the pressure distribution, increasing suction and thus the lift significantly. This often results in a pronounced "transonic peak" of lift.
+- **The first peak at \(M\approx 0.8\)** corresponds exactly to this phenomenon: the establishment of stable local supersonic flow regions with strong suction, increasing lift.
+- As Mach number increases further (\(M=0.85-0.9\)), the supersonic region grows and shock waves start forming and strengthening. **Shock formation usually reduces lift** somewhat, due to adverse pressure gradients downstream of the shocks, causing a momentary drop (or plateau) in lift.
+- **A second peak around \(M\approx 0.95\)** occurs as the flow transitions fully into a near-sonic regime where shock and expansion wave interactions can temporarily increase suction peaks again. The shock strength and location evolve significantly as the flow approaches sonic conditions. Complex interactions between shocks, expansions, and the trailing-edge region may temporarily increase suction again, causing another brief maximum.
+- Beyond \(M=0.95\), the strengthening of shock waves becomes dominant, rapidly increasing drag, thickening the boundary layer, causing significant flow separations, and inevitably reducing lift as Mach approaches and exceeds unity.
+
+---
+
+## 3. Numerical artifact vs. physical reality?
+
+While the described scenario **is physically plausible**, it’s critical to verify whether it is truly physical or partially numerical:
+
+- **Mesh refinement and y+ sensitivity**:  
+  At \(y^+\approx 10\), your mesh resolution at the wall boundary is sufficiently fine for an SST model, although ideally, a slightly smaller \(y^+\approx 1–5\) would be preferred for transonic regions without wall functions. Still, \(y^+=10\) typically yields reasonable results at high Reynolds number, especially if adequately fine elsewhere.
+- **Shock capturing and numerical dissipation**:  
+  SU2 uses a finite-volume approach with suitable flux discretizations (often Roe or AUSM fluxes) capable of capturing shocks well. If the shocks are not well-captured due to coarse cell sizes in critical areas or insufficient refinement near shock-forming locations, you might see artificial oscillations or "double peaks" arising from mild numerical dissipation or reflections. Verify mesh refinement specifically near shock locations.
+- **Verification by refinement**:  
+  The definitive way to confirm if the double-peak behavior is physical is through careful grid-refinement studies. Refine the mesh in the critical Mach range (\(M=0.75–1\)) and examine convergence of your solution. If this double-peak shape remains consistently robust to mesh refinement, it’s likely a genuine physical phenomenon. If it smooths out or merges into a single broader peak, it was likely partially numerical.
+
+---
+
+## 4. Known experimental/theoretical behaviors of similar profiles:
+
+Transonic aerodynamic characteristics can indeed be intricate. Airfoils at transonic speeds routinely display multiple pressure distribution patterns (often called "double shock" or "lambda shock" patterns) and sometimes non-monotonic lift curves. Such phenomena, including unusual peaks or inflection points in lift curves, are well-documented in wind-tunnel testing and CFD results for various airfoil shapes.
+
+However, the precise appearance of a distinct "double-top" at 0.8 and 0.95 is not universally typical and can be geometry-dependent. Elliptical airfoils have relatively gentle curvature, sometimes leading to multiple stable supersonic pockets and transient shock formations that produce temporary lift variations.
+
+---
+
+## Summary of Recommendations for Confidence:
+
+- **Grid refinement** around Mach \(0.75–1.0\) to ensure numerical independence of the double peak.
+- Consider **reducing \(y^+\)** further (to ~1–5) for transonic Mach numbers to resolve shocks and boundary-layer interactions even better.
+- Verify using alternative turbulence models (e.g., EARSM or advanced Reynolds-stress models) or numerical schemes (flux discretizations) for additional validation if the double-top behavior remains unusual.
+
+---
+
+## Final Verdict:
+
+Your observed lift behavior is indeed physically plausible due to known compressibility and shock-boundary layer interaction phenomena. The subtle minimum at moderate subsonic Mach (~0.3) is normal, and the complex transonic behavior at high subsonic speeds (\(M \approx 0.8–0.95\)) is physically justifiable by transient supersonic/shock interactions.
+
+However, the distinct double-peak warrants careful numerical verification to rule out artifacts. If confirmed through mesh refinement, your results describe a genuinely intriguing transonic lift curve behavior characteristic of your symmetric elliptical airfoil.
+
+In short, the complex behavior you're observing is certainly plausible but requires numerical validation to confidently exclude numerical artifacts.

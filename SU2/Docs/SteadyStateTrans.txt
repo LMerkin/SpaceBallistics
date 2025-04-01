@@ -1,0 +1,81 @@
+Below are some general guidelines and best practices for steady-state transonic simulations in SU2 that should help with your questions on convergence and mesh resolution.
+
+---
+
+## 1. Configuration Options to Speed Up Convergence
+
+1. **Multigrid (MG) Acceleration**  
+   - **MULTIGRID_LEVELS**: Use multigrid to accelerate convergence. More levels can improve convergence speed but also increase memory usage.  
+   - **MG_RELAXATION_FACTOR**: Adjusting the relaxation factor on coarser levels can help stabilize and accelerate the multigrid cycles.
+
+2. **CFL Number and Local Time Stepping**  
+   - For explicit runs, ensure you are using **LOCAL_TIME_STEPPING** and experiment with a higher **CFL_NUMBER** (e.g., start with 1–5 and then gradually increase if the solution remains stable).  
+   - For implicit runs, you can often push the CFL higher (even into the hundreds or thousands), but monitor stability and residuals carefully.
+
+3. **Convergence Smoothers / Linear Solver Settings**  
+   - If using an implicit solver, try different smoothers (e.g., **LU-SGS**, **Runge-Kutta**, or **Gauss-Seidel**) or vary the sub-iterations and relaxation factors.  
+   - **LINEAR_SOLVER** (e.g., FGMRES) with appropriate tolerances might converge faster for large meshes.
+
+4. **Convective and Viscous Discretization**  
+   - **MUSCL_SCHEME**, **VENKATAKRISHNAN_LIMITER**, or **JST** scheme settings can play a big role. If the solver is too dissipative, it might slow convergence. If it’s too “sharp,” you can get oscillations near shocks.  
+   - Check the **ARTIFICIAL_VISCOSITY** or **ARTIFICIAL_DISSIPATION_COEFF** settings if using JST to ensure you aren’t adding excessive dissipation.
+
+5. **Residual Smoothing / Low-Frequency Updates**  
+   - You can use residual smoothing or “filtering” to reduce high-frequency errors that can stall convergence.  
+   - Sometimes reducing the frequency of writing outputs (RESTART, surface data, etc.) can help avoid overhead and slight perturbations to the solution.
+
+6. **Initial Conditions and Pre-Convergence**  
+   - A good practice for transonic flows is to start from a freestream initialization but consider a first-order scheme for initial convergence, then switch to a second-order scheme once the solution is stable.  
+   - If you have a solution from a lower Mach number case, that can sometimes serve as an initial guess for transonic speeds.
+
+---
+
+## 2. Effect of No Turbulence Model on Convergence
+
+- **Physical Accuracy vs. Convergence Behavior**:  
+  - At high Reynolds numbers where the flow around the airfoil is very likely turbulent (especially in transonic conditions), neglecting turbulence means you are solving a purely laminar Navier–Stokes.  
+  - In some cases, laminar simulations can be simpler and converge “cleanly.” In other cases (particularly with shock-boundary layer interactions), a laminar model may cause unsteady separation or overly thin boundary layers, which can lead to oscillations and slower convergence.  
+
+- **Possible Positive Impact**:  
+  - Fewer equations to solve (no turbulence transport equations) can reduce overall computational cost per iteration.  
+  - There is no need to resolve near-wall turbulence scales if you assume fully laminar.  
+
+- **Possible Negative Impact**:  
+  - The flow may not be physically correct if the Reynolds number is high enough for turbulent effects to dominate.  
+  - Shock/boundary-layer interactions might be more complex or even unsteady, causing longer convergence times.  
+
+In short, if the real flow is turbulent, ignoring turbulence might lead to physically incorrect flow features, which can sometimes manifest in more oscillatory convergence.
+
+---
+
+## 3. Mesh Thickness Near the Wall (y⁺ Guidelines)
+
+Even though you are not using a turbulence model, for viscous, boundary-layer-resolved simulations you generally want enough cells in the boundary layer to capture the velocity (and temperature) gradients accurately. The usual **y⁺** guidelines come from turbulent boundary layer resolution, but they remain good practice for laminar boundary layers if you want high-fidelity results:
+
+- **For Laminar or “Low-Re”**: Aim for **y⁺ ≲ 1** at the first cell off the wall. This ensures you are resolving the boundary layer rather than modeling it.
+- **Wall-Function Approach (if you had a turbulence model)**: Typically **y⁺ ≈ 30–300**, but since you are not using a turbulence model, this does not apply.
+
+Since you are running a viscous (laminar) case, you would want a fine mesh in the normal-to-wall direction so that the code can resolve the velocity gradient with sufficient accuracy. A first-cell height targeting y⁺ ≲ 1 is a common guideline.
+
+---
+
+### Practical Tips for Determining the First-Cell Height
+
+1. Estimate boundary-layer thickness \(\delta\) (for a laminar boundary layer, you could use approximate formulas, but for transonic flow around an airfoil, the local thickness can vary considerably).
+2. You can do a rough estimate of the necessary wall spacing by deciding on y⁺ and using  
+   \[
+   y_{\text{physical}} = \frac{\nu}{u_{\tau}} \, y^+,
+   \]
+   where \(\nu\) is the kinematic viscosity and \(u_{\tau}\) is the friction velocity \(\sqrt{\tau_w/\rho}\). Alternatively, for a quick start, you can use typical references for 2D airfoil RANS grids (though your problem is laminar).
+
+3. **Check Post-Simulation**: After a short run, look at the SU2 output (or your post-processor) to see the actual y⁺ distribution. If it is far above 1, refine the mesh near the wall; if it is much less than 1, you could potentially coarsen in that region (balancing cost vs. accuracy).
+
+---
+
+## Summary
+
+1. **Speeding Up Convergence**: Use multigrid, carefully manage CFL (especially with local time stepping or implicit schemes), tweak the convective scheme and linear solver settings, and possibly start with a first-order scheme before switching to higher order.  
+2. **Turbulence Model Effect**: Running laminar at transonic high Reynolds numbers may or may not converge more smoothly, but it can certainly be less physically correct. If you see significant flow unsteadiness or slow convergence, a suitable RANS model (e.g., Spalart-Allmaras or k–ω SST) might give you a more stable and realistic solution.  
+3. **Mesh Resolution (y⁺)**: Even without a turbulence model, ensure a sufficiently fine normal spacing to the wall (target y⁺ around 1 or less) for an accurate resolution of the viscous boundary layer. 
+
+Following these best practices should give you a more stable and faster-converging solution in SU2 for your transonic elliptical airfoil case. Good luck with your simulations!

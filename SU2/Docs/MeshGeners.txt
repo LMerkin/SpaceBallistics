@@ -1,0 +1,105 @@
+Yes, absolutely. There are several robust and widely-used mesh generators that integrate smoothly with **SU2**, including structured and unstructured mesh tools. Here’s a brief summary of the most suitable options, especially considering your structured, elliptical airfoil scenario:
+
+---
+
+### Recommended Mesh Generators for SU2 (Structured/Orthogonal Meshes):
+
+**1. Pointwise (Commercial)**  
+- **Website:** [pointwise.com](https://pointwise.com/)
+- **Advantages:**
+  - Highly precise structured and unstructured mesh generation.
+  - Excellent control over boundary-layer meshes, growth rates, and radial expansion ratios.
+  - SU2 native export capability.
+- **Downside:** Commercial software (licensed).
+
+**Best for:**  
+- Precisely controlling radial mesh gradation, boundary-layer refinement, and ensuring smooth mesh expansion ratios (e.g., 1.1–1.3).
+- Conformal mapping integration (manual or scripted via Python/Glyph scripting).
+
+---
+
+**2. Gmsh (Free/Open-Source)**  
+- **Website:** [gmsh.info](http://gmsh.info/)
+- **Advantages:**
+  - Popular, robust, highly versatile, and free.
+  - Excellent mesh generation with powerful built-in scripting.
+  - Native SU2 mesh export (".su2" format).
+- **Downside:** Primarily unstructured mesh generator, though structured and boundary-layer meshes are achievable with effort (especially with extrusion layers or structured/transfinite meshing techniques).
+
+**Best for:**  
+- Users who prefer scripting-based, flexible mesh generation.
+- Quick generation of structured-like boundary-layer meshes using transfinite or extruded meshes with defined growth ratios.
+
+---
+
+**3. ICEM CFD (Commercial, ANSYS)**  
+- **Website:** [ansys.com/products/fluids/ansys-icem-cfd](https://www.ansys.com/products/fluids/ansys-icem-cfd)
+- **Advantages:**
+  - Powerful structured/unstructured grid generation.
+  - Precise control of boundary-layer mesh quality, expansion ratios, and orthogonality.
+- **Downside:** Commercial software (licensed), somewhat steep learning curve.
+
+**Best for:**  
+- Complex structured mesh generation and strict quality control of boundary-layer meshes.
+- Radial mesh gradation and smooth mesh transition control.
+
+---
+
+**4. GridPro (Commercial)**  
+- **Website:** [gridpro.com](https://www.gridpro.com/)
+- **Advantages:**
+  - Structured mesh specialist; explicitly built for structured grids.
+  - Exceptional orthogonality and smooth radial mesh expansion ratio control.
+- **Downside:** Commercial and niche software; specialized training may be needed.
+
+**Best for:**  
+- Structured grids around airfoil-like bodies, conformal mappings, and precise radial mesh refinement control (highly recommended if structured, orthogonal meshes are essential).
+
+---
+
+**5. Construct2D (Free/Open-Source)** *(for airfoil-specific 2D meshes)*  
+- **Website:** [Construct2D (NASA)](https://software.nasa.gov/software/LAR-16881-1)
+- **Advantages:**
+  - Specifically designed for structured meshes around airfoils.
+  - Well-controlled radial expansion ratios, explicit mesh gradation.
+- **Downside:** Primarily focused on standard airfoils; may require modification for elliptical geometry.
+
+**Best for:**  
+- Quick, highly structured 2D airfoil meshes, ideal if you can adapt your elliptical airfoil shape to its input format.
+
+---
+
+### Recommended Choice in Your Specific Scenario (Elliptical Airfoil):
+
+Given your detailed requirements—especially radial mesh refinement, structured meshes, and careful control of expansion ratios—**Pointwise or GridPro** (commercial) or **Gmsh** (open-source) would be your best choices:
+
+- **Pointwise** is particularly excellent for careful radial mesh refinement control and is the industry gold standard.
+- **Gmsh**, though unstructured-oriented, is very popular and free, and with careful scripting, can provide good boundary-layer mesh control and moderate radial mesh gradation control.
+
+If your current workflow involves conformal mapping (e.g., Zhukovsky transformation), **Pointwise** offers scripting interfaces (Glyph, Python) that smoothly integrate such transformations.
+
+---
+
+### Quick recommendation if open-source/free is preferable:
+
+- Go for **Gmsh**: With minimal scripting effort (transfinite/extrusion), you can closely approximate structured meshes with controlled radial gradation and ensure good-quality boundary-layer refinement.
+
+---
+
+### Practical Next Steps:
+
+- **Verify Mesh Expansion Ratio**:  
+  Regardless of the mesh generator chosen, explicitly verify mesh quality metrics and expansion ratio (1.1–1.3 recommended between layers).
+- **Mesh Convergence Study**:  
+  Perform systematic refinement studies with SU2 to ensure mesh independence of aerodynamic coefficients.
+
+---
+
+### **Summary (Best Practices):**
+
+- **Commercial:** **Pointwise** or **GridPro** for precision structured meshes and ideal mesh refinement.
+- **Open-Source/Free:** **Gmsh** (robust, flexible, scripting-capable).
+
+All three seamlessly produce meshes suitable for direct SU2 import (`.su2` format).
+
+Your original conformal mapping approach remains robust, and integrating it into one of these proven mesh-generation tools ensures optimal and numerically stable meshes, especially for demanding sonic/transonic aerodynamic simulations.

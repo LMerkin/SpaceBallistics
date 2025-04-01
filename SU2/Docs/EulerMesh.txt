@@ -1,0 +1,44 @@
+When running a purely inviscid (Euler) transonic simulation around a 2D airfoil, you do *not* need the tight near‐wall spacing required for boundary‐layer resolution (as in a Navier–Stokes or RANS simulation). Instead, your main concerns are:
+
+1. **Accurate geometric representation of the airfoil**, especially around the leading edge and trailing edge.  
+2. **Adequate resolution of the transonic shock** on the airfoil surface and in its immediate vicinity.
+
+Below is a rough guideline (a “rule of thumb”) for a chord length \(c = 1\,\text{m}\):
+
+---
+
+## 1. Points Along the Airfoil (Chordwise/Circumferential Direction)
+
+- **Aim for at least 200–300 points** around the airfoil surface.  
+  - More points if the geometry is complex (e.g., a highly cambered or supercritical airfoil).  
+  - Ensure extra clustering near the leading edge and trailing edge, where curvature changes rapidly.
+
+## 2. Normal Spacing at the Wall (No Viscous y⁺ Requirement)
+
+- Since you are running *inviscid* Euler, there is **no boundary layer** to resolve – hence no classic “\(y^+\) ≈ 1” guideline.  
+- You still want a reasonably smooth transition from the near‐surface cells to the farfield, so a typical approach is:
+  - **Initial wall‐normal spacing** on the order of \(10^{-4} \, c\) to \(10^{-3} \, c\) (i.e., 0.0001 m to 0.001 m for a 1 m chord) is often enough to ensure geometric fidelity without an excessively fine mesh.  
+  - Then use a **gradual growth ratio** in the normal direction (e.g., 1.1–1.2 per layer) out to the farfield boundary (usually set 10–20 chords away).
+
+## 3. Shock Resolution
+
+- For transonic flow, you want to capture the shock without excessive smearing or oscillations. This typically means:
+  - **Sufficient point clustering** around the expected shock location on the airfoil.  
+  - In practice, ensure that your normal spacing where the shock occurs is *not* so large that the shock cell jumps multiple mesh cells per iteration. A typical guideline is to have ~15–30 cells spanning the shock-normal direction so that the numerical dissipation remains manageable.
+
+## 4. Farfield Extent
+
+- Set the outer boundary at least **10–20 chord lengths** away from the airfoil to minimize wave reflections or boundary‐induced errors in transonic conditions.
+
+---
+
+### Putting It All Together
+
+A practical 2D Euler mesh for a 1 m chord transonic airfoil might look like:
+
+- **200–400 surface nodes** around the airfoil perimeter, with finer spacing near the leading/trailing edges.  
+- **Near‐wall spacing** on the order of \(10^{-4}\,c\) to \(10^{-3}\,c\).  
+- **Expansion ratio** \(\sim\!1.1\) to \(1.2\) in the normal direction toward the farfield.  
+- **Farfield boundary** ~10–15 chords away in all directions.
+
+This ensures you accurately capture the geometry, resolve the shock, and avoid artificial boundary effects—without the overhead of boundary‐layer mesh requirements. You can refine further based on specific accuracy goals (for example, if you need very precise shock location or pressure distribution).

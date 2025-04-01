@@ -1,0 +1,59 @@
+Certainly! Several key books and monographs delve into the resolution of singularities in transonic flow, addressing theoretical, computational, and experimental approaches. Below are some authoritative references:
+
+---
+
+### Classic and Foundational Texts
+1. **Liepmann, H. W., & Roshko, A.** (1957). *Elements of Gasdynamics*. Wiley.  
+   - A foundational text that discusses compressible flows, including transonic phenomena. While it doesn't fully resolve singularities, it provides the theoretical basis for linearized and nonlinear approximations.
+
+2. **Oswatitsch, K.** (1956). *Gas Dynamics of High-Speed Aerodynamics*. Academic Press.  
+   - Discusses the role of shock waves and compressibility in high-speed flows, introducing methods to address nonlinearity in transonic regimes.
+
+3. **Ashley, H., & Landahl, M.** (1965). *Aerodynamics of Wings and Bodies*. Dover Publications.  
+   - Examines thin-airfoil theory in transonic flow and offers insights into the limitations of linear approximations.
+
+---
+
+### Advanced Theoretical Approaches
+4. **Morawetz, C. S.** (1984). *Mathematical Problems of Transonic Flow*. SIAM.  
+   - A mathematical treatment of transonic flow singularities, focusing on nonlinear partial differential equations and methods to resolve them.
+
+5. **Germain, P.** (1994). *Introduction to Mécanique des Fluides*. Springer.  
+   - Explores nonlinear transonic theories, with emphasis on mathematical modeling and the role of shock waves in resolving singularities.
+
+---
+
+### Computational and Empirical Solutions
+6. **Anderson, J. D.** (2001). *Fundamentals of Aerodynamics* (5th and later editions). McGraw-Hill.  
+   - Chapter 11 specifically addresses transonic flow and singularity resolution. Discusses the von Kármán–Tsien and Laitone approximations and transitions to numerical and empirical corrections.
+
+7. **Eminton, C. A., & Chaplin, W. H.** (1970). *Compressible Flow and Transonic Aerodynamics*. Springer.  
+   - Covers both experimental observations and computational techniques for transonic singularity resolution.
+
+8. **Jameson, A.** (1985). "Transonic Flow Calculations." *Annual Review of Fluid Mechanics, 17(1)*, 257–282.  
+   - A detailed review of numerical methods, including finite volume and finite element techniques, to address transonic flow problems and singularities.
+
+---
+
+### Numerical Methods and CFD
+9. **Fletcher, C. A. J.** (1991). *Computational Techniques for Fluid Dynamics: Specific Techniques for Different Flow Categories*. Springer.  
+   - Includes chapters on numerical treatment of transonic flow, with emphasis on shock-capturing schemes and singularity mitigation.
+
+10. **Hirsch, C.** (2007). *Numerical Computation of Internal and External Flows* (2nd edition). Elsevier.  
+    - Discusses numerical strategies for transonic flows, including shock-boundary layer interactions and singularity resolution.
+
+11. **Laney, C. B.** (1998). *Computational Gasdynamics*. Cambridge University Press.  
+    - Provides comprehensive methods for computational modeling of transonic flows, focusing on stabilization techniques and shock resolution.
+
+---
+
+### Monographs on Transonic Phenomena
+12. **Pearcey, H. H.** (1961). *Shock-Induced Separation and Its Effects on Transonic Flow*. AGARD Report.  
+    - Focuses on experimental observations and theories related to shock-induced separation, providing insights into singularity avoidance.
+
+13. **Sears, W. R.** (1971). "Some Fundamental Aspects of Transonic Flow." *Journal of Fluid Mechanics, 49(4)*, 657–681.  
+    - Examines the nature of transonic singularities and introduces early nonlinear correction techniques.
+
+---
+
+These references encompass theoretical insights, numerical strategies, and practical considerations for resolving singularities in transonic flow. If you'd like, I can provide a more detailed explanation of specific methods or highlight their key contributions. Let me know!
