@@ -135,27 +135,47 @@ int main(int argc, char* argv[])
 
   // Kinematic Viscosity of the Air (at 15 C = 288.15 K):
   // TODO: make it variable:
-  constexpr auto nu  = 1.47e-5 * Area(1.0) / 1.0_sec;
+  constexpr auto nu   = 1.47e-5 * Area(1.0) / 1.0_sec;
 
   // Speed of Sound again (at 15 C = 288.15 K); TODO: make it variable:
-  constexpr Vel  Va  = Vel(340.294);
+  constexpr Vel  Va   = Vel(340.294);
 
   // The FreeStream Air Velocity:
-  Vel const Uoo      = Moo * Va;
+  Vel const Uoo       = Moo * Va;
 
-  // Then the thickness of the inner-most mesh layer (corrsep to the Viscous
-  // BoundaryLayer) can be approximated as:
-  int NB = NO;
+  // XXX: Assuming the Chord of 1 m. Since it appears with the degree (1/14),
+  // its actual value has very little effect:
+  constexpr Len Chord = 1.0_m;
+
+  // Then the params of the inner-most mesh layer (corrsep to the Viscous
+  // BoundaryLayer) can be approximated as follows:
+  int    NB  = NO;
+  Len    hB(NaN<double>);   // Not used unless "withBoundLayer" is set
+  double AR0 = 1.0;
+
   if (withBoundLayer)
   {
-    Len perim0 = Pi<double>  * (a0  + b0);
-    Len hB     = 7.5 * yPlus * ((nu / Uoo).IPow<13>() * 1.0_m).RPow<1,14>();
-    NB         = int(bit_ceil(unsigned(Round(double(perim0 / hB)))));
-    if (NB <= NO)
+    // Physical thickness of the Turbulent Boundary Layer:
+    hB = 8.7706 * yPlus * ((nu / Uoo).IPow<13>() * Chord).RPow<1,14>();
+
+    // We begin with the assumption that the inner-most layer elements are
+    // roughly Squares. Then the max size of the square side is around phi=Pi/2,
+    // and is equal to (a0 * dPhi).
+    // We require that HALF of this size (ie the distance from the Wall to the
+    // Square center) should not exceed "hB":
+    // a0 * dPhi / 2 <= hB,     and thus dPhi <= 2 * hB / a0;
+    // if we have  "NB" intervals, then  dPhi  = 2 * Pi / NB, and thus
+    // NB >= Pi * a0 / hB;
+    // furthermore, we round NB up (in most cases) to a Power-of-2:
+    //
+    NB = int(bit_ceil(unsigned(Round(Pi<double> * double(a0 / hB)))));
+    if (NB < NO)
     {
       cerr << "ERROR: Inconsistency: Got NB=" << NB << ", NO=" << NO << endl;
       return 1;
     }
+    // The Aspect Ratio (Height / Width) of the Square @ phi=Pi/2:
+    AR0 = double(2.0 * hB / (TwoPi<double> / double(NB) * a0));
   }
   //-------------------------------------------------------------------------//
   // Open and initialise the output file:                                    //
@@ -194,9 +214,8 @@ int main(int argc, char* argv[])
   // variable:
   double ar    = 1.0;
 
-
   // The "ar" limit after which we double the mesh size (must be > 2):
-  constexpr double MaxAR = 2.25;
+  constexpr double MaxAR = 2.75;
 
   while (LIKELY(a <= aMax))
 	{
@@ -218,18 +237,18 @@ int main(int argc, char* argv[])
     ellipses.push_back   (make_pair(NPoints-np, NPoints-1));
     ++ne;
 
-    // The semi-major axis increment  is the orthogonal step at phi=0, which
-    // should be equal to the tangential step  (to get the ~ square mesh els
-    // near the tips of the airfoil), using the EXISTING "dPhi" here; it may
-    // be overridden in the following:
-    Len da = b * dPhi;
+    // The semi-major axis increment  is the orthogonal step at phi=0,  which
+    // is computed using the tangential step (b * dPhi), incl the "AR0" factor;
+    // it may be overridden in the following:
+    Len da = b * dPhi * AR0;
 
     // Move to the next Ellipse.
     // If we are still in the "nInner" Boundary Mesh Layers, or there is no
     // Boundary Layer at all, change nothing.
     // Otherwise, increase "ar", but be careful not to do so prematurely:
     //
-    if (withBoundLayer && int(ellipses.size()) >= nInner+1 && ne >= 2)
+    if (withBoundLayer && int(ellipses.size()) >= nInner+1 && ne >= 2 &&
+        np > NO)
     {
       ar *= RER;
 
@@ -254,6 +273,11 @@ int main(int argc, char* argv[])
     }
     // In all cases:
     assert(NP % np == 0);
+
+    // For the inner-most layers, make sure that "da" (NOT da/2 !) does not
+    // exceed "hB":
+    if (UNLIKELY(withBoundLayer && int(ellipses.size()) <= nInner))
+      da = min(da,  hB);
 
     // Adjust "a", then re-calculate "b":
     a     += da;
