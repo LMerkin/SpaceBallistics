@@ -28,18 +28,18 @@ do
     mkdir -p $caseDir
 
 		# We currently DO NOT use Wall Functions -- they may apparently do more harm
-		# than good from the convergence point of view.  Without them, use y+ = 10:
+		# than good from the convergence point of view.  Without them, use y+ = 8:
     $TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
-        -N 512 -y 10 -M $M -o $caseDir/MeshEW.su2
+        -N 512 -y 8 -M $M -o $caseDir/MeshEW.su2
 
     # Copy the config into the corresp "Cfg":
     cp Config-RANS-NoWF-Proto.cfg $caseDir/Cfg
 
     # Install the variable params (some of them may be adjusted manually later).
-    # XXX: We initially assume Iter=25000 and CFLN=1; the params can then be tweaked
-    # manually:
+    # XXX: We initially assume Iter=25000 and CFLN=1;    the params can then be
+    # tweaked manually:
     cat >> $caseDir/Cfg <<EOF
-ITER= 10000
+ITER= 20000
 CFL_NUMBER= 5
 MACH_NUMBER= $M
 AOA= $alphaDeg

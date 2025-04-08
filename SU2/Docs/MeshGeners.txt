@@ -103,3 +103,12 @@ If your current workflow involves conformal mapping (e.g., Zhukovsky transformat
 All three seamlessly produce meshes suitable for direct SU2 import (`.su2` format).
 
 Your original conformal mapping approach remains robust, and integrating it into one of these proven mesh-generation tools ensures optimal and numerically stable meshes, especially for demanding sonic/transonic aerodynamic simulations.
+
+It’s a common misconception that near‐wall cells should be “square” or have similar tangential and normal spacing. In fact, for **high‐Reynolds‐number external aerodynamics**, cells are **purposefully stretched** in the tangential direction because the flow gradients (in velocity, temperature, etc.) are much steeper in the normal‐to‐wall direction than along the wall.  
+
+**Hence, large aspect‐ratio cells (hundreds or even thousands to 1) near the wall are not only acceptable but actually *preferred* for efficiency**:  
+
+1. **Small Normal Spacing**: to resolve steep boundary‐layer gradients and achieve the desired \(y^+\) (often ~1 for low‐Re resolution or ~30+ for wall‐function approaches).  
+2. **Larger Tangential Spacing**: since changes along the wall are typically less abrupt, you can get away with fewer grid points in that direction.
+
+This approach keeps the total mesh size manageable while still resolving the boundary layer accurately. If you instead made the near‐wall cells square, you would end up with an **extremely fine** tangential resolution—and an unnecessarily huge mesh—without significantly improving the boundary‐layer physics capture.

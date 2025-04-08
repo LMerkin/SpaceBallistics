@@ -18,7 +18,7 @@ namespace SpaceBallistics
   // Origin: Solar System BaryCenter
   // Axes  :
   //   X       : ICRS/BCRS ~ Dynamic Equinox  of J2000.0;
-  //   XY plane: ICRS/BCSR ~ Dynamic Ecliptic of J2000.0;
+  //   XY plane: ICRS/BCRS ~ Dynamic Ecliptic of J2000.0;
   //             (ie NOT ICRS/BCRS itself, which is Equatorial, and NOT the La-
   //             place plane of the Solar System, which is the plane orthogonal
   //             to the angular momentum vector of the whole Solar System);
