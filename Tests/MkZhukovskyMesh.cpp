@@ -29,14 +29,17 @@ int main(int argc, char* argv[])
   // Ratio of the Ellipse Axes: K = a/b:
   double K       = 10.0;
 
-  // Number of Points along each Ellipse (assumed to constant for all Layers):
-  int    N       = 400;
+  // Number of Points along each Ellipse (in the Far-Away Region); must be a
+  // power of 2:
+  int    NF      = 512;
 
   // The over-all size of the mesh:
-  Len  aMax      = 20.0_m;
+  Len    aMax    = 20.0_m;
 
   // The output file:
   string outFile = "mesh.su2";
+
+  // THE FOLLOWING PARAMS ARE APPLICABLE TO THE BOUNDARY-LAYER CASE ONLY:
 
   // The FreeStream velocity. It is only required if the mesh is to be generated
   // for a viscous (BoundaryLayer) problem:
@@ -44,15 +47,40 @@ int main(int argc, char* argv[])
 
   // The default value of y^+ for the thickness (NOT half-thickness!) of the
   // inner-most Mesh layer. Not used unless "Moo" is configured:
-  double yPlus   = 10.0;
+  double yPlus   = 1.0;
 
   // Radial Expansion Ratio: Again, not used unless "Moo" is configured:
   double RER     = 1.1;
 
-  // Possibly modify the above params from the command-line:
+  // Number of inner-most Mesh layers of constant thickness (before it starts
+  // increasing); reasonable values are 1..3:
+  int    nInner  = 1;
+
+  // Aspect Ratio (TangentialLength / NormalThickness) of rectangles in the
+  // inner-most layer:
+  double ar0     = 1000.0;
+
+  // Whether we generate "fixed-angular" mesh (ie the mesh cell size changes in
+  // the radial direction only); by default this is False, so that we apply the
+  // "doubling" stratregy in the angular domain; 
+  bool fixedAng = false;
+
+  // Verbose mode?
+  bool verbose  = false;
+
+  // CONSTANTS (TODO: May need to make them configurable as well):
+  // Kinematic Viscosity of the Air (at 15 C = 288.15 K):
+  constexpr auto nu   = 1.47e-5 * Area(1.0) / 1.0_sec;
+
+  // Speed of Sound again (at 15 C = 288.15 K):
+  constexpr Vel  Va   = Vel(340.294);
+
+  //-------------------------------------------------------------------------//
+  // Possibly modify the above params from the command-line:                 //
+  //-------------------------------------------------------------------------//
   while (true)
   {
-    int c = getopt(argc, argv, "K:N:A:M:y:R:o:h");
+    int c = getopt(argc, argv, "K:N:A:M:y:R:n:s:o:fvh");
     if (c < 0)
       break;
 
@@ -62,45 +90,69 @@ int main(int argc, char* argv[])
       K       = atof(optarg);
       break;
     case 'N':
-      N       = atoi(optarg);
+      // NB: "NF" must be a power of 2:
+      NF       = int(bit_ceil(unsigned(atoi(optarg))));
       break;
     case 'A':
-      aMax    = Len(atof(optarg));
+      aMax     = Len(atof(optarg));
       break;
     case 'o':
-      outFile = string(optarg);
+      outFile  = string(optarg);
       break;
     case 'M':
-      Moo     = atof(optarg);
+      Moo      = atof(optarg);
       break;
     case 'y':
-      yPlus   = atof(optarg);
+      yPlus    = atof(optarg);
       break;
     case 'R':
-      RER     = atof(optarg);
+      RER      = atof(optarg);
+      break;
+    case 'n':
+      nInner   = atoi(optarg);
+      break;
+    case 's':
+      ar0      = atof(optarg);
+      break;
+    case 'f':
+      fixedAng = true;
+      break;
+    case 'v':
+      verbose  = true;
       break;
     case 'h':
     default:
       cerr << "PARAMS: "                      << endl;
+      cerr << "\t-h: display this help"       << endl;
       cerr << "\t-K {A/B EllipticWing Ratio; default: " << K << '}'   << endl;
-      cerr << "\t-N {Number of Tangential Intervals; default: "       << N
-           << '}' << endl;
+      cerr << "\t-N {Number of Elliptic Arcs in the Far-Away Region; "
+              "default: " << NF << '}'        << endl;
       cerr << "\t-A {Semi-Major Axis of the Whole Mesh, m; default: "
            << aMax.Magnitude()  << '}'        << endl;
       cerr << "\t-o {Output File; default: "  << outFile << '}'       << endl;
+      cerr << "The following params are for the BoundaryLayer case only:"
+           << endl;
       cerr << "\t-M {FreeStream Mach Number; default: UnDefined => "
               " No BoundaryLayer}"            << endl;
       cerr << "\t-y {The y^+ value for the Inner-Most Mesh Layer; default: "
            << yPlus << '}' << endl;
       cerr << "\t-R {Radial Expansion Ratio; default: " << RER << '}' << endl;
-      cerr << "\t-h: display this help"       << endl;
+      cerr << "\t-n {Number of Inner-Most Mesh Layers of Const Thickness; "
+              "default: "  << nInner << '}'   << endl;
+      cerr << "\t-s {Max Aspect Ratio of Inner-Most Mesh Rectangles; default: "
+           << ar0 << '}' << endl;
+      cerr << "\t-f : Construct a \"Fixed-Angular\" Mesh; default: "
+           << (fixedAng ? "true" : "false")   << endl;
+      cerr << "\t-v : Verbose mode; default: "
+           << (verbose  ? "true" : "false")   << endl;
       return 1;
     }
   }
   // Verify the params:
-  if (K    <= 1.0 || N   < 50  || aMax < 1.5_m || outFile.empty() ||
-      yPlus < 1.0 || RER < 1.0 || RER  > 2.0   ||
-      (IsFinite(Moo) && !IsPos(Moo)))
+  constexpr int MinN = 32;
+  if (K     <= 1.0 || NF  < MinN || aMax < 1.5_m || outFile.empty() ||
+      yPlus <= 0.0 || RER < 1.0  || RER  > 2.0   || nInner < 1      ||
+      ar0   <= 0.0 || (IsFinite(Moo) && !IsPos(Moo)))
   {
     cerr << "ERROR: Invalid Param(s)" << endl;
     return 1;
@@ -108,9 +160,9 @@ int main(int argc, char* argv[])
   if (!outFile.ends_with(".su2"))
     outFile.append(".su2");
 
-  // If "Moo" is set, the BoundaryLayer-aware mesh will be constructed:
-  bool const withBoundLayer = IsFinite(Moo);
-
+  //-------------------------------------------------------------------------//
+  // Derived Params:                                                         //
+  //-------------------------------------------------------------------------//
   // The Radius of the circle which is the Zhukovsky Conformal Inverse-Image of
   // the Thin Elliptical AirFoil secton (a Circle).    XXX: This param is NOT a
   // "Len":
@@ -122,26 +174,74 @@ int main(int argc, char* argv[])
   Len const b0(0.5 * (1.0 / r0 - r0));
   assert(IsPos(b0) && b0 < a0 && a0 > 1.0_m);
 
-  // Kinematic Viscosity of the Air (at 15 C = 288.15 K):
-  // TODO: make it variable:
-  constexpr auto nu   = 1.47e-5 * Area(1.0) / 1.0_sec;
+  // Then the params of the inner-most mesh layer (corrsep to the Viscous
+  // BoundaryLayer) can be approximated as follows:
+  int    NB   = NF;
 
-  // Speed of Sound again (at 15 C = 288.15 K); TODO: make it variable:
-  constexpr Vel  Va   = Vel(340.294);
+  // "hB" is not used unless "withBoundLayer" is set:
+  Len    hB(NaN<double>);
 
-  // The FreeStream Air Velocity:
-  Vel const Uoo       = Moo * Va;
+  // "da" is the initial "a" increment; the default value is for the case w/o
+  // BoundaryLayer (dPhi * b0); otherwise, it is overriden below:
+  double dPhi = TwoPi<double> / double(NF);
+  Len    da   = dPhi * b0;
 
-  // XXX: Assuming the Chord of 1 m. Since it appears with the degree (1/14),
-  // its actual value has VERY LITTLE EFFECT:
-  constexpr Len Chord = 1.0_m;
+  // If "Moo" is set, the BoundaryLayer-aware mesh will be constructed:
+  bool const withBoundLayer = IsFinite(Moo);
 
-  // Physical thickness of the Turbulent Boundary Layer:
-  Len    hB  =
-    withBoundLayer
-    ? 8.7706 * yPlus * ((nu / Uoo).IPow<13>() * Chord).RPow<1,14>()
-    : Len(NaN<double>);
+  //-------------------------------------------------------------------------//
+  // The BoundaryLayer Setup:                                                //
+  //-------------------------------------------------------------------------//
+  if (withBoundLayer)
+  {
+    // XXX: Assuming the Chord of 1 m. Since it appears with the degree (1/14),
+    // its actual value has very little effect:
+    constexpr Len Chord = 1.0_m;
 
+    // The FreeStream Air Velocity:
+    Vel const Uoo = Moo * Va;
+
+    // Physical thickness of the Turbulent Boundary Layer (as computed with the
+    // given "yPlus"):
+    hB = 8.7706 * yPlus * ((nu / Uoo).IPow<13>() * Chord).RPow<1,14>();
+
+    // Then the max thickness of the inner-most mesh layer is @ phi=Pi/2, and
+    // is equal to (a0/b0) * da, where  "da" is the thickness @ phi=0.  Thus,
+    // we need     (a0/b0) * da  <= hB, where (a0/b0) = K:
+    da = hB / K;
+
+    // Then apply the "ar0" to the inner-most cells @ phi=0 (and since the map
+    // is conformal, the same ratio will apply automatically to all other "phi"
+    // didirections):
+    // their tangential size    is (b0 * dPhi),
+    // the normal (radial) size is da,
+    // and we must have
+    // b0 * dPhi <= da * ar0, so the (yet-unadjusted) "dPhi" will be:
+    dPhi = double(da / b0) * ar0;
+
+    // The number of points (and arcs) at the "boundary wall": must be a power
+    // of 2 as well, so the actual "dPhi" may be smaller than the above value:
+    NB   = int(bit_ceil(unsigned(Round(TwoPi<double> / dPhi))));
+    if (NB < MinN)
+    {
+      cerr << "ERROR: Got too low NB=" << NB << endl;
+      return 1;
+    }
+    // Adjust "dPhi" for the sake of consistency:
+    dPhi = TwoPi<double> / double(NB);
+
+    // If a "fixed-angular" mesh is requested, then "NB" will be used for the
+    // whole mesh, overriding "NF"  (and the "NF"-based "da" has already been
+    // overridden):
+    if (fixedAng)
+      NF = NB;
+    else
+    if (NB < NF)
+    {
+      cerr << "ERROR: Inconsistency: Got NB=" << NB << ", NF=" << NF << endl;
+      return 1;
+    }
+  }
   //-------------------------------------------------------------------------//
   // Open and initialise the output file:                                    //
   //-------------------------------------------------------------------------//
@@ -160,29 +260,26 @@ int main(int argc, char* argv[])
   //-------------------------------------------------------------------------//
   // Points Generation Loop:                                                 //
   //-------------------------------------------------------------------------//
-  Len a             = a0;
-  Len b             = b0;
-  int NPoints       = 0;
-  double const dPhi = TwoPi<double> / double(N);
+  Len a        = a0;
+  Len b        = b0;
+  int NPoints  = 0;
 
-  // The semi-major axis increment ("da"):
-  // Then the maximum "height" (normal side size) of the mesh cell  occurs @
-  // phi=Pi/2, and is equal to (a/b) * da; for the inner-most layer, it must
-  // be <= hB  if the BondaryLayer is used.
-  // Otherwise, we select "da" to make the inner-most layer cells square; for
-  // that, consider the point phi=0:
-  Len da =
-    withBoundLayer
-    ? double(b0 / a0) * hB
-    : b0 * dPhi;
+  // The number of Points to be generated for the curr Ellipse: variable for the
+  // ("fine", "inner") mesh, or constant  for the ("far-away", "coarse") mesh:
+  int const NP = withBoundLayer ? NB : NF;
+  int       np = NP;
 
-  // The number of Ellipses constructed so far:
-  int NEllipses = 0;
+  // For each Ellipse constructed, we memoise its range of Points:
+  vector<pair<int,int>> ellipses;
+
+  // The number of ellipses generated with the current "np":
+  int       ne = 0;
  
   while (LIKELY(a <= aMax))
 	{
-    // Generate the ellipse with the given "a" and "b":
-    for (int i = 0; i < N; ++i)
+
+    // Generate the ellipse with the given "a", "b" and "np":
+    for (int i = 0; i < np; ++i)
     {
       double phi    = dPhi * double(i);
       double cosPhi = Cos(phi);
@@ -194,23 +291,66 @@ int main(int argc, char* argv[])
       fprintf(f, "%.12lf %.12lf   %d\n", x.Magnitude(), y.Magnitude(), NPoints);
       ++NPoints;
     }
-    ++NEllipses;
+    // Save the range of indices of points making this ellipse:
+    ellipses.push_back   (make_pair(NPoints-np, NPoints-1));
+    ++ne;
 
-    // Move to the next Ellipse.
-    // If there is no Boundary Layer at all, change nothing. Otherwise, increase
-    // "ar", but be careful not to do so prematurely:
-    if (withBoundLayer && NEllipses >= 2)
-      da *= RER;
+    // For the next Ellipse:
+    // If we are still in the "nInner" Boundary Mesh Layers,  or there is no
+    // Boundary Layer at all, or we are in the "far away" region,   keep the
+    // current "da".
+    // Otherwise, may increase "da", but be careful not to do so prematurely:
+    //
+    if (withBoundLayer && int(ellipses.size()) >= nInner+1 && ne >= 2)
+    {
+      // Tangential Width @ phi=0:
+      Len dw = b * dPhi;
 
-    // Adjust "a", then re-calculate "b":
+      if (np > NF)
+      {
+        // We are NOT in the "far-away" region yet, so expand "da":
+        da *= RER;
+
+        // If we got a mesh which is "too much stretched" in the radial direct-
+        // ion, it's time to double the cell size (incl the base). So check the
+        // (Height / Width) @ phi=0:
+        double rs = double(da / dw);
+
+        if (rs > 2.0)
+        {
+          // Time to double the Elements Width:
+          // New "np" will be for the next ellipse containing ~2 times less
+          // arcs; re-calcuilate "dPhi" with the new "np":
+          np   = max(np / 2, NF);
+          ne   = 0;
+          dPhi = TwoPi<double> / double(np);
+
+          // Set "da" to make the next layer "square"-like:
+          da = b * dPhi;
+        }
+        // Otherwise, keep the curr expanded "da"
+      }
+      else
+        // We are in the "far-away" region; make square-like cells there:
+        da = dw;
+    }
+    // In all cases:
+    assert(NP % np == 0);
+
+    // Increment "a", then re-calculate "b":
     a       += da;
     double r = (a - SqRt(Sqr(a) - Area(1.0))).Magnitude();
     assert(r > 0.0);
     b      = Len(0.5 * (1.0 / r - r));
     assert(IsPos(b) && b < a);
+
+    if (verbose)
+      cerr << ellipses.size() << " --> np=" << np << ", da="
+           << da.Magnitude()  << ", a="     << a.Magnitude() << endl;
 	}
   // All Points and Ellipses Done!
 
+  int NEllipses = int(ellipses.size());
   if (UNLIKELY(NEllipses < 2))
   {
     cerr << "ERROR: Too few Ellipses generated (" << NEllipses << ')' << endl;
@@ -231,32 +371,103 @@ int main(int argc, char* argv[])
   fseek  (f, 0, SEEK_END);
 
   //-------------------------------------------------------------------------//
-  // Generate the Rectangular Mesh Elements:                                 //
+  // Generate the Rectangular and Triangular Mesh Elements:                  //
   //-------------------------------------------------------------------------//
-  int  NElems = (NEllipses - 1) * N;
-  fprintf(f, "NELEM= %d\n", NElems);
+  // The total number of Elements is determined dynamically:
+  int MaxElems   = 99999999;
+  fputs   ("NELEM= XXXXXXXX\n", f);
+  long NElemsOff = ftell(f)  -  9;
+  int  NElems    = 0;
 
   for (int e = 0; e <= NEllipses-2; ++e)
   {
-    // NB: point indices used in Elems generation are 0-based:
-    int pFrom = e * N;
-    int pTo   = pFrom + N - 1;
+    // First, process all Points  on this Ellipse:
+    auto [pFrom, pTo] = ellipses[size_t(e)];
 
-    // Generate Rectangles (Code=9):
-    for (int i = pFrom; i <= pTo; ++i)
+    // The number of Points on this Ellipse:
+    int  ne           = pTo - pFrom + 1;
+    assert(ne >= NF && ne % 2 == 0);
+
+    // The next Ellipse may have either the same number of Points, or 2 times
+    // less:
+    auto [nFrom, nTo] = ellipses[size_t(e+1)];
+    int  nn           = nTo - nFrom + 1;
+    assert(nn >= 2 && nn % 2 == 0);
+
+    bool   same = (ne == nn);
+    assert(same   ||  ne == nn * 2);
+    // In particular, if e <= nInner, we must have the "same" flag set, other-
+    // wise we would not be able to complete the inner squares:
+    assert(e > nInner || same);
+
+    // If the "same" flag is set, then we use all Points of the Ellipse "e" as
+    // the Rect vertices;  otherwise, use each 2nd point as Triangle vertices:
+    int step = same ? 1 : 2;
+
+    // "Ort": the function which, for a given Point idx ("i"), returns the idx
+    // of the corresp point on the next Ellipse, ie in the orthogonal (wrt the
+    // curr Ellipse) direction from "i":
+    auto Ort =
+      [pFrom,  nFrom, step](int i) -> int
+      {
+        assert(i >= pFrom && (i - pFrom) % step == 0);
+        return      nFrom +  (i - pFrom) / step;
+      };
+    assert(pTo+1 - ne == pFrom);
+
+    if (same)
     {
-      int i1 = (i <= pTo-1) ? (i+1) : pFrom;
+      // Generate the Rectangles (Code=9):
+      for (int i = pFrom; i <= pTo; ++i)
+      {
+        int i1 = (i <= pTo-1) ? (i+1) : pFrom;
 
-      fprintf(f, "9 %d %d %d %d   %d\n",
-              i, i1, i1+N, i+N, NElems++);
+        fprintf(f, "9 %d %d %d %d   %d\n",
+                i, i1, Ort(i1), Ort(i), NElems++);
+      }
+    }
+    else
+    {
+      // Generate the Triangles (Code=5):
+      assert(pFrom % 2 == 0 && (pTo-1) % 2 == 0);
+
+      for (int i = pFrom; i <= pTo-1; i += 2)
+      {
+        // The right-most point (i+2): again, (pTo+1) is wrapped to "pFrom":
+        int i2  = (i <= pTo-2) ? (i+2) : pFrom;
+        int Oi  = Ort(i);
+        int Oi2 = Ort(i2);
+
+        // The left  triangle ("pointing outwards"):
+        fprintf(f, "5 %d %d %d   %d\n", i,   i+1, Oi,  NElems++);
+
+        // The mid   triangle ("pointing inwards"):
+        fprintf(f, "5 %d %d %d   %d\n", Oi,  i+1, Oi2, NElems++);
+
+        // The right triangle ("pointing outwards"):
+        fprintf(f, "5 %d %d %d   %d\n", i+1, i2,  Oi2, NElems++);
+      }
     }
   }
+  if (UNLIKELY(NElems > MaxElems))
+  {
+    cerr << "ERROR: Too many Elems generated (" << NElems << " > "
+         << MaxElems << ')' << endl;
+    fclose(f);
+    return 1;
+  }
+  // Store the number of Elems in the file (up to 8 digits):
+  fseek  (f, NElemsOff, SEEK_SET);
+  fprintf(f, "%8d",     NElems);
+  fseek  (f, 0,         SEEK_END);
+
   //-------------------------------------------------------------------------//
   // Generate the Boundaries ("Markers"):                                    //
   //-------------------------------------------------------------------------//
   // The Inner-Most Ellipse ("Wall"):
-  int wFrom = 0;
-  int wTo   = N - 1;
+  auto  [wFrom, wTo] = ellipses.front();
+  assert(wFrom == 0 && wTo == NP - 1);
+
   fprintf(f, "NMARK= 2\nMARKER_TAG= Wall\nMARKER_ELEMS= %d\n",
           wTo - wFrom + 1);
 
@@ -264,9 +475,7 @@ int main(int argc, char* argv[])
     fprintf(f, "3 %d %d\n", i, (i != wTo) ? (i+1) : wFrom);
 
   // The Outer-Most Ellipse ("FarAway"):
-  int fFrom = (NEllipses - 1) * N;
-  int fTo   = fFrom  + N - 1;
-  assert(fTo == NPoints  - 1);
+  auto  [fFrom, fTo] = ellipses.back();
 
   fprintf(f, "MARKER_TAG= FarAway\nMARKER_ELEMS= %d\n",
           fTo - fFrom + 1);
@@ -278,7 +487,9 @@ int main(int argc, char* argv[])
   // Store the generation params at the end:                                 //
   //-------------------------------------------------------------------------//
   if (withBoundLayer)
-    fprintf(f, "%% M = %lf, y+ = %lf, RER = %lf\n", Moo, yPlus, RER);
+    fprintf(f, "%% M = %.3lf, y^+ = %.3lf, nInner = %d, RER = %.3lf, NF = %d, "
+               "ar0 = %.3lf\n",
+            Moo, yPlus, nInner, RER, NF, ar0);
 
   fclose(f);
   return 0;
