@@ -1,0 +1,251 @@
+I noticed that the above considerations work well for small Angles-of-Attack (AoA). However, for sufficiently large AoA (say 20 degrees), convergence of SU2 simulations is still slow. I use a conformal mapping mesh with y+ = 1, radial expansion ratio of 1.1 and the aspect ratio of cell elements at the wall of only 50 (not 100 or 1000). The flow is very much subsonic, Mach = 0.10. The solver is RANS, with the SST turbulence boundary layer model. The result is the following: during the simulations, the Lift (CL) and Drag (CD) coefficients initially oscillate with a very high amplitude (eg 30 for CL). Then, after 50k iterations, the amplitudes of CL and CD eventually decrease, but they do not tend to 0. There are still remaining oscillations of CL between say 0.8 and 1.6, and similar (but smaller-amplitude) oscillations of CD. This happens with CFL number of 1.25 Reducing it (say to 0.5) apparently does not help convergence: it only increases the period of oscillations (in the number of iterations) but does not reduce their amplitudes. Is there any way to get rid of those remaining CL and CD oscillations? Maybe the SST model is not applicable under the above conditions?
+
+When a 2D, steady RANS simulation at high angle of attack (e.g., 20°) exhibits persistent large‐amplitude oscillations in the aerodynamic coefficients—even after many iterations—this often indicates that the flow *itself* is physically unsteady (due to massive separation, vortex shedding, etc.) and that a strictly “steady” numerical approach is not converging to a single fixed flow state. In other words, **the solver is trying to settle on a steady solution when the real flow might be inherently unsteady**.
+
+Below are some considerations and strategies to address such behavior:
+
+---
+
+## 1. Physical Flow Unsteadiness at High AoA
+
+1. **Massive Flow Separation**  
+   - At AoA = 20° (depending on airfoil shape), you can have a large separated region on the suction side, or even on both sides if the stall is severe.  
+   - Separated flows at moderate–high Reynolds numbers typically shed large-scale vortices in an unsteady fashion.
+
+2. **RANS Steady** vs. **Time-Accurate**  
+   - A steady RANS solver tries to find a single fixed flow field. But if the real physics involves vortex shedding or massively separated wakes, the solver may never truly converge to a stable steady state.  
+   - Instead, you may see a “limit cycle” in the residuals and in lift/drag (CL, CD) – i.e., they keep oscillating around some average value.
+
+---
+
+## 2. Check Whether the Flow Is *Truly* Steady
+
+Before you try further numerical “tricks,” ask: **Is it physically plausible for the flow to be steady?**  
+- For well-separated or post-stall flows at moderate Reynolds numbers, the flow is almost always unsteady.  
+- Even if “2D” in theory, the real flow might be 3D or time-dependent, so a strictly 2D RANS approach could lead to large oscillations that never settle.
+
+---
+
+## 3. Potential Remedies
+
+### (a) Switch to an **Unsteady RANS (URANS)** Simulation
+
+1. **Dual Time Stepping**  
+   - In SU2, choose an unsteady solver approach (e.g., `TIME_MARCHING= DUAL_TIME_STEPPING`) and specify a real (or pseudo) physical time step.  
+   - Let the flow develop in time. The solver can capture the periodic or quasi-periodic vortex shedding if it’s truly unsteady.  
+   - Then you can time-average CL and CD over many cycles to get a meaningful mean value.
+
+2. **(U)RANS with Higher AoA**  
+   - Realize that for large separations, even URANS can have trouble capturing vortex shedding realistically. A more advanced turbulence model or even LES/DES might be needed for high fidelity.  
+   - But typically, URANS is an improvement over forcing a purely steady solution.
+
+### (b) Use **More Robust Steady Techniques** (if physically you still *want* a steady solution)
+
+1. **Increase Inner Iterations (Dual or Nonlinear Subiterations)**  
+   - For the implicit solver, try increasing `INNER_ITER` or `LINEAR_SOLVER_ITER` so that each iteration is more fully converged.  
+   - Add or adjust **relaxation factors** (e.g., `RELAXATION_FACTOR_FLOW`, `RELAXATION_FACTOR_TURB`) to damp large updates each iteration.
+
+2. **Try a Different Turbulence Model**  
+   - The **SST** model is usually robust, but sometimes you can get different (and occasionally more stable) behavior with **Spalart–Allmaras** for external aero.  
+   - Still, if the flow is inherently unsteady, a different RANS model might not “fix” that.
+
+3. **Introduce Artificial Damping**  
+   - In practice, some codes allow artificial transient damping or special “frozen” turbulence steps to quell oscillations. This can lead to an *approximate* steady solution but might not reflect real physics if the flow is truly unsteady.
+
+### (c) Refine or Modify the Mesh / Setup
+
+1. **Mesh Quality**  
+   - Even though your aspect ratio is “only” 50:1, check for cell skewness or poor orthogonality in separated regions.  
+   - Ensure you have enough cells downstream to capture recirculation.  
+   - A higher or more uniform resolution in the wake *sometimes* reduces spurious oscillations.
+
+2. **Lower Reynolds Number?**  
+   - If the real flow is at extremely high Reynolds number, the separation is more likely unsteady. At lower Re or lower AoA, you might get a stable solution. Obviously, you can’t just “change” the real Re, but you can do a parametric check.
+
+---
+
+## 4. Is the SST Model “Not Applicable”?
+
+- **SST k–ω** is generally quite versatile for subsonic to transonic separated flows. However, *no* RANS model can forcibly turn an inherently unsteady flow into a truly steady solution if the flow physics won’t allow it.  
+- If the flow is in deep stall or has large separation, the solution is physically unsteady. You *can* attempt a “steady” RANS, but you’ll often see these persistent coefficient oscillations or fail to converge.
+
+---
+
+### Bottom Line
+
+- Your large oscillations in CL and CD at AoA=20° and Mach=0.1 strongly suggest **massive separation and intrinsic unsteadiness**.  
+- Trying to force a steady RANS solution may not converge in the classical sense, regardless of how you tweak CFL or relaxation factors.  
+- **Best path**: Run an **unsteady RANS** (URANS) simulation (dual time-stepping), let the solution develop over time, and then **time-average** your forces once they reach a periodic or quasi-periodic pattern. This will give you physically meaningful mean lift and drag without the “stuck in an oscillation” phenomenon that arises in a purely steady approach.
+
+In my case, the Reynolds number is still high (2.3e7), and the mesh is perfectly orthogonal. Thank you for pointing out that the flow may be physically unsteady, and this is the reason why the solution reaches a nonlinear limit cycle. But what are the general condition for the existence of a steady flow? How does it depend on the AoA, Re, M and other factors? Can it be expressed as an algebraic function of AOA, Re and M?
+
+There is **no universal algebraic formula** that tells you, for a given airfoil geometry, \(\mathrm{Re}\), \(M\), and \(\alpha\) (angle of attack), whether a *strictly steady* flow solution exists. The onset of flow unsteadiness (e.g., vortex shedding, large‐scale separation, and shedding in the wake) depends on a **combination** of:
+
+1. **Airfoil geometry** (thickness, camber, leading‐edge radius, etc.),  
+2. **Angle of attack (\(\alpha\))**,  
+3. **Reynolds number (\(\mathrm{Re}\))**,  
+4. **Mach number (\(M\))**, and  
+5. **Physical effects** (e.g., compressibility, turbulence characteristics, shock–boundary‐layer interactions).
+
+In practice, flow separation and unsteadiness result from **nonlinear** and often **geometry‐specific** effects. Below are some general insights rather than a single formula:
+
+---
+
+## 1. Stall and Large Separation Often Lead to Unsteadiness
+
+- At moderate to high Reynolds numbers, when an airfoil exceeds its “critical” AoA (stall angle), a **large separated region** forms on the suction side.  
+- This separated flow frequently transitions to **vortex shedding**, especially if the separation bubble extends far downstream.  
+- The flow can then exhibit **limit‐cycle oscillations** in 2D (or even more complex 3D structures in reality).
+
+### Example
+
+For a “typical” NACA‐series airfoil at \(\mathrm{Re} \sim 10^6\)–\(10^7\) and subsonic Mach \((M < 0.3)\):
+- The steady flow solution is often reliable *up to* some stall angle \(\alpha_{\mathrm{stall}}\) (maybe 12–16°, depending on geometry).  
+- Beyond that, the separated region grows, and the flow can become inherently unsteady in a 2D simulation (or 3D in real life).  
+
+But the exact \(\alpha_{\mathrm{stall}}\) depends strongly on airfoil shape, surface roughness, Reynolds number, etc.
+
+---
+
+## 2. Compressibility Effects (Mach Number)
+
+- At **low Mach** (\(M < 0.3\)), compressibility is minor, so the primary driver of unsteadiness is **boundary‐layer separation** and **adverse pressure gradients**.  
+- At **transonic Mach** (\(M \approx 0.7\)–1.2), you can get shock waves on the airfoil; shock–boundary‐layer interactions may induce additional flow separation or buffet, which can be unsteady.  
+- At **supersonic Mach**, shock waves dominate the flow structure, and *some* configurations do converge to a steady shock pattern—but high AoA or strong shocks can trigger separated shock waves, leading again to unsteadiness (shock oscillations, “shock buffet,” etc.).
+
+---
+
+## 3. Reynolds Number Effects
+
+1. **Higher Re** \(\implies\) thinner boundary layers, generally more prone to sharp separation if the pressure gradient is large.  
+2. **Lower Re** \(\implies\) more laminar flow or laminar separation bubbles, which can reattach or transition to turbulence and lead to unsteadiness in different ways.
+
+Even for the “same” angle of attack and Mach number, the existence (and location) of laminar or turbulent transition can make the difference between an attached flow and a large separated region.
+
+---
+
+## 4. Geometry Dependence
+
+Each airfoil (or wing section) has its own:
+- Thickness and camber distributions,  
+- Leading‐edge geometry,  
+- Trailing‐edge shape.
+
+These geometry factors heavily influence stall behavior and the AoA at which separation occurs. One geometry might have mild trailing‐edge separation at 12°, while another can carry attached flow up to 16° or more. Even a small variation in geometry can shift the stall angle and the onset of large‐scale separation.
+
+---
+
+## 5. No Single “Algebraic” Relationship
+
+Because of these **complex, interdependent** factors:
+
+- We do not have a simple function like \(\alpha_{\mathrm{crit}}(\mathrm{Re}, M)\) that universally predicts the exact boundary between “steady solution exists” and “flow is inherently unsteady.”  
+- Instead, aerodynamicists use **charts, correlations, or extensive experimental data** to identify stall AoA ranges, shock‐induced separation boundaries, or regions of possible hysteresis.  
+- Even then, “steady” vs. “unsteady” can be influenced by small geometry details, turbulence modeling, and 3D effects.
+
+---
+
+## 6. Practical Approaches
+
+1. **Engineering Correlations**  
+   - For some well‐studied airfoil families (e.g., NACA 4‐digit, 6‐digit, supercritical sections), you can find correlation curves or tables giving stall angles, drag divergence Mach numbers, etc., as a function of \(\mathrm{Re}\) and \(M\).  
+   - These help guess where unsteadiness might appear.
+
+2. **CFD / Experimental Investigation**  
+   - Often, one runs a series of CFD simulations or wind‐tunnel tests spanning a range of \(\alpha\), \(\mathrm{Re}\), and \(M\).  
+   - If the solver or experiment sees persistent large separations and unsteady vortex shedding, that indicates there is *no* single stable steady state.
+
+3. **Unsteady Simulations (URANS, DES, LES)**  
+   - If a “steady RANS” approach keeps oscillating in lift and drag, it’s a strong sign the real flow is unsteady. One then uses URANS or a more advanced method to capture the time‐varying flow.  
+   - You can time‐average the unsteady solution for an “effective” mean \(C_L\), \(C_D\).
+
+---
+
+### Bottom Line
+
+- **Whether a steady flow exists** for a given airfoil and operating condition depends on complex interactions of geometry, AoA, Reynolds number, Mach number, and boundary‐layer phenomena.  
+- There is **no universal algebraic formula** like \( f(\alpha, \mathrm{Re}, M) = \text{“steady or unsteady?”} \).  
+- Generally, **large AoA** beyond stall and/or **strong shock–boundary‐layer interactions** lead to inherent unsteadiness. For purely subsonic attached flows (lower AoA), or some supersonic attached flows, a steady RANS solution can exist.  
+- When in doubt, if your steady solver exhibits persistent oscillations, the flow is very likely physically unsteady at those conditions.
+
+How can I determine whether the oscillation is the CD and CL are real and physical, or they are caused (say) by a too large CFL number?
+
+Distinguishing between **physical** unsteadiness versus **numerical** oscillations (e.g., from too‐large CFL or insufficient inner iterations) typically involves systematically varying numerical parameters and observing how the solution responds. Below are a few practical steps you can take to figure out whether the oscillations in \(C_D\) and \(C_L\) are real flow features or an artifact of the solver setup.
+
+---
+
+## 1. Reduce the CFL Number and Compare
+
+1. **Systematically vary the CFL** (and possibly subiterations if using an implicit solver).  
+2. If the amplitude and/or frequency of the oscillations **significantly decreases** when you lower the CFL, it suggests that the oscillations may have been numerically induced or amplified.  
+3. If you reduce the CFL substantially and the oscillation remains about the same amplitude and frequency, it is more likely *physical* (or at least not driven by the CFL alone).
+
+---
+
+## 2. Check Convergence with More Rigorous Iterations
+
+- **Increase `LINEAR_SOLVER_ITER`** or **`INNER_ITER`** (for implicit solvers). By allowing more robust convergence at each nonlinear step, you remove the possibility that partial convergence within each iteration is causing oscillations.  
+- If the force oscillations persist even with a large number of inner iterations (and stable residuals), it hints that the flow might truly be unsteady.
+
+---
+
+## 3. Try an Unsteady (URANS) Simulation
+
+If you suspect the flow **should** be physically steady but your steady solver is oscillating, do a short test using an **unsteady approach**:
+
+1. Switch to **DUAL_TIME_STEPPING** or an **Explicit Unsteady** scheme.  
+2. Use a small physical time step (enough to properly resolve the flow).  
+3. Observe how \(C_L\) and \(C_D\) behave in time:
+   - **If they converge to a constant** (or nearly constant) value, the flow is *actually* steady; any oscillations in the steady solver were likely numerical.  
+   - **If they reach a limit cycle or remain oscillatory** (and you see a coherent vortex shedding pattern, separated shear layers, etc.), the flow is inherently unsteady – the steady solver was never going to settle to a single fixed solution.
+
+---
+
+## 4. Inspect the Flow Field (Residually and Visually)
+
+Sometimes you can see what is going on by looking at the solution fields:
+
+- **Check for Large Separation** or **Vortex Shedding** regions in a flow visualization or by monitoring velocity/pressure in the wake.  
+- If you see periodic vortex shedding or large, unsteady flow structures, that’s a clear sign the solution is truly unsteady.  
+- If the flow looks nearly attached or you only see minor separation but the solver is jumping around, you might suspect a numerical artifact.
+
+---
+
+## 5. Perform a Grid and Time-Step Sensitivity Study
+
+1. **Refine the Mesh** in critical regions or globally to confirm the solution’s behavior is not mesh‐dependent.  
+2. **Change the Time‐Step** (in unsteady mode) to see if the same frequency of oscillation persists. If you see a consistent physical Strouhal number or vortex‐shedding frequency even on finer meshes and smaller time steps, that strongly indicates it’s physical.  
+3. **Compare Coarser and Finer Resolutions**. If the amplitude/frequency of the oscillation does not vanish with refinement, it’s likely physical.
+
+---
+
+## 6. Compare with Known Data (If Available)
+
+- If your flow conditions (Re, Mach, geometry, AoA) have been studied experimentally or documented in literature (e.g., classic airfoils with known stall behavior), see if unsteadiness at that AoA is reported.  
+- Match the frequency or lift/drag variation you observe with known “shedding frequencies” or “buffet frequencies” from experiments or references.
+
+---
+
+### Bottom Line
+
+1. **Numerical Artifacts**: Often go away or diminish significantly when you lower the CFL, improve convergence in the inner solver, or refine the mesh/time step.  
+2. **Physical Unsteadiness**: Persists across a range of stable numerical parameters, often is consistent with known flows (e.g., vortex shedding at high AoA), and shows in unsteady simulations.  
+
+Thus, systematically **tune your solver parameters** (CFL, inner iterations, etc.) and **run a short unsteady case** to see if the oscillations remain. That’s usually the most conclusive way to determine whether the unsteadiness is real or purely numerical.
+
+Continuing on CL and CD coefficients, I have noticed that at AoA=20 degrees, when (presumably) flow separation occurs, if I calculate the "average" CL and CD (for the moment, still using RANS rather than URANS), then the average CL is lower and the average CD is significantly higher than the corresponding coefficients for a AoA=10 degrees (when the flow is still steady). Is it physically sensible? That is, when AoA increases beyond the critical value, CL drops and CD significantly increases?
+
+Yes—this is exactly the classical **stall** (or post‐stall) behavior. When an airfoil exceeds its critical angle of attack (\(\alpha_{\text{stall}}\)), the boundary layer separates significantly, which **reduces the lift** and **increases the drag** well beyond what would happen in attached flow. The general aerodynamic trend is:
+
+1. **Up to a point** (from small to moderate \(\alpha\)), lift (\(C_L\)) **increases** with angle of attack.  
+2. **Beyond the stall angle**, the flow cannot remain attached, causing a large separated region on the suction side. This separation dramatically **reduces the effective lift** while **raising drag**.  
+
+So seeing lower \(\overline{C_L}\) (averaged) and significantly higher \(\overline{C_D}\) at \(\alpha=20^\circ\) versus the steady/attached flow at \(\alpha=10^\circ\) is absolutely **physically consistent** with stall. 
+
+### Why Lift Decreases and Drag Increases
+
+- **Large Separation** breaks down the organized airflow over the upper surface.  
+- The separated flow exerts higher pressure on the rear portion of the airfoil (reducing net suction/lift) and increases form (pressure) drag.  
+- Turbulent wakes, vortices, and recirculation increase both **pressure drag** and **viscous drag** contributions.
+
+In a purely 2D setting at high Reynolds number, this flow is usually **unsteady** (vortex shedding over the top surface). A steady RANS code may produce an oscillatory or limit‐cycle solution, but time‐averaging the forces typically reveals **post‐stall** lift and drag trends that match the known drop in \(C_L\) and rise in \(C_D\).

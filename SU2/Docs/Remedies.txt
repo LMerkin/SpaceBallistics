@@ -14,7 +14,7 @@ NB: If Wall Functions are NOT used, "y+" in the Mesh Generator should be <= 10.
 y+ < 1 in TOO_MANY points (with Wall Functions) =>
 	harmless, but may increase the "y+" value in Mesh generator
 
-Local Divergence (say T_Wall < 0 and then NaN encountered) =>
+Local Divergence (say NaN encountered, with or w/o T_Wall < 0) =>
 	Reduce CFL_NUMBER;
   sometimes, reduce WALLMODEL_RELFAC (?)
 	if nothing helps, switch off the Wall Functions altogether

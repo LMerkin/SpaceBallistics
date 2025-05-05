@@ -11,7 +11,7 @@ ewDir=~/Tmp/EW-RANS
 # Generate All Cases under "$ewDir":                                          #
 #-----------------------------------------------------------------------------#
 # Angle of Attack, in deg:
-for alphaDeg in {0..20..5}
+for alphaDeg in {0..12..3}
 do
   # Mach Number at infinity (as a multiple of 0.01):
   for M100 in {10..300..5}
@@ -27,24 +27,52 @@ do
     caseDir0=$ewDir/00/$M
     mkdir -p $caseDir
 
-		# We currently DO NOT use Wall Functions -- they may apparently do more harm
-		# than good from the convergence point of view.  Without them, use y+ = 8:
-    $TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
-        -N 512 -y 8 -M $M -o $caseDir/MeshEW.su2
+    # We currently DO NOT use Wall Functions -- they may apparently do more harm
+    # than good from the convergence point of view.  Without them, use y+ = 1:
+    # The Meshes are the same for all AoA; so we can generate them for AoA=0,
+    # and use symlinks otherwise;
+    # Convergence is measured in CD for alphaDeg=0, and in CL otherwise;
+    # "yPlus" in the Mesg and the number of iterations in the Cfg file depend on
+    # the Mach number:
+    yPlus=1
+		CFLInit=5
+		CFLMax=500
+    if [ $M100 -ge 150 ]
+    then
+     # In "sufficiently high super-sonic modes", a more coarse "yPlus" is OK:
+     yPlus=10
+    fi
+		if [ $M100 -ge 240 ]
+		then
+			CFLInit=1
+		  CFLMax=100
+		fi
+
+    # Generate (or link) the Mesh File:
+    if [ $alphaDeg -eq 0 ]
+    then
+      $TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
+          -N 256 -y $yPlus -M $M -s 1000 -R 1.1 -n 1 -o $caseDir/MeshEW.su2
+      ConvField=DRAG
+    else
+      ln -sf $caseDir0/MeshEW.su2 $caseDir/MeshEW.su2
+      ConvField=LIFT
+    fi
 
     # Copy the config into the corresp "Cfg":
     cp Config-RANS-NoWF-Proto.cfg $caseDir/Cfg
 
-    # Install the variable params (some of them may be adjusted manually later).
-    # XXX: We initially assume Iter=25000 and CFLN=1;    the params can then be
-    # tweaked manually:
+    # Install the variable params (some of them may be adjusted manually later):
     cat >> $caseDir/Cfg <<EOF
-ITER= 20000
-CFL_NUMBER= 5
-MACH_NUMBER= $M
-AOA= $alphaDeg
-REYNOLDS_NUMBER= $Re
-RESTART_SOL= NO
+CFL_ADAPT=              YES
+CFL_NUMBER=             $CFLInit
+CFL_ADAPT_PARAM=        ( 0.1, 1.2, 0.1, $CFLMax )
+ITER=                   100000
+CONV_FIELD=             $ConvField
+MACH_NUMBER=            $M
+AOA=                    $alphaDeg
+REYNOLDS_NUMBER=        $Re
+RESTART_SOL=            NO
 EOF
   done
 done
