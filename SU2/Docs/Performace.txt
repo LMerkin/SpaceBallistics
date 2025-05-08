@@ -1,0 +1,100 @@
+### 1 hour for a 64-core 2-D transonic airfoil run is **reasonable**
+
+| Item | Order-of-magnitude check |
+|------|-------------------------|
+| Cells in your 2-D grid | typical 70 k – 150 k for y<sup>+</sup>=1, Δr = 1.1 |
+| Unknowns per cell (ρ, ρu, ρv, ρE + 2 turb eqns) | 6–7 |
+| Total scalar DOFs | ≈ 0.5–1 million |
+| Iterations | 10<sup>5</sup> |
+| Work units | (0.5–1 M) × 10<sup>5</sup> ≈ 5 × 10<sup>10</sup> cell-updates |
+| Sustained rate on 64 × 2.3 GHz (≈ 150 GF/s double) | 3–4 × 10<sup>9</sup> updates / s |
+| Wall-clock estimate | (5 × 10<sup>10</sup>)/(3–4 × 10<sup>9</sup>) ≈ 15–20 min <br>(plus I/O, comms, cache misses) → **~1 h** is plausible |
+
+So you are **not** drastically off the mark.
+
+---
+
+## 1.  Axisymmetric launch-vehicle: how big a run?
+
+### Grid size
+
+| Region | Typical cells (*viscous, y<sup>+</sup>=1*) |
+|--------|-------------------------------------------|
+| Nose + barrel + base | 400–600 pts along body × 250–400 normal layers ⇒ **1.0–2.0 × 10<sup>5</sup> cells** |
+| Plumes, fins, protuberances (if axisymmetric assumption holds they vanish) | – |
+| Far-field | extra 30 k–50 k |
+
+**Total:** **≈ 0.15–0.25 M cells** – only 2–3 times larger than your airfoil grid.
+
+### Timings
+
+- Cost scales ~ linearly with cell count (and weakly with CFL / convergence steps).  
+- **If your airfoil case takes 1 h**, the axisymmetric vehicle should take **2–3 h** on the same 64 cores, provided you keep similar solver settings.
+
+So **a single workstation with 32-64 cores is enough** for a 2-D axisymmetric RANS run.
+
+---
+
+## 2.  When wall functions become attractive
+
+| Scenario | Why wall functions help |
+|----------|------------------------|
+| **Full 3-D vehicle** (e.g., fins, asymmetric loads, plume-body interaction) | 3-D RANS requires 15–30 cells *around the circumference* for every axial station: total cells jump to 30 – 50 million if you keep y<sup>+</sup>=1.  At that size you *do* need either (a) a cluster or (b) wall functions. |
+| **Very high Re (10<sup>8</sup>–10<sup>9</sup>)** | First-layer spacing shrinks ∝ 1/√Re.  Holding y<sup>+</sup>=1 can add ×3–×4 layers. |
+
+**Wall-function grid** (y<sup>+</sup> ≈ 30–300, growth 1.2–1.3)
+
+- Cuts wall-normal layers by ×5–×10.  
+- Reduces total DOFs roughly by the same factor in 3-D.  
+- Allows turbulent boundary-layer resolution with acceptable accuracy if you only need *integral* coefficients (C<sub>L</sub>, C<sub>D</sub>, surface pressures, heating).
+
+---
+
+## 3.  Making SU2 wall functions stable
+
+SU2’s recent builds (7.0-dev → 8.0) are **much more robust** if you:
+
+| Setting | Recommended value |
+|---------|-------------------|
+| `WALL_FUNCTION          = SCALABLE_WALL_FUNCTION` | avoids log-law singularity when local y<sup>+</sup> < 30 |
+| `WALL_FUNCTION_YPLUS    = 100.0` (target) | lets SU2 compute κ-law matching |
+| `TURB_UPDATE_FREQUENCY` ≥ 10 | decouples fast outer flow from slower wall-function update |
+| `CFL_NUMBER`            5–50 (implicit) | keep moderate while wall function settles |
+
+Also make sure first cell height satisfies **30 ≤ y<sup>+</sup> ≤ 300**; larger is ok for momentum but hurts heat-flux accuracy.
+
+---
+
+## 4.  Other cost-saving tricks before wall functions
+
+| Technique | Typical saving |
+|-----------|----------------|
+| **Multigrid** (`MG_LEVELS = 3-5`) | ×3–×5 fewer iterations for steady RANS |
+| **Local Time Stepping** with high CFL (200-1000) | ×3 speed-up for implicit solver |
+| **Solution ramp**: start Euler or 1st-order, switch to 2nd-order after 1000 iters | avoids early stiffness |
+| **Coarse-grid initial run** then interpolate to fine mesh | 30-50 % less wall time |
+
+If you already use these and the grid is still huge, *then* adopt wall functions.
+
+---
+
+## 5.  Practical recommendation for your launch vehicle
+
+1. **Start axisymmetric (2-D) with y<sup>+</sup>=1** grid.  
+   - Expect **≤ 3 h** on 64 cores.  
+2. **Validate** C<sub>D</sub>, C<sub>p</sub> vs. available data or literature.  
+3. **If you must run full 3-D** (fins, roll-control jets):  
+   - Generate **wall-function mesh** (first layer y<sup>+</sup> ≈ 80, Δr growth = 1.25).  
+   - Use `SCALABLE_WALL_FUNCTION`.  
+   - Implicit solver with CFL 50–200 and 3-level multigrid; 10–20 k iterations often converge.  
+   - Such a 15 M-cell case typically finishes overnight on 64–128 cores.
+
+That keeps the problem firmly in workstation territory—no supercomputer queue required.
+
+---
+
+### Bottom line
+
+* Your current timings look normal.  
+* An axisymmetric launch vehicle at y<sup>+</sup>=1 remains inexpensive (< ½ day on 64 cores).  
+* Full 3-D models **do** benefit from wall functions; SU2’s *scalable* or *adaptive* variants are now reliable if you respect 30 ≤ y<sup>+</sup> ≤ 300 and moderate CFL.

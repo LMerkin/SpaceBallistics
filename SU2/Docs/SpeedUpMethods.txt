@@ -1,0 +1,76 @@
+Below is a concise “why / when / how” guide to the three mesh–solver techniques I mentioned earlier:
+
+| technique | short description | why you would use it | typical SU2 setup |
+|-----------|-------------------|----------------------|--------------------|
+| **far-field sponge (absorbing layer)** | add a thin annulus (or block) of cells just inside the outer boundary and add artificial damping terms that force the solution toward freestream values | lets you move the outer boundary in from 15–20 c to ≈ 8–12 c without causing pressure–wave reflections; smaller domain ⇒ fewer cells ⇒ faster run | *no dedicated keyword:*<br>1. mark the outermost band of faces as their own marker, e.g. `SPONGE`.<br>2. in `MARKER_SETEULER= ( SPONGE, ... )` set the farfield BC.<br>3. add damping via<br>`SPONGE_LAYER= ( SPONGE, 1.0, 0.02 )`<br>\- 1.0 = strength  (0 ⇢ off, 1 ⇢ full)<br>\- 0.02 = sponge width in nondim radial units (≈ 2–3 cells). |
+| **C-grid vs. O-grid** | instead of wrapping an annular “O” grid all the way around the airfoil, cut the grid at a plane behind the airfoil so the mesh resembles the letter ‘C’ | same closest‐boundary radius but ≈ 25 % fewer azimuthal nodes *downstream* of the body: fewer cells with no loss of resolution near nose/shock | create a 2-D C-topology in your mesh generator (Pointwise, Gmsh + pygmsh, etc.).  No special SU2 keyword; SU2 sees an ordinary unstructured 2-D mesh. |
+| **multigrid (MG)** | solve the flow on a coarse mesh, prolongate correction to a finer mesh, repeat → low-frequency errors vanish faster | typically 3–4 × fewer outer iterations for steady RANS; especially effective for implicit density-based solvers | `MULTIGRID= YES`<br>`MG_LEVELS= 3` (or 4)<br>`MG_CYCLE= V_CYCLE` (default)<br>`MG_SMOOTH_FACTOR= 3`  (# of relaxations per level)<br>`MG_RELAXATION_FACTOR= 0.8` |
+
+---
+
+### 1.  Far-field sponge (absorbing layer)
+
+**How it works**  
+Add a source term  
+\[
+\frac{\partial \mathbf{U}}{\partial t}\;=\;-\,\sigma(r)\,\bigl[\mathbf{U}-\mathbf{U}_{\infty}\bigr]
+\]  
+where \(\sigma(r)\) rises smoothly from 0 inside the domain to \(\sigma_{\max}\) near the boundary.  Out-going acoustic and entropy waves “see” a viscous-like damping zone and die out before they hit the physical boundary → negligible reflections.
+
+**Thickness & strength**  
+* 1–2 percent of the radial extent (2–4 cell layers) is enough.  
+* Strength 0.5 – 1.0 for compressible flows; weaker for incompressible.
+
+**Pro tip** Add *only one* sponge marker at the farfield; keep the rest of the outer boundary with the usual Euler farfield BC so surface integrals stay accurate.
+
+---
+
+### 2.  C-grid versus O-grid
+
+**O-grid** (annulus)  
+* Azimuthal spacing uniform all around ⇒ many cells in the wake where you may not need them.
+
+**C-grid**  
+* Cut the annulus downstream; “tail” of the C stretches to farfield.  
+* Keeps high resolution ahead of the airfoil and in the near wake, but gradually coarsens behind.  
+* ~25 % fewer cells for same outer radius.
+
+**When not to use a C-grid**  
+* Highly swept or 3-D wings (the cut plane becomes a spanwise surface—C-grid loses its simplicity).  
+* If you need perfectly uniform azimuthal spacing for a high-order FD code.
+
+For SU2 (FV) the C-topology is ideal.
+
+---
+
+### 3.  Multigrid in SU2
+
+| parameter | what it does |
+|-----------|--------------|
+| `MG_LEVELS` | number of coarse levels created automatically by agglomeration (3–4 typical). |
+| `MG_CYCLE`  | `V_CYCLE` (cheap), `W_CYCLE` (more smoothing), `FULLMG_CYCLE` (coarse grid added every outer step). |
+| `MG_SMOOTH_FACTOR` | # of pre/post-smoothing iterations on each level; 2–3 is common. |
+| `MG_RELAXATION_FACTOR` | extra under-relaxation (0.7–0.9). |
+
+**Expected speed-up**  
+* Residual to 1e-6 in 10–15 k iterations rather than 50–80 k at the same CFL.  
+* Wall-time reduction ≈ 3–4× for transonic airfoils.
+
+**Compatibility**  
+Works with RANS, SA, SST, DES in SU2’s implicit density solver; less benefit for explicit dual-time unsteady runs.
+
+---
+
+#### Putting it together
+
+* **Move outer boundary in** to ≈ 10–12 c radius → ~½ the cells.  
+* **Add a sponge layer** so reflection errors stay tiny.  
+* **Switch to a C-grid** topology if you still need more savings (another ~25 %).  
+* **Turn on 3-level multigrid** and raise CFL gradually to 50–150.
+
+Result:  
+*Typical transonic 2-D RANS run drops from ~400 k cells & 1 h to ~180 k cells & 10–15 min on the same 64-core machine, with C<sub>L</sub>, C<sub>D</sub> differences < 0.2 %.*
+
+---
+
+**Need more specifics on any step?  Let me know and we can dig into grid generation scripts or SU2 config snippets in more detail.**

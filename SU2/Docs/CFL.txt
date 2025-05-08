@@ -1,0 +1,80 @@
+### Yes — in the **sub-/transonic range ( M ≈ 0.1 – 1.2 )** you can usually run SU2’s implicit density-based solver with a **CFL in the tens or even hundreds** without losing stability, provided you raise it **gradually** and keep a few safety switches on.  
+The fact that you had to drop to CFL = 1 for **M > 2.7** simply reflects the much stronger, sharper shocks and larger eigen-speeds in that regime; for transonic cases those constraints are milder.
+
+---
+
+## 1.  Why a bigger CFL helps
+
+| Effect | What you gain |
+|--------|---------------|
+| Larger pseudo-time step (\(\Delta\tau\)) | Fewer outer iterations to reach a given residual drop |
+| Better damping of low-frequency error through implicit scheme | Faster flattening of lift/drag oscillations |
+| Works well with multigrid | Coarse levels converge in just a handful of iterations |
+
+With CFL ≈ 50–200 many users see the **residual target in 5 – 10 k iterations** instead of 50 k–100 k at CFL = 5.
+
+---
+
+## 2.  Practical ramp-up recipe
+
+```ini
+% Start conservatively
+CFL_NUMBER            = 5.0
+CFL_ADAPT             = YES             % lets SU2 grow CFL automatically
+CFL_LIMIT             = 150.0           % hard ceiling
+CFL_INCREASE_FACTOR   = 1.2             % 20 % per outer iter
+CFL_REDUCTION_FACTOR  = 0.5             % halve if divergence detected
+```
+
+1. **Begin at 5** for the first 200–500 iterations.  
+2. **Automatic ramp** raises CFL each iteration until residuals flatten or the `CFL_LIMIT` (e.g. 150) is reached.  
+3. **Fallback**: if SU2 senses divergence (e.g. negative density/pressure) it multiplies by `CFL_REDUCTION_FACTOR` and restarts that step.
+
+*SU2 keywords above assume v8.0-dev syntax; in older versions use `ADAPTIVE_CFL` set-name instead.*
+
+---
+
+## 3.  Additional stabilizers you should keep on
+
+| Switch | Typical value | Why |
+|--------|---------------|-----|
+| `VENKAT_LIMITER_COEFF` | 1.0 – 2.0 | keeps 2-nd-order MUSCL stable while CFL is high |
+| `ENTROPY_FIX_COEFF`    | 0.1       | avoids odd–even decoupling at shock foot |
+| `MG_LEVELS`            | 3 – 4      | multigrid removes low-frequency error so large CFL doesn’t merely shift it to coarse grids |
+| `LINEAR_SOLVER_ITER`   | 50 – 80   | make sure each implicit step actually converges the linear solve at high CFL |
+| `LINEAR_SOLVER_TOL`    | 1e-4 – 1e-5 | tighter tolerance avoids “NaN run-away” when CFL is very large |
+
+---
+
+## 4.  What causes NaNs above M ≈ 2.7?
+
+* Strong shocks → very steep gradients → Jacobian poorly conditioned when CFL is large.  
+* SST or SA turbulence variables can go **negative** when the main variables jump too far in one iteration.  
+* Numerical underflow/overflow in Roe or HLLC eigenvalue formulae for high Mach if pressure or density momentarily become negative.
+
+**Mitigation for supersonic:**  
+- Keep CFL modest (1–5) or ramp only to ~10.  
+- Use **local time stepping** with `CFL_NUMBER` ~3, `TIME_STEPPER` = LU-SGS.  
+- Optionally switch to **roe-entropy** or **AUSM+-up** flux which is slightly more robust at strong shocks.
+
+---
+
+## 5.  Quick test plan for your transonic airfoil
+
+| Stage | CFL | Expected outer iters | Watch-items |
+|-------|-----|----------------------|-------------|
+| Warm-up | 5 → 10 | first 1 k | residual monotone? pressure field smooth? |
+| Ramp | 10 → 50 (factor 1.25 per iter) | next 3 k | no negative densities, forces stabilising |
+| Cruise | 50 – 100 | to convergence (maybe 5 – 8 k more) | residual falls ~1e-6; C<sub>L</sub>, C<sub>D</sub> plateaus |
+
+If you see a sudden residual spike or NaN, SU2’s adaptive CFL will cut the step in half automatically; otherwise just set `CFL_LIMIT` a bit lower (e.g. 80).
+
+---
+
+### Bottom line
+
+* In the **transonic** regime you can safely aim for **CFL 50–150** with SU2’s implicit density solver plus multigrid, which often **cuts wall-time by a factor of 3–5**.  
+* Use gradual ramping and keep entropy-fix / limiter parameters at conservative values.  
+* For **strong supersonic shocks (M > 2.5–3)** stay with lower CFL (1–10) or rely on local time stepping.
+
+Try the ramp strategy above—you should see your 64-core runtime drop well below an hour without sacrificing robustness.

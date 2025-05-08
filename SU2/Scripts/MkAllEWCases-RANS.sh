@@ -4,7 +4,7 @@
 #=============================================================================#
 AbsPath0=$(realpath $0)
 TopDir=$(dirname $AbsPath0)
-cd $TopDir/../EllipticWing
+cd $TopDir/../EllipticWing/Configs
 ewDir=~/Tmp/EW-RANS
 
 #-----------------------------------------------------------------------------#
