@@ -231,18 +231,20 @@ namespace SpaceBallistics
     // Position is changed by parallel translation; all other vectors remain un-
     // changed. But this is only possible if both COSes have compatible Time-
     // Stamps:
-    TT uniTT = a_body_c.UnifyCOSTSs(TCOS::Loc->PosKV().GetCOSTS());
+    TT uniCOSTS = a_body_c.UnifyCOSTSs(TCOS::Loc->PosKV());
+    TT uniVecTS = a_body_c.UnifyVecTSs(TCOS::Loc->PosKV());
     return
       IsAnyLen<DQ>
       ? Vector3D<DQ, TCOS, B>
         {
-          uniTT,
+          uniCOSTS,
+          uniVecTS,
           a_body_c.x() - TCOS::Loc->PosKV().x(),
           a_body_c.y() - TCOS::Loc->PosKV().y(),
           a_body_c.z() - TCOS::Loc->PosKV().z()
         }
       : Vector3D<DQ, TCOS, B>
-        { uniTT, a_body_c.x(), a_body_c.y(), a_body_c.z() };
+        { uniCOSTS, uniVecTS, a_body_c.x(), a_body_c.y(), a_body_c.z() };
   }
 
   //-------------------------------------------------------------------------//
@@ -257,19 +259,21 @@ namespace SpaceBallistics
     (Vector3D<DQ, TopoCRotCOS<BBody, L>, B> const& a_topo_c)
   {
     // Again, unify the TimeStamps:
-    TT uniTT = a_topo_c.UnifyCOSTSs(L->PosKV().GetCOSTS());
+    TT uniCOSTS = a_topo_c.UnifyCOSTSs(L->PosKV());
+    TT uniVecTS = a_topo_c.UnifyVecTSs(L->PosKV());
     return
       IsAnyLen<DQ>
       ? PosKVRot<BBody, B>
         {
-          uniTT,
+          uniCOSTS,
+          uniVecTS,
           L->PosKV().x() + a_topo_c.x(),
           L->PosKV().y() + a_topo_c.y(),
           L->PosKV().z() + a_topo_c.z()
         }
       :
         Vector3D<DQ, BodyCRotCOS<BBody>, B>
-        { uniTT, a_topo_c.x(), a_topo_c.y(), a_topo_c.z() };
+        { uniCOSTS, uniVecTS, a_topo_c.x(), a_topo_c.y(), a_topo_c.z() };
   }
 
   //=========================================================================//

@@ -63,20 +63,23 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Non-Default Ctors:                                                    //
     //-----------------------------------------------------------------------//
-    // Constructing the model for a given Year (may be fractional); the exact
-    // TimeScale is presumably TT, but that does not matter here  because the
-    // result depends on the Epoch VERY WEAKLY:
-    // NB: They are not "constexpr"s because require DE440T invocations:
+    // Constructing the EarthRotationModel for an Epoch given by a TT instant.
+    // IMPORTANT: This only constructs the Precession and Nutation matrices,
+    // not the "fast" GAST angle, so the constructed EarthRotationModel depends
+    // on the Epoch VERY WEAKLY. This Ctor is not a "constexpr"s because it re-
+    // quires the DE440T functionality:
     //
-    EarthRotationModel(Time_jyr  a_erm_epoch);
-    EarthRotationModel(TT        a_erm_epoch);
+    EarthRotationModel(TT a_erm_epoch);
 
-    // The Ctor with an integral YearNumber arg uses the Analytical Nutations
-    // Model (IAU2000B), and is therefore a "constexpr".  Intended for use in
-    // "GeoCDynEqFixCOS";  then "EarthRotationModel.hpp"  must  be incuded to
-    // provide the body of this Ctor:
+    // As above, but using the Analytical Nutations Model (IAU2000B), therefore
+    // a "constexpr".
+    // Intended for use in "GeoCDynEqFixCOS"; then "EarthRotationModel.hpp" must
+    // be included to provide the body of this Ctor:
     //
-    constexpr EarthRotationModel(int a_erm_epoch_year);
+    constexpr EarthRotationModel(Time_jyr a_erm_epoch);
+
+    // Copy Ctor is auto-generated:
+    constexpr EarthRotationModel(EarthRotationModel const&) = default;
 
     //-----------------------------------------------------------------------//
     // ITRS -> GCRS Conversion (of any "Vector3D"):                          //
@@ -156,7 +159,7 @@ namespace SpaceBallistics
     constexpr Mtx33 const& GetInvPN   () const { return m_invPN;    }
 
     // Furthermore, the columns of PN are actually the unit vectors  of the
-    // "GeoCDynEqFixCOS" (with the Dynamic Equator and Mean Ecliptic of the
+    // "GeoCDynEqFixCOS" (with the Dynamic Equator and Ecliptic of the
     // "ERMEpoch") in the GCRS system, so we can return them one-by-one as
     // GCRS vectors (assuming they are pos vectors of unit length).
     // XXX: BUT: Which TimeStamp is to be associated with GCRS? The latter
@@ -164,11 +167,11 @@ namespace SpaceBallistics
     // So set the TimeStamp to UNDEFINED:
     //
     // Col0: The X axis of "GeoCDynEqFixCOS": Points to the Equinox of the
-    // "ERMEpoch", so install the latter as the COS TS
+    // "ERMEpoch":
     constexpr PosKV_GCRS<> GetGeoCDynEqFixX() const
     {
       return  PosKV_GCRS<>
-              { TT::UnDef(),
+              { TT::UnDef(),        TT::UnDef(),
                 m_PN(0,0) * 1.0_km, m_PN(1,0) * 1.0_km, m_PN(2,0) * 1.0_km };
     }
 
@@ -177,7 +180,7 @@ namespace SpaceBallistics
     constexpr PosKV_GCRS<> GetGeoCDynEqFixY() const
     {
       return  PosKV_GCRS<>
-              { TT::UnDef(),
+              { TT::UnDef(),        TT::UnDef(),
                 m_PN(0,1) * 1.0_km, m_PN(1,1) * 1.0_km, m_PN(2,1) * 1.0_km };
     }
 
@@ -186,7 +189,7 @@ namespace SpaceBallistics
     constexpr PosKV_GCRS<> GetGeoCDynEqFixZ() const
     {
       return  PosKV_GCRS<>
-              { TT::UnDef(),
+              { TT::UnDef(),        TT::UnDef(),
                 m_PN(0,2) * 1.0_km, m_PN(1,2) * 1.0_km, m_PN(2,2) * 1.0_km };
     }
 

@@ -48,9 +48,11 @@ namespace SpaceBallistics
     AngVel m_deltaDot;
     VelK   m_rhoDot;    // Radial Velocity
 
-    // TimeStamp of the COS from "Vector3D"s used in construction of this
-    // "SpherPV" (if any):
-    typename Bits::TSWrapper<COS>::TS m_cosTS;
+    // TimeStamps of the COS and of the Vectors,
+    // from "Vector3D"s used in construction of this "SpherPV" (if any):
+    using  TS = typename COS::TimeScale;
+    TS     m_cosTS;
+    TS     m_vecTS;
 
   public:
     //-----------------------------------------------------------------------//
@@ -64,7 +66,8 @@ namespace SpaceBallistics
       m_alphaDot(),
       m_deltaDot(),
       m_rhoDot  (),
-      m_cosTS   (Bits::TSWrapper<COS>::TS::UnDef())
+      m_cosTS   (TS::UnDef()),
+      m_vecTS   (TS::UnDef())
     {}
 
     // Copy Ctor and Assignment are auto-generated:
@@ -135,12 +138,14 @@ namespace SpaceBallistics
           assert((Sqr(m_deltaDot) + Sqr(cosDelta * m_alphaDot)).ApproxEquals
                  (Sqr(1.0_rad) * Vtr2 / Sqr(m_rho)));
 
-          // Also, COS TS of "a_vel" must be compatible with that of "a_pos":
-          a_pos.CheckCOSTSs(a_vel.GetCOSTS());
+          // Also, COS TS and VecTS of "a_vel" must be compatible with those of
+          // "a_pos":
+          a_pos.CheckTSs(a_vel);
         )
       }
       // Then it is sufficient to propagate the COST TS from "a_pos":
       m_cosTS = a_pos.GetCOSTS();
+      m_vecTS = a_pos.GetVecTS();
     }
 
     //-----------------------------------------------------------------------//
@@ -189,8 +194,8 @@ namespace SpaceBallistics
       )
       return std::make_pair
              (
-               PosKV<COS, B>(m_cosTS,  x,  y,  z),
-               VelKV<COS, B>(m_cosTS, Vx, Vy, Vz)
+               PosKV<COS, B>(m_cosTS, m_vecTS,  x,  y,  z),
+               VelKV<COS, B>(m_cosTS, m_vecTS, Vx, Vy, Vz)
              );
     }
   };

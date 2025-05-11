@@ -273,7 +273,7 @@ int main(int argc, char* argv[])
   vector<pair<int,int>> ellipses;
 
   // The number of ellipses generated with the current "np":
-  int       ne = 0;
+  int       nc = 0;
  
   while (LIKELY(a <= aMax))
 	{
@@ -293,7 +293,7 @@ int main(int argc, char* argv[])
     }
     // Save the range of indices of points making this ellipse:
     ellipses.push_back   (make_pair(NPoints-np, NPoints-1));
-    ++ne;
+    ++nc;
 
     // For the next Ellipse:
     // If we are still in the "nInner" Boundary Mesh Layers,  or there is no
@@ -301,7 +301,7 @@ int main(int argc, char* argv[])
     // current "da".
     // Otherwise, may increase "da", but be careful not to do so prematurely:
     //
-    if (withBoundLayer && int(ellipses.size()) >= nInner+1 && ne >= 2)
+    if (withBoundLayer && int(ellipses.size()) >= nInner+1 && nc >= 2)
     {
       // Tangential Width @ phi=0:
       Len dw = b * dPhi;
@@ -322,7 +322,7 @@ int main(int argc, char* argv[])
           // New "np" will be for the next ellipse containing ~2 times less
           // arcs; re-calcuilate "dPhi" with the new "np":
           np   = max(np / 2, NF);
-          ne   = 0;
+          nc   = 0;
           dPhi = TwoPi<double> / double(np);
 
           // Set "da" to make the next layer "square"-like:
@@ -385,8 +385,8 @@ int main(int argc, char* argv[])
     auto [pFrom, pTo] = ellipses[size_t(e)];
 
     // The number of Points on this Ellipse:
-    int  ne           = pTo - pFrom + 1;
-    assert(ne >= NF && ne % 2 == 0);
+    int  npe          = pTo - pFrom + 1;
+    assert(npe >= NF && npe % 2 == 0);
 
     // The next Ellipse may have either the same number of Points, or 2 times
     // less:
@@ -394,8 +394,8 @@ int main(int argc, char* argv[])
     int  nn           = nTo - nFrom + 1;
     assert(nn >= 2 && nn % 2 == 0);
 
-    bool   same = (ne == nn);
-    assert(same   ||  ne == nn * 2);
+    bool   same = (npe == nn);
+    assert(same   ||  npe == nn * 2);
     // In particular, if e <= nInner, we must have the "same" flag set, other-
     // wise we would not be able to complete the inner squares:
     assert(e > nInner || same);
@@ -413,7 +413,7 @@ int main(int argc, char* argv[])
         assert(i >= pFrom && (i - pFrom) % step == 0);
         return      nFrom +  (i - pFrom) / step;
       };
-    assert(pTo+1 - ne == pFrom);
+    assert(pTo+1 - npe == pFrom);
 
     if (same)
     {

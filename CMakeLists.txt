@@ -199,9 +199,14 @@ SET(SB_TESTS
   PrecNutTest
   TransLunarTest
   PlateAeroDynTest
-  MkZhukovskyMesh)
+  MkZhukovskyMesh
+  MkSoyuz21bMesh)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)
   TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME} ${GSL_LIBS})
+
+  IF (${SB_TEST} STREQUAL "MkSoyuz21bMesh")
+    TARGET_LINK_LIBRARIES(${SB_TEST} "gmsh")
+  ENDIF()
 ENDFOREACH(SB_TEST)

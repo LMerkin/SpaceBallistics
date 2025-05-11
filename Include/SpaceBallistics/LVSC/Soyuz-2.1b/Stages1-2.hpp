@@ -494,7 +494,9 @@ namespace SpaceBallistics
       .m_comDots     = fullME.GetCoMDots(),
       .m_mois        = fullME.GetMoIs   (),
       .m_moiDots     = fullME.GetMoIDots(),
-      .m_thrust      = ForceVEmb<LVSC::Soyuz21b>(tt, thrustX, thrustY, thrustZ)
+      // NB: BOTH ECOS TS and VecTS are equal to "tt" here:
+      .m_thrust      = ForceVEmb<LVSC::Soyuz21b>
+                         (tt, tt, thrustX, thrustY, thrustZ)
     };
   }
 }

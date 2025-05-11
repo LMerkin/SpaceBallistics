@@ -12,70 +12,91 @@ namespace SpaceBallistics
   //=========================================================================//
   // "GeoCDynEqFixCOS":                                                      //
   //=========================================================================//
-  // GeoCentric (NOT the general BodyCentric!) COS similar to GCRS,  but the XY
-  // plane and X axis are defined  by the Dynamical True Equator  and  the Mean
-  // Ecliptics for the given Epoch Year, rather than J2000.0 (with a tiny bias)
-  // as in GCRS.
-  // XXX: Mostly intended for testing purposes; production use in inconvenient
-  // because tis type is templated by the Epoch (formally in TT), so that mul-
-  // tiple Epochs would need to be created statically.
-  // XXX: "EpochY" is just an "int", not "Time_jyr", because the latter is not
-  // a structural type (contains a private member), and cannot therefore be used
-  // as a template parameter:
+  // GeoCentric (NOT the general BodyCentric!) COS similar to GCRS, but the XY
+  // plane and X axis are defined by the Dynamic True Equator  and the Dynamic
+  // Ecliptic for the given Epoch, rather than J2000.0 as in GCRS (with a tiny
+  // bias, actually).
+  // NB: This type is not templated by the Epoch, because the latter may  be
+  // Dynamic (with the Equator and the Equinox of a arbitrary date). Instead,
+  // unlike other COS types, this type *does allow* construction of objects;
+  // they contain the corresp EarthRotationMatrix:
   //
-  template<int EpochY>
-  struct GeoCDynEqFixCOS
+  class GeoCDynEqFixCOS
   {
+  public:
+    //-----------------------------------------------------------------------//
+    // Consts and Types:                                                     //
+    //-----------------------------------------------------------------------//
     constexpr static Body BaseBody       = Body::Earth;
     constexpr static bool HasFixedAxes   = true;
     constexpr static bool HasFixedOrigin = false;
     using  TimeScale = TT;
 
-    // This struct stands for itself; no objects of it can be created:
-    GeoCDynEqFixCOS() = delete;
-
+  private:
+    //-----------------------------------------------------------------------//
+    // Data Flds:                                                            //
+    //-----------------------------------------------------------------------//
     // To convert vectors between this COS and GCRS, we need an Earth Axes Ori-
     // entation Matrix, so use a statically-computable "EarthRotationModel" for
     // that:
-    constexpr static EarthRotationModel ERM = EarthRotationModel(EpochY);
+    EarthRotationModel const m_erm;
+
+  public:
+    //-----------------------------------------------------------------------//
+    // Ctors and Accessors:                                                  //
+    //-----------------------------------------------------------------------//
+    // Default Ctor makes no sense:
+    GeoCDynEqFixCOS() = delete;
+
+    // Non-Default Ctor. NB: "m_erm" is constructed with Analytical Nutations
+    // model (otherwise it could not be "constexpr"):
+    //
+    constexpr GeoCDynEqFixCOS(Time_jyr a_epoch)
+    : m_erm(a_epoch)
+    {}
+
+    // Copy Ctor is auto-generated:
+    constexpr GeoCDynEqFixCOS(GeoCDynEqFixCOS const&) = default;
+
+    // Accessor:
+    Time_jyr  GetEpoch() const { return m_erm.GetERMEpoch(); }
+
+    //-----------------------------------------------------------------------//
+    // "GeoCDynEqFixCOS" <-> GCRS Vector Conversions:                        //
+    //-----------------------------------------------------------------------//
+    // InvPN Matrix: Dyn  from GCRS
+    // PN    Matrix: GCRS from Dyn
+    //
+    template<Body B, typename DQ>
+    constexpr Vector3D<DQ, GeoCDynEqFixCOS, B> ToDynEquinox
+      (Vector3D<DQ, GCRS, B> const& a_gcrs) const
+    {
+      Vector3D<DQ, GeoCDynEqFixCOS, B> res;
+      m_erm.GetInvPN().MVMult(a_gcrs.GetArr(), res.GetArr());
+      return res;
+    }
+
+    template<Body B, typename DQ>
+    constexpr Vector3D<DQ, GCRS, B> ToGCRS
+      (Vector3D<DQ, GeoCDynEqFixCOS, B> const& a_dyn) const
+    {
+      Vector3D<DQ, GCRS, B> res;
+      m_erm.GetPN().MVMult(a_dyn.GetArr(), res.GetArr());
+      return res;
+    }
   };
 
   //-------------------------------------------------------------------------//
   // Vectors in "GeoCDynEqFixCOS":                                           //
   //-------------------------------------------------------------------------//
-  template<int EpochY, Body B = Body::UNDEFINED>
-  using DimLessV_GeoDynEqFix  = DimLessV<GeoCDynEqFixCOS<EpochY>, B>;
+  template<Body B = Body::UNDEFINED>
+  using DimLessV_GeoDynEqFix = DimLessV<GeoCDynEqFixCOS, B>;
 
-  template<int EpochY, Body B = Body::UNDEFINED>
-  using PosKV_GeoDynEqFix     = PosKV   <GeoCDynEqFixCOS<EpochY>, B>;
+  template<Body B = Body::UNDEFINED>
+  using PosKV_GeoDynEqFix    = PosKV   <GeoCDynEqFixCOS, B>;
 
-  template<int EpochY, Body B = Body::UNDEFINED>
-  using VelKV_GeoDynEqFix     = VelKV   <GeoCDynEqFixCOS<EpochY>, B>;
+  template<Body B = Body::UNDEFINED>
+  using VelKV_GeoDynEqFix    = VelKV   <GeoCDynEqFixCOS, B>;
 
-  //-------------------------------------------------------------------------//
-  // "GeoCDynEqFixCOS" <-> GCRS Vector Conversions:                          //
-  //-------------------------------------------------------------------------//
-  // InvPN Matrix: Dyn  from GCRS
-  // PN    Matrix: GCRS from Dyn
-  //
-  template<int EpochY,  Body B, typename DQ>
-  constexpr Vector3D<DQ, GeoCDynEqFixCOS<EpochY>, B> ToDynEquinox
-    (Vector3D<DQ, GCRS, B> const& a_gcrs)
-  {
-    Vector3D<DQ, GeoCDynEqFixCOS<EpochY>, B> res;
-    GeoCDynEqFixCOS<EpochY>::ERM.GetInvPN().MVMult
-      (a_gcrs.GetArr(), res.GetArr());
-    return res;
-  }
-
-  template<int EpochY, Body B, typename DQ>
-  constexpr Vector3D<DQ, GCRS, B> ToGCRS
-    (Vector3D<DQ, GeoCDynEqFixCOS<EpochY>, B> const& a_dyn)
-  {
-    Vector3D<DQ, GCRS, B> res;
-    GeoCDynEqFixCOS<EpochY>::ERM.GetPN().MVMult
-      (a_dyn.GetArr(), res.GetArr());
-    return res;
-  }
 }
 // End namespace SpaceBallistics

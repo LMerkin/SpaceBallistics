@@ -44,11 +44,15 @@ namespace
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
     // Equatorial Fixed-Axes COS ("EqFixCOS"):
-    // FIXME: For the moment, we use UnDef as the TimeStamp of all COSes, to
-    // avoid conversion of "a_t" back into TDB:
+    // FIXME: For the moment, we use UnDef as the TimeStamp of all COSes and
+    // Vectors, to avoid conversion of "a_t" back into TDB;  "posF" is a tmp
+    // vector anyway:
     //
     PosKVEqFix<Body::Moon> posF
-      {TDB::UnDef(), Len_km(a_y[0]), Len_km(a_y[1]), Len_km(a_y[2])};
+    {
+      TDB::UnDef(),   TDB::UnDef(),
+      Len_km(a_y[0]), Len_km(a_y[1]), Len_km(a_y[2])
+    };
     Time t(a_t);
 
     // ("UnTyped") derivatives of those Co-Ords are the corresp Velocities:
@@ -74,12 +78,14 @@ namespace
     PosKVRot<Body::Moon> posR
     (
       TDB::UnDef(),
+      TDB::UnDef(),
       cosMRA * posF[0] + sinMRA * posF[1],
       cosMRA * posF[1] - sinMRA * posF[0],
       posF[2]
     );
     // Acceleration in the Rotating System: Must be cleared first:
-    AccVRot<Body::Moon> accR{TDB::UnDef(), Acc(0.0), Acc(0.0), Acc(0.0)};
+    AccVRot<Body::Moon> accR
+      {TDB::UnDef(), TDB::UnDef(), Acc(0.0), Acc(0.0), Acc(0.0)};
 
     // Now try to compute the actual acceleration:
     // collision with the Lunar surface; 
@@ -100,6 +106,7 @@ namespace
     // If OK: Convert "accR"  back into the EqFixCOS:
     AccVEqFix<Body::Moon> accF
     (
+      TDB::UnDef(),
       TDB::UnDef(),
       cosMRA * accR[0] - sinMRA * accR[1],
       sinMRA * accR[0] + cosMRA * accR[1],

@@ -113,7 +113,7 @@ namespace SpaceBallistics
     // ECOS TSs Mgmt Utils:                                                  //
     //=======================================================================//
     constexpr TT   GetECOSTS() const;
-    constexpr void UnifyECOSTSs(MechElement const& a_right);
+    constexpr void UnifyTSs(MechElement const& a_right);
 
   public:
     //=======================================================================//

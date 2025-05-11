@@ -25,17 +25,22 @@ int main(int argc, char* argv[])
   Angle alpha = To_Angle(Angle_deg(atof(argv[1])));
   double sinAlpha = Sin(alpha);
   double cosAlpha = Cos(alpha);
-  DimLessV<ECOS>        n { TT(), sinAlpha, cosAlpha, 0.0  };
+  DimLessV<ECOS>       n
+    { TT::UnDef(), TT::UnDef(), sinAlpha, cosAlpha, 0.0  };
 
   // Assume there is no wind:
-  constexpr VelV<ECOS> w { TT(), Vel(0.0), Vel(0.0), Vel(0.0) };
+  constexpr VelV<ECOS> w
+    { TT::UnDef(), TT::UnDef(), Vel(0.0), Vel(0.0), Vel(0.0) };
+
   constexpr Area       S(1.0);
 
   // Plate velocity is towards (-X), in m/sec:
   //
   for (Vel Vx = Vel(10.0); Vx < Vel(1000.0); Vx += Vel(10.0))
   {
-    VelV<ECOS>  v { TT(), -Vx,  Vel(0.0), Vel(0.0) };
+    VelV<ECOS>  v
+      { TT::UnDef(), TT::UnDef(), -Vx, Vel(0.0), Vel(0.0) };
+
     auto   [F, M, cR] =
       PlateAeroDyn(v, w, n, EAM::P0, EAM::Rho0, EAM::GammaAir, S);
     Force  R          =  F.EuclidNorm();

@@ -328,14 +328,15 @@ namespace SpaceBallistics
   //=========================================================================//
   // So this Ctor is NON-"constexpr"!
   //
-  EarthRotationModel::EarthRotationModel(Time_jyr a_erm_epoch /* Assumed TT */)
+  EarthRotationModel::EarthRotationModel(TT a_erm_epoch)
   {
-    m_ermEpoch = a_erm_epoch;
+    // TT -> Time_jyr:
+    m_ermEpoch = a_erm_epoch.GetJYr();
 
     //-----------------------------------------------------------------------//
     // Precession Matrices:                                                  //
     //-----------------------------------------------------------------------//
-    double T = GetJCYsSinceEpoch(a_erm_epoch);
+    double T = GetJCYsSinceEpoch(m_ermEpoch);
     Mtx33  P = MkPrecMtx(T);
 
     //-----------------------------------------------------------------------//
@@ -344,8 +345,8 @@ namespace SpaceBallistics
     // Use DE440T data if available, otherwise use the analytical formulas:
     //
     auto [dPsi, dEps] =
-      (DE440T::Bits::FromY <= a_erm_epoch && a_erm_epoch < DE440T::Bits::ToY)
-      ? GetNutAnglesDE440T(a_erm_epoch)
+      (DE440T::Bits::FromY <= m_ermEpoch && m_ermEpoch < DE440T::Bits::ToY)
+      ? GetNutAnglesDE440T(m_ermEpoch)
       : GetNutAnglesAnalyt(T);
 
     //-----------------------------------------------------------------------//
@@ -374,27 +375,19 @@ namespace SpaceBallistics
     // An Approximate Equation of the Origins Ee = ERA - GAST:               //
     //-----------------------------------------------------------------------//
     m_Ee     = dPsi  *  cosEps / 15.0;
-    m_DeltaT = GetDeltaT(a_erm_epoch);
+    m_DeltaT = GetDeltaT(m_ermEpoch);
 
     // All Done!
   }
-
-  //=========================================================================//
-  // As above, but the ERM Epoch is given by TT:                             //
-  //=========================================================================//
-  EarthRotationModel::EarthRotationModel(TT a_erm_epoch)
-  : EarthRotationModel
-      (Epoch_J2000_Yr + To_Time_jyr(a_erm_epoch.GetTimeSinceEpoch()))
-  {}
 
   //=========================================================================//
   // "EarthRotationModel" Non-Default "constexpr" Ctor:                      //
   //=========================================================================//
   // Using the Analytical Nutations Model:
   //
-  constexpr EarthRotationModel::EarthRotationModel(int a_erm_epoch_year)
+  constexpr EarthRotationModel::EarthRotationModel(Time_jyr a_erm_epoch)
   {
-    m_ermEpoch = Time_jyr(double(a_erm_epoch_year));
+    m_ermEpoch = a_erm_epoch;
 
     //-----------------------------------------------------------------------//
     // Precession Matrices:                                                  //

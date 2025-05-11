@@ -35,11 +35,13 @@ namespace SpaceBallistics
   //                   (ie "Body's Ecliptic") = the Descending Node of Body's
   //                   orbit over Body's Equator;
   //         XY Plane: ~ Body's Mean Equator(J2000.0);
-  //         Z       : ~ Body's North Pole;
+  //         Z       : ~ Body's Mean North Pole;
   // TimeScale       : TT for Earth, TDB otherwise (XXX: It would be better to
   //                   provide Body-centric relativistic TimeScales for all Bo-
   //                   dies, not just for Earth).
-  // For Earth, this is exactly the GCRS!
+  // For Earth, this is exactly the GCRS! That is, the Earth Mean Equator (w/o
+  // short-term Nutations) and the Dynamic Ecliptic and thus Equinox of J2000.0
+  // are used.
   // This, the axes of this COS are fixed in the ICRS, but the Origin is moving
   // in the inertial space, so this COS is not fully-inertial:
   //
@@ -129,6 +131,7 @@ namespace SpaceBallistics
     return Vector3D<DQ, BaryCEqCOS, B>
            { 
              TDB::UnDef(),
+             TDB::UnDef(),
              a_earth.x() + a_geo.x(),
              a_earth.y() + a_geo.y(),
              a_earth.z() + a_geo.z()
@@ -144,7 +147,7 @@ namespace SpaceBallistics
     Vector3D<DQ, BaryCEqCOS, Body::Earth> const& a_earth
   )
   {
-    // XXX: Here the TimeStamp is UnDef because:
+    // XXX: Here the TimeStamps are "UnDef"s because:
     // (1) we cannot get a specific TimeStamp here anyway;
     // (2) it is consistent with the semantics of "-" where both args have the
     //     UnDef TimeStamp;
@@ -153,6 +156,7 @@ namespace SpaceBallistics
     //     which use TDB!
     return Vector3D<DQ, GeoCEqFixCOS, B>
            {
+             TT::UnDef(),
              TT::UnDef(),
              a_body.x() - a_earth.x(),
              a_body.y() - a_earth.y(),
@@ -166,18 +170,18 @@ namespace SpaceBallistics
   // BodyCentric Ecliptical Fixed-Axes COS:
   // Origin: Normally, the center of Body's Ellipsoid;
   // Axes  : X       : Same as the X axis of the corresp "BodyCEqFixCOS"
-  //         XY Plane: Body's Mean Orbital Plane(J2000.0); for Earth, Ecliptic
-  //                   is defined as the Mean Earth Orbital Plane;
-  //         Z       : "North Orbital Pole";
+  //         XY Plane: Body's Dynamic Orbital Plane(J2000.0); for Earth, it is
+  //                   the Dynamic Ecliptic of J2000.0;
+  //         Z       : Dynamic "North Orbital Pole";
   // TimeScale       : TT for Earth, TDB otherwise (XXX: again, it would be bet-
   //                   ter to provide relativistic Body-centric TimeScales  for
   //                   all Bodies, not just for Earth);
   // Again, the axes of this COS are fixed in the ICRS, but the Origin is moving
   // in the inertial space, so this COS is also not fully-inertial
   //
-  // Similar to "BodyCEqFixCOS" above, but the XY plane is ~ Body's Mean Orbital
-  // Plane (rather than Body's Equator) @ J2000.0.  Ie, for Earth, the XY Plane
-  // is the Mean Ecliptic of J2000.0:
+  // Similar to "BodyCEqFixCOS" above, but the XY plane is Body's Dynamic Orbit-
+  // al Plane (rather than the Mean Equator) @ J2000.0. Ie, for Earth, the XY
+  // Plane is the Dynamic Ecliptic of J2000.0:
   //
   template<Body Origin>
   struct   BodyCEclFixCOS
@@ -282,6 +286,7 @@ namespace SpaceBallistics
     return Vector3D<DQ, BaryCEclCOS, B>
            {
              TDB::UnDef(),
+             TDB::UnDef(),
              a_earth.x() + a_geo.x(),
              a_earth.y() + a_geo.y(),
              a_earth.z() + a_geo.z()
@@ -303,6 +308,7 @@ namespace SpaceBallistics
     return Vector3D<DQ, GeoCEclFixCOS, B>
            {
              TT::UnDef(),
+             TT::UnDef(),
              a_body.x() - a_earth.x(),
              a_body.y() - a_earth.y(),
              a_body.z() - a_earth.z()
@@ -316,10 +322,12 @@ namespace SpaceBallistics
   // This COS is "embedded" in the Body and is rotating in the inertial space
   // along with the Body.
   // Origin: Normally, the center of the Body Ellipsoid;
-  // Axes  : XY Plane: Body's CURRENT Dynamical Equator (NOT the J2000.0 Equator
-  //                   and NOT the Mean Equator of the date!);
+  // Axes  : XY Plane: Body's CURRENT Dynamical Equator (NOT the J2000.0  Mean
+  //                   Equator and NOT the Mean Equator of the date!); NB: the
+  //                   difference between the Mean and the Dynamic Equator is
+  //                   in accounting of short-term Nutations (no / yes, resp);
   //         X       : To (lambda=0, phi=0) in the corresp BodyGraphic COS;
-  //         Z       : Body's North Pole;
+  //         Z       : Body's Dynamic North Pole;
   // TimeScale       : Same convention as for "BodyC{Eq,Ecl}FixCOS".
   // This, the axes of this COS are rotating in the inertial (eg ICRS) space,
   // the rotation axis may precess  in the inertial space,  and the origin is
