@@ -503,5 +503,21 @@ namespace SpaceBallistics
              m_launchTT == a_right.m_launchTT);
     }
   };
+
+  //=========================================================================//
+  // Unification of TimeStamps (eg in TT or TDB):                            //
+  //=========================================================================//
+  template<typename TS>
+  TS UnifyTSs(TS a_left, TS a_right)
+  {
+    return
+      a_left.IsUnDef()
+      ? a_right :
+      a_right.IsUnDef()
+      ? a_left  :
+      a_left == a_right
+      ? a_left
+      : throw "UnifyTSs failed";
+  }
 };
 // End namespace SpaceBallistics

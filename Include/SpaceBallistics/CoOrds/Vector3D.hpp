@@ -369,21 +369,11 @@ namespace SpaceBallistics
 
     template<typename DR, Body R>
     constexpr TS UnifyCOSTSs(Vector3D<DR, COS, R> const& a_right) const
-    {
-      TS      rCOSTS   =  a_right.GetCOSTS();
-      bool    hasUnDef =  m_cosTS.IsUnDef() || rCOSTS.IsUnDef();
-      assert (hasUnDef || m_cosTS == rCOSTS);
-      return  hasUnDef ?  TS::UnDef() : m_cosTS;
-    }
+      { return   UnifyTSs   (m_cosTS, a_right.GetCOSTS()); }
 
     template<typename DR, Body R>
     constexpr TS UnifyVecTSs(Vector3D<DR, COS, R> const& a_right) const
-    {
-      TS      rVecTS   =  a_right.GetVecTS();
-      bool    hasUnDef =  m_vecTS.IsUnDef() || rVecTS.IsUnDef();
-      assert (hasUnDef || m_vecTS == rVecTS);
-      return  hasUnDef ?  TS::UnDef() : m_vecTS;
-    }
+      { return   UnifyTSs   (m_vecTS, a_right.GetVecTS()); }
 
     //-----------------------------------------------------------------------//
     // "To_Len[_m]", "To_Len_km" Conversions:                                //

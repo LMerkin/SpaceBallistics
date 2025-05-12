@@ -6,6 +6,7 @@
 // aware. Must be replaced by our own DimTypes-based integrator:
 //    
 #include "SpaceBallistics/CoOrds/TimeScales.hpp"
+#include "SpaceBallistics/CoOrds/BodyCentricCOSes.hpp"
 #include "SpaceBallistics/CoOrds/TwoBodyOrbit.hpp"
 #include "SpaceBallistics/PhysEffects/BodyData.hpp"
 #include "SpaceBallistics/PhysEffects/DE440T.h"

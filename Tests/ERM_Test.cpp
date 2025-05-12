@@ -5,6 +5,7 @@
 //===========================================================================//
 #include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include "SpaceBallistics/CoOrds/TopoCentricCOSes.h"
+#include "SpaceBallistics/CoOrds/BodyCentricCOSes.hpp"
 #include "SpaceBallistics/CoOrds/SpherPV.hpp"
 #include "SpaceBallistics/PhysEffects/DE440T.h"
 #include "SpaceBallistics/PhysEffects/EarthRotationModel.hpp"

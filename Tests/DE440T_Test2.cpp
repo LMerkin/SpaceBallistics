@@ -8,6 +8,7 @@
 #undef   NDEBUG
 #endif
 #include "SpaceBallistics/CoOrds/TimeScales.hpp"
+#include "SpaceBallistics/CoOrds/BodyCentricCOSes.hpp"
 #include "SpaceBallistics/CoOrds/GeoCDynEqFixCOS.h"
 #include "SpaceBallistics/CoOrds/SpherPV.hpp"
 #include "SpaceBallistics/PhysEffects/DE440T.h"

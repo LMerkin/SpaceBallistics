@@ -53,6 +53,9 @@ namespace SpaceBallistics
     constexpr static   bool HasFixedOrigin = false;
     using  TimeScale = std::conditional_t<Origin == Body::Earth, TT, TDB>;
 
+    // NB: The Origin MUST NOT be UnDefined:
+    static_assert(Origin != Body::UNDEFINED);
+
     // This struct stands for itself; no objects of it can be created:
     BodyCEqFixCOS() = delete;
   };
@@ -114,56 +117,6 @@ namespace SpaceBallistics
   template<Body B = Body::UNDEFINED>
   using ForceV_GCRS   = ForceVEqFix<Body::Earth, B>;
 
-  //-------------------------------------------------------------------------//
-  // Translation of Origins between ICRS/BCRS and GCRS:                      //
-  //-------------------------------------------------------------------------//
-  // The orientation of axes is the same, so:
-  // (Bary,  Earth) + (Earth, Body) => (Bary, Body ):
-  //
-  template<typename DQ,    Body B>
-  Vector3D<DQ, BaryCEqCOS, B> operator+
-  (
-    Vector3D<DQ, BaryCEqCOS,   Body::Earth> const& a_earth,
-    Vector3D<DQ, GeoCEqFixCOS, B>           const& a_geo
-  )
-  {
-    // NB: For BaryCentric COS, the only meaningful TimeStamp is UnDef:
-    return Vector3D<DQ, BaryCEqCOS, B>
-           { 
-             TDB::UnDef(),
-             TDB::UnDef(),
-             a_earth.x() + a_geo.x(),
-             a_earth.y() + a_geo.y(),
-             a_earth.z() + a_geo.z()
-           };
-  }
-
-  // (Bary,  Body) - (Bary, Earth) = (Earth, Body):
-  //
-  template<typename DQ,      Body  B>
-  Vector3D<DQ, GeoCEqFixCOS, B> operator-
-  (
-    Vector3D<DQ, BaryCEqCOS, B>           const& a_body,
-    Vector3D<DQ, BaryCEqCOS, Body::Earth> const& a_earth
-  )
-  {
-    // XXX: Here the TimeStamps are "UnDef"s because:
-    // (1) we cannot get a specific TimeStamp here anyway;
-    // (2) it is consistent with the semantics of "-" where both args have the
-    //     UnDef TimeStamp;
-    // (3) furthermore, it must formally be TT  (because the result is in
-    //     "GeoCEqFixCOS"), although we subtract "BaryCEqCOS" "Vector3D"s
-    //     which use TDB!
-    return Vector3D<DQ, GeoCEqFixCOS, B>
-           {
-             TT::UnDef(),
-             TT::UnDef(),
-             a_body.x() - a_earth.x(),
-             a_body.y() - a_earth.y(),
-             a_body.z() - a_earth.z()
-           };
-  }
-
   //=========================================================================//
   // "BodyCEclFixCOS":                                                       //
   //=========================================================================//
@@ -190,6 +143,9 @@ namespace SpaceBallistics
     constexpr static   bool HasFixedAxes   = true;
     constexpr static   bool HasFixedOrigin = false;
     using  TimeScale = std::conditional_t<Origin == Body::Earth, TT, TDB>;
+
+    // NB: The Origin MUST NOT be UnDefined:
+    static_assert(Origin != Body::UNDEFINED);
 
     // This struct stands for itself; no objects of it can be created:
     BodyCEclFixCOS() = delete;
@@ -269,52 +225,6 @@ namespace SpaceBallistics
   template<Body B = Body::UNDEFINED>
   using ForceVHelEclFix   = ForceVEclFix<Body::Sun, B>;
 
-  //-------------------------------------------------------------------------//
-  // Translation of Origins between Ecliptical {Bari,Geo}Centric COSes:      //
-  //-------------------------------------------------------------------------//
-  // The orientation of axes is the same, so:
-  // (Bary,  Earth) + (Earth, Body) => (Bary, Body ):
-  //
-  template<typename DQ,     Body B>
-  Vector3D<DQ, BaryCEclCOS, B> operator+
-  (
-    Vector3D<DQ, BaryCEclCOS,   Body::Earth> const& a_earth,
-    Vector3D<DQ, GeoCEclFixCOS, B>           const& a_geo
-  )
-  {
-    // NB: Again, there the TimeStamp is UnDef:
-    return Vector3D<DQ, BaryCEclCOS, B>
-           {
-             TDB::UnDef(),
-             TDB::UnDef(),
-             a_earth.x() + a_geo.x(),
-             a_earth.y() + a_geo.y(),
-             a_earth.z() + a_geo.z()
-           };
-  }
-
-  // (Bary,  Body) - (Bary, Earth) = (Earth, Body):
-  //
-  template<typename DQ,       Body  B>
-  Vector3D<DQ, GeoCEclFixCOS, B> operator-
-  (
-    Vector3D<DQ, BaryCEclCOS, B>           const& a_body,
-    Vector3D<DQ, BaryCEclCOS, Body::Earth> const& a_earth
-  )
-  {
-    // XXX: Again, here we cannot install any specific TimeStamp.  Furthermore,
-    // it must formally be TT (because the result is "GeoCEclFixCOS"), although
-    // we subtract "BaryCEclCOS" "Vector3D"s which use TDB!
-    return Vector3D<DQ, GeoCEclFixCOS, B>
-           {
-             TT::UnDef(),
-             TT::UnDef(),
-             a_body.x() - a_earth.x(),
-             a_body.y() - a_earth.y(),
-             a_body.z() - a_earth.z()
-           };
-  }
-
   //=========================================================================//
   // "BodyCRotCOS" Class:                                                    //
   //=========================================================================//
@@ -341,6 +251,9 @@ namespace SpaceBallistics
     constexpr static   bool HasFixedAxes   = false;
     constexpr static   bool HasFixedOrigin = false;
     using  TimeScale = std::conditional_t<Origin == Body::Earth, TT, TDB>;
+
+    // NB: The Origin MUST NOT be UnDefined:
+    static_assert(Origin != Body::UNDEFINED);
 
     // This struct stands for itself; no objects of it can be created:
     BodyCRotCOS() = delete;
