@@ -1,18 +1,36 @@
 #! /bin/bash -e
 #=============================================================================#
-#                    "SU2/Scripts/MkAllEWCases-RANS.sh":                      #
+#                         "SU2/Scripts/MkAllEWCases.sh":                      #
 #=============================================================================#
 AbsPath0=$(realpath $0)
 TopDir=$(dirname $AbsPath0)
 cd $TopDir/../EllipticWing/Configs
-ewDir=~/Tmp/EW-RANS
+
+# The Model is "RANS" by default, unless overridden by "$1". The following
+# Models are supported:
+Model="RANS"
+[[ "$1" != "" ]] && Model="$1"
+
+# XXX: For now, only the following Models are supported:
+if [ "$Model" != "RANS" -a "$Model" != "RANS-WF" -a "$Model" != "NS" -a \
+     "$Model" == "Euler" ]
+then
+  echo "Invalid Model: $Model"
+  exit 1
+fi
+
+ewDir=~/Tmp/EW-"$Model"
+echo $ewDir
+exit 0
 
 #-----------------------------------------------------------------------------#
 # Generate All Cases under "$ewDir":                                          #
 #-----------------------------------------------------------------------------#
 # Angle of Attack, in deg:
-for alphaDeg in {0..12..3}
+for alpha10 in {0..90..15}
 do
+  alphaDeg=$(echo $alpha10 | awk '{printf("%.01f", $1/10)}')
+
   # Mach Number at infinity (as a multiple of 0.01):
   for M100 in {10..300..5}
   do
@@ -23,8 +41,8 @@ do
     Re=${Params[1]}
 
     # Create the CaseDir:
-    caseDir=$(printf $ewDir/%02d/%s $alphaDeg $M)
-    caseDir0=$ewDir/00/$M
+    caseDir=$(printf $ewDir/%s/%s $alphaDeg $M)
+    caseDir0=$ewDir/0.0/$M
     mkdir -p $caseDir
 
     # We currently DO NOT use Wall Functions -- they may apparently do more harm
@@ -34,25 +52,32 @@ do
     # Convergence is measured in CD for alphaDeg=0, and in CL otherwise;
     # "yPlus" in the Mesg and the number of iterations in the Cfg file depend on
     # the Mach number:
-    yPlus=1
-		CFLInit=5
-		CFLMax=500
-    if [ $M100 -ge 150 ]
+    CFLInit=5
+    CFLMax=500
+    if [ $M100 -ge 240 ]
     then
-     # In "sufficiently high super-sonic modes", a more coarse "yPlus" is OK:
-     yPlus=10
+      CFLInit=1
+      CFLMax=100
     fi
-		if [ $M100 -ge 240 ]
-		then
-			CFLInit=1
-		  CFLMax=100
-		fi
+
+    case "$Model" in
+      "RANS")    yPlus=1;   [[ $M100 -ge 150 ]] && yPlus=10;;
+      "RANS-WF") yPlus=100;;
+      "NS")      yPlus=10;;    # Not tested much
+      "Euler")   yPlus=0;;     # Not used!
+    esac
 
     # Generate (or link) the Mesh File:
-    if [ $alphaDeg -eq 0 ]
+    if [ $alpha10 -eq 0 ]
     then
-      $TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
+      if [ "$Model" != "Euler" ]
+      then
+        $TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
           -N 256 -y $yPlus -M $M -s 1000 -R 1.1 -n 1 -o $caseDir/MeshEW.su2
+      else
+        $TopDir/../../__BUILD__/GCC-Debug/bin/MkZhukovskyMesh \
+          -N 512 -o $caseDir/MeshEW.su2
+      fi
       ConvField=DRAG
     else
       ln -sf $caseDir0/MeshEW.su2 $caseDir/MeshEW.su2
@@ -60,14 +85,14 @@ do
     fi
 
     # Copy the config into the corresp "Cfg":
-    cp Config-RANS-NoWF-Proto.cfg $caseDir/Cfg
+    cp Config-"$Model"-Proto.cfg $caseDir/Cfg
 
     # Install the variable params (some of them may be adjusted manually later):
     cat >> $caseDir/Cfg <<EOF
 CFL_ADAPT=              YES
 CFL_NUMBER=             $CFLInit
 CFL_ADAPT_PARAM=        ( 0.1, 1.2, 0.1, $CFLMax )
-ITER=                   100000
+ITER=                   250000
 CONV_FIELD=             $ConvField
 MACH_NUMBER=            $M
 AOA=                    $alphaDeg
@@ -82,7 +107,7 @@ done
 #-----------------------------------------------------------------------------#
 cd $ewDir
 shopt -s nullglob
-AllCases=(??/?.??)
+AllCases=(?.?/?.??)
 AllTargs=${AllCases[@]/%/\/DL}
 
 echo "all: ${AllTargs[@]}" > Makefile
