@@ -1,20 +1,20 @@
 CLASS (with Static Members only)    NAMESPACE
 --------------------------------    ---------------------------------
 
-More flexible initialisation:				Init at declaration only
+More flexible initialisation:       Init at declaration only
 e.g. via a ctor of a dummy global
 obj
 
-Visibility control									All entities are visible from outside
+Visibility control                  All entities are visible from outside
 (private, protected, public)
 
-Is a TYPE														Not a type
+Is a TYPE                           Not a type
 
-Can create derived classes					No derived namespaces
-  (IS-A relationship)								  (only HAS-A relationship)
+Can create derived classes          No derived namespaces
+  (IS-A relationship)                  (only HAS-A relationship)
 
-Can be templated!!!									No templated namespaces
+Can be templated!!!                 No templated namespaces
 
-Classes are not merged							Can span multiple compilation units
-																			(namespaces from different files but
+Classes are not merged              Can span multiple compilation units
+                                      (namespaces from different files but
                                        same non-empty name are MERGED)

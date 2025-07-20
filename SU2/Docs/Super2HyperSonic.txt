@@ -1,0 +1,34 @@
+### How far can you push SU2 in Mach number?
+
+#### 1.  SU2’s solver technology
+
+* The density‐based finite-volume scheme can handle any **compressible** flow with shocks—there is no intrinsic numerical “stop” at a particular Mach.
+* SU2’s test cases include double-wedge and sharp‐cone problems at **M = 8** and **M = 14** that converge with Roe / HLLC fluxes, MUSCL reconstruction, and the SST or SA turbulence models.
+* Recent versions (v8 “Blackbird” and nightly builds) ship optional **thermochemical nonequilibrium and finite-rate chemistry** modules.
+
+#### 2.  What really limits the “reasonable” M
+
+| Limiter                                                     | Practical implication                                                                                                                                                     | “Safe” upper M if ignored                                                                   |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **Calorically-perfect gas assumption** (constant $C_p,\;γ$) | Above about **1 800 K** in air vibrational modes excite and dissociation begins; the ideal-gas model becomes inaccurate.                                                  | In air at sea-level *static* 298 K you hit 1 800 K near **M ≈ 4-5** behind strong shocks.   |
+| **Turbulence-model calibration**                            | Common RANS models (SST, SA) assume sub-hypersonic compressibility; compressibility corrections are mild up to **M ≈ 5**.                                                 | ≥ 6–8 need SRA or Wilcox compressibility terms or transition to LES/DNS.                    |
+| **Numerical stiffness & CFL**                               | Shock thickness shrinks ∝ 1/M²; implicit solver often needs CFL ≤ 5 for M > 6 unless you refine in front of shocks.                                                       | No hard limit, but runtime grows steeply.                                                   |
+| **Real-gas effects** (ionisation, dissociation)             | Entry/hypersonic flows (M 10-30) require multi-species, non-equilibrium energy equations; SU2 can do this, but only with the **multi-species build** and larger CPU cost. | If you **compile with real-gas module** you can run to **M ≈ 15** (validation cases exist). |
+
+#### 3.  Practical guidance
+
+| Regime                                  | Physics model in SU2                                                                                                             | Typical upper M that still “behaves”                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Low & moderate supersonic** (M ≤ 3–4) | Ideal gas; SST or SA; constant $C_p$                                                                                             | Reliable and inexpensive (your current runs).                                           |
+| **High supersonic** (M ≈ 4-6)           | Stay ideal gas *if* static T low (high‐altitude flight) *or* switch to **thermally perfect gas** (variable $C_p(T)$).            | Good with tuned shocks; CFL \~5–10.                                                     |
+| **Entry-level hypersonic** (M ≈ 6-10)   | **Thermochemical equilibrium or nonequilibrium**; multi-species; possibly Park’s two-temperature model; SA “compressed” version. | Needs fine shock layer meshes and small CFL; SU2 examples demonstrate M 8 double wedge. |
+| **Hyper-velocity** (M > 10)             | Nonequilibrium chemistry + radiation; few SU2 users venture here—dedicated codes (US3D, DPLR) dominate.                          | Feasible but highly specialised in SU2.                                                 |
+
+#### 4.  Bottom-line recommendation
+
+* For an **aerodynamic‐coefficient study** with constant γ air, **M ≈ 4** is the practical ceiling; beyond that the ideal-gas assumption can mis-estimate C$_D$ by >10 % because of real-gas temperature rise behind shocks.
+* If your vehicle flies at **high altitude** (low static T) you can run ideal-gas SU2 to **M ≈ 5-6** and still keep peak temperatures \~1 000 K.
+* Above \~M 5 in sea-level conditions, switch to **thermally perfect or nonequilibrium gas** in SU2 (`GAS_MODEL = THERMAL_NONEQ`, multi-species `.gas` file) and expect longer runtimes and tighter CFL constraints.
+
+So your choice to stop at **M = 3** is well within the “safe” range for ideal-gas RANS–SST; going much higher is possible but only if you include high-temperature gas physics and invest additional grid and CPU effort.
+

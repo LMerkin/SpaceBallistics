@@ -13,7 +13,7 @@ namespace SpaceBallistics::EarthAtmosphereModel
   // Standard Atmospheric Pressure at Sea Level:
   constexpr inline Pressure P0       = Pressure(101325.0);
 
-  // Standard Atmospheric Density  at Sea Level:
+  // Standard Atmospheric Density  at Sea Level (@ 15 C):
   constexpr inline Density  Rho0     = Density(1.225);
 
   // Specific Gas Constant for Dry Air (J/K):

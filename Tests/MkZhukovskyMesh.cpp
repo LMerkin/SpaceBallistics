@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
   // the Thin Elliptical AirFoil secton (a Circle).    XXX: This param is NOT a
   // "Len":
   double const r0 = SqRt((K-1.0)/(K+1.0));
-	assert(r0 < 1.0);
+  assert(r0 < 1.0);
 
   // The Semi-Major and Semi-Minor Axes of the Thin Elliptic AirFoil:
   Len const a0(0.5 * (1.0 / r0 + r0));
@@ -276,7 +276,7 @@ int main(int argc, char* argv[])
   int       nc = 0;
  
   while (LIKELY(a <= aMax))
-	{
+  {
 
     // Generate the ellipse with the given "a", "b" and "np":
     for (int i = 0; i < np; ++i)
@@ -347,7 +347,7 @@ int main(int argc, char* argv[])
     if (verbose)
       cerr << ellipses.size() << " --> np=" << np << ", da="
            << da.Magnitude()  << ", a="     << a.Magnitude() << endl;
-	}
+  }
   // All Points and Ellipses Done!
 
   int NEllipses = int(ellipses.size());
