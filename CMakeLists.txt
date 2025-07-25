@@ -200,7 +200,9 @@ SET(SB_TESTS
   TransLunarTest
   PlateAeroDynTest
   MkZhukovskyMesh
-  MkSoyuz21bMesh)
+  MkSoyuz21bMesh
+  LinAlgTuplesTest
+  RKF5Test)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)

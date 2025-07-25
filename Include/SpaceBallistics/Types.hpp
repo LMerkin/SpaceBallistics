@@ -15,7 +15,7 @@ namespace SpaceBallistics
   //=========================================================================//
   DECLARE_DIMS
   (
-    double,,
+    double,    8,                         // Up to 8 dims
     (Mass,     kg),                       // Mass
     (Len,      m,     (km,  1000.0)),     // Length
 
