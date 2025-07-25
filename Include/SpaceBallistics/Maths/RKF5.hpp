@@ -37,7 +37,7 @@ namespace SpaceBallistics
     if (a_tf == a_t0)
       return;   // Nothing to do
 
-    bool isFwd = a_tf > a_t0;
+    DEBUG_ONLY(bool isFwd = a_tf > a_t0;)
 
     //-----------------------------------------------------------------------//
     // Outer Loop: Time Marshaling:                                          //
@@ -129,8 +129,8 @@ namespace SpaceBallistics
           auto b6 = Mult(       16.0 /   135.0, f0);
           b6      = Add (b6,  6656.0 / 12825.0, f2);
           b6      = Add (b6, 28561.0 / 56430.0, f3);
-          b6      = Add(b6,    -0.18,           f4);
-          b6      = Add(b6,      2.0 / 55.0,    f5);
+          b6      = Add (b6,   -0.18,           f4);
+          b6      = Add (b6,     2.0 / 55.0,    f5);
 
           // This step is done:
           *a_x    = Add(*a_x, tau, b6);

@@ -3,7 +3,7 @@
 //                     "Tests/Soyuz21b_Stage2_Test.cpp":                     //
 //===========================================================================//
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
-#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.h"
+#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.hpp"
 #include "TestUtils.hpp"
 
 //===========================================================================//

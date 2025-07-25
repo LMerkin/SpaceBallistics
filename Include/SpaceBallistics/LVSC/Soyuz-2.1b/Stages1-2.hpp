@@ -11,7 +11,7 @@
 #else
 #include "SpaceBallistics/LVSC/Soyuz-2.1b/Stage2.h"
 #endif
-#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.h"
+#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.hpp"
 #include "SpaceBallistics/ME/TanksPressrn.hpp"
 
 namespace SpaceBallistics

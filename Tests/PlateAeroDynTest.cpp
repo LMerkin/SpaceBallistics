@@ -3,7 +3,7 @@
 //                        "Tests/PlateAeroDynTest.cpp":                      //
 //===========================================================================//
 #include "SpaceBallistics/PhysEffects/PlateAeroDyn.hpp"
-#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.h"
+#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.hpp"
 #include "SpaceBallistics/LVSC/LVSC.h"
 #include "SpaceBallistics/CoOrds/EmbeddedCOS.h"
 #include <iostream>
