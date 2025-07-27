@@ -4,15 +4,11 @@
 //                  Integration of the Lunar Orbiter Motion                  //
 //                    in an Irregualr Gravitational Field                    //
 //===========================================================================//
-// FIXME: This implementation uses a GPL integrator which is NOT DimTypes-
-// aware. Must be replaced by our own DimTypes-based integrator:
-//
 #include "SpaceBallistics/CoOrds/Bodies.h"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.h"
 #include "SpaceBallistics/CoOrds/Locations.h"
 #include "SpaceBallistics/PhysEffects/GravityFld.hpp"
-#include <gsl/gsl_odeiv2.h>
-#include <gsl/gsl_errno.h>
+#include "SpaceBallistics/Maths/RKF5.hpp"
 #include <iostream>
 
 using namespace SpaceBallistics;
@@ -21,26 +17,25 @@ using namespace std;
 namespace
 {
   //=========================================================================//
-  // ODE RHS, GSL-Compatible:                                                //
+  // Consts:                                                                 //
   //=========================================================================//
-  // The dimensionality of the ODE system to be solved is 6:
-  constexpr static int ODEDim = 6;
+  constexpr LenK ReMoon = Location  <Body::Moon>::Re;
+  constexpr GMK  KMoon  = GravityFld<Body::Moon>::K;
 
-  // XXX:
-  // (*) For GSL compatibility reasons, the args of this function are NOT
-  //     dimensioned; however, all internal computations use DimTypes;
-  // (*) Currently, only the (quite complex)  Lunar Gravity Field is used
-  //     to compute the RHS; Solar, Earth and Planetary perturbations, as
-  //     well as the effects of non-inertiality  of the SelenoCFixed COS,
-  //     are currently OMITTED:
-  //
-  int ODERHS
-  (
-    double       a_t,
-    double const a_y    [ODEDim], // km
-    double       a_y_dot[ODEDim], // km/sec
-    void*                         // UNUSED
-  )
+  //=========================================================================//
+  // ODE RHS:                                                                //
+  //=========================================================================//
+  // XXX: Currently, only the (quite complex)  Lunar Gravity Field  is used to
+  //     compute the RHS; Solar, Earth and Planetary perturbations, as well as
+  //     the effects of non-inertiality of the SelenoCFixed COS, are currently
+  //     OMITTED.
+  // The State Vector is:
+  using StateV = tuple<LenK, LenK, LenK, VelK, VelK, VelK>;
+
+  // The ODE RHS is the Time derivative of "StateV":
+  using RHSV   = tuple<VelK, VelK, VelK, AccK, AccK, AccK>;
+
+  RHSV ODERHS(StateV const& a_s, Time a_t)
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
     // Equatorial Fixed-Axes COS ("EqFixCOS"):
@@ -48,31 +43,30 @@ namespace
     // Vectors, to avoid conversion of "a_t" back into TDB;  "posF" is a tmp
     // vector anyway:
     //
-    PosKVEqFix<Body::Moon> posF
-    {
-      TDB::UnDef(),   TDB::UnDef(),
-      Len_km(a_y[0]), Len_km(a_y[1]), Len_km(a_y[2])
-    };
-    Time t(a_t);
+    // Co-Ords:
+    LenK x =  get<0>(a_s);
+    LenK y =  get<1>(a_s);
+    LenK z =  get<2>(a_s);
 
-    // ("UnTyped") derivatives of those Co-Ords are the corresp Velocities:
-    a_y_dot[0] = a_y[3];
-    a_y_dot[1] = a_y[4];
-    a_y_dot[2] = a_y[5];
+    // Velocities:
+    VelK Vx = get<3>(a_s);
+    VelK Vy = get<4>(a_s);
+    VelK Vz = get<5>(a_s);
 
-    // Now compute the Accelerations. To that end, we need to convert "posF"
+    PosKVEqFix<Body::Moon> posF{TDB::UnDef(), TDB::UnDef(), x, y, z};
+
+    // Compute the Accelerations. To that end, we need to convert "posF"
     // into the Rotating COS, compute the accelerations there,  and  convert
     // them back into the EqFixCOS.
     // We assume that at t=0, the instantaneous ("snap-shot") Rotating COS
-    // coincides with the Fixed one; then apply the Moon Rotation Angle  :
-
+    // coincides with the Fixed one; then apply the Moon Rotation Angle.
     // Siderial Rotation Period:
     constexpr Time PMoon  = To_Time(27.321661_day);
 
     // Moon Rotation Angle:
-    double         MRA    = TwoPi<double> * double(t / PMoon);
-    double         cosMRA = Cos(MRA);
-    double         sinMRA = Sin(MRA);
+    double    MRA    = TwoPi<double> * double(a_t / PMoon);
+    double    cosMRA = Cos(MRA);
+    double    sinMRA = Sin(MRA);
 
     // Co-Ords in the Rotating system via those in the Fixed one:
     PosKVRot<Body::Moon> posR
@@ -84,14 +78,14 @@ namespace
       posF[2]
     );
     // Acceleration in the Rotating System: Must be cleared first:
-    AccVRot<Body::Moon> accR
-      {TDB::UnDef(), TDB::UnDef(), Acc(0.0), Acc(0.0), Acc(0.0)};
+    AccKVRot<Body::Moon> accR
+      {TDB::UnDef(), TDB::UnDef(), AccK(0.0), AccK(0.0), AccK(0.0)};
 
-    // Now try to compute the actual acceleration:
-    // collision with the Lunar surface; 
+    // Now try to compute the actual acceleration; NB: "ImpactExn" is thrown
+    // in case of a collision with the Lunar surface:
     try
     {
-      GravityFld<Body::Moon>::GravAcc(Time(a_t), posR, &accR);
+      GravityFld<Body::Moon>::GravAcc(a_t, posR, &accR);
     }
     catch (GravityFld<Body::Moon>::ImpactExn const& exn)
     {
@@ -101,10 +95,11 @@ namespace
       cout << "# LUNAR SURFACE IMPACT NEAR lambda = "
            << To_Angle_deg(exn.m_lambda) << ", phi = "
            << To_Angle_deg(exn.m_phi)    << endl;
-      return GSL_EBADFUNC;
+      // Re-throw the exception to stop Time Marshaling:
+      throw;
     }
     // If OK: Convert "accR"  back into the EqFixCOS:
-    AccVEqFix<Body::Moon> accF
+    AccKVEqFix<Body::Moon> accF
     (
       TDB::UnDef(),
       TDB::UnDef(),
@@ -112,13 +107,9 @@ namespace
       sinMRA * accR[0] + cosMRA * accR[1],
       accR[2]
     );
-    // Put them back into the "UnTyped" C array:
-    a_y_dot[3] = To_Len_km(accF[0]).Magnitude();
-    a_y_dot[4] = To_Len_km(accF[1]).Magnitude();
-    a_y_dot[5] = To_Len_km(accF[2]).Magnitude();
 
-    // All Done!
-    return 0;
+    // The result:
+    return make_tuple(Vx, Vy, Vz, accF[0], accF[1], accF[2]);
   }
 }
 
@@ -127,64 +118,50 @@ namespace
 //===========================================================================//
 int main()
 {
-  // System Definition:
-  // Presumably, for an explicit integration method, no Jacobian of the RHS is
-  // required. There are no params either:
-  gsl_odeiv2_system ODE { ODERHS, nullptr, ODEDim, nullptr };
-
-  // Initial Condition:
   // We assume that at t0=0, the Fixed and Rotating COSes coincide; the Orbiter
   // is in the circular polar orbit around the Moon, over the point (lambda=0,
   // phi=0), at the altitude "h", moving North:
   //
-  constexpr Time t0     = 0.0_sec;
-  constexpr LenK h0     = 20.0_km;
-  constexpr LenK ReMoon = Location  <Body::Moon>::Re;
-  constexpr GMK  KMoon  = GravityFld<Body::Moon>::K;
-  constexpr LenK r0     = ReMoon     + h0;
-  constexpr VelK V0     = SqRt(KMoon / r0);
+  constexpr LenK h0  = 20.0_km;
+  constexpr Time t0  = 0.0_sec;
+  constexpr LenK r0  = ReMoon     + h0;
+  constexpr VelK V0  = SqRt(KMoon / r0);
 
-  // "UnTyped" initial state vector for GSL:
-  double y[ODEDim]
-  {
-    r0.Magnitude(), 0.0, 0.0,
-    0.0, 0.0, V0.Magnitude()
-  };
+  // The Initial State:
+  StateV s { r0, 0.0_km, 0.0_km, VelK(0.0), VelK(0.0), V0 };
 
   // Run the RKF45 Integrator for 1 Year with 10 sec initial TimeStep:
-  constexpr Time   tau     = 10.0_sec;
-  constexpr Time   T       = t0 + To_Time(365.25_day);
-  // Absolute Precision:
-  constexpr LenK   AbsPrec = To_Len_km(1.0_m);
-  // Relative Precision:
-  constexpr double RelPrec = 1e-9;
-  // Observation Time Step:
-  constexpr Time   tauObs  = 10.0 * tau;
+  constexpr Time tau = 1.0_sec;
+  constexpr Time T   = t0 + To_Time(365.25_day);
 
-  gsl_odeiv2_driver* ODEDriver =
-    gsl_odeiv2_driver_alloc_y_new
-      (&ODE,            gsl_odeiv2_step_rkf45,
-       tau.Magnitude(), AbsPrec.Magnitude(), RelPrec);
-  assert(ODEDriver != nullptr);
+  // Relative Precision (equivalent to ~1 m of absolute precision in R):
+  constexpr double RelPrec = 5e-7;
 
-  // TIME-MARSHALLING:
-  double t = t0.Magnitude();
-  while (t < T.Magnitude())
-  {
-    double t1 =  t + tauObs.Magnitude();
-    int    rc =  gsl_odeiv2_driver_apply(ODEDriver, &t, t1, y);
+  // ODE Solver Call-Back:
+  Time nextOutput = t0;
 
-    if (UNLIKELY(rc != 0))
+  auto ODECB =
+    [&nextOutput](StateV const& a_s, Time a_t) -> bool
     {
-      cout << "# ERROR, exiting..." << endl;
-      break;
-    }
-    // Output the current Altitude:
-    LenK    h = LenK(SqRt(Sqr(y[0]) + Sqr(y[1]) + Sqr(y[2]))) - ReMoon;
-    cout << t << "  " << h << endl;
-  }
+      // Output the current Altitude above the Moon surface -- every 100 sec:
+      LenK x = get<0>(a_s);
+      LenK y = get<1>(a_s);
+      LenK z = get<2>(a_s);
 
-  // De-Allocate the Driver:
-  (void) gsl_odeiv2_driver_free(ODEDriver);
+      LenK h = SqRt(Sqr(x) + Sqr(y) + Sqr(z)) - ReMoon;
+
+      if (a_t >= nextOutput)
+      {
+        cout << a_t.Magnitude() << "  " << h.Magnitude() << endl;
+        nextOutput += 100.0_sec;
+      }
+      // Stop if we have hit the surface:
+      return IsPos(h);
+    };
+
+  // TIME-MARSHALLING: from t0 to T; "s" is being updated in-place:
+  (void) RKF5(&s, t0, T, ODERHS, tau, 10.0*tau, RelPrec, &ODECB, &cerr);
+
+  // All Done!
   return 0;
 }

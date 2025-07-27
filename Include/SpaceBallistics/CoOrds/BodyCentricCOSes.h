@@ -79,7 +79,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // Position, Velocity and other Vectors in a "BodyCEqFixCOS":              //
   //=========================================================================//
-  // NB: Pos and Vel Vectors use "Len_km" ("K"), but other Vectors use "Len_m":
+  // NB: Use "Len_km" ("K"):
   //
   template<Body Origin, Body B = Body::UNDEFINED>
   using DimLessVEqFix = DimLessV<BodyCEqFixCOS<Origin>, B>;
@@ -91,10 +91,10 @@ namespace SpaceBallistics
   using VelKVEqFix    = VelKV   <BodyCEqFixCOS<Origin>, B>;
 
   template<Body Origin, Body B = Body::UNDEFINED>
-  using AccVEqFix     = AccV    <BodyCEqFixCOS<Origin>, B>;
+  using AccKVEqFix    = AccKV   <BodyCEqFixCOS<Origin>, B>;
 
   template<Body Origin, Body B = Body::UNDEFINED>
-  using ForceVEqFix   = ForceV  <BodyCEqFixCOS<Origin>, B>;
+  using ForceKVEqFix  = ForceKV <BodyCEqFixCOS<Origin>, B>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
@@ -106,16 +106,16 @@ namespace SpaceBallistics
   using DimLessV_GCRS = DimLessVEqFix <Body::Earth, B>;
 
   template<Body B = Body::UNDEFINED>
-  using PosKV_GCRS    = PosKVEqFix <Body::Earth, B>;
+  using PosKV_GCRS    = PosKVEqFix    <Body::Earth, B>;
 
   template<Body B = Body::UNDEFINED>
-  using VelKV_GCRS    = VelKVEqFix <Body::Earth, B>;
+  using VelKV_GCRS    = VelKVEqFix    <Body::Earth, B>;
 
   template<Body B = Body::UNDEFINED>
-  using AccV_GCRS     = AccVEqFix  <Body::Earth, B>;
+  using AccKV_GCRS    = AccKVEqFix    <Body::Earth, B>;
 
   template<Body B = Body::UNDEFINED>
-  using ForceV_GCRS   = ForceVEqFix<Body::Earth, B>;
+  using ForceKV_GCRS  = ForceKVEqFix  <Body::Earth, B>;
 
   //=========================================================================//
   // "BodyCEclFixCOS":                                                       //
@@ -181,10 +181,10 @@ namespace SpaceBallistics
   using VelKVEclFix     = VelKV   <BodyCEclFixCOS<Origin>, B>;
 
   template<Body Origin, Body B = Body::UNDEFINED>
-  using AccVEclFix      = AccV    <BodyCEclFixCOS<Origin>, B>;
+  using AccKVEclFix     = AccKV   <BodyCEclFixCOS<Origin>, B>;
 
   template<Body Origin, Body B = Body::UNDEFINED>
-  using ForceVEclFix    = ForceV  <BodyCEclFixCOS<Origin>, B>;
+  using ForceKVEclFix   = ForceKV <BodyCEclFixCOS<Origin>, B>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
@@ -202,10 +202,10 @@ namespace SpaceBallistics
   using VelKVGeoEclFix    = VelKVEclFix   <Body::Earth, B>;
 
   template<Body B = Body::UNDEFINED>
-  using AccVGeoEclFix     = AccVEclFix    <Body::Earth, B>;
+  using AccKVGeoEclFix    = AccKVEclFix   <Body::Earth, B>;
 
   template<Body B = Body::UNDEFINED>
-  using ForceVGeoEclFix   = ForceVEclFix  <Body::Earth, B>;
+  using ForceKVGeoEclFix  = ForceKVEclFix <Body::Earth, B>;
 
   //-------------------------------------------------------------------------//
   // Aliases for Vectors in the "HelioCEclFixCOS":                           //
@@ -214,16 +214,16 @@ namespace SpaceBallistics
   using DimLessVHelEclFix = DimLessVEclFix<Body::Sun, B>;
 
   template<Body B = Body::UNDEFINED>
-  using PosKVHelEclFix    = PosKVEclFix <Body::Sun, B>;
+  using PosKVHelEclFix    = PosKVEclFix   <Body::Sun, B>;
 
   template<Body B = Body::UNDEFINED>
-  using VelKVHelEclFix    = VelKVEclFix <Body::Sun, B>;
+  using VelKVHelEclFix    = VelKVEclFix   <Body::Sun, B>;
 
   template<Body B = Body::UNDEFINED>
-  using AccVHelEclFix     = AccVEclFix  <Body::Sun, B>;
+  using AccKVHelEclFix    = AccKVEclFix   <Body::Sun, B>;
 
   template<Body B = Body::UNDEFINED>
-  using ForceVHelEclFix   = ForceVEclFix<Body::Sun, B>;
+  using ForceKVHelEclFix  = ForceKVEclFix <Body::Sun, B>;
 
   //=========================================================================//
   // "BodyCRotCOS" Class:                                                    //
@@ -278,7 +278,7 @@ namespace SpaceBallistics
   //-------------------------------------------------------------------------//
   // Position, Velocity and other Vectors in a "BodyCRotCOS":                //
   //-------------------------------------------------------------------------//
-  // Again, using "Len_km" for Pos and Vel Vectors, and "Len_m" for all others:
+  // Again, using "Len_km":
   //
   template<Body Origin, Body B = Body::UNDEFINED>
   using DimLessVRot   = DimLessV<BodyCRotCOS<Origin>, B>;
@@ -290,10 +290,10 @@ namespace SpaceBallistics
   using VelKVRot      = VelKV   <BodyCRotCOS<Origin>, B>;
 
   template<Body Origin, Body B = Body::UNDEFINED>
-  using AccVRot       = AccV    <BodyCRotCOS<Origin>, B>;
+  using AccKVRot      = AccKV   <BodyCRotCOS<Origin>, B>;
 
   template<Body Origin, Body B = Body::UNDEFINED>
-  using ForceVRot     = ForceV  <BodyCRotCOS<Origin>, B>;
+  using ForceKVRot    = ForceKV <BodyCRotCOS<Origin>, B>;
 
   // XXX: Probably no point in considering the MOI Tensors and Rotational Vecs
   // in this COS yet...
@@ -311,9 +311,9 @@ namespace SpaceBallistics
   using VelKV_ITRS    = VelKVRot   <Body::Earth, B>;
 
   template<Body B = Body::UNDEFINED>
-  using AccV_ITRS     = AccVRot    <Body::Earth, B>;
+  using AccKV_ITRS    = AccKVRot   <Body::Earth, B>;
 
   template<Body B = Body::UNDEFINED>
-  using ForceV_ITRS   = ForceVRot  <Body::Earth, B>;
+  using ForceKV_ITRS  = ForceKVRot <Body::Earth, B>;
 }
 // End namespace SpaceBallistics

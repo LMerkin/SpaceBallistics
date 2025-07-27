@@ -6,60 +6,70 @@
 #pragma  once
 #include "SpaceBallistics/Maths/LinAlgT.hpp"
 #include <stdexcept>
+#include <ostream>
 
 namespace SpaceBallistics
 {
   //=========================================================================//
   // "RKF5":                                                                 //
   //=========================================================================//
-  // ODE solution using the Runge-Kutta-Fehlberg method, with automatic step
-  // control:
+  // ODE solution using the Runge-Kutta-Fehlberg method,  with automatic step
+  // control.  Returns the last "time" instant to which the "a_x" corresponds;
+  // if the return value equals "a_tf", integration is successfully completed:
   //
   template<typename X, typename T, typename RHS, typename CB>
-  void RKF5
+  T RKF5
   (
-    X*         a_x,    // Initial condition, replaced by the solution
-    T          a_t0,   // Initial independent variable (eg "time")
-    T          a_tf,   // Final "time"
-    RHS const& a_rhs,  // RHS function:   (x,t) -> dx/dt
-    T          a_tau,  // Initial "time" step
-    double     a_eps,  // Max allowed absolute error
-    CB  const& a_cb    // User Call-Back: (x,t) -> continue_flag
+    X*            a_x,       // Initial condition, replaced by the solution
+    T             a_t0,      // Initial independent variable (eg "time")
+    T             a_tf,      // Final "time"
+    RHS const&    a_rhs,     // RHS function:   (x,t) -> dx/dt
+    T             a_tau0,    // Initial "time" step
+    T             a_max_tau, // Max     "time" step
+    double        a_eps,     // Max allowed absolute error
+    CB*           a_cb,      // User Call-Back: (x,t) -> cont_flag (may be NULL)
+    std::ostream* a_log      // Stream for logging (may be NULL)
   )
   {
     //-----------------------------------------------------------------------//
     // Checks:                                                               //
     //-----------------------------------------------------------------------//
     if (a_x == nullptr ||
-       (a_tf > a_t0 && !IsPos(a_tau)) || (a_tf < a_t0 &&  IsPos(a_tau)))
+       (a_tf > a_t0 && !IsPos(a_tau0)) || (a_tf < a_t0 &&  IsPos(a_tau0)) ||
+       Abs(a_tau0)  >  Abs(a_max_tau))
       throw std::invalid_argument("RKF5: Invalid param(s)");
 
     if (a_tf == a_t0)
-      return;   // Nothing to do
+      return a_t0;  // Nothing to do
 
     DEBUG_ONLY(bool isFwd = a_tf > a_t0;)
 
     //-----------------------------------------------------------------------//
     // Outer Loop: Time Marshaling:                                          //
     //-----------------------------------------------------------------------//
-    T      t      = a_t0;
-    T      tau    = a_tau;
-    double tauMag = double(tau / T(1.0));
+    T t   = a_t0;
+    T tau = a_tau0;
 
     while (true)
+    try    // Guard against any exceptions, eg in the RHS evaluation
     {
-      // Invoke the Call-Back. Stop immediately if it returns "false":
-      if (!a_cb(*a_x, t))
-        break;
+      // Invoke the Call-Back if present, stop immediately if it returns
+      // "false". If there is no Call-Back, just continue:
+      if (a_cb != nullptr && !(*a_cb)(*a_x, t))
+        return t;         // We may or may not have reached the end
 
       if (t == a_tf)
-        break;   // All Done!
+        return t;         // All Done!
 
       // The next "t" to be reached in one RKF5 step:
-      T tn =
-        std::fabs(tau) >= 0.99 * std::fabs(a_tf - t)
-        ? a_tf      // We can reach "a_tf" in one step!
-        : t + tau;  // Just an intermediate step
+      T tn = t + tau;
+
+      // But if we can now reach "a_tf" in one step, do so:
+      if (UNLIKELY(Abs(a_tf - t) <= 1.01 * Abs(tau)))
+      {
+        tn  = a_tf;
+        tau = a_tf - t;
+      }
       assert((isFwd && tn <= a_tf) || (!isFwd && tn >= a_tf));
 
       //---------------------------------------------------------------------//
@@ -109,16 +119,17 @@ namespace SpaceBallistics
         auto f5   = a_rhs(x5,  t5);
 
         // Error estimate (NB: "f1" is not used here, this is correct):
-        auto ee   = Mult(        1.0 / 360.0,   f0);
-        ee        = Add (ee,  -128.0 / 4275.0,  f2);
-        ee        = Add (ee, -2197.0 / 75240.0, f3);
-        ee        = Add (ee,    0.02,           f4);
-        ee        = Add (ee,     2.0 / 55.0,    f5);
+        auto ef   = Mult(        1.0 / 360.0,   f0);
+        ef        = Add (ef,  -128.0 / 4275.0,  f2);
+        ef        = Add (ef, -2197.0 / 75240.0, f3);
+        ef        = Add (ef,    0.02,           f4);
+        ef        = Add (ef,     2.0 / 55.0,    f5);
+        X    ex   = Mult(tau, ef);
 
         // NB: Max Abs Error (with "tau" factor), as a plain "double", since
         // the actual element type on which this max occurs, cannot be known
         // in advance:
-        double maxAbsErr  = tauMag * MaxAbsRelError(ee, x5);
+        double maxAbsErr  = MaxAbsRelError(ex, x5);
         assert(maxAbsErr >= 0.0);
 
         // XXX: If eps <= 0, do not use error / step control at all:
@@ -136,28 +147,57 @@ namespace SpaceBallistics
           *a_x    = Add(*a_x, tau, b6);
           t       = tn;
           ok      = true;
+
+          // Furthermore, we can enlarge "tau", but not beyond "a_max_tau":
+          if (a_eps > 0.0 && tau <= 0.5 * a_max_tau)
+          {
+            T tau1 =
+              Min(Abs(tau) * std::pow(a_eps / maxAbsErr, 0.2), Abs(a_max_tau));
+            assert(IsPos(tau1));
+
+            // Increase "tau" by 2-factors, up to "tau1":
+            while (true)
+            {
+              T tau2 = 2.0  * tau;
+              if (Abs(tau2) > tau1)
+                break;
+              tau = tau2;
+            }
+          }
+          // The inner loop (one RKF step) is done!
           break;
         }
         else
         {
           // Error bound "eps" exceeded; we need to reduce the step and try
           // again. New step estimate:
-          T tau1 = 0.9 * tau * std::pow(a_eps / maxAbsErr, 0.2);
+          assert(a_eps > 0.0);
+          T tau1 = 0.9 * Abs(tau) * std::pow(a_eps / maxAbsErr, 0.2);
+          assert(IsPos(tau1));
 
-          // However, we will not use "tau'" directly; better reduce the origi-
+          // However, we will not use "tau1" directly; better reduce the origi-
           // nal "tau" by powers of 2 until it becomes <= "tau1":
-          while (std::fabs(tau) > std::fabs(tau1))
+          while (Abs(tau) > tau1)
             tau *= 0.5;
 
           // And go for the next inner iteration with the new "tau"...
         }
       }
-      // If all step reductions have been done, still to no avail:
+      // End of the inner (single RKF5 step) loop.
+      // If all step reductions have been done, but to no avail, throw an
+      // exception:
       if (!ok)
-        throw std::runtime_error
-              ("StepRKF5: Required accuracy cannot be achieved");
+        throw std::runtime_error("RKF5: Too many step reductions");
     }
-    // End of "t" loop: All Done!
+    catch (std::exception const& exn)
+    {
+      if (a_log != nullptr)
+        *a_log  << "RKF5: Exception: " << exn.what() << std::endl;
+      return t;
+    }
+    // End of (exception-protected) "t" loop
+    // This point is unreachable:
+    __builtin_unreachable();
   }
 }
 // End namespace SpaceBallistics

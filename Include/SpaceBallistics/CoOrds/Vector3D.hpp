@@ -469,12 +469,14 @@ namespace SpaceBallistics
   using T##V = Vector3D<T, COS, B>;
 
   DCL_VEC(DimLess)  // DimLess  (eg directional vector)
-  DCL_VEC(Len)      // Position Vector ("Radius-Vector")
-  DCL_VEC(LenK)     // Position Vector (AstroDynamical, km)
+  DCL_VEC(Len)      // Position Vector     ("Radius-Vector")
+  DCL_VEC(LenK)     // Position Vector     (AstroDynamical, km)
   DCL_VEC(Vel)      // Velocity Vector
-  DCL_VEC(VelK)     // Velocity Vector (AstroDynamical, km/sec)
+  DCL_VEC(VelK)     // Velocity Vector     (AstroDynamical, km/sec)
   DCL_VEC(Acc)      // Acceleration Vector
+  DCL_VEC(AccK)     // Acceleration Vector (AstroDynamical, km/sec^2)
   DCL_VEC(Force)    // Force Vector
+  DCL_VEC(ForceK)   // Force Vector        (AstroDynamical, kg*km/sec^2)
   DCL_VEC(AngVel)   // Angular Velocity Vector
   DCL_VEC(AngAcc)   // Angular Acceleration Vector
   DCL_VEC(AngMom)   // Angular ("Kinetic") Momentum Vector

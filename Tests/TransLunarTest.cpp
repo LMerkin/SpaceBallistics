@@ -2,17 +2,13 @@
 //===========================================================================//
 //                         "Tests/TransLunarTest.cpp":                       //
 //===========================================================================//
-// FIXME: This implementation uses a GPL integrator which is NOT DimTypes-
-// aware. Must be replaced by our own DimTypes-based integrator:
-//    
 #include "SpaceBallistics/CoOrds/TimeScales.hpp"
 #include "SpaceBallistics/CoOrds/BodyCentricCOSes.hpp"
 #include "SpaceBallistics/CoOrds/TwoBodyOrbit.hpp"
 #include "SpaceBallistics/PhysEffects/BodyData.hpp"
 #include "SpaceBallistics/PhysEffects/DE440T.h"
+#include "SpaceBallistics/Maths/RKF5.hpp"
 #include "SpaceBallistics/Maths/Dichotomy.hpp"
-#include <gsl/gsl_odeiv2.h>
-#include <gsl/gsl_errno.h>
 #include <iostream>
 #include <cstdio>
 #include <utility>
@@ -27,7 +23,7 @@ namespace
   //=========================================================================//
   struct Context
   {
-    Time                    m_mjs;    // TimeStamp (MJS_TDB)
+    TDB                     m_tdb;    // TimeStamp (TDB)
     PosKV_GCRS<>            m_posEK;  // SC Pos    (DE440T)
     VelKV_GCRS<>            m_velEK;  // SC Vel    (DE440T)
     PosKV_GCRS<Body::Moon>  m_posEM;  // Moon Pos  (DE440T)
@@ -111,11 +107,11 @@ namespace
     LenK   a     = Q / (e + 1.0);
 
     // Construct the "provisional" "EllipticOrbit" object for the TLO (with a
-    // dummy perigee Time as yet):
+    // dummy Perigee Time as yet):
     TwoBodyOrbit<GCRS> tlo0 =
       TwoBodyOrbit<GCRS>::MkEllipticOrbit(a, e, I, Omega, omega, TDB{});
 
-    // Finally, the perigee Time. This will be computed relative to the SCO in-
+    // Finally, the Perigee Time. This will be computed relative to the SCO in-
     // sertion time. To determine (approximately) the latter, first compute the
     // intersection point between the Moon Orbit and the TLO  (the one with the
     // SMALLER longitude):
@@ -170,50 +166,43 @@ namespace
   }
 
   //=========================================================================//
-  // RHS for the Exact TLO Integration (GSL-Compatible):                     //
+  // RHS for the Exact TLO Integration:                                      //
   //=========================================================================//
-  // The dimensionality of the ODE system to be solved is 6:
-  constexpr static int ODEDim = 6;
+  // State Vector of the SpaceCraft:
+  using StateV = tuple<LenK, LenK, LenK, VelK, VelK, VelK>;
 
-  // XXX: For GSL compatibility reasons, the args of this function are NOT
-  // dimensioned; however, all internal computations use DimTypes:
-  int ODERHS
-  (
-    double       a_mjs_tdb,
-    double const a_y    [ODEDim], // km
-    double       a_y_dot[ODEDim], // km/sec
-    void*        a_ctx            // Context
-  )
+  // The ODE RHS is the derivative of "StateV" wrt Time (TDB):
+  using RHSV   = tuple<VelK, VelK, VelK, AccK, AccK, AccK>;
+
+  RHSV ODERHS(StateV const& a_s, TDB a_tdb, Context* a_ctx)
   {
-    // ("UnTyped") derivatives of the Co-Ords are the corresp Vels:
-    a_y_dot[0]   = a_y[3];
-    a_y_dot[1]   = a_y[4];
-    a_y_dot[2]   = a_y[5];
+    assert(a_ctx != nullptr);
 
-    // Re-construct the TDB:
-    Time mjs_tdb{a_mjs_tdb};
-    TDB      tdb{  mjs_tdb};
+    // Components of the State Vector:
+    LenK x  = get<0>(a_s);
+    LenK y  = get<1>(a_s);
+    LenK z  = get<2>(a_s);
+    VelK Vx = get<3>(a_s);
+    VelK Vy = get<4>(a_s);
+    VelK Vz = get<5>(a_s);
 
-    // XXX: For GCRS and BCRS, we currently use "UnDef"s TimeStamps:
-
+    // XXX: For GCRS and BCRS, we currently use "UnDef"s TimeStamps;
     // SC (index "K") Pos and Vel in the GCRS (ie relative to Earth):
-    PosKV_GCRS<> posEK
-      {TT::UnDef(), TT::UnDef(), LenK(a_y[0]), LenK(a_y[1]), LenK(a_y[2])};
+    PosKV_GCRS<> posEK {TT::UnDef(), TT::UnDef(),  x,  y,  z};
 
-    VelKV_GCRS<> velEK
-      {TT::UnDef(), TT::UnDef(), VelK(a_y[3]), VelK(a_y[4]), VelK(a_y[5])};
+    VelKV_GCRS<> velEK {TT::UnDef(), TT::UnDef(), Vx, Vy, Vz};
 
     // GeoCentric position and Velocity of the Moon:
-    PosKV_GCRS<Body::Moon>    posEM;
-    VelKV_GCRS<Body::Moon>    velEM;
-    DE440T::GetMoonGEqPV(tdb, &posEM, &velEM);
+    PosKV_GCRS<Body::Moon>       posEM;
+    VelKV_GCRS<Body::Moon>       velEM;
+    DE440T::GetMoonGEqPV(a_tdb, &posEM, &velEM);
 
     // Need BaryCentric (BCRS) positions of the Sun and Earth:
     PosKV_BCRS<Body::Earth>   posBE;
-    DE440T::GetPlanetBarEqPV<Body::Earth>(tdb, &posBE, nullptr);
+    DE440T::GetPlanetBarEqPV<Body::Earth>(a_tdb, &posBE, nullptr);
 
     PosKV_BCRS<Body::Sun>     posBS;
-    DE440T::GetPlanetBarEqPV<Body::Sun>  (tdb, &posBS, nullptr);
+    DE440T::GetPlanetBarEqPV<Body::Sun>  (a_tdb, &posBS, nullptr);
 
     // Then the GeoCentric position of the Sun:
     PosKV_GCRS<Body::Sun>     posES  = posBS - posBE;
@@ -247,23 +236,17 @@ namespace
     // So the total acceleration is:
     auto acc   = accEK + prtMK + prtSK;
 
-    // Put the Accelerations back into the "UnTyped" C array:
-    a_y_dot[3] = acc.x().Magnitude();
-    a_y_dot[4] = acc.y().Magnitude();
-    a_y_dot[5] = acc.z().Magnitude();
-
     // Memoise some intermediate data in the Context:
-    Context* ctx = reinterpret_cast<Context*>(a_ctx);
-    ctx->m_mjs   = mjs_tdb;
-    ctx->m_posEK = posEK;
-    ctx->m_velEK = velEK;
-    ctx->m_posEM = posEM;
-    ctx->m_velEM = velEM;
-    ctx->m_rhoEK = rhoEK;
-    ctx->m_rhoMK = rhoMK;
+    a_ctx->m_tdb   = a_tdb;
+    a_ctx->m_posEK = posEK;
+    a_ctx->m_velEK = velEK;
+    a_ctx->m_posEM = posEM;
+    a_ctx->m_velEM = velEM;
+    a_ctx->m_rhoEK = rhoEK;
+    a_ctx->m_rhoMK = rhoMK;
 
-    // All Done!
-    return 0;
+    // The result:
+    return make_tuple(Vx, Vy, Vz, acc.x(), acc.y(), acc.z());
   }
 
   //=========================================================================//
@@ -271,27 +254,30 @@ namespace
   //=========================================================================//
   struct TLORes
   {
-    LenK  m_deltaQ;       // Excess TLO apogee distance
-    LenK  m_edge;         // TLO "aiming edge"
-    LenK  m_minDist;      // Minimum Distance to the Moon Surface
-    TDB   m_minDistTime;  // Time of the Closest Approach
-    VelK  m_totalV;       // See the impl...
+    LenK  m_deltaQ;      // Excess TLO apogee distance
+    LenK  m_edge;        // TLO "aiming edge"
+    LenK  m_minDist;     // Minimum Distance to the Moon Surface
+    TDB   m_minDistTime; // Time of the Closest Approach
+    VelK  m_totalV;      // See the impl...
   };  
 
   TLORes PropagateTLO
   (
-    TDB      a_t0,        // Ref Time
-    Angle    a_fM,        // "Aim Point": True Anomaly of the Moon Orbit
-    LenK     a_deltaQ,    // Excess TLO apogee distance
-    LenK     a_edge,      // TLO "aiming edge"
-    LenK     a_leoH,      // Circular LEO altitude to start from
-    gsl_odeiv2_driver* a_ODEDriver,
-    Time     a_tauObs,    // Observation Time Step
+    TDB      a_t0,       // Ref Time (TDB)
+    Angle    a_fM,       // "Aim Point": True Anomaly of the Moon Orbit
+    LenK     a_deltaQ,   // Excess TLO apogee distance
+    LenK     a_edge,     // TLO "aiming edge"
+    LenK     a_leoH,     // Circular LEO altitude to start from
+    Time     a_tau,
+    Time     a_tauMax,
+    Time     a_tauObs,   // Observation Time Step
+    double   a_relPrec,
     Context* a_ctx,
     bool     a_verbose
   )
   {
-    assert(a_ODEDriver != nullptr && a_ctx != nullptr);
+    assert(a_ctx != nullptr && IsPos(a_tau) && IsPos(a_tauMax) &&
+           IsPos(a_tauObs)  && a_tau <= a_tauMax);
 
     //-----------------------------------------------------------------------//
     // Construct the TLO:                                                    //
@@ -338,70 +324,71 @@ namespace
              LenK(pos0).Magnitude(), VelK(vel0).Magnitude());
 
     //-----------------------------------------------------------------------//
-    // System Definition for GSL-based direct TLO integration:               //
+    // Time-Marshaling SetUp:                                                //
     //-----------------------------------------------------------------------//
-    // "UnTyped" initial state vector for GSL:
-    double y[ODEDim]
-    {
-      pos0.x().Magnitude(), pos0.y().Magnitude(), pos0.z().Magnitude(),
-      vel0.x().Magnitude(), vel0.y().Magnitude(), vel0.z().Magnitude()
-    };
+    // Initial state vector:
+    StateV s0 { pos0.x(), pos0.y(), pos0.z(), vel0.x(), vel0.y(), vel0.z() };
 
-    //-----------------------------------------------------------------------//
-    // Run the Time-Marshalling:                                             //
-    //-----------------------------------------------------------------------//
     // Time Range of Integration: 10d are enough (from the TLO insertion @ the
     // TLO perigee):
     TDB const tFrom = tlo.T();
     TDB const tTo   = tFrom + To_Time(10.0_day);
+    TDB       tObs  = tFrom;  // For verbose output, if enabled
 
+    // The RHS capturing the Context:
+    auto rhs =
+      [a_ctx](StateV const& a_s,  Time a_mjs_tdb) -> RHSV
+      { return ODERHS(a_s, TDB{a_mjs_tdb}, a_ctx); };
+
+    // The Call-Back:
     // Min distance to the Moon center:
     LenK         minRhoM    = LenK(+Inf<double>);
     TDB          minRhoMTime;
     VelKV_GCRS<> minRhoMVel;  // Relative velocity at the closest approach
 
-    TDB t = tFrom;
-    while (t < tTo)
-    {
-      //---------------------------------------------------------------------//
-      // Make the Step:                                                      //
-      //---------------------------------------------------------------------//
-      double mjs  = t.GetTimeSinceEpoch().Magnitude();
-      double mjs1 = mjs + a_tauObs.Magnitude();
-
-      int rc = gsl_odeiv2_driver_apply(a_ODEDriver, &mjs, mjs1, y);
-
-      if (UNLIKELY(rc != 0))
+    auto cb  =
+      [a_ctx, a_verbose, a_tauObs, &tObs, &minRhoM, &minRhoMTime, &minRhoMVel]
+      (StateV const&, Time) -> bool
       {
-        cout << "# ERROR: RC=" << rc << ", exiting..." << endl;
-        break;
-      }
-      // We should have arrived at "mjs1"?
-      assert(mjs == mjs1);
+        // SC Velocity relative  to the Moon;
+        // XXX: For consistency, we use a_ctx->m_tdb, NOT the Time arg of this
+        // lambda:
+        VelKV_GCRS<> velMK = a_ctx->m_velEK - a_ctx->m_velEM;
 
-      // Update "t" for the next iteration:
-      t = TDB(Time(mjs));
+        if (a_verbose && a_ctx->m_tdb >= tObs)
+        {
+          printf("%.3lf\t%.3lf\t%.3lf\t%.3lf\n",
+                 a_ctx->m_tdb  .GetJD().Magnitude(),
+                 a_ctx->m_rhoEK.Magnitude(),
+                 a_ctx->m_rhoMK.Magnitude(),
+                 VelK(velMK)   .Magnitude());
+          tObs += a_tauObs;
+        }
 
-      //---------------------------------------------------------------------//
-      // Step Processing:                                                    //
-      //---------------------------------------------------------------------//
-      // SC Velocity relative to the Moon:
-      VelKV_GCRS<> velMK = a_ctx->m_velEK - a_ctx->m_velEM;
+        // Minimum separation detection:
+        if (a_ctx->m_rhoMK < minRhoM)
+        {
+          minRhoM     = a_ctx->m_rhoMK;
+          minRhoMTime = a_ctx->m_tdb;
+          // The SC velocity relative to the Moon at that time:
+          minRhoMVel  = a_ctx->m_velEK - a_ctx->m_velEM;
+        }
+        // Always continue:
+        return true;
+      };
 
-      if (a_verbose)
-        printf("%.3lf\t%.3lf\t%.3lf\t%.3lf\n",
-               a_ctx->m_mjs  .Magnitude(), a_ctx->m_rhoEK.Magnitude(),
-               a_ctx->m_rhoMK.Magnitude(), VelK(velMK)   .Magnitude());
+    //-----------------------------------------------------------------------//
+    // Run the Time-Marshaling:                                              //
+    //-----------------------------------------------------------------------//
+    // XXX: The Time Range (From..To) params must be of the same type as the
+    // "tau" steps, so we cannot use TDB for the former, must use plain "Time":
+    Time tFin =
+      RKF5(&s0,   tFrom.GetTimeSinceEpoch(), tTo.GetTimeSinceEpoch(), rhs,
+           a_tau, a_tauMax,  a_relPrec, &cb, nullptr);
 
-      // Minimum separation detection:
-      if (a_ctx->m_rhoMK < minRhoM)
-      {
-        minRhoM     = a_ctx->m_rhoMK;
-        minRhoMTime = t;
-        // The SC velocity relative to the Moon at that time:
-        minRhoMVel  = a_ctx->m_velEK - a_ctx->m_velEM;
-      }
-    }
+    if (UNLIKELY(tFin != tTo.GetTimeSinceEpoch()))
+      throw runtime_error("RKF5 Time-Marshaling FAILED");
+
     //-----------------------------------------------------------------------//
     // The Result:                                                           //
     //-----------------------------------------------------------------------//
@@ -448,53 +435,33 @@ int main()
   constexpr LenK edge_to     = 15000.0_km;
   constexpr LenK edge_step   =   250.0_km;
 
-  //-------------------------------------------------------------------------//
-  // Setup:                                                                  //
-  //-------------------------------------------------------------------------//
-  // GSL ODE Solver Initialisation:
-  // Presumably, for an explicit integration method, no Jacobian of the RHS is
-  // required:
-  Context ctx;
-  gsl_odeiv2_system ODE { ODERHS, nullptr, ODEDim, &ctx };
+  // Params for the RKF5 Integrator:
+  constexpr Time   tau       = 1.0_sec;
+  constexpr Time   tauMax    = 10.0 * tau;
 
-  // Construct the RKF45 Integrator with 10 sec initial TimeStep (used by the
-  // Driver internally):
-  constexpr Time   tau     = 1.0_sec;
   // Observation Time Step (between external Driver invocations):
-  constexpr Time   tauObs  = 10.0 * tau;
+  constexpr Time   tauObs    = 10.0 * tau;
 
-  // Absolute Precision:
-  constexpr LenK   AbsPrec = To_Len_km(10.0_m);
-  // Relative Precision:
-  constexpr double RelPrec = 1e-9;
-
-  gsl_odeiv2_driver* ODEDriver =
-    gsl_odeiv2_driver_alloc_y_new
-      (&ODE,            gsl_odeiv2_step_rkf45,
-       tau.Magnitude(), AbsPrec.Magnitude(), RelPrec);
-  assert(ODEDriver != nullptr);
+  // Relative Precision    (roughly corresponds to ~40 m at the Moon distance,
+  // which is worse than the DE440T accuracy, but OK for our purposes):
+  constexpr double RelPrec   = 1e-7;
 
   //-------------------------------------------------------------------------//
   // Iterate over the "deltaQ" and "edge":                                   //
   //-------------------------------------------------------------------------//
+  Context ctx;
+
   for (LenK deltaQ = deltaQ_from; deltaQ <= deltaQ_to; deltaQ += deltaQ_step)
   for (LenK edge   = edge_from;   edge   <= edge_to;   edge   += edge_step)
   {
     TLORes res =
-      PropagateTLO(t0,    fM, deltaQ, edge, leoH,
-                   ODEDriver, tauObs, &ctx, verbose);
+      PropagateTLO(t0,   fM, deltaQ, edge, leoH, tau, tauMax, tauObs, RelPrec,
+                   &ctx, verbose);
 
     printf("%.3lf\t%.3lf\t%.3lf\t%.3lf\n",
            deltaQ.Magnitude(), edge.Magnitude(), res.m_minDist.Magnitude(),
            res.m_totalV.Magnitude());
-
-    // Reset the GSL Driver before the next iteration:
-    gsl_odeiv2_driver_reset(ODEDriver);
   }
-
-  // De-Allocate the Driver:
-  (void) gsl_odeiv2_driver_free(ODEDriver);
-
   // All Done!
   return 0;
 }

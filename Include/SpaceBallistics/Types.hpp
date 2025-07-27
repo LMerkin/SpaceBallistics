@@ -62,14 +62,16 @@ namespace SpaceBallistics
 
   // Velocity (m/sec) and Acceleration (m/sec^2):
   using Vel      = decltype(Len()  / 1.0_sec);
-  using Acc      = decltype(Len()  / Sqr(1.0_sec));
+  using Acc      = decltype(Vel()  / 1.0_sec);
 
   // Using AstroDynamical Units (km, km/sec):
   using LenK     = Len_km;
   using VelK     = decltype(LenK() / 1.0_sec);
+  using AccK     = decltype(VelK() / 1.0_sec);
 
-  // Force (N = kg*m/sec^2):
-  using Force    = decltype(Mass() * Acc());
+  // Force (N = kg*m/sec^2) and the resp "ForceK":
+  using Force    = decltype(Mass() * Acc ());
+  using ForceK   = decltype(Mass() * AccK());
 
   // Pressure:
   using Pressure = decltype(Force() / Area(1.0));

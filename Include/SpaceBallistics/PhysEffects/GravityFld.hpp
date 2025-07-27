@@ -41,12 +41,23 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // For convenience: Exception thrown on "impact" (actually when r <= Re) //
     //-----------------------------------------------------------------------//
-    struct ImpactExn
+    class ImpactExn final: public std::invalid_argument
     {
-      Time   const m_t;      // Time
-      Len    const m_h;      // Elevation over the Equatorial Radius
-      Angle  const m_lambda; // Impact Site Longitude
-      Angle  const m_phi;    // Impact Site Latitude
+    public:
+      // Data Flds:
+      Time  const m_t;      // Time
+      LenK  const m_h;      // Elevation over the Equatorial Radius (<= 0)
+      Angle const m_lambda; // Impact Site Longitude
+      Angle const m_phi;    // Impact Site Latitude
+
+      // Non-Default Ctor:
+      ImpactExn (Time a_t, LenK a_h, Angle a_lambda, Angle a_phi)
+      : std::invalid_argument("ImpactExn"),
+        m_t     (a_t),
+        m_h     (a_h),
+        m_lambda(a_lambda),
+        m_phi   (a_phi)
+      {}
     };
 
     //=======================================================================//
@@ -62,7 +73,7 @@ namespace SpaceBallistics
     (
       Time                 a_t,                  // For info only
       PosKVRot<EGB> const& a_pos,
-      AccVRot <EGB>*       a_acc,
+      AccKVRot<EGB>*       a_acc,
       int                  a_n          = N,     // Max order used
       bool                 a_zonal_only = false  // Zonal Harmonics only?
     )
@@ -99,11 +110,11 @@ namespace SpaceBallistics
         double const phi     = ASin (double(z/r));
         double const lambda  = IsZero(r2xy) ? 0.0 : ATan2(x, y);
 
-        throw ImpactExn{ a_t, To_Len(r - Re), Angle(lambda), Angle(phi) };
+        throw ImpactExn(a_t, r - Re, Angle(lambda), Angle(phi));
       }
 
       // If OK: Main part of the Gravitational Acceleration:
-      Acc  mainAcc = To_Len_m(K / r2);
+      AccK mainAcc = K / r2;
 
       if (a_n == 0)
       {

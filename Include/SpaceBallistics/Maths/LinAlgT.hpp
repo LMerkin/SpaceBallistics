@@ -59,7 +59,7 @@ namespace SpaceBallistics
     return std::tuple
     {
       double(Abs(std::get<Is>(a_e)) /
-             Max(decltype(std::get<Is>(a_y))(1.0), Abs(std::get<Is>(a_y))))
+             Max(decltype(std::get<Is>(a_y)){1.0}, Abs(std::get<Is>(a_y))))
       ...
     };
   }

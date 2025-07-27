@@ -54,6 +54,6 @@ int main()
   constexpr double tau0 = 0.001;
   constexpr double eps  = 1e-12;
 
-  RKF5(&s, 0.0, 5.0, RHS, tau0, eps, CB);
+  (void) RKF5(&s, 0.0, 5.0, RHS, tau0, tau0, eps, &CB, nullptr);
   return 0;
 }
