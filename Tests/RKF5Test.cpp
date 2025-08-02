@@ -28,17 +28,18 @@ namespace
   }
 
   // User Call-Back:
-  bool CB(S const& a_x, double a_t)
+  bool CB(S* a_x, double a_t)
   {
+    assert(a_x != nullptr);
     // Expected solution:
     // x(t) = exp(t)
     // y(t) = exp(t)
     // u(t) = sin(t)
     // v(t) = cos(t)
-    double e0 = fabs(get<0>(a_x) / exp(a_t) - 1.0);
-    double e1 = fabs(get<1>(a_x) / exp(a_t) - 1.0);
-    double e2 = fabs(get<2>(a_x) - sin(a_t));
-    double e3 = fabs(get<3>(a_x) - cos(a_t));
+    double e0 = fabs(get<0>(*a_x) / exp(a_t) - 1.0);
+    double e1 = fabs(get<1>(*a_x) / exp(a_t) - 1.0);
+    double e2 = fabs(get<2>(*a_x) - sin(a_t));
+    double e3 = fabs(get<3>(*a_x) - cos(a_t));
     cout << a_t << "  " << e0 << "  " << e1 << "  " << e2 << "  " << e3 << endl;
     return true;
   }

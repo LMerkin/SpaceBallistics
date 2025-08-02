@@ -9,6 +9,7 @@
 #include "SpaceBallistics/CoOrds/Vector3D.hpp"
 #include "SpaceBallistics/Maths/Dichotomy.hpp"
 #include <tuple>
+#include <exception>
 
 namespace SpaceBallistics
 {
@@ -203,15 +204,12 @@ namespace SpaceBallistics
       return std::make_tuple(T * n, M, cR);
     }
     else
-    {
       //---------------------------------------------------------------------//
       // If we got here: TranSonic Flow:                                     //
       //---------------------------------------------------------------------//
-      // XXX: There is no easy-to-apply theory in this case. We will simply
-      // provide a polynomial approximation, matching the h
-      //
-      return std::make_tuple(ForceV<COS>(), M, 0.0);
-    }
+      // XXX: There is no easy-to-apply theory in this case:
+      throw std::logic_error("PlateAeroDyn: TranSonic mode not supported yet");
+
     __builtin_unreachable();
   }
 }

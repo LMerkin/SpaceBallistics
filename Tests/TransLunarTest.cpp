@@ -348,11 +348,11 @@ namespace
 
     auto cb  =
       [a_ctx, a_verbose, a_tauObs, &tObs, &minRhoM, &minRhoMTime, &minRhoMVel]
-      (StateV const&, Time) -> bool
+      (StateV*, Time) -> bool
       {
+        // XXX: The actual lambda args are ignored -- all the data are taken
+        // from "a_ctx":
         // SC Velocity relative  to the Moon;
-        // XXX: For consistency, we use a_ctx->m_tdb, NOT the Time arg of this
-        // lambda:
         VelKV_GCRS<> velMK = a_ctx->m_velEK - a_ctx->m_velEM;
 
         if (a_verbose && a_ctx->m_tdb >= tObs)

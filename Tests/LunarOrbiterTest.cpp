@@ -141,12 +141,14 @@ int main()
   Time nextOutput = t0;
 
   auto ODECB =
-    [&nextOutput](StateV const& a_s, Time a_t) -> bool
+    [&nextOutput](StateV* a_s, Time a_t) -> bool
     {
+      assert(a_s != nullptr);
+
       // Output the current Altitude above the Moon surface -- every 100 sec:
-      LenK x = get<0>(a_s);
-      LenK y = get<1>(a_s);
-      LenK z = get<2>(a_s);
+      LenK x = get<0>(*a_s);
+      LenK y = get<1>(*a_s);
+      LenK z = get<2>(*a_s);
 
       LenK h = SqRt(Sqr(x) + Sqr(y) + Sqr(z)) - ReMoon;
 

@@ -27,7 +27,7 @@ namespace SpaceBallistics
     T             a_tau0,    // Initial "time" step
     T             a_max_tau, // Max     "time" step
     double        a_eps,     // Max allowed absolute error
-    CB*           a_cb,      // User Call-Back: (x,t) -> cont_flag (may be NULL)
+    CB*           a_cb,      // User Call-Back: (&x,t)->cont_flag (may be NULL)
     std::ostream* a_log      // Stream for logging (may be NULL)
   )
   {
@@ -54,8 +54,9 @@ namespace SpaceBallistics
     try    // Guard against any exceptions, eg in the RHS evaluation
     {
       // Invoke the Call-Back if present, stop immediately if it returns
-      // "false". If there is no Call-Back, just continue:
-      if (a_cb != nullptr && !(*a_cb)(*a_x, t))
+      // "false". If there is no Call-Back, just continue.
+      // NB: The Call-Back MAY (in some cases) modify "a_x":
+      if (a_cb != nullptr && !(*a_cb)(a_x, t))
         return t;         // We may or may not have reached the end
 
       if (t == a_tf)
@@ -187,12 +188,12 @@ namespace SpaceBallistics
       // If all step reductions have been done, but to no avail, throw an
       // exception:
       if (!ok)
-        throw std::runtime_error("RKF5: Too many step reductions");
+        throw std::logic_error("RKF5: Too many step reductions");
     }
     catch (std::exception const& exn)
     {
       if (a_log != nullptr)
-        *a_log  << "RKF5: Exception: " << exn.what() << std::endl;
+        *a_log  << "# RKF5: Exception: " << exn.what() << std::endl;
       return t;
     }
     // End of (exception-protected) "t" loop

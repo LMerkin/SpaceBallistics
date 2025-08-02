@@ -35,7 +35,7 @@ namespace SpaceBallistics
     );
 
   // 2 active launch Pads as Plesetsk (#3 and #4); #2 was for Molniya-M and has
-  // been unused since 2012 and #1 has been demolished in 1999:
+  // been unused since 2012; and #1 has been demolished in 1999:
   //
   constexpr static Location<Body::Earth> Plesetsk_43_3 =
     Location<Body::Earth>

@@ -9,6 +9,7 @@
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/PhysEffects/BodyData.hpp"
+#include <tuple>
 
 namespace SpaceBallistics::EarthAtmosphereModel
 {
@@ -144,13 +145,14 @@ namespace SpaceBallistics::EarthAtmosphereModel
   //=========================================================================//
   // Pressure and Temperature for Any Altitide:                              //
   //=========================================================================//
-  // NB: here "a_z" is a Geometric Altitude, NOT The GeoPotential one:
+  // NB: here "a_z" is a Geometric Altitude, NOT The GeoPotential one.
+  // Returns (P, Rho, T, SpeedOfSound):
 # ifndef __clang__
   constexpr
 # else
   inline
 # endif
-  std::pair<Pressure, AbsTemp> AirPressureTemp(LenK a_z)
+  std::tuple<Pressure, Density, AbsTemp, Vel> AirParams(LenK a_z)
   {
     // FIXME: For the moment, altitudes below the MSL are not allowed:
     assert(!IsNeg(a_z));
@@ -162,42 +164,18 @@ namespace SpaceBallistics::EarthAtmosphereModel
 
     for (LayerInfo const& l: Layers)
       if (l.m_baseH <= h && h <= l.m_endH)
+      {
         // Found the Layer which "h" belongs to:
-        return std::make_pair(l.P(h), l.T(h));
-
+        Pressure p   =  l.P(h);
+        AbsTemp  T   =  l.T(h);
+        assert(IsPos(p) &&  IsPos(T));
+        Density  rho = p / (RAir * T);
+        Vel      a   = SqRt(GammaAir * RAir * T);
+        return std::make_tuple(p, rho, T, a);
+      }
     // If we got here: We must be above all Layers:
-    return std::make_pair(Pressure(0.0), AbsTemp(0.0));
-  }
-
-  //=========================================================================//
-  // Density for any Altitude:                                               //
-  //=========================================================================//
-# ifndef __clang__
-  constexpr
-# else
-  inline
-# endif
-  Density AirDensty(LenK a_z)
-  {
-    auto [p, T] =  AirPressureTemp(a_z);
-    return
-      (!IsZero(T))
-      ? p / (RAir * T)
-      : Density(0.0);
-  }
-
-  //=========================================================================//
-  // Speed-of-Sound for any Altitude:                                        //
-  //=========================================================================//
-# ifndef __clang__
-  constexpr
-# else
-  inline
-# endif
-  Vel SpeedOfSound(LenK a_z)
-  {
-    AbsTemp T = AirPressureTemp(a_z).second;  // XXX: Slightly inefficient...
-    return  SqRt(GammaAir * RAir * T);
+    return std::make_tuple
+           (Pressure(0.0), Density(0.0), AbsTemp(0.0), Vel(0.0));
   }
 }
 // End namespace SpaceBallistics::EarthAtmosphereModel

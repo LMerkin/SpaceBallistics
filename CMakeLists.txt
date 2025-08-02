@@ -212,7 +212,8 @@ SET(SB_TESTS
   MkSoyuz21bMesh
   LinAlgTuplesTest
   RKF5Test
-  EarthAtmosphereTest)
+  EarthAtmosphereTest
+  AscentTest)
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)

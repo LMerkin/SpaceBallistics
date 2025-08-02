@@ -99,11 +99,14 @@ namespace SpaceBallistics
     static_assert(K.ApproxEquals(DE440T::K<Body::Earth>, 5e-8));
 
     // EGM2008 truncated:
-    constexpr static int MaxSpherHDegreeAndOrder = 600;
+    constexpr static int  MaxSpherHDegreeAndOrder = 600;
 
     // The Actual Gravitational Potential Coeffs:
     static SpherHCoeffs const GravFldModelCoeffs
       [ ((MaxSpherHDegreeAndOrder + 1) * (MaxSpherHDegreeAndOrder + 2)) / 2 ];
+
+    // Sidereal Rotation Period:
+    constexpr static Time SiderealRotationPeriod = 86164.098903691_sec;
   };
 
   //-------------------------------------------------------------------------//
