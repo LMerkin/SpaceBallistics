@@ -9,6 +9,8 @@
 #include "SpaceBallistics/PhysEffects/LVAeroDyn.hpp"
 #include "SpaceBallistics/Maths/RKF5.hpp"
 #include <ostream>
+#include <optional>
+#include <utility>
 
 using namespace  SpaceBallistics;
 namespace EAM  = EarthAtmosphereModel;
@@ -21,7 +23,7 @@ namespace
   //=========================================================================//
   class Ascent
   {
-  private:
+  public:
     //-----------------------------------------------------------------------//
     // Consts:                                                               //
     //-----------------------------------------------------------------------//
@@ -35,6 +37,7 @@ namespace
       TwoPi<double> * R / BodyData<Body::Earth>::SiderealRotationPeriod *
       Cos(To_Angle_rad(63.0_deg));
 
+  private:
     // LV Params:
     // Stage1 (engine performance @ SL and in Vac); XXX: "BurnT1" may be for
     // reference only (since the mass rate may be variable):
@@ -45,11 +48,11 @@ namespace
     constexpr static Time   IspVac1          =    353.0_sec;
     constexpr static double PropReserve1     =      0.01;
 
-    // Stage2 (only in Vac); XXX: again, "BurnT2" may be for reference only
-    // (the actual mass rate may be variable):
+    // Stage2 (only in Vac); XXX: again, "Thrust2" may be variable:
     constexpr static Mass   EmptyMass2       =   5170.0_kg;
-    constexpr static Mass   PropMass2        =  85240.0_kg;
-    constexpr static Time   BurnT2           =    509.8_sec / 2.0; // XXX!!!
+    constexpr static Mass   PropMass2B       =  85240.0_kg; // BaseLine
+    constexpr static Mass   PropMass2Max     =  90000.0_kg;
+    constexpr static ForceK Thrust2          = 127400.0_kg * g0K;
     constexpr static Time   IspVac2          =    381.0_sec;
     constexpr static double PropReserve2     =      0.01;
 
@@ -112,22 +115,27 @@ namespace
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
     // Performance Characteristics:
-    LenK const     m_hC;
-    Mass const     m_payLoadMass;
+    LenK const            m_hC;
+    Mass const            m_payLoadMass;
+    Mass const            m_propMass2;
 
     // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
     // ignition):
-    Time const     m_gapT;
+    Time const            m_gapT;
 
     // Transient data (during flight path integration):
-    FlightMode     m_mode;
-    Time           m_ignTime2;        // Burn2 start: Stage2 Ignition Time
-    Time           m_fairingSepTime;  // Fairing Separation Time
-    Time           m_cutOffTime1;     // Gap   start: Stage1 Cut-Off  Time
-    Time           m_ignTime1;        // Burn1 start: Stage1 Ignition Time
+    FlightMode            m_mode;
+    Time                  m_ignTime2;       // Burn2 start: St2 Ignition Time
+    Time                  m_fairingSepTime; // Fairing Separation Time
+    Time                  m_cutOffTime1;    // Gap   start: St1 Cut-Off  Time
+    Time                  m_ignTime1;       // Burn1 start: St1 Ignition Time
+
+    // Singular Point (if and when reached):
+    std::optional<StateV> m_singS;
+    std::optional<Time>   m_singT;
 
     // For output:
-    std::ostream*  m_os;
+    std::ostream*         m_os;
 
   public:
     //-----------------------------------------------------------------------//
@@ -137,29 +145,34 @@ namespace
     (
       LenK          a_hc,
       Mass          a_payload_mass,
+      double        a_prop_mass_adj2,
       Time          a_gap_t,
       std::ostream* a_os
     )
     : m_hC            (a_hc),
       m_payLoadMass   (a_payload_mass),
+      m_propMass2     (PropMass2B * a_prop_mass_adj2),
       m_gapT          (a_gap_t),
       m_mode          (FlightMode::UNDEFINED),
       m_ignTime2      (),
       m_fairingSepTime(),
       m_cutOffTime1   (),
       m_ignTime1      (),
+      m_singS         (std::nullopt),
+      m_singT         (std::nullopt),
       m_os            (a_os) // May be NULL
     {
-      if (m_hC <=100.0_km || IsNeg(m_payLoadMass) || IsNeg(m_gapT))
+      if (m_hC <=100.0_km    || IsNeg(m_payLoadMass) || IsNeg(m_gapT) ||
+          IsNeg(m_propMass2) || m_propMass2 > PropMass2Max)
         throw std::invalid_argument("Ascent::Ctor: Invalid param(s)");
     }
 
     //-----------------------------------------------------------------------//
     // Integrate the Ascent Trajectory:                                      //
     //-----------------------------------------------------------------------//
-    // Returns "true" iff the orbital insertion was successful:
+    // Returns the altitude of the singular point (if reached), or "nullopt":
     //
-    void Run()
+    std::optional<std::pair<StateV, Time>> Run()
     {
       // We run the integration BACKWARDS from the orbital insertion point
       // (@ t=0):
@@ -189,24 +202,34 @@ namespace
       m_cutOffTime1    = 0.0_sec;  //
       m_fairingSepTime = 0.0_sec;  //
       m_ignTime1       = 0.0_sec;  //
+      m_singS          = std::nullopt;
+      m_singT          = std::nullopt;
 
       // Run the ODE Integrator. The maximum duration (which is certainly
       // enough for ascent to orbit) is 1 hour:
-      constexpr Time t0   = 0.0_sec;
-      constexpr Time tMin = -3600.0_sec;
+      constexpr Time t0    = 0.0_sec;
+      constexpr Time tMin  = -3600.0_sec;
 
       // NB: All necessary exception handling is provided inside "RKF5":
       DEBUG_ONLY(Time tEnd =)
         RKF5(&s0, t0, tMin, rhs,
              -ODEInitStep, -ODEMaxStep, ODERelPrec, &cb, m_os);
       assert(tEnd >= tMin);
+
+      // Have we reached a singular point (this is a necessary condition for a
+      // successfult ascent to orbit)?
+      assert(bool(m_singS) == bool(m_singT));
+      return
+        bool(m_singS)
+        ? std::make_optional(std::make_pair(m_singS.value(), m_singT.value()))
+        : std::nullopt;
     }
 
   private:
     //-----------------------------------------------------------------------//
     // ODE RHS for a simple Gravity Turn:                                    //
     //-----------------------------------------------------------------------//
-    DStateV ODERHS(StateV const& a_s, Time a_t) const
+    DStateV ODERHS(StateV const& a_s, Time a_t)
     {
       // NB: In the RHS evaluation, r <= R is allowed, as it does not cause any
       // singularities by itself; but we detect this condition in the Call-Back,
@@ -265,12 +288,14 @@ namespace
 
       if (LIKELY(!IsZero(fqAcc)))
       {
-        // In this generic case, we need a non-0 V, otherwise the
-        // direction of the vector "fqAcc" is not defined.  Check
-        // that "V" is not too small:
-        //
+        // In this generic case, we need a non-0 V, otherwise the direction of
+        // the vector "fqAcc" is not defined. Check that "V" is not too small:
         if (V < SingV)
-          throw std::logic_error("ODERHS: Singularity: V ~= 0");
+        {
+          m_singS =  a_s;
+          m_singT =  a_t;
+          throw std::logic_error("Singularity: V ~= 0");
+        }
 
         r2Dot =
             r * Sqr(omega / 1.0_rad)   // "Kinematic"   term
@@ -292,8 +317,8 @@ namespace
       }
 
       // The result: NB: the last derivative is <= 0, since the corresp
-      // "StateV" components is int_t^0 burnRate(t') dt',
-      // whereas  burnRate >= 0:
+      // "StateV" components is int_t^0 burnRate(t') dt', ie "t" is the
+      // LOWER integration limit:
       return std::make_tuple(rDot, r2Dot, omegaDot, -burnRate);
     }
 
@@ -328,7 +353,7 @@ namespace
       // Switching Burn2 -> Gap occurs according to "spentPropMass": when all
       // Stage2 propellants (except the Reserve) is spent:
       if (m_mode == FlightMode::Burn2  &&
-          spentPropMass >= PropMass2 * (1.0 - PropReserve2))
+          spentPropMass >= m_propMass2 * (1.0 - PropReserve2))
       {
         m_ignTime2    = a_t;
         m_mode        = FlightMode::Gap;
@@ -358,8 +383,8 @@ namespace
       // When we are in Stage1 burn and the whole expendable Propellant amt
       // has been spent:
       if (m_mode == FlightMode::Burn1 &&
-          spentPropMass >= (PropMass1 * (1.0 - PropReserve1) +
-                            PropMass2 * (1.0 - PropReserve2)))
+          spentPropMass >= (PropMass1   * (1.0 - PropReserve1) +
+                            m_propMass2 * (1.0 - PropReserve2)))
       {
         m_ignTime1 = a_t;
         m_mode     = FlightMode::UNDEFINED;
@@ -383,11 +408,10 @@ namespace
           *m_os << "# t=" << a_t << ", H=" << (r - R) << ": Fairing Separation"
                 << std::endl;
       }
-
       // If we got into the UNDEFINED mode, stop now (all Propellant has been
-      // exhaused, in the reverse time).
-      // Also stop if we are on the surface:
-      bool cont = r > R && m_mode != FlightMode::UNDEFINED;
+      // exhaused, in the reverse time).  Also stop if we are on the surface:
+      //
+      bool cont = IsPos(h) && m_mode != FlightMode::UNDEFINED;
 
       // Abs Velocity: Similar to the "ODERHS",  we bound it away from 0  to
       // avoid singularities; "V" being close to 0 is NOT allowed because this
@@ -401,7 +425,11 @@ namespace
           : SqRt(Sqr(rDot) + Sqr(r * omega / 1.0_rad));
 
         if (V < SingV) // As in the "ODERHS"
-          cont = false;
+        {
+          m_singS = *a_s;
+          m_singT = a_t;
+          cont    = false;
+        }
       }
 
       // XXX: Output (with a 100 msec step, or if we are going to stop now):
@@ -438,17 +466,18 @@ namespace
       switch (m_mode)
       {
       case FlightMode::Burn1:
+        // For Stage1, PropMass1 and BurnT1 are currently fixed:
         return PropMass1 / BurnT1;
 
       case FlightMode::Gap:
         return MassRate(0.0);
 
       case FlightMode::Burn2:
-        return PropMass2 / BurnT2;
+        // For Stage2, the BurnRate is also fixed, but via Thrust2:
+        return Thrust2 / (IspVac2 * g0K);
 
       default:
-        assert(false);
-        return MassRate(0.0); // Not actually reachable
+        return MassRate(0.0);
       }
     }
 
@@ -481,9 +510,7 @@ namespace
           return a_burn_rate * IspVac2 * g0K;
 
         default:
-          // This must not happen:
-          assert(false);
-          return ForceK(0.0);  // Not actually reachable
+          return ForceK(0.0);
       }
       __builtin_unreachable();
     }
@@ -500,7 +527,7 @@ namespace
 
       // Initialise "m" to the mass @ Orbital Insertion (incl the unspent
       // Stage2 Propellant):
-      Mass m = EmptyMass2 + PropMass2 * PropReserve2 + m_payLoadMass;
+      Mass m = EmptyMass2 + m_propMass2 * PropReserve2 + m_payLoadMass;
 
       // In any case, ADD the SpentPropMass (between "a_t" and Orbital Insert-
       // ion):
@@ -521,6 +548,72 @@ namespace
       return m;
     }
   };
+
+  //=========================================================================//
+  // "FindLowestSingularPoint":                                              //
+  //=========================================================================//
+  // Find the maximum PayLoadMass such that the singular  point is reachable
+  // (so the corresp Altitude is at minimum >= 0);
+  // returns (PayLoadMass, Altitude). If the singular point is not reachable,
+  // returns "nullopt":
+  //
+  std::pair<Mass, LenK> FindLowestSingularPoint
+  (
+    LenK   a_hc,
+    double a_prop_mass_adj2,
+    Time   a_gap_t
+  )
+  {
+    // The result is accumulated here:
+    Mass mL0 = 0.0_kg;
+    LenK h0(Inf<double>);
+
+    // Initials:
+    Mass mL  = mL0;
+    Mass dmL = 1000.0_kg;
+
+    while (true)
+    {
+      // Create an "Ascent" object and run the trajectory integration:
+      Ascent asc(a_hc, mL, a_prop_mass_adj2, a_gap_t, nullptr);
+      auto   res = asc.Run();
+
+      // If we have not reached the singular point, the upper bound has been
+      // encountered:
+      if (!bool(res))
+      {
+        // "mL" is beyond the valid range, so the currently-achieved "mL0" is
+        // kept; continue searching upwards from it, with a reduced step.
+        // However, we may also want to stop now:
+        if (dmL <= 10.0_kg)
+        {
+          // We have already obtained "mL0" with sufficient accuracy; extract
+          // the corresp "h" which must be >= 0  (otherwise, we would not get
+          // to the singular point in the first place). If, however, "mL0" is
+          // 0, the singular point is not reachable at all:
+          if (UNLIKELY(IsZero(mL0)))
+            throw std::logic_error("FindLowestSingularPoint: UnReachable");
+
+          // If "mL0" is valid:
+          return std::make_pair(mL0, h0);
+        }
+        // Otherwise, continue seraching from the unchanged "mL0" upwards,
+        // with a reduced step:
+        dmL /= 10.0;
+        mL   = mL0 + dmL;
+      }
+      else
+      {
+        // Otherwise, "res" is valid, so update the curr result (after "Run")
+        // and continue with the same step:
+        mL0 = mL;
+        h0  = std::get<0>(res.value().first) - Ascent::R;
+        assert(!IsNeg(h0));
+        mL  = mL0 + dmL;
+      }
+    }
+    __builtin_unreachable();
+  }
 }
 
 //===========================================================================//
@@ -530,24 +623,25 @@ int main(int argc, char* argv[])
 {
   using namespace std;
 
-  if (argc < 3)
+  if (argc < 2)
   {
-    cerr << "PARAMETERS: LEO_Altitude_km PayLoadMass_kg [BallisticGap_sec]"
-         << endl;
+    cerr << "PARAMETERS: LEO_Altitude_km [PropMass2AdjCoeff "
+            "[BallisticGap_sec]]" << endl;
     return 1;
   }
-  LenK hC   { atof(argv[1]) };
-  Mass mL   { atof(argv[2]) };
-  Time gapT = (argc >= 4) ? Time(atof(argv[3])) : 0.0_sec;
+  LenK   hC             { atof(argv[1]) };
+  double propMassAdj2 = (argc >= 3) ? atof(argv[2])       : 1.0;
+  Time   gapT         = (argc >= 4) ? Time(atof(argv[3])) : 0.0_sec;
 
   try
   {
-    Ascent asc(hC, mL, gapT, &cout);
-    asc.Run();
+    auto res = FindLowestSingularPoint(hC, propMassAdj2, gapT);
+    cout << "mL = " << res.first  << endl;
+    cout << "h  = " << res.second << endl;
   }
-  catch (std::exception const& exn)
+  catch (exception const& exn)
   {
-    cerr << "ERROR: " << exn.what() << std::endl;
+    cerr << "ERROR: " << exn.what() << endl;
     return 1;
   }
 	return  0;
