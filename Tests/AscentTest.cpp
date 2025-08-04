@@ -614,6 +614,56 @@ namespace
     }
     __builtin_unreachable();
   }
+
+  //=========================================================================//
+  // "FindOptTGap":                                                          //
+  //=========================================================================//
+  // The control parameter is "TGap". Find a suitable value of "TGap" such that
+  // the singular point is at or below the 50 m elevation  (for technical reas-
+  // ons, we cannot make it exactly 0). Returns (mL, TGap):
+  //
+  std::pair<Mass, Time> FindOptTGap
+  (
+    LenK   a_hc,
+    double a_prop_mass_adj2,
+    bool   a_verbose
+  )
+  {
+    // XXX: Very primitive "brute-force" minimisation of "h0":
+    // Typically, with "TGap" increasing, "h0" decreases at the rate of ~1 km
+    // per 1 "TGap" sec, but "mL" also decreases; then a region of near-0 "h0"
+    // is reached  (for a continuous range of "TGap"s).
+    // So we stop at the LOWEST admissible "TGap". Initial estimate: TGap = 0:
+    //
+    LenK h0 = FindLowestSingularPoint(a_hc, a_prop_mass_adj2, 0.0_sec).second;
+
+    // Then we can guess the initial value and the initial step of "TGap":
+    Time tg0    = Round(0.5 * h0 / VelK(1.0));
+    Time tgStep = (tg0 > 20.0_sec) ? 5.0_sec : 1.0_sec;
+
+    // March with the initial "tgStep" until we get (h < 0.5_km); it's an error
+    // if we could not get it:
+    constexpr Time MaxTGap = 250.0_sec;
+    for (Time tg = tg0; tg < MaxTGap; tg += tgStep)
+    {
+      auto [mL, h] = FindLowestSingularPoint(a_hc, a_prop_mass_adj2, tg);
+
+      if (a_verbose)
+        std::cout << "TGap=" << tg.Magnitude() << ", h=" << h.Magnitude()
+                  << ", mL=" << mL.Magnitude() << std::endl;
+
+      // If we got VERY close to h=0, we are done:
+      if (h < 0.075_km)
+        return std::make_pair(mL, tg);
+
+      // Otherwise: If we still got sufficiently close to h=0, reduce the step
+      // and proceed further:
+      if (h < 0.5_km)
+        tgStep = 0.1_sec;
+    }
+    // XXX: If we got here, an admissible singular point has not been found:
+    throw std::logic_error("FindOptTGap: Not Found");
+  }
 }
 
 //===========================================================================//
@@ -625,19 +675,20 @@ int main(int argc, char* argv[])
 
   if (argc < 2)
   {
-    cerr << "PARAMETERS: LEO_Altitude_km [PropMass2AdjCoeff "
-            "[BallisticGap_sec]]" << endl;
+    cerr << "PARAMETERS: LEO_Altitude_km [PropMass2AdjCoeff]" << endl;
     return 1;
   }
   LenK   hC             { atof(argv[1]) };
-  double propMassAdj2 = (argc >= 3) ? atof(argv[2])       : 1.0;
-  Time   gapT         = (argc >= 4) ? Time(atof(argv[3])) : 0.0_sec;
+  double propMassAdj2 = (argc >= 3) ? atof(argv[2]) : 1.0;
 
   try
   {
+    FindOptTGap(hC, propMassAdj2, true);
+/*
     auto res = FindLowestSingularPoint(hC, propMassAdj2, gapT);
     cout << "mL = " << res.first  << endl;
     cout << "h  = " << res.second << endl;
+*/
   }
   catch (exception const& exn)
   {
