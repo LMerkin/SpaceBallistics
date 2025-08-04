@@ -37,24 +37,26 @@ namespace
       TwoPi<double> * R / BodyData<Body::Earth>::SiderealRotationPeriod *
       Cos(To_Angle_rad(63.0_deg));
 
-  private:
     // LV Params:
     // Stage1 (engine performance @ SL and in Vac); XXX: "BurnT1" may be for
-    // reference only (since the mass rate may be variable):
-    constexpr static Mass   EmptyMass1       =  16900.0_kg;
+    // reference only (since the mass rate may be variable); "PropMass1" is
+    // quasi-fixed and plays the role of a scaling param of the whole stack:
     constexpr static Mass   PropMass1        = 228100.0_kg;
-    constexpr static Time   BurnT1           =    151.6_sec;
-    constexpr static Time   IspSL1           =    326.0_sec;
-    constexpr static Time   IspVac1          =    353.0_sec;
-    constexpr static double PropReserve1     =      0.01;
+    constexpr static double K1               = 0.875;
+    constexpr static Mass   EmptyMass1       = PropMass1 * (1.0 / K1 - 1.0);
+    constexpr static Mass   FullMass1        = PropMass1 / K1;
+    constexpr static Time   BurnT1           = 151.6_sec;
+    constexpr static Time   IspSL1           = 326.0_sec;
+    constexpr static Time   IspVac1          = 353.0_sec;
+    constexpr static double PropReserve1     = 0.01;
 
-    // Stage2 (only in Vac); XXX: again, "Thrust2" may be variable:
-    constexpr static Mass   EmptyMass2       =   5170.0_kg;
-    constexpr static Mass   PropMass2B       =  85240.0_kg; // BaseLine
-    constexpr static Mass   PropMass2Max     =  90000.0_kg;
-    constexpr static ForceK Thrust2          = 127400.0_kg * g0K;
-    constexpr static Time   IspVac2          =    381.0_sec;
-    constexpr static double PropReserve2     =      0.01;
+    // Stage2 (only in Vac): Most params are dynamic:
+    constexpr static double K2               = 0.9;
+    constexpr static Time   IspVac2          = 381.0_sec;
+    constexpr static double PropReserve2     = 0.01;
+
+    // Total Start Mass Limit:
+    constexpr static Mass   StartMassLimit   = 360000.0_kg;
 
     // Body and Fairing:
     // XXX: It is currently assumed that Fairing separation occurs whan the
@@ -111,13 +113,19 @@ namespace
       }
     }
 
+  private:
     //-----------------------------------------------------------------------//
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
     // Performance Characteristics:
-    LenK const            m_hC;
-    Mass const            m_payLoadMass;
-    Mass const            m_propMass2;
+    LenK   const          m_hC;
+    Mass   const          m_payLoadMass;
+
+    // Stage2 Params:
+    Mass   const          m_emptyMass2;
+    Mass   const          m_propMass2;
+    Mass   const          m_fullMass2;
+    ForceK const          m_thrust2;
 
     // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
     // ignition):
@@ -141,17 +149,26 @@ namespace
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
+    // NB: We first detemined EmptyMass2 using the Nominal FullMass2 (w/o the
+    // "a_prop_mass_adj2" coeff),  and then the Nominal and Actual PropMass2,
+    // and then the Actual FullMass2; Thrust2 is determined using the TMR2 and
+    // the Nominal FullMass2:
     Ascent
     (
       LenK          a_hc,
       Mass          a_payload_mass,
+      double        a_mass12_ratio,
+      double        a_tmr2,
       double        a_prop_mass_adj2,
       Time          a_gap_t,
       std::ostream* a_os
     )
     : m_hC            (a_hc),
       m_payLoadMass   (a_payload_mass),
-      m_propMass2     (PropMass2B * a_prop_mass_adj2),
+      m_emptyMass2    (FullMass1    / a_mass12_ratio    * (1.0 - K2)),
+      m_propMass2     (m_emptyMass2 / (1.0 / K2  - 1.0) * a_prop_mass_adj2),
+      m_fullMass2     (m_emptyMass2 + m_propMass2),
+      m_thrust2       (FullMass1    / a_mass12_ratio * a_tmr2 * g0K),
       m_gapT          (a_gap_t),
       m_mode          (FlightMode::UNDEFINED),
       m_ignTime2      (),
@@ -162,9 +179,18 @@ namespace
       m_singT         (std::nullopt),
       m_os            (a_os) // May be NULL
     {
-      if (m_hC <=100.0_km    || IsNeg(m_payLoadMass) || IsNeg(m_gapT) ||
-          IsNeg(m_propMass2) || m_propMass2 > PropMass2Max)
+      if (m_hC <=100.0_km     || IsNeg(m_payLoadMass) ||  IsNeg(m_gapT) ||
+         !IsPos(m_emptyMass2) || IsNeg(m_propMass2)   || !IsPos(m_thrust2))
         throw std::invalid_argument("Ascent::Ctor: Invalid param(s)");
+
+      // Check the MaxStartMass (the actual Start Mass may be lower if we find
+      // that a lesser mass of Stage1 Propellant  is used up to the singular
+      // point):
+      Mass maxStartMass =
+        FullMass1 + m_fullMass2 + m_payLoadMass + FairingMass;
+
+      if (maxStartMass > StartMassLimit)
+        throw std::invalid_argument("Ascent::Ctor: StartMassLimit Exceeded");
     }
 
     //-----------------------------------------------------------------------//
@@ -456,6 +482,7 @@ namespace
       return cont;
     }
 
+  public:
     //-----------------------------------------------------------------------//
     // Propellant Burn Rate:                                                 //
     //-----------------------------------------------------------------------//
@@ -473,8 +500,8 @@ namespace
         return MassRate(0.0);
 
       case FlightMode::Burn2:
-        // For Stage2, the BurnRate is also fixed, but via Thrust2:
-        return Thrust2 / (IspVac2 * g0K);
+        // For Stage2, the BurnRate is also fixed, but via "m_thrust2":
+        return m_thrust2 / (IspVac2 * g0K);
 
       default:
         return MassRate(0.0);
@@ -527,7 +554,7 @@ namespace
 
       // Initialise "m" to the mass @ Orbital Insertion (incl the unspent
       // Stage2 Propellant):
-      Mass m = EmptyMass2 + m_propMass2 * PropReserve2 + m_payLoadMass;
+      Mass m = m_emptyMass2 + m_propMass2 * PropReserve2 + m_payLoadMass;
 
       // In any case, ADD the SpentPropMass (between "a_t" and Orbital Insert-
       // ion):
@@ -554,28 +581,32 @@ namespace
   //=========================================================================//
   // Find the maximum PayLoadMass such that the singular  point is reachable
   // (so the corresp Altitude is at minimum >= 0);
-  // returns (PayLoadMass, Altitude). If the singular point is not reachable,
-  // returns "nullopt":
+  // returns (PayLoadMass, SingularPointAltitude, StartMass). If the singular
+  // point is not reachable, returns "nullopt":
   //
-  std::pair<Mass, LenK> FindLowestSingularPoint
+  std::tuple<Mass, LenK, Mass> FindLowestSingularPoint
   (
     LenK   a_hc,
+    double a_mass12_ratio,
+    double a_tmr2,
     double a_prop_mass_adj2,
     Time   a_gap_t
   )
   {
     // The result is accumulated here:
-    Mass mL0 = 0.0_kg;
-    LenK h0(Inf<double>);
+    Mass mL0        = 0.0_kg;
+    LenK h0           (Inf<double>);
+    Mass startMass0 = 0.0_kg;
 
-    // Initials:
-    Mass mL  = mL0;
-    Mass dmL = 1000.0_kg;
+    Mass mL         = mL0;         // Searched upwards
+    Mass dmL        = 1000.0_kg;   // Later may be reduced
 
     while (true)
     {
       // Create an "Ascent" object and run the trajectory integration:
-      Ascent asc(a_hc, mL, a_prop_mass_adj2, a_gap_t, nullptr);
+      Ascent asc(a_hc,    mL, a_mass12_ratio, a_tmr2, a_prop_mass_adj2,
+                 a_gap_t, nullptr);
+
       auto   res = asc.Run();
 
       // If we have not reached the singular point, the upper bound has been
@@ -594,8 +625,8 @@ namespace
           if (UNLIKELY(IsZero(mL0)))
             throw std::logic_error("FindLowestSingularPoint: UnReachable");
 
-          // If "mL0" is valid:
-          return std::make_pair(mL0, h0);
+          // If "mL0" is valid: All Done:
+          return std::make_tuple(mL0, h0, startMass0);
         }
         // Otherwise, continue seraching from the unchanged "mL0" upwards,
         // with a reduced step:
@@ -604,12 +635,16 @@ namespace
       }
       else
       {
-        // Otherwise, "res" is valid, so update the curr result (after "Run")
-        // and continue with the same step:
-        mL0 = mL;
-        h0  = std::get<0>(res.value().first) - Ascent::R;
+        // Otherwise, "res" is valid, so update the curr result (after "Run"):
+        mL0                      = mL;
+        Ascent::StateV const& s0 = res.value().first;
+        Time                  t0 = res.value().second;
+        h0                       = std::get<0>(s0) - Ascent::R;
         assert(!IsNeg(h0));
-        mL  = mL0 + dmL;
+        startMass0               = asc.LVMass(s0, t0);
+
+        // Continue with the same step:
+        mL               = mL0 + dmL;
       }
     }
     __builtin_unreachable();
@@ -620,22 +655,32 @@ namespace
   //=========================================================================//
   // The control parameter is "TGap". Find a suitable value of "TGap" such that
   // the singular point is at or below the 50 m elevation  (for technical reas-
-  // ons, we cannot make it exactly 0). Returns (mL, TGap):
+  // ons, we cannot make it exactly 0). Returns (mL, TGap, StartMass):
   //
-  std::pair<Mass, Time> FindOptTGap
+  std::tuple<Mass, Time, Mass> FindOptTGap
   (
     LenK   a_hc,
+    double a_mass12_ratio,
+    double a_tmr2,
     double a_prop_mass_adj2,
     bool   a_verbose
   )
   {
+    if (a_verbose)
+      std::cout << "hC=" << a_hc.Magnitude()      << ", Mass1/Mass2="
+                << a_mass12_ratio    << ", TMR2=" << a_tmr2
+                << ", PropMass2Adj=" << a_prop_mass_adj2 << std::endl;
+
     // XXX: Very primitive "brute-force" minimisation of "h0":
     // Typically, with "TGap" increasing, "h0" decreases at the rate of ~1 km
     // per 1 "TGap" sec, but "mL" also decreases; then a region of near-0 "h0"
     // is reached  (for a continuous range of "TGap"s).
     // So we stop at the LOWEST admissible "TGap". Initial estimate: TGap = 0:
     //
-    LenK h0 = FindLowestSingularPoint(a_hc, a_prop_mass_adj2, 0.0_sec).second;
+    auto res0 =
+      FindLowestSingularPoint
+        (a_hc,  a_mass12_ratio, a_tmr2, a_prop_mass_adj2, 0.0_sec);
+    LenK h0   = std::get<1>(res0);
 
     // Then we can guess the initial value and the initial step of "TGap":
     Time tg0    = Round(0.5 * h0 / VelK(1.0));
@@ -646,15 +691,21 @@ namespace
     constexpr Time MaxTGap = 250.0_sec;
     for (Time tg = tg0; tg < MaxTGap; tg += tgStep)
     {
-      auto [mL, h] = FindLowestSingularPoint(a_hc, a_prop_mass_adj2, tg);
+      auto res =
+        FindLowestSingularPoint
+          (a_hc, a_mass12_ratio, a_tmr2, a_prop_mass_adj2, tg);
+      Mass mL        = std::get<0>(res);
+      LenK h         = std::get<1>(res);
+      Mass startMass = std::get<2>(res);
 
       if (a_verbose)
-        std::cout << "TGap=" << tg.Magnitude() << ", h=" << h.Magnitude()
-                  << ", mL=" << mL.Magnitude() << std::endl;
+        std::cout << "\tTGap=" << tg.Magnitude() << ", h=" << h.Magnitude()
+                  << ", mL="   << mL.Magnitude() << ", startMass="
+                  << startMass.Magnitude()       << std::endl;
 
       // If we got VERY close to h=0, we are done:
       if (h < 0.075_km)
-        return std::make_pair(mL, tg);
+        return std::make_tuple(mL, tg, startMass);
 
       // Otherwise: If we still got sufficiently close to h=0, reduce the step
       // and proceed further:
@@ -663,6 +714,36 @@ namespace
     }
     // XXX: If we got here, an admissible singular point has not been found:
     throw std::logic_error("FindOptTGap: Not Found");
+  }
+
+  //=========================================================================//
+  // "Stage2Options":                                                        //
+  //=========================================================================//
+  void Stage2Options(LenK a_hc)
+  {
+#   pragma omp parallel for collapse(3)
+    for (int mass12Rpct = 300;   mass12Rpct <= 450;   mass12Rpct += 5)
+    for (int tmr2pct    =  90;   tmr2pct    <= 190;   tmr2pct    += 5)
+    for (int adj2pct    = 100;   adj2pct    <= 105;   adj2pct    += 1)
+    {
+      double mass12R    = double(mass12Rpct) / 100.0;
+      double tmr2       = double(tmr2pct)    / 100.0;
+      double adj2       = double(adj2pct)    / 100.0;
+      try
+      {
+        auto [mL, TGap, startMass] =
+          FindOptTGap(a_hc, mass12R, tmr2, adj2, false);
+
+#       pragma omp critical
+        std::cout
+          << a_hc.Magnitude()      << '\t' << mass12R          << '\t'
+          << tmr2                  << '\t' << adj2             << '\t'
+          << TGap.Magnitude()      << '\t' << mL.Magnitude()   << '\t'
+          << startMass.Magnitude() << '\t' << double(mL/startMass)
+          << std::endl;
+      }
+      catch (...) {}
+    }
   }
 }
 
@@ -675,25 +756,10 @@ int main(int argc, char* argv[])
 
   if (argc < 2)
   {
-    cerr << "PARAMETERS: LEO_Altitude_km [PropMass2AdjCoeff]" << endl;
+    cerr << "PARAMETER: LEO_Altitude_km" << endl;
     return 1;
   }
-  LenK   hC             { atof(argv[1]) };
-  double propMassAdj2 = (argc >= 3) ? atof(argv[2]) : 1.0;
-
-  try
-  {
-    FindOptTGap(hC, propMassAdj2, true);
-/*
-    auto res = FindLowestSingularPoint(hC, propMassAdj2, gapT);
-    cout << "mL = " << res.first  << endl;
-    cout << "h  = " << res.second << endl;
-*/
-  }
-  catch (exception const& exn)
-  {
-    cerr << "ERROR: " << exn.what() << endl;
-    return 1;
-  }
+  LenK          hC { atof(argv[1]) };
+  Stage2Options(hC);
 	return  0;
 }

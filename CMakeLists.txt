@@ -78,7 +78,10 @@ IF("${TOOL_CHAIN}" STREQUAL "GCC")
   ELSE()
     MESSAGE(FATAL_ERROR "UnSupported BuildType: ${CMAKE_BUILD_TYPE}")
   ENDIF()
-  # Other flags:
+
+  SET(OPENMP_FLAGS "-fopenmp")
+  SET(OPENMP_LIBS  "gomp")
+
   SET(CXXFLAGS "${CXXFLAGS} -march=native -mtune=native -std=gnu++23 \
                 -Wall                     -Wextra            \
                 -Wctor-dtor-privacy       -Wnon-virtual-dtor \
@@ -102,7 +105,10 @@ ELSEIF("${TOOL_CHAIN}" STREQUAL "CLang")
   ELSE()
     MESSAGE(FATAL_ERROR "UnSupported BuildType: ${CMAKE_BUILD_TYPE}")
   ENDIF()
-  # Other flags:
+
+  SET(OPENMP_FLAGS "-fopenmp=libomp")
+  SET(OPENMP_LIBS  "omp")
+
   SET(CXXFLAGS "${CXXFLAGS}  -march=native    -mtune=native   -std=gnu++23  \
                 -Weverything                  -Wno-unsafe-buffer-usage      \
                 -Wno-c++98-compat             -Wno-c++98-compat-pedantic    \
@@ -220,6 +226,11 @@ FOREACH(SB_TEST ${SB_TESTS})
   TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME} ${GSL_LIBS})
 
   IF (${SB_TEST} STREQUAL "MkSoyuz21bMesh")
-    TARGET_LINK_LIBRARIES(${SB_TEST} "gmsh")
+    TARGET_LINK_LIBRARIES( ${SB_TEST} "gmsh")
+  ENDIF()
+
+  IF (${SB_TEST} STREQUAL "AscentTest")
+    TARGET_COMPILE_OPTIONS(${SB_TEST} PRIVATE ${OPENMP_FLAGS})
+    TARGET_LINK_LIBRARIES( ${SB_TEST}         ${OPENMP_LIBS})
   ENDIF()
 ENDFOREACH(SB_TEST)
