@@ -118,6 +118,7 @@ namespace SpaceBallistics
   //=========================================================================//
   // Standard Gravity (m/sec^2):
   constexpr inline Acc      g0     = Acc(9.80665);
+  constexpr inline AccK     g0K    = To_Len_km(g0);
 
   // "Pi"-Related Consts lifted to "Angle"s:
   constexpr inline Angle    PI     = Angle(Pi   <double>);

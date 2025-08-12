@@ -32,8 +32,6 @@ namespace SpaceBallistics::EarthAtmosphereModel
 
   // cP/cV Ratio for the Dry Air:
   constexpr inline double   GammaAir = 1.4;
-
-  constexpr inline auto g0K          = To_Len_km(g0);
   constexpr inline auto RAirK        = To_Len_km(RAir);
   using     TempGrad                 = decltype(1.0_K / 1.0_km);
 
@@ -143,8 +141,10 @@ namespace SpaceBallistics::EarthAtmosphereModel
 # endif
 
   //=========================================================================//
-  // Pressure and Temperature for Any Altitide:                              //
+  // Atmospheric Conditions for Any Altitide:                                //
   //=========================================================================//
+  using AtmConds = std::tuple<Pressure, Density, AbsTemp, Vel>;
+
   // NB: here "a_z" is a Geometric Altitude, NOT The GeoPotential one.
   // Returns (P, Rho, T, SpeedOfSound):
 # ifndef __clang__
@@ -152,10 +152,11 @@ namespace SpaceBallistics::EarthAtmosphereModel
 # else
   inline
 # endif
-  std::tuple<Pressure, Density, AbsTemp, Vel> AirParams(LenK a_z)
+  AtmConds GetAtmConds(LenK a_z)
   {
-    // FIXME: For the moment, altitudes below the MSL are not allowed:
-    assert(!IsNeg(a_z));
+    // XXX: For the moment, altitudes below the MSL are not allowed, so adjust
+    // "a_z" if necessary:
+    a_z = std::max(a_z, 0.0_km);
 
     // First, compute the GeoPotential altitude from the Geometric one:
     LenK h = BodyData<Body::Earth>::Rp * a_z /
