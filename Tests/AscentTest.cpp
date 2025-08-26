@@ -79,15 +79,17 @@ namespace
     // State Vector (for some time t <= 0, where t=t0=0 corresponds to the Orbi-
     // tal Insertion):
     // Computations are performed in TopoCentric (Start) Planar Polar CoOrds, so
-    // the first 3 components are r, rDot, omega = phiDot. The last component is
+    // the first 3 components are r, rDot, omega = phiDot. The 4th  component is
     // the Total Spent Propellant Mass between the curr "t" and "t0" (which is a
     // continuous and DECREASING function of "t",  as opposed to the Total Mass
-    // which is discontinuous when the Stage1 or Fairing are jettisones):
+    // which is discontinuous when the Stage1 or Fairing are jettisones), and
+    // the 5th component is the polar angle "phi" (integrated omega):
     //
-    using StateV  = std::tuple<LenK, VelK, AngVel, Mass>;
+    using StateV  = std::tuple<LenK, VelK, AngVel, Mass, Angle>;
+    //                         r   rDot=Vr omega   spent phi
 
     // The Time Derivative of the "StateV". The last component is the BurnRate:
-    using DStateV = std::tuple<VelK, AccK, AngAcc, MassRate>;
+    using DStateV = std::tuple<VelK, AccK, AngAcc, MassRate, AngVel>;
 
     // Flight Mode:
     enum class FlightMode: int
@@ -98,7 +100,7 @@ namespace
       Burn2     = 3   // Stage2 Burn
     };
 
-    inline char const* ToString(FlightMode a_mode)
+    static char const* ToString(FlightMode a_mode)
     {
       switch (a_mode)
       {
@@ -118,13 +120,16 @@ namespace
       LenK  const m_r;
       VelK  const m_Vr;
       Mass  const m_spentPropMass;
+      Angle const m_phi;
       Time  const m_t;
 
       // Non-Default Ctor:
-      NearSingularityExn(LenK a_r, VelK a_vr, Mass a_spent_prop_mass, Time a_t)
+      NearSingularityExn(LenK  a_r,   VelK a_vr, Mass a_spent_prop_mass,
+                         Angle a_phi, Time a_t)
       : m_r             (a_r),
         m_Vr            (a_vr),
         m_spentPropMass (a_spent_prop_mass),
+        m_phi           (a_phi),
         m_t             (a_t)
       {}
     };
@@ -158,10 +163,6 @@ namespace
     Time                  m_fairingSepTime; // Fairing Separation Time
     Time                  m_cutOffTime1;    // Gap   start: St1 Cut-Off  Time
     Time                  m_ignTime1;       // Burn1 start: St1 Ignition Time
-
-    // Singular Point (if and when reached):
-    std::optional<StateV> m_singS;
-    std::optional<Time>   m_singT;
 
     // For output:
     std::ostream* const   m_os;
@@ -199,8 +200,6 @@ namespace
       m_fairingSepTime(),
       m_cutOffTime1   (),
       m_ignTime1      (),
-      m_singS         (std::nullopt),
-      m_singT         (std::nullopt),
       m_os            (a_os), // May be NULL
       m_logLevel      (a_log_level)
     {
@@ -214,12 +213,44 @@ namespace
     }
 
     //=======================================================================//
+    // "RunRes":                                                             //
+    //=======================================================================//
+    // Possible results of "Run":
+    //
+    enum class RunRes: int
+    {
+      // The "desirable" result: Singular Point reached: V = 0 at some h >= 0:
+      Singularity = 0,
+
+      // Reached h = 0 at V > 0, still with unspent propellant (beyond the
+      // minimum remnant):
+      ZeroH       = 1,
+
+      // Ran out of all available propellant (up to the minimum remnant), but
+      // still h > 0 and V > 0:
+      PropOut     = 2,
+
+      // If any exception occurred:
+      Error       = 3
+    };
+
+    static char const* ToString(RunRes a_rr)
+    {
+      switch (a_rr)
+      {
+        case RunRes::Singularity: return "Singularity";
+        case RunRes::ZeroH      : return "ZeroH";
+        case RunRes::PropOut    : return "PropOut";
+        default                 : return "Error";
+      }
+    }
+
+    //=======================================================================//
     // "Run": Integrate the Ascent Trajectory:                               //
     //=======================================================================//
-    // If the Singular Point has been reached, returns (FinalState, FinalTime);
-    // otherwise, returns "nullopt":
+    // Returns (RunRes, FinalH, FlightTime, ActStartMass):
     //
-    std::optional<std::pair<StateV, Time>> Run(LenK a_hc, Time a_t_gap)
+    std::tuple<RunRes, LenK, Time, Mass> Run(LenK a_hc, Time a_t_gap)
     {
       if (a_hc < 100.0_km || IsNeg(a_t_gap))
         throw std::invalid_argument("Assent::Run: Invalid hC or TGap");
@@ -234,8 +265,8 @@ namespace
       AngVel omega0 = 1.0_rad * v0 / aC;
 
       // The initial Radial Velocity is 0, and the final delta of Spent Mass
-      // is also 0:
-      StateV s0 = std::make_tuple(aC, VelK(0.0), omega0, 0.0_kg);
+      // is also 0, and the initial Polar Angle is 0:
+      StateV s0 = std::make_tuple(aC, VelK(0.0), omega0, 0.0_kg, 0.0_rad);
 
       // The RHS and the Call-Back Lambdas:
       auto rhs =
@@ -253,8 +284,6 @@ namespace
       m_cutOffTime1    = 0.0_sec;  //
       m_fairingSepTime = 0.0_sec;  //
       m_ignTime1       = 0.0_sec;  //
-      m_singS          = std::nullopt;
-      m_singT          = std::nullopt;
 
       // Run the ODE Integrator. The maximum duration (which is certainly
       // enough for ascent to orbit) is 1 hour:
@@ -262,9 +291,10 @@ namespace
       constexpr Time tMin  = -3600.0_sec;
 
       // NB: All necessary exception handling is provided inside "RKF5":
+      Time tEnd;
       try
       {
-        DEBUG_ONLY(Time tEnd =)
+        tEnd =
           RKF5(&s0, t0, tMin, rhs,
                -ODEInitStep, -ODEMaxStep, ODERelPrec, &cb, m_os);
         assert(tEnd >=  tMin);
@@ -274,28 +304,69 @@ namespace
         // We have reached a vicinity of the singular point, this is a NORMAL
         // (and moreover,  a desirable) outcome. Compute a more precise sing-
         // ular point position:
-        auto optSing = LocateSingularPoint(ns);
-        if (bool(optSing))
+        auto sing = LocateSingularPoint(ns);
+
+        if (bool(sing))
         {
-          m_singS = optSing.value().first;
-          m_singT = optSing.value().second;
+          StateV const& singS = sing.value().first;
+          Time          singT = sing.value().second;
+          LenK          singH = std::get<0>(singS) - R;
+          assert(!IsNeg(singH));
+          Mass          singM = LVMass(singS, singT);
+
+          return std::make_tuple(RunRes::Singularity, singH, singT, singM);
         }
+        else
+          // Although we got a "NearSingularityExn", we could not determine the
+          // precise location of the singular point:
+          return std::make_tuple
+                 (RunRes::Error, LenK(NAN), Time(NAN), Mass(NAN));
       }
       catch (std::exception const& exn)
       {
         // Any other "standard" exceptions: Ascent unsuccessful:
         if (m_os != nullptr && m_logLevel >= 1)
           *m_os  << "# Ascent::Run: Exception: " << exn.what() << std::endl;
-        return std::nullopt;
+        return std::make_tuple(RunRes::Error, LenK(NAN), Time(NAN), Mass(NAN));
+      }
+      catch (...)
+      {
+        // Any other exception:
+        if (m_os != nullptr && m_logLevel >= 1)
+          *m_os  << "# Ascent::Run: UnKnown Exception" << std::endl;
+        return std::make_tuple(RunRes::Error, LenK(NAN), Time(NAN), Mass(NAN));
       }
 
-      // Have we reached the singular point (this is a necessary condition for
-      // a successfult ascent to orbit)?
-      assert(bool(m_singS) == bool(m_singT));
-      return
-        bool(m_singS)
-        ? std::make_optional(std::make_pair(m_singS.value(), m_singT.value()))
-        : std::nullopt;
+      // If we got here: Integration has run to completion, but not to the
+      // singular point. Check the final state and mode:
+      LenK hEnd = std::get<0>(s0) - R;
+      Mass mEnd = LVMass(s0, tEnd);
+
+      if (m_mode == FlightMode::UNDEFINED)
+      {
+        // We have run out of propellant while, presumably, still @ hEnd > 0;
+        // if we got h <= 0, the neg value should be very small:
+        if (!IsPos(hEnd))
+        {
+          if (m_os != nullptr && m_logLevel >= 1)
+            *m_os << "# Ascent::Run: Got mode=UNDEFINED but h="
+                  << hEnd.Magnitude() << " km" << std::endl;
+          hEnd = 0.0_km;
+        }
+        return std::make_tuple(RunRes::PropOut, hEnd, tEnd, mEnd);
+      }
+      else
+      {
+        // Then we should get hEnd==0 (because the only other possibility is
+        // that the integration ran until tMin, which is extremely unlikely):
+        if (hEnd > 0.5_km)
+        {
+          if (m_os != nullptr && m_logLevel >= 1)
+            *m_os << "# Ascent::Run: Expected h=0 but got h="
+                  << hEnd.Magnitude() << " km" << std::endl;
+        }
+        return std::make_tuple(RunRes::ZeroH, 0.0_km, tEnd, mEnd);
+      }
     }
 
   private:
@@ -311,6 +382,7 @@ namespace
       VelK   Vr            = std::get<1>(a_s);
       AngVel omega         = std::get<2>(a_s);
       Mass   spentPropMass = std::get<3>(a_s);
+      Angle  phi           = std::get<4>(a_s);
       assert(!IsPos(a_t) && IsPos(r));
 
       // The "horizontal" velocity (orthogonal to the radius-vector):
@@ -329,7 +401,7 @@ namespace
       // If omega=0 and in addition "Vr" is below the threshold, we assume that
       // we are near the singular point:
       if (IsZero(omega) && Vr < SingVr)
-        throw NearSingularityExn(r, Vr, spentPropMass, a_t);
+        throw NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
       // Generic Case:
       // Abs Velocity: Since we are NOT near the singularity, it should be
@@ -377,7 +449,7 @@ namespace
       // The result: NB: the last derivative is <= 0, since the corresp
       // "StateV" components is int_t^0 burnRate(t') dt', ie "t" is the
       // LOWER integration limit:
-      return std::make_tuple(Vr, r2Dot, omegaDot, -burnRate);
+      return std::make_tuple(Vr, r2Dot, omegaDot, -burnRate, omega);
     }
 
     //=======================================================================//
@@ -394,6 +466,7 @@ namespace
       AngVel omega         = std::get<2>(*a_s);
       Mass   spentPropMass = std::get<3>(*a_s);
       Mass   m             = LVMass(*a_s, a_t); // Using the "old" Mode yet!
+      Angle  phi           = std::get<4>(*a_s);
 
       //---------------------------------------------------------------------//
       // Similar to "ODERHS", check if we are approaching the singularity:   //
@@ -408,22 +481,22 @@ namespace
         Vhor              = VelK(0.0);
       }
       if (IsZero(omega) && Vr < SingVr)
-        throw NearSingularityExn(r, Vr, spentPropMass, a_t);
+        throw NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
       //---------------------------------------------------------------------//
       // Generic Case:                                                       //
       //---------------------------------------------------------------------//
       // NB: "spentPropMass" decreases over time, so increases in Bwd time.
       // It is 0 at Orbit Insertion Time (t=0):
-      assert(IsPos(r) && !IsNeg(spentPropMass) && IsPos(m));
+      assert(IsPos(r) && !IsNeg(spentPropMass) && IsPos(m) && IsPos(V));
 
       // Output at the beginning:
       if (IsZero(a_t) && m_os != nullptr && m_logLevel >= 1)
       {
         assert(m_mode == FlightMode::Burn2);
-        *m_os << "# t="    << a_t.Magnitude() << " sec, H=" << h.Magnitude()
-              << " km, V=" << V.Magnitude()   << " km/sec, Mass="
-              << m.Magnitude()                << " kg"      << std::endl;
+        *m_os << "# t=0 sec, h=" << h.Magnitude()
+              << " km, V="       << V.Magnitude() << " km/sec, Mass="
+              << m.Magnitude()   << " kg"         << std::endl;
       }
       //---------------------------------------------------------------------//
       // Switching Burn2 -> Gap:                                             //
@@ -442,13 +515,21 @@ namespace
         // NB: HERE "m_TGap" is used:
         assert(!IsNeg(m_TGap));
         m_cutOffTime1 = a_t - m_TGap;
-        assert(m_curOffTime1 <= m_ignTime2);
+        assert(m_cutOffTime1 <= m_ignTime2);
 
         if (m_os != nullptr && m_logLevel >= 1)
+        {
+          // It might useful to output the Pitch (= Trajectory Inclination in
+          // this case) Angle, and DownRange distance (along the Earth surface):
+          double psi = ATan2(Vr, Vhor);
+          LenK   L   = R * double(phi);    // Will be < 0
+
           *m_os << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-                << " km, V=" << V.Magnitude()   << " km/sec, m="
+                << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
+                << " km/sec, psi="              << psi        << ", m="
                 << m.Magnitude()                << " kg: "
                    "Stage2 Ignition, Ballistic Gap Ends"      << std::endl;
+        }
       }
       //---------------------------------------------------------------------//
       // Switching Gap -> Burn1:                                             //
@@ -459,17 +540,24 @@ namespace
       if (m_mode  == FlightMode::Gap)
       {
         assert(IsNeg(m_cutOffTime1));
-        if (a_t <= m_cutOffTime1)
+        if (a_t  <=  m_cutOffTime1)
         {
           m_mode   = FlightMode::Burn1;
 
-          // Re-calculate the Mass in Burn1 for the output (with Stage1):
-          m        = LVMass(*a_s, a_t);
           if (m_os != nullptr && m_logLevel >= 1)
+          {
+            // Re-calculate the Mass in Burn1 for the output (with Stage1);
+            // again, output "L" and "psi":
+            m          = LVMass(*a_s, a_t);
+            double psi = ATan2(Vr, Vhor);
+            LenK   L   = R * double(phi);  // Will be < 0
+
             *m_os << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-                  << " km, V=" << V.Magnitude()   << " km/sec, m="
+                  << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
+                  << " km/sec, psi="              << psi        << ", m="
                   << m.Magnitude()                << " kg: "
-                     "Stage1 Cut-Off,  Ballistic Gap Starts"    << std::endl;
+                       "Stage1 Cut-Off,  Ballistic Gap Starts"  << std::endl;
+          }
         }
       }
       //---------------------------------------------------------------------//
@@ -486,13 +574,19 @@ namespace
         assert(m_ignTime1 < m_cutOffTime1 && m_cutOffTime1 <= m_ignTime2 &&
                IsNeg(m_ignTime2));
 
-       if (m_os != nullptr && m_logLevel >= 1)
+        if (m_os != nullptr && m_logLevel >= 1)
+        {
+          // Again, output "L" and "psi":
+          double psi = ATan2(Vr, Vhor);
+          LenK   L   = R * double(phi);  // Will be < 0
+
           *m_os << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-                << " km, V=" << V.Magnitude()   << " km/sec, m="
+                << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
+                << " km/sec, psi="              << psi        << ", m="
                 << m.Magnitude()                << " kg: "
                    "Stage1 Ignition"            << std::endl;
+        }
       }
-
       //---------------------------------------------------------------------//
       // In any mode, detect the Fairing Separation Condition:               //
       //---------------------------------------------------------------------//
@@ -506,10 +600,19 @@ namespace
       if (IsZero(m_fairingSepTime) && Q >= FairingSepCond)
       {
         m_fairingSepTime = a_t;
+
         if (m_os != nullptr && m_logLevel >= 1)
-          *m_os << "# t=" << a_t.Magnitude() << " sec, h="
-                << (r - R).Magnitude()       << " km: Fairing Separation"
-                << std::endl;
+        {
+          // Again, output "L" and "psi":
+          double psi = ATan2(Vr, Vhor);
+          LenK   L   = R * double(phi);  // Will be < 0
+
+          *m_os << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
+                << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
+                << " km/sec, psi="              << psi        << ", m="
+                << m.Magnitude()                << " kg: "
+                   "Fairing Separation"         << std::endl;
+        }
       }
       //---------------------------------------------------------------------//
       // Stopping Conds:                                                     //
@@ -524,20 +627,34 @@ namespace
         cont = false;
 
         if (m_os != nullptr && m_logLevel >= 1)
-          *m_os << "# t=" << a_t.Magnitude()            << " sec: H=0, Vr="
-                << Vr.Magnitude()   << " km/sec, Vhor=" << Vhor.Magnitude()
-                << " km/sec, m="    << m.Magnitude()    << " kg, "
-                << ToString(m_mode) << std::endl;
+        {
+          // Again, output "L" and "psi":
+          double psi = ATan2(Vr, Vhor);
+          LenK   L   = R * double(phi);  // Will be < 0
+
+          *m_os << "# t=" << a_t.Magnitude()          << " sec: H=0, Vr="
+                << Vr.Magnitude() << " km/sec, Vhor=" << Vhor.Magnitude()
+                << " km/sec, m="  << m.Magnitude()    << " kg, L="
+                << L.Magnitude()  << " km, psi="      << psi
+                << ", "           << ToString(m_mode) << std::endl;
+        }
       }
       if (m_mode == FlightMode::UNDEFINED)
       {
         cont = false;
 
         if (m_os != nullptr && m_logLevel >= 1)
+        {
+          // Again, output "L" and "psi":
+          double psi = ATan2(Vr, Vhor);
+          LenK   L   = R * double(phi);  // Will be < 0
+
           *m_os << "# t=" << a_t.Magnitude()            << " sec: UNDEF, Vr="
                 << Vr.Magnitude()   << " km/sec, Vhor=" << Vhor.Magnitude()
-                << " km/sec, m="    << m.Magnitude()    << " kg, "
-                << ToString(m_mode) << std::endl;
+                << " km/sec, m="    << m.Magnitude()    << " kg, L="
+                << L.Magnitude()    << " km, psi="      << psi
+                << ", "             << ToString(m_mode) << std::endl;
+        }
       }
 
       // XXX: Output (with a 100 msec step, or if we are going to stop now):
@@ -628,8 +745,8 @@ namespace
       ForceK thrust1 = Thrust(burnRate1, std::get<0>(atm));
       assert(!IsNeg(thrust1) && IsZero(thrust1) == IsZero(burnRate1));
 
-      // The Curr LV Mass:
-      StateV s1    { r1, Vr1, AngVel(0.0), a_nse.m_spentPropMass };
+      // The Curr LV Mass (via a synthetic "s1"):
+      StateV s1    { r1, Vr1, AngVel(0.0), a_nse.m_spentPropMass, a_nse.m_phi };
       Mass   m1  = LVMass(s1, t1);
       assert(IsPos(m1));
 
@@ -651,21 +768,40 @@ namespace
       LenK dr  = 0.5 * Sqr(Vr1) / acc1;
       assert(!(IsNeg(tau) || IsNeg(dr)));
 
-      // Finally: State and Time of the singular point:  XXX: We do not check
-      // for rS < R, it is acceptable (the neg value would be very small, any-
-      // way):
+      // Finally: State and Time of the singular point:
       LenK rS    = r1 - dr;
+      LenK hS    = rS - R;
+
+      // We should have hS >= 0; slightly negative vals will be rounded up to 0:
+      if (hS < -0.5_km)
+      {
+        if (m_os != nullptr)
+          *m_os << "# Ascent::LocateSingularPoint: Got hS=" << hS.Magnitude()
+                << " km" << std::endl;
+        return std::nullopt;
+      }
+      else
+      if (IsNeg(hS))
+      {
+        rS = R;
+        hS = 0.0_km;
+      }
+
       Time tS    = t1 - tau;
       Mass propS = a_nse.m_spentPropMass + burnRate1 * tau;
-      StateV singS {rS, VelK(0.0), AngVel(0.0), propS};
+      LenK LS    = R  * double(a_nse.m_phi);
+
+      StateV singS {rS, VelK(0.0), AngVel(0.0), propS, a_nse.m_phi};
 
       if (m_os != nullptr && m_logLevel >= 2)
-        *m_os << "# SingularPoint Located: t1="    << t1.Magnitude()
-              << " sec, tau="   << tau.Magnitude() << " sec, tS="
-              << tS.Magnitude() << " sec, m1="     << m1.Magnitude()
+        *m_os << "# SingularPoint Located: t1="     << t1.Magnitude()
+              << " sec, tau="   << tau.Magnitude()  << " sec, tS="
+              << tS.Magnitude() << " sec, m1="      << m1.Magnitude()
               << " kg, mS="     << (m1 + burnRate1 * tau).Magnitude()
-              << " kg, mS'="    << LVMass(singS, tS).Magnitude()
-              << std::endl;
+              << " kg, mSalt="  << LVMass(singS, tS).Magnitude()
+              << " kg, hS="     << (rS - R).Magnitude()
+              << " km, LS="     << LS      .Magnitude()
+              << " km, "        << ToString(m_mode) << std::endl;
 
       return std::make_optional(std::make_pair(singS, tS));
     }
@@ -761,206 +897,99 @@ namespace
     }
 
     //=======================================================================//
-    // "FindFeasibleTrajectory":                                             //
+    // "FindFeasibleTGap"                                                    //
     //=======================================================================//
-    void FindFeasibleTrajectory(LenK a_hc)
+    // "TGap" is a control param  which must ensure a correct ascent to the
+    // "a_hc" circular orbit. This method tries to find a suitable value of
+    // "TGap" such that  the singular point of the ascent trajectory exists
+    // and is @ h=0. Returns "TGap" if found, or nullopt otherwise:
+    //
+    std::optional<Time> FindFeasibleTGap(LenK a_hc)
     {
-      // Have we got at least one singular point?
-      bool gotS = false;
+      constexpr Time MaxTGap = 300.0_sec;
+      Time           tgStep  = 10.0_sec;
+      Time           tg0     = - tgStep;  // As no valid "tg0" is found yet
+      LenK           h0(NAN);             // Not known yet
+      LenK           MaxH0   = 0.5_km;    // Max acceptable h0
 
-      for (Time TGap = 0.0_sec; TGap <= 420.0_sec; TGap += 1.0_sec)
+      // Run iterations for "tg" multiples times and to find the "tg" corresp
+      // to h ~= 0:
+      //
+      for (Time tg = tg0 + tgStep; tg <= MaxTGap; tg += tgStep)
       {
-        if (m_os != nullptr && m_logLevel >= 1)
-          *m_os << "\n=====> TGap=" << TGap.Magnitude() << std::endl;
+        if (IsNeg(tg))
+          // This may happen if no Singular Points were found at all:
+          return std::nullopt;
 
-        // Run the integrator and hopr to reach the singular point:
-        auto res = Run(a_hc, TGap);
-        if (!res)
-        {
-          // If there was already a singular point, but not anymore, no point
-          // in iterating further:
-          if (gotS)
-            break;
-          else
-            continue;  // Try, try again!
-        }
-        // If we got here: singular point reached:
-        gotS    = true;
-        LenK hS = std::get<0>(res.value().first) - R;
+        // Run the integrator and hope to reach the singular point:
+        auto   res = Run(a_hc, tg);
+        RunRes rr  = std::get<0>(res);
+        LenK   h   = std::get<1>(res);
+        Time   t   = std::get<2>(res);
+        Mass   m   = std::get<3>(res);
 
         if (m_os != nullptr)
-          *m_os << "-----> hS=" << hS.Magnitude() << " km" << std::endl;
+          *m_os << "# t=" << t.Magnitude()     << " sec, h="
+                << h.Magnitude()  << " km, m=" << m.Magnitude() << " kg: "
+                << ToString(rr)   << " w/ TGap="
+                << tg.Magnitude() << std::endl << std::endl;
+
+        switch (rr)
+        {
+        case RunRes::Singularity:
+          // If there was already a valid "h0", a new valid one ("h") should
+          // always be smaller than "h0":
+          if (IsFinite(h0) && h > h0 && m_os != nullptr)
+            *m_os << "Ascent::FindFeasibleTGap: Non-Monotonic Singular Point: "
+                     "tg0="      << tg0.Magnitude()
+                  << " sec, h0=" << h0.Magnitude()
+                  << " km; tg="  << tg.Magnitude()
+                  << " sec; h="  << h.Magnitude()  << std::endl;
+
+          // Yet in any case, update "tg0" which is the maximum "tg" corresp to
+          // the Singularity (therefore with the minimum "h") found yet:
+          tg0 = tg;
+          h0  = h;
+          // Continue iterations:
+          break;
+
+        case RunRes::ZeroH:
+          // There will be no Singularities for larger "tg"s; so either reduce
+          // the step or accept the memoised "tg0" and "h0":
+          if (tgStep >= 1.0_sec)
+          {
+            tgStep /= 10.0;
+            tg      = tg0;   // Will continue with tg0 + tgStep_new
+            continue;
+          }
+          else
+          {
+            // The "tgStep" is already small enough, so accept the last valid
+            // "tg0". Check that the corresp "h0" is sufficiently small:
+            assert(!IsNeg(h0));
+            if (h0 > MaxH0 && m_os != nullptr)
+              *m_os << "Ascent::FindFeasibleTGap: TGap="    << tg0.Magnitude()
+                    << " sec: Imprecise Singular Point: h=" << h0.Magnitude()
+                    << " km" << std::endl;
+            return tg0;
+          }
+
+        default:
+          // "PropOut" or "Error":
+          // There will be no Singularities anymore, and it is unlikely that we
+          // would get h ~= 0 for any "tg". However, if we already got a more
+          // or less acceptable one, return it:
+          if (h0 <= MaxH0)
+            return tg0;
+          else
+            return std::nullopt;
+        }
       }
+      // If we got here: We have iterated to "MaxTGap" without success:
+      return std::nullopt;
     }
   };
   // End of "Ascent" Class
-
-/*
-  //=========================================================================//
-  // "FindLowestSingularPoint":                                              //
-  //=========================================================================//
-  // Tries to find the maximum Stage2 Mass   (corresp to the minimim Singular
-  // Point Altitude), if the signular point exists at all. In this case,  re-
-  // turns (Stage2Mass, SingularPointAltitude, StartMass). Otherwise, returns
-  // "nullopt":
-  //
-  void FindLowestSingularPoint
-  (
-    LenK   a_hc,
-    Mass   a_payload_mass,
-    ForceK a_thrust2_vac,
-    ForceK a_thrust1_vac,
-    Time   a_gap_t
-  )
-  {
-    // The last "m2" mass for which the signular point has been reached:
-    Mass m2SP = 0.0_kg;
-
-    for (Mass m2 = 100'000.0_kg; m2 >= 20'000.0_kg; m2 -= 250.0_kg)
-    {
-std::cout << "==> m2 = " << m2.Magnitude() << " kg" << std::endl;
-      // XXX: At this point, we don't have the Stage1 Mass, so use an estimate.
-      // If the singular point has been reached, we do further iterations with
-      // more precise Stage1 Mass -- and hope that the singular point will per-
-      // sist:
-      std::optional<std::pair<Ascent::StateV, Time>> res = std::nullopt;
-      try
-      {
-        // Create an "Ascent" object and run the trajectory integration:
-        Ascent asc(a_hc,    a_payload_mass, m2,      a_thrust2_vac,
-                   a_thrust1_vac,  a_gap_t, &std::cout, 1);
-
-        // NB: any exceptions apart from "NearSingularExn" are propagated to
-        // here:
-        res  = asc.Run();
-
-        // So: have we got to the singular point?
-        if (bool(res))
-        {
-          // Yes, singular point has been found:
-          Mass startMass = asc.LVMass(res.value().first, res.value().second);
-          Mass m1        = startMass - a_payload_mass - m2 -
-                           Ascent::FairingMass;
-          assert(IsPos(m1));
-
-          m2SP                    = m2;
-          Ascent::StateV const& s = res.value().first;
-          LenK                  h = std::get<0>(s) - Ascent::R;
-          assert(IsPos(m2SP) && !IsNeg(h));
-
-Time ts = res.value().second;
-std::cout << "SP: t = "       << ts.Magnitude()
-          << " sec, m2 = "    << m2.Magnitude()
-          << " kg, m1 = "     << m1.Magnitude()
-          << " kg, m0 = "     << startMass.Magnitude()
-          << " kg, h = "      << h.Magnitude()
-          << " km"            << std::endl;
-        }
-        else
-        if (!IsZero(m2SP))
-          // If there was already a Singular Point encountered, but not with
-          // this "m2", stop further searching -- we have left the feasibility
-          // region:
-          break;
-      }
-      catch (...)
-      {
-        // Any errors: "res" remains "nullopt", so this run is unsuccessful:
-        assert(!bool(res));
-      }
-    }
-    // End of "m2" loop
-  }
-
-  //=========================================================================//
-  // "FindOptTGap":                                                          //
-  //=========================================================================//
-  // The control parameter is "TGap". Find a suitable value of "TGap" such that
-  // the singular point is at or below the 50 m elevation  (for technical reas-
-  // ons, we cannot make it exactly 0). Returns (mL, TGap, StartMass):
-  //
-  std::tuple<Mass, Time, Mass> FindOptTGap
-  (
-    LenK   a_hc,
-    double a_tmr2,
-    bool   a_verbose
-  )
-  {
-    if (a_verbose)
-      std::cout << "hC=" << a_hc.Magnitude()      <<
-                << ", TMR2=" << a_tmr2 << std::endl;
-
-    // XXX: Very primitive "brute-force" minimisation of "h0":
-    // Typically, with "TGap" increasing, "h0" decreases at the rate of ~1 km
-    // per 1 "TGap" sec, but "mL" also decreases; then a region of near-0 "h0"
-    // is reached  (for a continuous range of "TGap"s).
-    // So we stop at the LOWEST admissible "TGap". Initial estimate: TGap = 0:
-    //
-    auto res0 =
-      FindLowestSingularPoint(a_hc, a_mass12_ratio, a_tmr2, 0.0_sec);
-    LenK h0   = std::get<1>(res0);
-
-    // Then we can guess the initial value and the initial step of "TGap":
-    Time tg0    = Round(0.5 * h0 / VelK(1.0));
-    Time tgStep = (tg0 > 20.0_sec) ? 5.0_sec : 1.0_sec;
-
-    // March with the initial "tgStep" until we get (h < 0.5_km); it's an error
-    // if we could not get it:
-    constexpr Time MaxTGap = 250.0_sec;
-    for (Time tg = tg0; tg < MaxTGap; tg += tgStep)
-    {
-      auto res =
-        FindLowestSingularPoint(a_hc, a_mass12_ratio, a_tmr2, tg);
-      Mass mL        = std::get<0>(res);
-      LenK h         = std::get<1>(res);
-      Mass startMass = std::get<2>(res);
-
-      if (a_verbose)
-        std::cout << "\tTGap=" << tg.Magnitude() << ", h=" << h.Magnitude()
-                  << ", mL="   << mL.Magnitude() << ", startMass="
-                  << startMass.Magnitude()       << std::endl;
-
-      // If we got VERY close to h=0, we are done:
-      if (h < 0.075_km)
-        return std::make_tuple(mL, tg, startMass);
-
-      // Otherwise: If we still got sufficiently close to h=0, reduce the step
-      // and proceed further:
-      if (h < 0.5_km)
-        tgStep = 0.1_sec;
-    }
-    // XXX: If we got here, an admissible singular point has not been found:
-    throw std::logic_error("FindOptTGap: Not Found");
-  }
-
-  //=========================================================================//
-  // "Stage2Options":                                                        //
-  //=========================================================================//
-  void Stage2Options(LenK a_hc)
-  {
-#   pragma omp parallel for collapse(2)
-    for (int tmrSpct= 300;  mass12Rpct <= 450; mass12Rpct += 5)
-    for (int tmr2pct=  90;  tmr2pct    <= 190; tmr2pct    += 5)
-    {
-      double mass12R    = double(mass12Rpct) / 100.0;
-      double tmr2       = double(tmr2pct)    / 100.0;
-      try
-      {
-        auto [mL, TGap, startMass] =
-          FindOptTGap(a_hc, mass12R, tmr2, false);
-
-#       pragma omp critical
-        std::cout
-          << a_hc.Magnitude()      << '\t' << mass12R          << '\t'
-          << tmr2                  << '\t' << TGap.Magnitude() << '\t'
-          << mL.Magnitude()        << '\t'
-          << startMass.Magnitude() << '\t' << double(mL/startMass)
-          << std::endl;
-      }
-      catch (...) {}
-    }
-  }
-*/
 }
 
 //===========================================================================//
@@ -979,12 +1008,16 @@ int main(int argc, char* argv[])
   Mass   mL     { atof(argv[2]) };
   double alpha1 { atof(argv[3]) };
 
-  ForceK thrust2Vac = 2.0 * 63'700.0_kg * g0K;
+  ForceK thrust2Vac = 1.0 * 63'700.0_kg * g0K;
   ForceK thrust1Vac = 9.0 * 59'500.0_kg * g0K;
   try
   {
-    Ascent asc(mL, alpha1, thrust2Vac, thrust1Vac, &cout, 2);
-    asc.FindFeasibleTrajectory(hC);
+    Ascent asc(mL, alpha1, thrust2Vac, thrust1Vac, &cout, 1);
+    auto tg = asc.FindFeasibleTGap(hC);
+    if (bool(tg))
+      std::cout << tg.value().Magnitude() << " sec" << std::endl;
+    else
+      std::cout << "None" << std::endl;
   }
   catch (exception const& exn)
   {
