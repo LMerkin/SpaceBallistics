@@ -11,6 +11,7 @@
 #include <ostream>
 #include <optional>
 #include <utility>
+#include <nlopt.hpp>
 
 using namespace  SpaceBallistics;
 namespace EAM  = EarthAtmosphereModel;
@@ -19,9 +20,9 @@ namespace LVAD = LVAeroDyn;
 namespace
 {
   //=========================================================================//
-  // The "Ascent" Class:                                                     //
+  // The "Ascent2" Class:                                                    //
   //=========================================================================//
-  class Ascent
+  class Ascent2
   {
   public:
     //=======================================================================//
@@ -60,7 +61,7 @@ namespace
     constexpr static Pressure FairingSepCond = Pressure(1.0);
     // LV Diameter:
     constexpr static LenK     D              = To_Len_km(4.1_m);
-    constexpr static decltype(Sqr(D)) CroS   = 0.25 * Pi<double> * Sqr(D);
+    constexpr static decltype(Sqr(D)) CroS   = Pi<double> * Sqr(D) / 4.0;
 
     // ODE Integration Params: 1 msec step; it may only be reduced, never
     // increased beyond the original value:
@@ -72,6 +73,10 @@ namespace
     // than "Vr":
     constexpr static VelK   SingVr           = VelK(1e-2); // 10   m/sec
     constexpr static VelK   SingVhor         = VelK(1e-4); //  0.1 m/sec
+
+    // Angle-of-Attack (AoA) Limits for the 1st and the 2nd stage:
+    constexpr static Angle  MaxAoA2          = To_Angle(10.0_deg);
+    constexpr static Angle  MaxAoA1          = To_Angle( 1.0_deg);
 
     //=======================================================================//
     // Types:                                                                //
@@ -144,20 +149,49 @@ namespace
     Mass     const        m_emptyMass2;
     Mass     const        m_propMass2;
     ForceK   const        m_thrustVac2;
-    MassRate const        m_burnRate2;
+    MassRate const        m_burnRateI2; // BurnRate @ Stage2 Ignition Time
 
     // Stage1 Params:
     Mass     const        m_fullMass1;
     Mass     const        m_emptyMass1;
     Mass     const        m_propMass1;
     ForceK   const        m_thrustVac1;
-    MassRate const        m_burnRate1;
+    MassRate const        m_burnRateI1; // BurnRate @ Stage1 Ignition Time
 
     // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
     // ignition):
     Time                  m_TGap;
 
-    // Transient data (during flight path integration): St2 Cut-Off Time is 0:
+    // Flight Control Program Parameterisation:
+    //
+    // BurnRate for Stages 1 and 2:
+    // It is a non-increasing quadratic function of time, which coeffs depend-
+    // ing (somehow) on 2 dimension-less params: "aHat" and "muHat":
+    // BurnRate(tau) = BurnRateI + bMu * tau + aMu * tau^2, where "tau" is the
+    // time since ignition of the corresp Stage:
+    //
+    using MassT2     =    decltype(MassRate(1.0) / 1.0_sec);
+    using MassT3     =    decltype(MassT2  (1.0) / 1.0_sec);
+
+    Time                  m_T2;         // Actual Stage2 BurnTime
+    MassT3                m_aMu2;
+    MassT2                m_bMu2;
+
+    Time                  m_T1;         // Actual Stage1 BurnTime
+    MassT3                m_aMu1;
+    MassT2                m_bMu1;
+
+    // AoA for Stage2: AoA(t) = t * (a * t + b), t <= 0:
+    AngAcc                m_aAoA2;
+    AngVel                m_bAoA2;
+
+    // AoA for Stage1: AoA(nt)  = nt *  (a * nt  + b),
+    // where nt = -tau =  tIgn1 - t <= 0;
+    // thus,           AOA(tau) = tau * (a * tau - b):
+    AngAcc                m_aAoA1;
+    AngVel                m_bAoA1;
+
+    // Transient Data (during flight path integration): St2 Cut-Off Time is 0:
     FlightMode            m_mode;
     Time                  m_ignTime2;       // Burn2 start: St2 Ignition Time
     Time                  m_fairingSepTime; // Fairing Separation Time
@@ -172,7 +206,7 @@ namespace
     //=======================================================================//
     // Non-Default Ctor:                                                     //
     //=======================================================================//
-    Ascent
+    Ascent2
     (
       Mass          a_payload_mass,
       double        a_alpha1,      // FullMass1 / FullMass2
@@ -182,34 +216,56 @@ namespace
       int           a_log_level
     )
     : m_payLoadMass   (a_payload_mass),
+
+      // Stage2 Params:
       m_fullMass2     ((StartMass - FairingMass - m_payLoadMass) /
                        (1.0 + a_alpha1)),
       m_emptyMass2    (m_fullMass2   * (1.0 - K2)),
       m_propMass2     (m_fullMass2   * K2),
       m_thrustVac2    (a_thrust2_vac),
-      m_burnRate2     (m_thrustVac2  / (IspVac2  * g0K)),
+      m_burnRateI2    (m_thrustVac2  / (IspVac2  * g0K)),
+
+      // Stage1 Params:
       m_fullMass1     ((StartMass - FairingMass - m_payLoadMass) /
                        (1.0 + a_alpha1) * a_alpha1),
       m_emptyMass1    (m_fullMass1  * (1.0 - K1)),
       m_propMass1     (m_fullMass1  * K1),
       m_thrustVac1    (a_thrust1_vac),
-      m_burnRate1     (m_thrustVac1  / (IspVac1  * g0K)),
+      m_burnRateI1    (m_thrustVac1  / (IspVac1  * g0K)),
       m_TGap          (),     // 0 by default
+
+      // BurnRate Ctls and AoA Ctls. NB: "m_T{1,2}" are initialised to Actual
+      // BurnTimes (taking the Remnants into account):
+      m_T2            (m_propMass2 * (1.0 - PropRem2) / m_burnRateI2),
+      m_aMu2          (MassT3(0.0)),
+      m_bMu2          (MassT2(0.0)),
+
+      m_T1            (m_propMass1 * (1.0 - PropRem1) / m_burnRateI1),
+      m_aMu1          (MassT3(0.0)),
+      m_bMu1          (MassT2(0.0)),
+
+      m_aAoA2         (AngAcc(0.0)),
+      m_bAoA2         (AngVel(0.0)),
+      m_aAoA1         (AngAcc(0.0)),
+      m_bAoA1         (AngVel(0.0)),
+
+      // Transient Data:
       m_mode          (FlightMode::UNDEFINED),
-      m_ignTime2      (),
-      m_fairingSepTime(),
-      m_cutOffTime1   (),
-      m_ignTime1      (),
+      m_ignTime2      (Time(NAN)),
+      m_fairingSepTime(Time(NAN)),
+      m_cutOffTime1   (Time(NAN)),
+      m_ignTime1      (Time(NAN)),
+
       m_os            (a_os), // May be NULL
       m_logLevel      (a_log_level)
     {
       if ( IsNeg(m_payLoadMass) ||  IsNeg(m_TGap)      || !IsPos(m_fullMass2) ||
           !IsPos(m_thrustVac2)  || !IsPos(m_fullMass1) || !IsPos(m_thrustVac1))
-        throw std::invalid_argument("Ascent::Ctor: Invalid param(s)");
+        throw std::invalid_argument("Ascent2::Ctor: Invalid param(s)");
 
       // Therefore:
-      assert(IsPos(m_emptyMass2) && IsPos(m_propMass2) && IsPos(m_burnRate2) &&
-             IsPos(m_emptyMass1) && IsPos(m_propMass1) && IsPos(m_burnRate1));
+      assert(IsPos(m_emptyMass2) && IsPos(m_propMass2) && IsPos(m_burnRateI2) &&
+             IsPos(m_emptyMass1) && IsPos(m_propMass1) && IsPos(m_burnRateI1));
     }
 
     //=======================================================================//
@@ -250,12 +306,123 @@ namespace
     //=======================================================================//
     // Returns (RunRes, FinalH, FlightTime, ActStartMass):
     //
-    std::tuple<RunRes, LenK, Time, Mass> Run(LenK a_hc, Time a_t_gap)
-    {
-      if (a_hc < 100.0_km || IsNeg(a_t_gap))
-        throw std::invalid_argument("Assent::Run: Invalid hC or TGap");
+    std::tuple<RunRes, LenK, Time, Mass> Run
+    (
+      LenK    a_hc,
 
-      // We run the integration BACKWARDS from the orbital insertion point
+      // BurnRate ctl params for Stage2: The defaults corresp to const BurnRate:
+      double  a_aHat2   = 0.0,     // Must be in [-1 .. 1]
+      double  a_muHat2  = 1.0,     // Must be in [ 0 .. 1]
+
+      // AoA ctl params for Stage2: The defaults corresp to AoA = 0:
+      double  a_aAoA2   = 0.0,     // Must be in [ 0 .. 1]
+      double  a_bAoA2   = 0.0,     // Must be in [ 0 .. 1]
+
+      Time    a_t_gap   = 0.0_sec,
+
+      // BurnRate ctl params for Stage1: The defaults corresp to const BurnRate:
+      double  a_aHat1   = 0.0,     // Must be in [-1 .. 1]
+      double  a_muHat1  = 1.0,     // Must be in [ 0 .. 1]
+
+      // AoA ctl param for Stage1: The defaults corresp to AoA = 0:
+      double  a_aAoA1   = 0.0,     // Must be in [ 0 .. 1]
+      double  a_bAoA1   = 0.0      // Must be in [ 0 .. 1]
+    )
+    {
+      //---------------------------------------------------------------------//
+      // Check the Params:                                                   //
+      //---------------------------------------------------------------------//
+      if (a_hc < 100.0_km || IsNeg(a_t_gap))
+        throw std::invalid_argument("Ascent2::Run: Invalid hC or TGap");
+
+      // BurnRate ctls:
+      if (std::fabs(a_aHat2) > 1.0 ||
+          a_muHat2 <= 0.0          || a_muHat2 >= 1.0   ||
+          a_aAoA2  <= 0.0          || a_aAoA2  >= 1.0   ||
+          a_bAoA2  <= 0.0          || a_bAoA2  >= 1.0   ||
+          std::fabs(a_aHat1) > 1.0 ||
+          a_muHat1 <= 0.0          || a_muHat2 >= 1.0   ||
+          a_aAoA1  <= 0.0          || a_aAoA1  >= 1.0   ||
+          a_bAoA1  <= 0.0          || a_bAoA1  >= 1.0)
+        throw std::invalid_argument
+              ("Ascent2::Run: Invalid BurnRate or AoA param(s)");
+
+      //---------------------------------------------------------------------//
+      // BurnRate Coeffs:                                                    //
+      //---------------------------------------------------------------------//
+      // Normalise "aHat"s to [-1/3 .. +1/3]:
+      a_aHat2 /= 3.0;
+      a_aHat1 /= 3.0;
+
+      // Compute the actual limits for "muHat", and the actual "muHat" within
+      // those limits:
+      double muHatLo2 = (1.0 - a_aHat2) / 2.0;
+      double muHatUp2 = (a_aHat2 < 0.0) ? 1.0 + a_aHat2 : 1.0 - 2.0 * a_aHat2;
+      assert(muHatLo2 <= muHatUp2);
+      a_muHat2       *= (muHatUp2 - muHatLo2);
+      // XXX: In a very degenerate case, we may get a_muHat2==0:
+      assert(0.0 <= a_muHat2 && a_muHat2 <= 1.0);
+      m_T2            = m_propMass2 / (m_burnRateI2 * a_muHat2);
+      m_aMu2          = 3.0 * m_burnRateI2 / Sqr(m_T2) * a_aHat2;
+      m_bMu2          = 2.0 * (m_propMass2 / Sqr(m_T2) - m_burnRateI2 / m_T2 -
+                               m_aMu2 * m_T2 / 3.0);
+
+      double muHatLo1 = (1.0 - a_aHat1) / 2.0;
+      double muHatUp1 = (a_aHat1 < 0.0) ? 1.0 + a_aHat1 : 1.0 - 2.0 * a_aHat1;
+      assert(muHatLo1 <= muHatUp1);
+      a_muHat1 *= (muHatUp1 - muHatLo1);
+      // XXX: In a very degenerate case, we may get a_muHat1==0:
+      assert(0.0 <= a_muHat1 && a_muHat1 <= 1.0);
+      m_T1            = m_propMass1 / (m_burnRateI1 * a_muHat1);
+      m_aMu1          = 3.0 * m_burnRateI1 / Sqr(m_T1) * a_aHat1;
+      m_bMu1          = 2.0 * (m_propMass1 / Sqr(m_T1) - m_burnRateI1 / m_T1 -
+                               m_aMu1 * m_T1 / 3.0);
+
+      //---------------------------------------------------------------------//
+      // AoA Coeffs:                                                         //
+      //---------------------------------------------------------------------//
+      m_bAoA2        = - 4.0 * MaxAoA2 / m_T2 * a_bAoA2;
+      AngAcc aAoALo2 = m_bAoA2 / m_T2;
+      AngAcc aAoAUp2 =
+        (a_bAoA2 < 0.5)
+        ? (MaxAoA2 / m_T2 + m_bAoA2) / m_T2
+        : - Sqr(m_bAoA2) / (4.0 * MaxAoA2);
+      m_aAoA2 = aAoALo2  * (1.0 - a_aAoA2) + a_aAoA2 * aAoAUp2;
+
+      m_bAoA1        = - 4.0 * MaxAoA1 / m_T1 * a_bAoA1;
+      AngAcc aAoALo1 = m_bAoA1 / m_T1;
+      AngAcc aAoAUp1 =
+        (a_bAoA1 < 0.5)
+        ? (MaxAoA1 / m_T1 + m_bAoA1) / m_T1
+        : - Sqr(m_bAoA1) / (4.0 * MaxAoA1);
+      m_aAoA1 = aAoALo1  * (1.0 - a_aAoA1) + a_aAoA1 * aAoAUp1;
+
+      //---------------------------------------------------------------------//
+      // For Testing Only:                                                   //
+      //---------------------------------------------------------------------//
+      if (m_os != nullptr && m_logLevel >= 2)
+      {
+        // Here "t" is the time from Stage2 cut-off (so t=-T2..0):
+        std::cout << "# T2   := " << m_T2.Magnitude() << ';'    << std::endl;
+        std::cout << "# AoA2 := t * ("   << m_aAoA2.Magnitude() << " * t + ("
+                  << m_bAoA2.Magnitude() << ")); "              << std::endl;
+        std::cout << "# mu2  := " << m_burnRateI2.Magnitude()   << " + ("
+                  << m_bMu2.Magnitude()  << ") * t + ("
+                  << m_aMu2.Magnitude()  << ") * t^2;"          << std::endl;
+
+        // Here "t" is the time from Stage1 cut-off (so t=-T1..0), and "tau" is
+        // the time since Stage1 ignition (NB: the (-b) coeff at "tau" for AoA),
+        // so tau=0..T1:
+        std::cout << "# T1   := " << m_T1.Magnitude() << ';'    << std::endl;
+        std::cout << "# AoA1 := tau * (" << m_aAoA1.Magnitude() << " * tau - ("
+                  << m_bAoA1.Magnitude() << ")); "              << std::endl;
+        std::cout << "# mu1  := " << m_burnRateI1.Magnitude()   << " + ("
+                  << m_bMu1.Magnitude()  << ") * t + ("
+                  << m_aMu1.Magnitude()  << ") * t^2;"          << std::endl;
+      }
+      //---------------------------------------------------------------------//
+      // Run the integration BACKWARDS from the orbital insertion point      //
+      //---------------------------------------------------------------------//
       // (@ t=0):
       // Angular velocity at the Circular Orbit, XXX: with correction  for the
       // Earth Rotation Velocity (assuming the Target Orbit Inclination is the
@@ -280,13 +447,12 @@ namespace
       // FlightMode ctl (modes are switched based on the SpentPropMass):
       m_TGap           = a_t_gap;
       m_mode           = FlightMode::Burn2;
-      m_ignTime2       = 0.0_sec;  // Not known yet
-      m_cutOffTime1    = 0.0_sec;  //
-      m_fairingSepTime = 0.0_sec;  //
-      m_ignTime1       = 0.0_sec;  //
+      m_ignTime2       = Time(NAN);  // Not known yet
+      m_cutOffTime1    = Time(NAN);  // ditto
+      m_fairingSepTime = Time(NAN);  // ditto
+      m_ignTime1       = Time(NAN);  // ditto
 
-      // Run the ODE Integrator. The maximum duration (which is certainly
-      // enough for ascent to orbit) is 1 hour:
+      // The ascent maximum duration (which is certainly enough) is 1 hour:
       constexpr Time t0    = 0.0_sec;
       constexpr Time tMin  = -3600.0_sec;
 
@@ -294,6 +460,9 @@ namespace
       Time tEnd;
       try
       {
+        //-------------------------------------------------------------------//
+        // Actually Run the Integrator!                                      //
+        //-------------------------------------------------------------------//
         tEnd =
           RKF5(&s0, t0, tMin, rhs,
                -ODEInitStep, -ODEMaxStep, ODERelPrec, &cb, m_os);
@@ -301,9 +470,12 @@ namespace
       }
       catch (NearSingularityExn const& ns)
       {
-        // We have reached a vicinity of the singular point, this is a NORMAL
-        // (and moreover,  a desirable) outcome. Compute a more precise sing-
-        // ular point position:
+        //-------------------------------------------------------------------//
+        // We have reached a vicinity of the singular point:                 //
+        //-------------------------------------------------------------------//
+        // This is a NORMAL (and moreover, a desirable) outcome. Compute a more
+        // precise singular point position:
+        //
         auto sing = LocateSingularPoint(ns);
 
         if (bool(sing))
@@ -324,21 +496,26 @@ namespace
       }
       catch (std::exception const& exn)
       {
-        // Any other "standard" exceptions: Ascent unsuccessful:
+        //-------------------------------------------------------------------//
+        // Any other "standard" (or other) exceptions: Ascent unsuccessful:  //
+        //-------------------------------------------------------------------//
         if (m_os != nullptr && m_logLevel >= 1)
-          *m_os  << "# Ascent::Run: Exception: " << exn.what() << std::endl;
+          *m_os  << "# Ascent2::Run: Exception: " << exn.what() << std::endl;
         return std::make_tuple(RunRes::Error, LenK(NAN), Time(NAN), Mass(NAN));
       }
       catch (...)
       {
         // Any other exception:
         if (m_os != nullptr && m_logLevel >= 1)
-          *m_os  << "# Ascent::Run: UnKnown Exception" << std::endl;
+          *m_os  << "# Ascent2::Run: UnKnown Exception" << std::endl;
         return std::make_tuple(RunRes::Error, LenK(NAN), Time(NAN), Mass(NAN));
       }
 
-      // If we got here: Integration has run to completion, but not to the
-      // singular point. Check the final state and mode:
+      //---------------------------------------------------------------------//
+      // Integration has run to completion, but not to the singular point:   //
+      //---------------------------------------------------------------------//
+      // Check the final state and mode:
+      //
       LenK hEnd = std::get<0>(s0) - R;
       Mass mEnd = LVMass(s0, tEnd);
 
@@ -349,7 +526,7 @@ namespace
         if (!IsPos(hEnd))
         {
           if (m_os != nullptr && m_logLevel >= 1)
-            *m_os << "# Ascent::Run: Got mode=UNDEFINED but h="
+            *m_os << "# Ascent2::Run: Got mode=UNDEFINED but h="
                   << hEnd.Magnitude() << " km" << std::endl;
           hEnd = 0.0_km;
         }
@@ -362,7 +539,7 @@ namespace
         if (hEnd > 0.5_km)
         {
           if (m_os != nullptr && m_logLevel >= 1)
-            *m_os << "# Ascent::Run: Expected h=0 but got h="
+            *m_os << "# Ascent2::Run: Expected h=0 but got h="
                   << hEnd.Magnitude() << " km" << std::endl;
         }
         return std::make_tuple(RunRes::ZeroH, 0.0_km, tEnd, mEnd);
@@ -409,9 +586,15 @@ namespace
       VelK   V  = SqRt(Sqr(Vr) + Sqr(Vhor));
       assert(IsPos(V));
 
-      // AeroDynamic Drag:
-      auto [atm, drag]  = AeroDynForce(r, V);
-      assert(!IsNeg(drag));
+      // The Angle-of-Attack:
+      Angle  aoa  = AoA(a_t);
+      assert(!IsNeg(aoa));
+      double cosA = Cos(aoa);
+      double sinA = Sin(aoa);
+
+      // AeroDynamic Drag and Lift:
+      auto [atm, drag, lift]  = AeroDynForces(r, V, aoa);
+      assert(!(IsNeg(drag) || IsNeg(lift)));
 
       // Propellant Burn Rate (>= 0) and Thrust:
       MassRate burnRate = PropBurnRate(a_t);
@@ -421,30 +604,40 @@ namespace
       assert(!IsNeg(thrust) && IsZero(thrust) == IsZero(burnRate));
 
       // The curr mass:
-      // XXX: If it exceeds the over-all limit, there is no point in continuing
-      // the Bwd intrgration; singular point is NOT reached in that case:
       Mass   m  = LVMass(a_s, a_t);
       assert(IsPos(m));
 
-      // Acceleration (in the direction of the Velocity vector)
-      // due to the Trust and AeroDynamic Drag Force:
-      AccK tdAcc = (thrust - drag) / m;
+      // "u" unit vector: normal to the velocity (in the "up" direction)
+      // "v" unit vector: in the velocity direction
+      // Components of "u" in the (radius-vector, normal-to-radius-vector)
+      // frame:
+      double v[2] { double(Vr / V), double(r * omega / V) };
+      double u[2] { v[1],           -v[0]                 };
+
+      // Thrust components (in the same frame):
+      ForceK T[2] { (v[0] * cosA + u[0] * sinA) * thrust,
+                    (v[1] * cosA + u[1] * sinA) * thrust };
+
+      // AeroDynamic Drag (-v) and Lift (+u) components:
+      ForceK D[2] { -v[0] * drag, -v[1] * drag };
+      ForceK L[2] {  u[0] * lift,  u[1] * lift };
+
+      // Acceleration components due to the above forces:
+      AccK acc[2] { (T[0] + D[0] + L[0]) / m,
+                    (T[1] + D[1] + L[1]) / m };
 
       // The RHS components:
-      AccK   r2Dot;
-      AngAcc omegaDot;
-
-      r2Dot =
+      AccK r2Dot =
           r * Sqr(omega / 1.0_rad)   // "Kinematic"     term
         - K / Sqr(r)                 // Gravitational   term
-        + tdAcc * Vr    / V;         // Thrust and Drag term
+        + acc[0];                    // Thrust-, Drag-, Lift-indiced accs
 
-      omegaDot =
-        omega *
+      AngAcc omegaDot =
         (
-          - 2.0 * Vr    / r          // "Kinematic"     term
-          + tdAcc       / V          // Thrust and Drag term
-        );
+          - 2.0 * Vr * omega         // "Kinematic"     term
+          + acc[1]   * 1.0_rad       // Thrust-, Drag-, Lift-indiced accs
+        )
+        / r;
 
       // The result: NB: the last derivative is <= 0, since the corresp
       // "StateV" components is int_t^0 burnRate(t') dt', ie "t" is the
@@ -679,7 +872,8 @@ namespace
     //=======================================================================//
     // Atmospheric Conditions and Aerodynamic Drag Force:                    //
     //=======================================================================//
-    static std::pair<EAM::AtmConds, ForceK>AeroDynForce(LenK a_r, VelK a_v)
+    static std::tuple<EAM::AtmConds, ForceK, ForceK>
+    AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA)
     {
       // Curr altitude (possible slightly negative vals are rounded to 0):
       auto atm  = EAM::GetAtmConds(a_r - R);
@@ -688,12 +882,14 @@ namespace
       double M  = double(To_Len_m(a_v) / std::get<3>(atm));
       assert(M >= 0.0);
 
-      // The Aerodynamic Drag Force (assuming AngleOfAttack = 0):
-      ForceK drag =
-        LVAD::cD(M, 0.0) * 0.5 * To_Len_km(std::get<1>(atm)) *
-        Sqr(a_v) * CroS;
+      // The Aerodynamic Force Main Term:
+      ForceK F  = 0.5 * To_Len_km(std::get<1>(atm)) * Sqr(a_v) * CroS;
 
-      return std::make_pair(atm, drag);
+      // The Drag and Lift Coeffs:
+      double cD = LVAD::cD(M, a_AoA);
+      double cL = LVAD::cL(M, a_AoA);
+
+      return std::make_tuple(atm, cD * F, cL * F);
     }
 
     //=======================================================================//
@@ -718,7 +914,7 @@ namespace
       // Check for the following degenerate conditions: They should not happen,
       // but may:
       if (!(IsPos(h1) && IsPos(Vr1)) && m_os != nullptr && m_logLevel >= 2)
-        *m_os << "Ascent::LocateSingularPoint: WARNING: h="
+        *m_os << "Ascent2::LocateSingularPoint: WARNING: h="
               << h1.Magnitude() << " km, Vr=" << Vr1.Magnitude() << " km/sec"
               << std::endl;
       // Assuming that the negative vals of "h1" or "Vr1", if occur, are anyway
@@ -758,7 +954,7 @@ namespace
         // not reachable; this is because we have arrived at the mass "m1"
         // which is too large:
         if (m_os != nullptr && m_logLevel >= 2)
-          *m_os << "# Ascent::LocateSingularPoint: UnReachable: Mass=Acc="
+          *m_os << "# Ascent2::LocateSingularPoint: UnReachable: Mass=Acc="
                 << (double(acc1 / g1) - 1.0) << " g" << std::endl;
         return std::nullopt;
       }
@@ -776,7 +972,7 @@ namespace
       if (hS < -0.5_km)
       {
         if (m_os != nullptr)
-          *m_os << "# Ascent::LocateSingularPoint: Got hS=" << hS.Magnitude()
+          *m_os << "# Ascent2::LocateSingularPoint: Got hS=" << hS.Magnitude()
                 << " km" << std::endl;
         return std::nullopt;
       }
@@ -808,25 +1004,68 @@ namespace
 
   public:
     //=======================================================================//
-    // Propellant Burn Rate:                                                 //
+    // Propellant Burn Rate: May be variable:                                //
     //=======================================================================//
-    MassRate PropBurnRate(Time) const
+    MassRate PropBurnRate(Time a_t) const
     {
-      // XXX: For the moment, the rates are constant, depend on the Mode only;
-      // the exact Time is ignored. The value is >= 0:
       switch (m_mode)
       {
       case FlightMode::Burn1:
-        return m_burnRate1;
-
+      {
+        // Arg: "t" is the time from Stage1 cut-off (so -T1 <= t <= 0):
+        Time t = std::max(std::min(a_t - m_cutOffTime1, 0.0_sec), -m_T1);
+        return   std::max(m_burnRateI1 + (m_bMu1 + m_aMu1 * t) * t, 
+                          MassRate(0.0));
+      }
       case FlightMode::Gap:
         return MassRate(0.0);
 
       case FlightMode::Burn2:
-        return m_burnRate2;
-
+      {
+        // Arg: "t" is time from Stage2 cut-off (same as orbital insertion
+        // time), so it is just the main time "a_t": -T2 <= t <= 0; enforce
+        // those constraints:
+        assert(!IsPos(a_t));
+        Time t = std::max(a_t, -m_T2);
+        return   std::max(m_burnRateI2 + (m_bMu2 + m_aMu2 * t) * t,
+                          MassRate(0.0));
+      }
       default:
         return MassRate(0.0);
+      }
+    }
+
+    //=======================================================================//
+    // Angle-of-Attack:                                                      //
+    //=======================================================================//
+    Angle AoA(Time a_t) const
+    {
+      switch (m_mode)
+      {
+      case FlightMode::Burn1:
+      {
+        // Arg: "tau" which is the time since Stage1 ignition (where the latter
+        // is calculated via "m_T1", because the actual event-based "m_ignTime1"
+        // is not known yet), so AoA1(tau=0)=0, ie @ launch;   0 <= tau <= T1;
+        // NB: The coeff "b" @ "tau" has INVERTED sign:
+        Time   tIgn1 = m_cutOffTime1  - m_T1;
+        Time   tau   = std::min(std::max(a_t - tIgn1,    0.0_sec), m_T1);
+        return std::max(tau * (m_aAoA1 * tau - m_bAoA1), 0.0_rad);
+      }
+      case FlightMode::Gap:
+        return 0.0_rad;
+
+      case FlightMode::Burn2:
+      {
+        // Arg: "t" is time from Stage2 cut-off (same as orbital insertion
+        // time), so it is just the main time "a_t": -T2 <= t <= 0; enforce
+        // those constraints:
+        assert(!IsPos(a_t));
+        Time t = std::max(a_t, -m_T2);
+        return   std::max(t *  (m_aAoA2 * t + m_bAoA2), 0.0_rad);
+      }
+      default:
+        return 0.0_rad;
       }
     }
 
@@ -914,15 +1153,43 @@ namespace
 
       // Run iterations for "tg" multiples times and to find the "tg" corresp
       // to h ~= 0:
-      //
       for (Time tg = tg0 + tgStep; tg <= MaxTGap; tg += tgStep)
       {
         if (IsNeg(tg))
           // This may happen if no Singular Points were found at all:
           return std::nullopt;
 
-        // Run the integrator and hope to reach the singular point:
-        auto   res = Run(a_hc, tg);
+        //-------------------------------------------------------------------//
+        // Run the integrator and hope to reach the singular point:          //
+        //-------------------------------------------------------------------//
+        auto res =
+          Run
+          (
+            // Circular Orbit Altitude:
+            a_hc,
+
+            // Stage2 BurnRate Ctls:
+            -0.5, // aHat2
+            0.5,  // muHat2
+
+            // Stage2 AoA Ctls:
+            0.2,  // aAoA2
+            0.1,  // bAoA2
+
+            // Ballistic Gap:
+            tg,
+
+            // Stage1 BurnRate Ctls:
+            0.3,  // aHat1
+            0.7,  // muHat1
+
+            // Stage1 AoA Ctls:
+            0.2,  // aAoA1
+            0.9   // bAoA1
+          );
+        //-------------------------------------------------------------------//
+        // Analyse the results:                                              //
+        //-------------------------------------------------------------------//
         RunRes rr  = std::get<0>(res);
         LenK   h   = std::get<1>(res);
         Time   t   = std::get<2>(res);
@@ -940,7 +1207,7 @@ namespace
           // If there was already a valid "h0", a new valid one ("h") should
           // always be smaller than "h0":
           if (IsFinite(h0) && h > h0 && m_os != nullptr)
-            *m_os << "Ascent::FindFeasibleTGap: Non-Monotonic Singular Point: "
+            *m_os << "Ascent2::FindFeasibleTGap: Non-Monotonic Singular Point: "
                      "tg0="      << tg0.Magnitude()
                   << " sec, h0=" << h0.Magnitude()
                   << " km; tg="  << tg.Magnitude()
@@ -968,7 +1235,7 @@ namespace
             // "tg0". Check that the corresp "h0" is sufficiently small:
             assert(!IsNeg(h0));
             if (h0 > MaxH0 && m_os != nullptr)
-              *m_os << "Ascent::FindFeasibleTGap: TGap="    << tg0.Magnitude()
+              *m_os << "Ascent2::FindFeasibleTGap: TGap="    << tg0.Magnitude()
                     << " sec: Imprecise Singular Point: h=" << h0.Magnitude()
                     << " km" << std::endl;
             return tg0;
@@ -989,7 +1256,7 @@ namespace
       return std::nullopt;
     }
   };
-  // End of "Ascent" Class
+  // End of "Ascent2" Class
 }
 
 //===========================================================================//
@@ -1012,8 +1279,10 @@ int main(int argc, char* argv[])
   ForceK thrust1Vac = 9.0 * 59'500.0_kg * g0K;
   try
   {
-    Ascent asc(mL, alpha1, thrust2Vac, thrust1Vac, &cout, 1);
+    Ascent2   asc(mL, alpha1, thrust2Vac, thrust1Vac, &cout, 2);
+
     auto tg = asc.FindFeasibleTGap(hC);
+
     if (bool(tg))
       std::cout << tg.value().Magnitude() << " sec" << std::endl;
     else

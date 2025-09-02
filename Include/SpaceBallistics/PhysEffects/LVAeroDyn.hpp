@@ -2,9 +2,10 @@
 //===========================================================================//
 //               "SpaceBallistics/PhysEffects/LVAeroDyn.hpp":                //
 //                                                                           //
-//    Simplified Aprroximations for  the AeroDynamic Drag Coefficient (cD)   //
-//    as a function of the Mach Number (M) and the Angle-of-Attack (alpha)   //
-//           for a Slender Cylindrical LV with a Pointed Nose Cone           //
+//    Simplified Aprroximations for the AeroDynamic Drag and Lift Coeffs     //
+//      (cD and cL, resp) as a function of the Mach Number (M) and the       //
+//    Angle-of-Attack (AoA), for a Slender Cylindrical LV with a Pointed     //
+//                                 Nose Cone                                 //
 //===========================================================================//
 #pragma once
 #include <exception>
@@ -12,7 +13,10 @@
 
 namespace SpaceBallistics::LVAeroDyn
 {
-  inline double cD(double a_M, double a_alpha)
+  //=========================================================================//
+  // "cD": Drag Coeff:                                                       //
+  //=========================================================================//
+  inline double cD(double a_M, Angle a_AoA)
   {
     constexpr int    N = 12;
     constexpr double Ms [N]
@@ -21,10 +25,10 @@ namespace SpaceBallistics::LVAeroDyn
     constexpr double cDs[N]
       {0.20, 0.20, 0.19, 0.18, 0.22, 0.60, 0.45, 0.40, 0.35, 0.35, 0.40, 0.45};
 
-    // First, compute "cD0" for alpha=0. Direct linear search is optimal in
+    // First, compute "cD0" for AoA=0. Direct linear search is optimal in
     // this case:
-    if (a_M < 0.0 || std::fabs(a_alpha > 0.2))  // AoA Limit: +- 11.5 deg
-      throw std::invalid_argument("cD: Invalid M or alpha");
+    if (a_M < 0.0 || std::fabs(double(a_AoA) > 0.2)) // AoA Limit: +- 11.5 deg
+      throw std::invalid_argument("cD: Invalid M or AoA");
 
     double cD0 = 0.0;
     for (int i = N-1; i >= 0; --i)
@@ -41,7 +45,16 @@ namespace SpaceBallistics::LVAeroDyn
         break;
       }
     assert(cD0 > 0.0);
-    return cD0 * (1.0 + 3.0 * Sqr(a_alpha)); // Coeff: 2..4, we use 3
+    return cD0 * (1.0 + 3.0 * Sqr(double(a_AoA))); // Coeff: 2..4, we use 3
+  }
+
+  //=========================================================================//
+  // "cL": Lift Coeff:                                                       //
+  //=========================================================================//
+  inline double cL(double a_M, Angle a_AoA)
+  {
+    // FIXME: TODO: XXX: Not implemented yet:
+    return 0.0;
   }
 }
-// End namespave SpaceBallistics::LVAeroDyn
+// End namespace SpaceBallistics::LVAeroDyn`
