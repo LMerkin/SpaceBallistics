@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
   Mass   mL     { atof(argv[2]) };
   double alpha1 { atof(argv[3]) };
 
-//ForceK thrust2Vac = 1.0 * 63'700.0_kg * g0K;
+//ForceK thrust2Vac = 1.0 * 70'000.0_kg * g0K;
   ForceK thrust2Vac = 1.0 * 90'000.0_kg * g0K;
   ForceK thrust1Vac = 9.0 * 59'500.0_kg * g0K;
   try

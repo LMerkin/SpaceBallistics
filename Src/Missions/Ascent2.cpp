@@ -684,8 +684,14 @@ Ascent2::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA)
   // Curr altitude (possible slightly negative vals are rounded to 0):
   auto atm  = EAM::GetAtmConds(a_r - R);
 
+  // The Speed of Sound:
+  Vel  A    = std::get<3>(atm);
+  if (IsZero(A))
+    // We are above the atmosphere:
+    return std::make_tuple(atm, ForceK(0.0), ForceK(0.0));
+
   // The Mach Number:
-  double M  = double(To_Len_m(a_v) / std::get<3>(atm));
+  double M  = double(To_Len_m(a_v) / A);
   assert(M >= 0.0);
 
   // The Aerodynamic Force Main Term:
@@ -961,23 +967,23 @@ void Ascent2::FindOptimalAscentCtls
 )
 {
   // Perform Parallel Grid Search over the 9D Space of Params:
-  constexpr int    N       = 4;
+  constexpr int    N       = 10;
   constexpr double DN      = double(N);
   constexpr Time   MaxTGap = 150.0_sec;
 
   // The weight assigned to the StartMass: it is less important than arriving
   // at h=0 and V=0:
-  constexpr double lambda  = 1e-3;
+  constexpr double lambda  = 1e-6;
 
   // The "cost function" value to be minimised, and the ArgMin:
   double    minC           = Inf<double>;
   AscCtls   optCtls;
 
 # pragma omp parallel for collapse(3)
-  for (int i0 = 0; i0 <= N; ++i0)
-  for (int i1 = 0; i1 <= N; ++i1)
-  for (int i2 = 1; i2 <= N; ++i2)   // muHat1, must be > 0
-  for (int i3 = 1; i3 <  N; ++i3)   // aHat1:  avoid corners
+//for (int i0 = 0; i0 <= N; ++i0)
+//for (int i1 = 0; i1 <= N; ++i1)
+//for (int i2 = 1; i2 <= N; ++i2)   // muHat1, must be > 0
+//for (int i3 = 1; i3 <  N; ++i3)   // aHat1:  avoid corners
   for (int i4 = 0; i4 <= N; ++i4)
   for (int i5 = 0; i5 <= N; ++i5)
   for (int i6 = 1; i6 <= N; ++i6)   // muHat2, must be > 0
@@ -1006,12 +1012,16 @@ void Ascent2::FindOptimalAscentCtls
 
       // Now "less-effective" Ctls:
       // Stage1 BurnRate Ctls:
-      .m_aHat1  =  double(i3) / DN * 2.0 - 1.0,
-      .m_muHat1 =  double(i2) / DN,
+//    .m_aHat1  =  double(i3) / DN * 2.0 - 1.0,
+//    .m_muHat1 =  double(i2) / DN,
+      .m_aHat1  =  0.0,
+      .m_muHat1 =  1.0,
 
       // Stage1 AoA Params:
-      .m_aAoA1  =  double(i1) / DN,
-      .m_bAoA1  =  double(i0) / DN
+//    .m_aAoA1  =  double(i1) / DN,
+//    .m_bAoA1  =  double(i0) / DN
+      .m_aAoA1  =  0.0,
+      .m_bAoA1  =  0.0
     };
 
     //-------------------------------------------------------------------//
