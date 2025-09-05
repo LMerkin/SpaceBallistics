@@ -28,7 +28,9 @@ namespace SpaceBallistics::LVAeroDyn
     // First, compute "cD0" for AoA=0. Direct linear search is optimal in
     // this case:
     if (a_M < 0.0 || std::fabs(double(a_AoA) > 0.2)) // AoA Limit: +- 11.5 deg
-      throw std::invalid_argument("cD: Invalid M or AoA");
+      throw std::invalid_argument
+            ("cD: Invalid M=" + std::to_string(a_M) + " or AoA=" +
+             std::to_string(double(a_AoA)));
 
     double cD0 = 0.0;
     for (int i = N-1; i >= 0; --i)

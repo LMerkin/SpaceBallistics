@@ -90,7 +90,8 @@ IF("${TOOL_CHAIN}" STREQUAL "GCC")
                 -Wmissing-braces          -Wdisabled-optimization  \
                 -Wconversion              -Wno-stringop-truncation \
                 -Wno-class-memaccess      -Wno-double-promotion    \
-                -Wno-c++20-compat         -Wno-ctor-dtor-privacy")
+                -Wno-c++20-compat         -Wno-ctor-dtor-privacy   \
+                ${OPENMP_FLAGS}")
 
 #-----------------------------------------------------------------------------#
 ELSEIF("${TOOL_CHAIN}" STREQUAL "CLang")
@@ -124,7 +125,7 @@ ELSEIF("${TOOL_CHAIN}" STREQUAL "CLang")
                 -Wno-c99-extensions           -Wno-zero-length-array        \
                 -Wno-packed                   -Wno-undefined-func-template  \
                 -Wno-gnu-statement-expression -Wctor-dtor-privacy           \
-                -Wno-c++20-compat")
+                -Wno-c++20-compat             ${OPENMP_FLAGS}")
 
 #-----------------------------------------------------------------------------#
 ELSE()
@@ -182,7 +183,8 @@ SET(SRCS
   Src/PhysEffects/GravityFld-Moon.cpp
   Src/PhysEffects/DE440T.cpp
   Src/PhysEffects/DE440T-Data.cpp
-  Src/PhysEffects/EarthRotationModel.cpp)
+  Src/PhysEffects/EarthRotationModel.cpp
+  Src/Missions/Ascent2.cpp)
 
 # With CLang, we need some more .CPP files (to circumvent the unavailability of
 # some "constexpr" functions):
@@ -223,14 +225,15 @@ SET(SB_TESTS
 
 FOREACH(SB_TEST ${SB_TESTS})
   ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)
-  TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME} ${GSL_LIBS})
+  TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME}
+                          ${GSL_LIBS} ${OPENMP_LIBS})
 
   IF (${SB_TEST} STREQUAL "MkSoyuz21bMesh")
     TARGET_LINK_LIBRARIES( ${SB_TEST} "gmsh")
   ENDIF()
 
-  IF (${SB_TEST} STREQUAL "AscentTest")
-    TARGET_COMPILE_OPTIONS(${SB_TEST} PRIVATE ${OPENMP_FLAGS})
-    TARGET_LINK_LIBRARIES( ${SB_TEST}         ${OPENMP_LIBS})
-  ENDIF()
+# IF (${SB_TEST} STREQUAL "AscentTest")
+#   TARGET_COMPILE_OPTIONS(${SB_TEST} PRIVATE ${OPENMP_FLAGS})
+#   TARGET_LINK_LIBRARIES( ${SB_TEST}         ${OPENMP_LIBS})
+# ENDIF()
 ENDFOREACH(SB_TEST)
