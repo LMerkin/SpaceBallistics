@@ -194,7 +194,7 @@ namespace SpaceBallistics
     {
       if (a_log != nullptr)
         *a_log  << "# RKF5: Exception: " << exn.what() << std::endl;
-      return t;
+      throw;
     }
     // End of (exception-protected) "t" loop
     // This point is unreachable:

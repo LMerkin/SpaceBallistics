@@ -22,14 +22,15 @@ int main(int argc, char* argv[])
   Mass   mL     { atof(argv[2]) };
   double alpha1 { atof(argv[3]) };
 
-//ForceK thrust2Vac = 1.0 * 70'000.0_kg * g0K;
-  ForceK thrust2Vac = 1.0 * 90'000.0_kg * g0K;
+  ForceK thrust2Vac = 1.0 * 63'700.0_kg * g0K;
   ForceK thrust1Vac = 9.0 * 59'500.0_kg * g0K;
   try
   {
-    Ascent2 asc(mL, alpha1, thrust2Vac, thrust1Vac, &cout, 0);
-
-    asc.FindOptimalAscentCtls(hC, hC, 64.0_deg, 63.0_deg);
+    Ascent2::FindOptimalAscentCtls
+    (
+      mL, hC, hC, 64.0_deg, 63.0_deg,
+      alpha1, thrust2Vac,   thrust1Vac, &cout, 0
+    );
   }
   catch (exception const& exn)
   {

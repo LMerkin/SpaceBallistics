@@ -222,7 +222,9 @@ namespace SpaceBallistics
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
-    Mass                  m_payLoadMass;
+    Mass     const        m_payLoadMass;
+    LenK                  m_Rins;       // Radius-Vector @ Orbital Insertion
+    VelK                  m_Vins;       // LV Velocity   @ Orbital Insertion
 
     // Stage2 Params:
     Mass     const        m_fullMass2;
@@ -291,10 +293,21 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     Ascent2
     (
+      // Mission Params:
       Mass           a_payload_mass,
-      double         a_alpha1,              // FullMass1 / FullMass2
+      LenK           a_h_perigee,
+      LenK           a_h_apogee,
+      Angle_deg      a_incl,
+      Angle_deg      a_launch_lat,
+      AscCtls const& a_ctls,           // Trajectory Ctls
+
+      // LV Params (XXX: they should either be all "constexpr"s or all configu-
+      // rable; but for now, some params are "fixed" and some are not):
+      double         a_alpha1,         // FullMass1 / FullMass2
       ForceK         a_thrust2_vac,
       ForceK         a_thrust1_vac,
+
+      // Logging Params:
       std::ostream*  a_os,
       int            a_log_level
     );
@@ -302,16 +315,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Ascent Trajectory:                               //
     //-----------------------------------------------------------------------//
-    RunRes Run
-    (
-      // Orbit and Launch Params:
-      LenK           a_h_perigee,
-      LenK           a_h_apogee,
-      Angle_deg      a_incl,
-      Angle_deg      a_launch_lat,
-      // Control Params:
-      AscCtls const& a_ctls
-    );
+    RunRes Run();
 
   private:
     //-----------------------------------------------------------------------//
@@ -364,6 +368,11 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     Mass LVMass(StateV const& a_s, Time a_t) const;
 
+    //-----------------------------------------------------------------------//
+    // For Testing Only:                                                     //
+    //-----------------------------------------------------------------------//
+    void OutputCtls() const;
+
   public:
     //-----------------------------------------------------------------------//
     // "FindOptimalAscentCtls"                                               //
@@ -373,12 +382,21 @@ namespace SpaceBallistics
     // orbit is elliptical), and that requires the minimum LV start mass
     // (whereas the payload mass is fixed):
     //
-    void FindOptimalAscentCtls
+    static void FindOptimalAscentCtls
     (
-      LenK      a_h_perigee,
-      LenK      a_h_apogee,
-      Angle_deg a_incl,
-      Angle_deg a_lat
+      // Mission Params:
+      Mass            a_payload_mass,
+      LenK            a_h_perigee,
+      LenK            a_h_apogee,
+      Angle_deg       a_incl,
+      Angle_deg       a_launch_lat,
+      // LV Params (those which are considered to be non-"constexpr"):
+      double          a_alpha1,      // FullMass1 / FullMass2
+      ForceK          a_thrust2_vac,
+      ForceK          a_thrust1_vac,
+      // Logging Params:
+      std::ostream*   a_os,
+      int             a_log_level
     );
   };
 }

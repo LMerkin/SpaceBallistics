@@ -1,12 +1,12 @@
 // vim:ts=2:et
 //===========================================================================//
 //                          "Src/Missions/Ascent2.cpp":                      //
-//Ascent-to-Orbit for a "Model" 2-Stage LV
+//                   Ascent-to-Orbit for a "Model" 2-Stage LV                //
 //===========================================================================//
 #include "SpaceBallistics/Missions/Ascent2.h"
 #include "SpaceBallistics/PhysEffects/LVAeroDyn.hpp"
 #include "SpaceBallistics/Maths/RKF5.hpp"
-#include <nlopt.hpp>
+//#include <nlopt.hpp>
 
 namespace SpaceBallistics
 {
@@ -15,14 +15,24 @@ namespace SpaceBallistics
 //===========================================================================//
 Ascent2::Ascent2
 (
+  // Mission Params:
   Mass            a_payload_mass,
+  LenK            a_h_perigee,
+  LenK            a_h_apogee,
+  Angle_deg       a_incl,
+  Angle_deg       a_launch_lat,
+  AscCtls const&  a_ctls,        // Trajectory Ctls
+  // LV Params:
   double          a_alpha1,      // FullMass1 / FullMass2
   ForceK          a_thrust2_vac,
   ForceK          a_thrust1_vac,
+  // Logging Params:
   std::ostream*   a_os,
   int             a_log_level
 )
 : m_payLoadMass   (a_payload_mass),
+  m_Rins          (),            // Not yet...
+  m_Vins          (),
 
   // Stage2 Params:
   m_fullMass2     ((StartMass - FairingMass - m_payLoadMass) /
@@ -39,7 +49,8 @@ Ascent2::Ascent2
   m_propMass1     (m_fullMass1  * K1),
   m_thrustVac1    (a_thrust1_vac),
   m_burnRateI1    (m_thrustVac1  / (IspVac1  * g0K)),
-  m_TGap          (),     // 0 by default
+
+  m_TGap          (),            // 0 by default
 
   // BurnRate Ctls and AoA Ctls. NB: "m_T{1,2}" are initialised to Actual
   // BurnTimes (taking the Remnants into account):
@@ -66,41 +77,23 @@ Ascent2::Ascent2
   m_os            (a_os), // May be NULL
   m_logLevel      (a_log_level)
 {
-  if ( IsNeg(m_payLoadMass) ||  IsNeg(m_TGap)      || !IsPos(m_fullMass2) ||
-      !IsPos(m_thrustVac2)  || !IsPos(m_fullMass1) || !IsPos(m_thrustVac1))
-    throw std::invalid_argument("Ascent2::Ctor: Invalid param(s)");
+  //-------------------------------------------------------------------------//
+  // Check the Params:                                                       //
+  //-------------------------------------------------------------------------//
+  if ( IsNeg(m_payLoadMass) || !IsPos(m_fullMass2) || !IsPos(m_thrustVac2)  ||
+      !IsPos(m_fullMass1) || !IsPos(m_thrustVac1))
+    throw std::invalid_argument("Ascent2::Ctor: Invalid LV param(s)");
 
   // Therefore:
   assert(IsPos(m_emptyMass2) && IsPos(m_propMass2) && IsPos(m_burnRateI2) &&
          IsPos(m_emptyMass1) && IsPos(m_propMass1) && IsPos(m_burnRateI1));
-}
-
-//===========================================================================//
-// "Run": Integrate the Ascent Trajectory:                                   //
-//===========================================================================//
-// Returns (RunRC, FinalH, FlightTime, ActStartMass):
-//
-Ascent2::RunRes Ascent2::Run
-(
-  // Orbit and Launch Params:
-  LenK            a_h_perigee,
-  LenK            a_h_apogee,
-  Angle_deg       a_incl,
-  Angle_deg       a_launch_lat,
-  // Control Params:
-  AscCtls const&  a_ctls
-)
-{
-  //-------------------------------------------------------------------------//
-  // Check the Params:                                                       //
-  //-------------------------------------------------------------------------//
   if (a_h_perigee  <  100.0_km || a_h_perigee  > a_h_apogee ||
       a_incl       <  0.0_deg  || a_incl       > 180.0_deg  ||
       // NB: We assume launch from the Northern Hemisphere, and not from the
       // North Pole:
       a_launch_lat <   0.0_deg || a_launch_lat >= 90.0_deg)
     throw std::invalid_argument
-          ("Ascent2::Run: Invalid Orbit/Launch  Param(s)");
+          ("Ascent2::Ctor: Invalid Orbit/Launch  Param(s)");
 
   // BurnRate ctls:
   if (IsNeg(a_ctls.m_TGap)     || std::fabs(a_ctls.m_aHat2) > 1.0 ||
@@ -111,18 +104,18 @@ Ascent2::RunRes Ascent2::Run
       a_ctls.m_muHat1 <= 0.0   || a_ctls.m_muHat2 > 1.0     ||
       a_ctls.m_aAoA1  <  0.0   || a_ctls.m_aAoA1  > 1.0     ||
       a_ctls.m_bAoA1  <  0.0   || a_ctls.m_bAoA1  > 1.0)
-      throw std::invalid_argument("Ascent2::Run: Invalid Ctl Param(s)");
+      throw std::invalid_argument("Ascent2::Ctor: Invalid Ctl Param(s)");
 
   //-------------------------------------------------------------------------//
   // Orbital and Launch Params:                                              //
   //-------------------------------------------------------------------------//
   // Semi-Major Axis and the Perigee radius-vector:
-  LenK a  = R + 0.5 * (a_h_perigee + a_h_apogee);
-  LenK q  = R +        a_h_perigee;
+  LenK a = R + 0.5 * (a_h_perigee + a_h_apogee);
+  m_Rins = R +        a_h_perigee;
 
   // The required orbital velocity at the orbital insertion point (which is
   // always assumed to be the Perigee):
-  VelK Vq = SqRt(K * (2.0 / q - 1.0 / a));
+  VelK Vq = SqRt(K * (2.0 / m_Rins - 1.0 / a));
 
   // The Orbit Inclination and the Launch Site Latitude:
   double cosI   = Cos(To_Angle_rad(a_incl));
@@ -130,7 +123,7 @@ Ascent2::RunRes Ascent2::Run
   assert(cosLat > 0.0);
 
   if (std::fabs(cosI) > cosLat)
-    throw std::invalid_argument("Ascent2::Run: Inclination Unreachable");
+    throw std::invalid_argument("Ascent2::Ctor: Inclination Unreachable");
 
   // "A" is the Launch Azimuth:
   double sinA   = cosI / cosLat;
@@ -150,7 +143,7 @@ Ascent2::RunRes Ascent2::Run
   VelK   Vlat   = Vq * sinA - ERV;
   VelK   Vlong  = Vq * cosA;
   // So the LV velocity at the orbital insertion point must be:
-  VelK   Vins   = SqRt(Sqr(Vlat) + Sqr(Vlong));
+  m_Vins        = SqRt(Sqr(Vlat) + Sqr(Vlong));
 
   //-------------------------------------------------------------------------//
   // BurnRate Coeffs:                                                        //
@@ -204,39 +197,25 @@ Ascent2::RunRes Ascent2::Run
     : - Sqr(m_bAoA1) / (4.0 * MaxAoA1);
   m_aAoA1 = aAoALo1  * (1.0 - a_ctls.m_aAoA1) + a_ctls.m_aAoA1 * aAoAUp1;
 
-  //-------------------------------------------------------------------------//
-  // For Testing Only:                                                       //
-  //-------------------------------------------------------------------------//
-  if (m_os != nullptr && m_logLevel >= 2)
-  {
-    // Here "t" is the time from Stage2 cut-off (so t=-T2..0):
-    std::cout << "# T2   := " << m_T2.Magnitude() << ';'    << std::endl;
-    std::cout << "# AoA2 := t * ("   << m_aAoA2.Magnitude() << " * t + ("
-              << m_bAoA2.Magnitude() << ")); "              << std::endl;
-    std::cout << "# mu2  := " << m_burnRateI2.Magnitude()   << " + ("
-              << m_bMu2.Magnitude()  << ") * t + ("
-              << m_aMu2.Magnitude()  << ") * t^2;"          << std::endl;
+}
 
-    // Here "t" is the time from Stage1 cut-off (so t=-T1..0), and "tau" is
-    // the time since Stage1 ignition (NB: the (-b) coeff at "tau" for AoA),
-    // so tau=0..T1:
-    std::cout << "# T1   := " << m_T1.Magnitude() << ';'    << std::endl;
-    std::cout << "# AoA1 := tau * (" << m_aAoA1.Magnitude() << " * tau - ("
-              << m_bAoA1.Magnitude() << ")); "              << std::endl;
-    std::cout << "# mu1  := " << m_burnRateI1.Magnitude()   << " + ("
-              << m_bMu1.Magnitude()  << ") * t + ("
-              << m_aMu1.Magnitude()  << ") * t^2;"          << std::endl;
-  }
+//===========================================================================//
+// "Run": Integrate the Ascent Trajectory:                                   //
+//===========================================================================//
+// Returns (RunRC, FinalH, FlightTime, ActStartMass):
+//
+Ascent2::RunRes Ascent2::Run()
+{
   //-------------------------------------------------------------------------//
   // Run the integration BACKWARDS from the orbital insertion point          //
   //-------------------------------------------------------------------------//
   // (@ t=0):
   // Angular LV velocity at the orbital insertion point:
-  AngVel omega0 = 1.0_rad * Vins / q;
+  AngVel omega0 = 1.0_rad * m_Vins / m_Rins;
 
   // The initial Radial Velocity is 0, and the final delta of Spent Mass
   // is also 0, and the initial Polar Angle is 0:
-  StateV s0 = std::make_tuple(q, VelK(0.0), omega0, 0.0_kg, 0.0_rad);
+  StateV s0 = std::make_tuple(m_Rins, VelK(0.0), omega0, 0.0_kg, 0.0_rad);
 
   // The RHS and the Call-Back Lambdas:
   auto rhs =
@@ -248,7 +227,6 @@ Ascent2::RunRes Ascent2::Run
     { return this->ODECB (a_s, a_t); };
 
   // FlightMode ctl (modes are switched based on the SpentPropMass):
-  m_TGap           = a_ctls.m_TGap;
   m_mode           = FlightMode::Burn2;
   m_ignTime2       = Time(NAN);  // Not known yet
   m_cutOffTime1    = Time(NAN);  // ditto
@@ -301,15 +279,17 @@ Ascent2::RunRes Ascent2::Run
     //-----------------------------------------------------------------------//
     // Any other "standard" (or other) exceptions: Ascent unsuccessful:      //
     //-----------------------------------------------------------------------//
-    if (m_os != nullptr && m_logLevel >= 1)
+    if (m_os != nullptr)
       *m_os  << "# Ascent2::Run: Exception: " << exn.what() << std::endl;
+
     return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN)};
   }
   catch (...)
   {
     // Any other exception:
-    if (m_os != nullptr && m_logLevel >= 1)
+    if (m_os != nullptr)
       *m_os  << "# Ascent2::Run: UnKnown Exception" << std::endl;
+
     return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN)};
   }
 
@@ -865,8 +845,17 @@ Angle Ascent2::AoA(Time a_t) const
     // NB: The coeff "b" @ "tau" has INVERTED sign:
     Time   tIgn1 = m_cutOffTime1  - m_T1;
     Time   tau   = std::min(std::max(a_t - tIgn1,    0.0_sec), m_T1);
-    return std::max(tau * (m_aAoA1 * tau - m_bAoA1), 0.0_rad);
+    Angle  res   = std::max(tau * (m_aAoA1 * tau - m_bAoA1), 0.0_rad);
+    if (res > 1.01 * MaxAoA1)
+    {
+      OutputCtls();
+      throw std::logic_error
+            ("Burn1: MaxAoA1=" + std::to_string(MaxAoA1.Magnitude()) +
+             " exceeded: AoA=" + std::to_string(res    .Magnitude()));
+    }
+    return res;
   }
+
   case FlightMode::Gap:
     return 0.0_rad;
 
@@ -876,9 +865,18 @@ Angle Ascent2::AoA(Time a_t) const
     // time), so it is just the main time "a_t": -T2 <= t <= 0; enforce
     // those constraints:
     assert(!IsPos(a_t));
-    Time t = std::max(a_t, -m_T2);
-    return   std::max(t *  (m_aAoA2 * t + m_bAoA2), 0.0_rad);
+    Time  t   = std::max(a_t, -m_T2);
+    Angle res = std::max(t *  (m_aAoA2 * t + m_bAoA2), 0.0_rad);
+    if (res > 1.01 * MaxAoA2)
+    {
+      OutputCtls();
+      throw std::logic_error
+            ("Burn2: MaxAoA2=" + std::to_string(MaxAoA2.Magnitude()) +
+             " exceeded: AoA=" + std::to_string(res    .Magnitude()));
+    }
+    return res;
   }
+
   default:
     return 0.0_rad;
   }
@@ -951,6 +949,35 @@ Mass Ascent2::LVMass(StateV const& a_s, Time a_t) const
 }
 
 //===========================================================================//
+// "OutputCtls":                                                             //
+//===========================================================================//
+// For Testing Only:                                                       //
+//
+void Ascent2::OutputCtls() const
+{
+  if (m_os == nullptr)
+    return;
+
+  // Here "t" is the time from Stage2 cut-off (so t=-T2..0):
+  std::cout << "# T2   := " << m_T2.Magnitude() << ';'    << std::endl;
+  std::cout << "# AoA2 := t * ("   << m_aAoA2.Magnitude() << " * t + ("
+            << m_bAoA2.Magnitude() << ")); "              << std::endl;
+  std::cout << "# mu2  := " << m_burnRateI2.Magnitude()   << " + ("
+            << m_bMu2.Magnitude()  << ") * t + ("
+            << m_aMu2.Magnitude()  << ") * t^2;"          << std::endl;
+
+  // Here "t" is the time from Stage1 cut-off (so t=-T1..0), and "tau" is
+  // the time since Stage1 ignition (NB: the (-b) coeff at "tau" for AoA),
+  // so tau=0..T1:
+  std::cout << "# T1   := " << m_T1.Magnitude() << ';'    << std::endl;
+  std::cout << "# AoA1 := tau * (" << m_aAoA1.Magnitude() << " * tau - ("
+            << m_bAoA1.Magnitude() << ")); "              << std::endl;
+  std::cout << "# mu1  := " << m_burnRateI1.Magnitude()   << " + ("
+            << m_bMu1.Magnitude()  << ") * t + ("
+            << m_aMu1.Magnitude()  << ") * t^2;"          << std::endl;
+}
+
+//===========================================================================//
 // "FindOptimaleAscentCtls"                                                  //
 //===========================================================================//
 // "TGap" is a control param  which must ensure a correct ascent to the
@@ -960,14 +987,23 @@ Mass Ascent2::LVMass(StateV const& a_s, Time a_t) const
 //
 void Ascent2::FindOptimalAscentCtls
 (
-  LenK      a_h_perigee,
-  LenK      a_h_apogee,
-  Angle_deg a_incl,
-  Angle_deg a_lat
+  // Mission Params:
+  Mass            a_payload_mass,
+  LenK            a_h_perigee,
+  LenK            a_h_apogee,
+  Angle_deg       a_incl,
+  Angle_deg       a_launch_lat,
+  // LV Params (those which are considered to be non-"constexpr"):
+  double          a_alpha1,      // FullMass1 / FullMass2
+  ForceK          a_thrust2_vac,
+  ForceK          a_thrust1_vac,
+  // Logging Params:
+  std::ostream*   a_os,
+  int             a_log_level
 )
 {
   // Perform Parallel Grid Search over the 9D Space of Params:
-  constexpr int    N       = 10;
+  constexpr int    N       = 20;
   constexpr double DN      = double(N);
   constexpr Time   MaxTGap = 150.0_sec;
 
@@ -991,7 +1027,7 @@ void Ascent2::FindOptimalAscentCtls
   for (int i8 = 0; i8 <= N; ++i8)
   {
     //-----------------------------------------------------------------------//
-    // Construct the Ctls:                                                   //
+    // Construct the Ctls and the "Ascent2" obj:                             //
     //-----------------------------------------------------------------------//
     // XXX: Most "effective" ctls correspond to the "inner-most" loops, in a
     // hope we can get a reasonable solution reasonably quickly. Those  ctls
@@ -1024,27 +1060,30 @@ void Ascent2::FindOptimalAscentCtls
       .m_bAoA1  =  0.0
     };
 
+    Ascent2 asc
+    (
+      a_payload_mass,
+      a_h_perigee,
+      a_h_apogee, 
+      a_incl,
+      a_launch_lat,
+      ctls,
+      a_alpha1,
+      a_thrust2_vac,
+      a_thrust1_vac,
+      a_os,
+      a_log_level
+    );
+
     //-------------------------------------------------------------------//
-    // Run the integrator and hope to reach the singular point:          //
+    // Run the integrator and analyse the results:                       //
     //-------------------------------------------------------------------//
-    RunRes res =
-      Run
-      (
-        // Orbit and Launch Latitude:
-        a_h_perigee,
-        a_h_apogee,
-        a_incl,
-        a_lat,
-        // Ctls:
-        ctls
-      );
-    //-------------------------------------------------------------------//
-    // Analyse the results:                                              //
-    //-------------------------------------------------------------------//
+    RunRes res = asc.Run();
+
     if (res.m_rc == RunRC::Error)
       continue;
 
-    // In all other cases, evaluate the Cost Function:
+    // In all valid cases, evaluate the Cost Function:
     double C =
       Log
       (
@@ -1059,8 +1098,8 @@ void Ascent2::FindOptimalAscentCtls
       minC    = C;
       optCtls = ctls;
 
-      if (m_os != nullptr)
-        std::cout
+      if (asc.m_os != nullptr)
+        *asc.m_os
           << "# "
           << ctls.m_aHat2 << "  " << ctls.m_muHat2 << "  "
           << ctls.m_aAoA2 << "  " << ctls.m_bAoA2  << "  "
