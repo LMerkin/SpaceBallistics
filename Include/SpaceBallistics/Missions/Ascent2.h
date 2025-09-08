@@ -1,4 +1,4 @@
-vim:ts=2:et
+// vim:ts=2:et
 //===========================================================================//
 //                     "SpaceBallistics/Missions/Ascent2.h":                 //
 //                   Ascent-to-Orbit for a "Model" 2-Stage LV                //
@@ -6,6 +6,7 @@ vim:ts=2:et
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/PhysEffects/BodyData.hpp"
 #include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.hpp"
+#include <boost/functional/hash.hpp>
 #include <ostream>
 #include <optional>
 #include <utility>
@@ -70,8 +71,8 @@ namespace SpaceBallistics
     constexpr static VelK   SingVhor         = VelK(1e-4); //  0.1 m/sec
 
     // Angle-of-Attack (AoA) Limits for the 1st and the 2nd stage:
-    constexpr static Angle  MaxAoA2          = To_Angle(10.0_deg);
-    constexpr static Angle  MaxAoA1          = To_Angle( 1.0_deg);
+    constexpr static Angle  MaxAoA2          = To_Angle(20.0_deg);
+    constexpr static Angle  MaxAoA1          = To_Angle( 2.0_deg);
 
     // The Number of Ctl Params in the optimisation algorithm for construction
     // of the ascent-to-orbit trajectory:
@@ -200,31 +201,77 @@ namespace SpaceBallistics
 
   public:
     //-----------------------------------------------------------------------//
-    // "AscCtls" Struct:                                                     //
+    // "AscCtlsL" Struct:                                                    //
     //-----------------------------------------------------------------------//
-    // Params controlling the ascent trajectory:
+    // Dimension-Less Params Controlling the Ascent Trajectory:
     //
-    struct AscCtls
+    struct AscCtlsL
     {
+      //---------------------------------------------------------------------//
+      // Data Flds:                                                          //
+      //---------------------------------------------------------------------//
       // BurnRate Ctl Params for Stage2: The defaults corresp to const BurnRate:
-      double  m_aHat2  = 0.0;     // Must be in [-1 .. 1]
-      double  m_muHat2 = 1.0;     // Must be in [ 0 .. 1]
+      double  m_aHat2;            // Must be in [-1 .. 1], default is 0
+      double  m_muHat2;           // Must be in [ 0 .. 1], default is 1
 
       // AoA Ctl Params for Stage2: The defaults corresp to AoA = 0:
-      double  m_aAoA2  = 0.0;     // Must be in [ 0 .. 1]
-      double  m_bAoA2  = 0.0;     // Must be in [ 0 .. 1]
+      double  m_aAoA2;            // Must be in [ 0 .. 1], default is 0
+      double  m_bAoA2;            // Must be in [ 0 .. 1], default is 0
 
       // Ballistic Gap: XXX: Using "double" rather than "Time" here, for STL
       // compatibility:
-      double  m_TGap   = 0.0;
+      double  m_TGap;             // Default is 0
 
       // BurnRate ctl params for Stage1: The defaults corresp to const BurnRate:
-      double  m_aHat1  = 0.0;     // Must be in [-1 .. 1]
-      double  m_muHat1 = 1.0;     // Must be in [ 0 .. 1]
+      double  m_aHat1;            // Must be in [-1 .. 1], default is 0
+      double  m_muHat1;           // Must be in [ 0 .. 1], default is 1
 
       // AoA ctl param for Stage1: The defaults corresp to AoA = 0:
-      double  m_aAoA1  = 0.0;     // Must be in [ 0 .. 1]
-      double  m_bAoA1  = 0.0;     // Must be in [ 0 .. 1]
+      double  m_aAoA1;            // Must be in [ 0 .. 1], default is 0
+      double  m_bAoA1;            // Must be in [ 0 .. 1], default is 0
+
+      //---------------------------------------------------------------------//
+      // To use "AscCtlsL" as an "unordered_map" key, we need Hash and (==): //
+      //---------------------------------------------------------------------//
+      bool operator==(AscCtlsL const&) const = default;
+
+      // For Hash, see the end of this header...
+    };
+
+    //-----------------------------------------------------------------------//
+    // "AscCtlsD": Dimensioned Params Controlling the Ascent Trajectory:     //
+    //-----------------------------------------------------------------------//
+    using MassT2 = decltype(MassRate(1.0) / 1.0_sec);
+    using MassT3 = decltype(MassT2  (1.0) / 1.0_sec);
+
+    struct AscCtlsD
+    {
+      // Similar to the corresp flds in "Ascent2" class itself:
+      // BurnRate for Stage2:
+      Time                  m_T2;         // Actual Stage2 BurnTime
+      MassT3                m_aMu2;
+      MassT2                m_bMu2;
+      // AoA for Stage2: AoA(t) = t * (a * t + b), t <= 0:
+      AngAcc                m_aAoA2;
+      AngVel                m_bAoA2;
+
+      // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
+      // ignition):
+      Time                  m_TGap;
+
+      // BurnRate for Stage1:
+      Time                  m_T1;         // Actual Stage1 BurnTime
+      MassT3                m_aMu1;
+      MassT2                m_bMu1;
+
+      // AoA for Stage1: AoA(nt)  = nt *  (a * nt  + b),
+      // where nt = -tau =  tIgn1 - t <= 0;
+      // thus,           AOA(tau) = tau * (a * tau - b):
+      AngAcc                m_aAoA1;
+      AngVel                m_bAoA1;
+
+      // In addition, we provide the LV StartMass (<= MaxStartMass):
+      Mass                  m_startMass;
     };
 
   private:
@@ -262,30 +309,28 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Flight Control Program Parameterisation:                              //
     //-----------------------------------------------------------------------//
-    // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
-    // ignition):
-    Time                  m_TGap;
-
-    // BurnRate for Stages 1 and 2:
+    // BurnRate for Stage2:
     // It is a non-increasing quadratic function of time, which coeffs depend-
     // ing (somehow) on 2 dimension-less params: "aHat" and "muHat":
     // BurnRate(tau) = BurnRateI + bMu * tau + aMu * tau^2, where "tau" is the
     // time since ignition of the corresp Stage:
     //
-    using MassT2     =    decltype(MassRate(1.0) / 1.0_sec);
-    using MassT3     =    decltype(MassT2  (1.0) / 1.0_sec);
-
     Time                  m_T2;         // Actual Stage2 BurnTime
     MassT3                m_aMu2;
     MassT2                m_bMu2;
 
-    Time                  m_T1;         // Actual Stage1 BurnTime
-    MassT3                m_aMu1;
-    MassT2                m_bMu1;
-
     // AoA for Stage2: AoA(t) = t * (a * t + b), t <= 0:
     AngAcc                m_aAoA2;
     AngVel                m_bAoA2;
+
+    // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
+    // ignition):
+    Time                  m_TGap;
+
+    // BurnRate for Stage1:
+    Time                  m_T1;         // Actual Stage1 BurnTime
+    MassT3                m_aMu1;
+    MassT2                m_bMu1;
 
     // AoA for Stage1: AoA(nt)  = nt *  (a * nt  + b),
     // where nt = -tau =  tIgn1 - t <= 0;
@@ -305,7 +350,7 @@ namespace SpaceBallistics
     int           const   m_logLevel;
 
     // Static Cache for "RunRes"es (for use with NLOpt):
-    static std::unordered_map<AscCtls, RunRes> s_Cache;
+    static std::unordered_map<AscCtlsL, RunRes> s_Cache;
 
   public:
     //=======================================================================//
@@ -318,21 +363,20 @@ namespace SpaceBallistics
     (
       // LV Params (XXX: they should either be all "constexpr"s or all configu-
       // rable; but for now, some params are "fixed" and some are not):
-      double         a_alpha1,         // FullMass1 / FullMass2
-      ForceK         a_thrust2_vac,
-      ForceK         a_thrust1_vac,
+      double          a_alpha1,         // FullMass1 / FullMass2
+      ForceK          a_thrust2_vac,
+      ForceK          a_thrust1_vac,
 
       // Mission Params:
-      Mass           a_payload_mass,
-      LenK           a_h_perigee,
-      LenK           a_h_apogee,
-      Angle_deg      a_incl,
-      Angle_deg      a_launch_lat,
-      AscCtls const& a_ctls,           // Trajectory Ctls
+      Mass            a_payload_mass,
+      LenK            a_h_perigee,
+      LenK            a_h_apogee,
+      Angle_deg       a_incl,
+      Angle_deg       a_launch_lat,
 
       // Logging Params:
-      std::ostream*  a_os,
-      int            a_log_level
+      std::ostream*   a_os,
+      int             a_log_level
     );
 
     //-----------------------------------------------------------------------//
@@ -352,7 +396,7 @@ namespace SpaceBallistics
     // "SetCtlsParams":
     // Setting the Flight Ctl Params. Used in the Ctor and in the optimisation
     // loop:
-    void SetCtlParams(AscCtls const& a_ctls);
+    void SetCtlParams(AscCtlsL const& a_ctls);
 
     void SetCtlParams
     (
@@ -413,10 +457,10 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // NLOpt Support:                                                        //
     //-----------------------------------------------------------------------//
-    static std::option<Ascent2::RunRes> GetRunRes
+    static std::optional<Ascent2::RunRes> GetRunRes
            (double const a_xs[NP], void* a_env);
 
-    static double EvalNLoptObjective
+    static double EvalNLOptObjective
     (
       unsigned     a_n,
       double const a_xs[NP],
@@ -424,7 +468,7 @@ namespace SpaceBallistics
       void*        a_env
     );
 
-    void Ascent2::EvalNLOptConstraints
+    static void EvalNLOptConstraints
     (
       unsigned     a_m,
       double       a_constrs[],
@@ -438,24 +482,26 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "FindOptimalAscentCtls"                                               //
     //-----------------------------------------------------------------------//
-    // Tries to find the "AscCtls"  such that the specified target orbit is
-    // reached (with the orbital insertion occurring in the perigee, if the
-    // orbit is elliptical), and that requires the minimum LV start mass
+    // Tries to find the Flight Control Params such that  the specified target
+    // orbit is reached (with the orbital insertion occurring in the perigee,
+    // if the orbit is elliptical) and that requires the minimum LV start mass
     // (whereas the payload mass is fixed).
-    // Returns (OptAscCtls, MinStartMass):
+    // Returns (OptAscCtlsD, MinStartMass):
     //
-    static std::pair<AscCtls, Mass> FindOptimalAscentCtls
+    static std::optional<AscCtlsD> FindOptimalAscentCtls
     (
+      // LV Params (those which are considered to be non-"constexpr"):
+      double          a_alpha1,      // FullMass1 / FullMass2
+      ForceK          a_thrust2_vac,
+      ForceK          a_thrust1_vac,
+
       // Mission Params:
       Mass            a_payload_mass,
       LenK            a_h_perigee,
       LenK            a_h_apogee,
       Angle_deg       a_incl,
       Angle_deg       a_launch_lat,
-      // LV Params (those which are considered to be non-"constexpr"):
-      double          a_alpha1,      // FullMass1 / FullMass2
-      ForceK          a_thrust2_vac,
-      ForceK          a_thrust1_vac,
+
       // Logging Params:
       std::ostream*   a_os,
       int             a_log_level
@@ -463,3 +509,35 @@ namespace SpaceBallistics
   };
 }
 // End namespace SpaceBallistics
+
+namespace std
+{
+  //=========================================================================//
+  // Specialize "std::hash" for "Ascent2::AscCtlsL":                         //
+  //=========================================================================//
+  // Using "boost::hash_combine":
+  //
+  template <>
+  struct hash<SpaceBallistics::Ascent2::AscCtlsL>
+  {
+    size_t operator() (SpaceBallistics::Ascent2::AscCtlsL const& c) const
+    {
+      // Normalize -0.0 to 0.0 to avoid inconsistency with (==):
+      auto norm0 = [](double a_x) -> double
+                   { return (a_x  == 0.0) ? 0.0 : a_x; };
+
+      size_t seed = 0;
+      boost::hash_combine(seed, norm0(c.m_aHat2 ));
+      boost::hash_combine(seed, norm0(c.m_muHat2));
+      boost::hash_combine(seed, norm0(c.m_aAoA2 ));
+      boost::hash_combine(seed, norm0(c.m_bAoA2 ));
+      boost::hash_combine(seed, norm0(c.m_TGap  ));
+      boost::hash_combine(seed, norm0(c.m_aHat1 ));
+      boost::hash_combine(seed, norm0(c.m_muHat1));
+      boost::hash_combine(seed, norm0(c.m_aAoA1 ));
+      boost::hash_combine(seed, norm0(c.m_bAoA1 ));
+      return seed;
+    }
+  };
+}
+// End namespace "std"

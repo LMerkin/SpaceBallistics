@@ -13,7 +13,7 @@ namespace SpaceBallistics
 //===========================================================================//
 // Static Cache:                                                             //
 //===========================================================================//
-std::unordered_map<Ascent2::AscCtls, Ascent2::RunRes> Ascent2::s_Cache;
+std::unordered_map<Ascent2::AscCtlsL, Ascent2::RunRes> Ascent2::s_Cache;
 
 //===========================================================================//
 // "Ascent2": Non-Default Ctor:                                              //
@@ -31,7 +31,6 @@ Ascent2::Ascent2
   LenK            a_h_apogee,
   Angle_deg       a_incl,
   Angle_deg       a_launch_lat,
-  AscCtls const&  a_ctls,        // Flight Ctls
 
   // Logging Params:
   std::ostream*   a_os,
@@ -66,20 +65,17 @@ Ascent2::Ascent2
   //-------------------------------------------------------------------------//
   // Flight Ctl Params:                                                      //
   //-------------------------------------------------------------------------//
-  m_TGap          (),            // 0 by default
-
   // BurnRate Ctls and AoA Ctls. NB: "m_T{1,2}" are initialised to Actual
   // BurnTimes (taking the Remnants into account):
   m_T2            (m_propMass2 * (1.0 - PropRem2) / m_burnRateI2),
   m_aMu2          (MassT3(0.0)),
   m_bMu2          (MassT2(0.0)),
-
+  m_aAoA2         (AngAcc(0.0)),
+  m_bAoA2         (AngVel(0.0)),
+  m_TGap          (),            // 0 by default
   m_T1            (m_propMass1 * (1.0 - PropRem1) / m_burnRateI1),
   m_aMu1          (MassT3(0.0)),
   m_bMu1          (MassT2(0.0)),
-
-  m_aAoA2         (AngAcc(0.0)),
-  m_bAoA2         (AngVel(0.0)),
   m_aAoA1         (AngAcc(0.0)),
   m_bAoA1         (AngVel(0.0)),
 
@@ -154,19 +150,12 @@ Ascent2::Ascent2
   VelK   Vlong  = Vq * cosA;
   // So the LV velocity at the orbital insertion point must be:
   m_Vins        = SqRt(Sqr(Vlat) + Sqr(Vlong));
-
-  //-------------------------------------------------------------------------//
-  // Finally, set the Flight Ctl Params:                                     //
-  //-------------------------------------------------------------------------//
-  SetCtlParams(a_ctls);
 }
 
 //===========================================================================//
 // "SetCtlParams":                                                           //
 //===========================================================================//
-// With "AscCtls" struct:
-//
-void Ascent2::SetCtlParams(AscCtls const& a_ctls)
+void Ascent2::SetCtlParams(AscCtlsL const& a_ctls)
 {
   SetCtlParams(a_ctls.m_aHat2, a_ctls.m_muHat2,
                a_ctls.m_aAoA2, a_ctls.m_bAoA2,
@@ -175,8 +164,6 @@ void Ascent2::SetCtlParams(AscCtls const& a_ctls)
                a_ctls.m_aAoA1, a_ctls.m_bAoA1);
 }
 
-// With individual params: The actual implementation:
-//
 void Ascent2::SetCtlParams
 (
   double a_aHat2, double a_muHat2,  // Stage2 BurnRate
@@ -1042,7 +1029,7 @@ void Ascent2::OutputCtls() const
 // Extract the "RunRes" from the Cache or compute a new one. If either method
 // fails, return the "nullopt":
 //
-std::option<Ascent2::RunRes> Ascent2::GetRunRes
+std::optional<Ascent2::RunRes> Ascent2::GetRunRes
 (
   double const a_xs[NP],
   void*        a_env
@@ -1051,12 +1038,12 @@ std::option<Ascent2::RunRes> Ascent2::GetRunRes
   assert(a_env != nullptr);
 
   //-------------------------------------------------------------------------//
-  // Construct the "AscCtls" obj used for caching:                           //
+  // Construct the "AscCtlsL" obj used for caching:                          //
   //-------------------------------------------------------------------------//
   // a_xs = [aHat2, aMuHat2, aAoA2, bAoA2, TGap, aHat1, aMuHat1, aAoA1, bAoA1]:
-  // XXX: Can we simply cast "a_xs" to an "AscCtls" ptr, w/o copying the data
+  // XXX: Can we simply cast "a_xs" to an "AscCtlsL" ptr, w/o copying the data
   // over?
-  AscCtls ctls
+  AscCtlsL ctls
   {
     .m_aHat2  = a_xs[0], .m_muHat2 = a_xs[1],
     .m_aAoA2  = a_xs[2], .m_bAoA2  = a_xs[3],
@@ -1102,10 +1089,10 @@ std::option<Ascent2::RunRes> Ascent2::GetRunRes
 //===========================================================================//
 // "EvalNLOptObjective":                                                     //
 //===========================================================================//
-// Evaluate the Function to be Minimised (by NLopt): It is actually the LV Mass
+// Evaluate the Function to be Minimised (by NLOpt): It is actually the LV Mass
 // at the end of Bwd integration:
 //
-double Ascent2::EvalNLoptObjective
+double Ascent2::EvalNLOptObjective
 (
   unsigned     DEBUG_ONLY(a_n),
   double const a_xs[NP],
@@ -1117,20 +1104,19 @@ double Ascent2::EvalNLoptObjective
 
   // Find or compute the "RunRes":
   std::optional<RunRes> res = GetRunRes(a_xs, a_env);
-
   return
     bool(res)
     ? // Got a valid result, use its mass:
-      (res.value().m_mT)  .Magnitude()
+      res.value().m_mT  .Magnitude()
     : // Otherwise, we return large invalid mass, but not too large (so not to
       // disrupt the optimisation algorithm):
-      (2.0 * MaxStartMass).Magnitude();
+      2.0 * MaxStartMass.Magnitude();
 }
 
 //===========================================================================//
 // "EvalNLOptConstraints":                                                   //
 //===========================================================================//
-// Evaluate the Constraints vector (all components must be <= 0) in NLopt:
+// Evaluate the Constraints vector (all components must be <= 0) in NLOpt:
 //
 void Ascent2::EvalNLOptConstraints
 (
@@ -1147,35 +1133,40 @@ void Ascent2::EvalNLOptConstraints
   // Find or compute the "RunRes":
   std::optional<RunRes> res = GetRunRes(a_xs, a_env);
 
+  double hT = NAN, VT = NAN;
   if (bool(res))
   {
-    a_constrs[0] = (std::max(res.value().m_hT, 0.0_km)   ).Magnitude();
-    a_constrs[1] = (std::max(res.value().m_VT, VelK(0.0))).Magnitude();
+    hT = (std::max(res.value().m_hT, 0.0_km)   ).Magnitude();
+    VT = (std::max(res.value().m_VT, VelK(0.0))).Magnitude();
   }
   else
   {
     // Failed to compute the "RunRes". Return positive but not too large
     // values:
-    a_constrs[0] = (10.0_km).Magnitude();
-    a_constrs[1] = VelK(1.0).Magnitude();
+    hT = (10.0_km).Magnitude();
+    VT = VelK(1.0).Magnitude();
   }
+  a_constrs[0] = hT;
+  a_constrs[1] = VT;
 }
 
 //===========================================================================//
 // "FindOptimalAscentCtls"                                                   //
 //===========================================================================//
-std::pair<Ascent2::AsctCtls, Mass> Ascent2::FindOptimalAscentCtls
+std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
 (
+  // LV Params (those which are considered to be non-"constexpr"):
+  double          a_alpha1,      // FullMass1 / FullMass2
+  ForceK          a_thrust2_vac,
+  ForceK          a_thrust1_vac,
+
   // Mission Params:
   Mass            a_payload_mass,
   LenK            a_h_perigee,
   LenK            a_h_apogee,
   Angle_deg       a_incl,
   Angle_deg       a_launch_lat,
-  // LV Params (those which are considered to be non-"constexpr"):
-  double          a_alpha1,      // FullMass1 / FullMass2
-  ForceK          a_thrust2_vac,
-  ForceK          a_thrust1_vac,
+
   // Logging Params:
   std::ostream*   a_os,
   int             a_log_level
@@ -1185,8 +1176,92 @@ std::pair<Ascent2::AsctCtls, Mass> Ascent2::FindOptimalAscentCtls
   // use the "COBYLA" method which can handle non-linear constraints  (for the
   // final "V" and "h" vals):
   nlopt::opt opt(nlopt::LN_COBYLA, NP);
-  opt.set_min_objective(EvalNLOpt, this);
 
+  // Create the "prototype" "Ascent2" obj; the actual Ctls to be evaluated will
+  // be installed in it in the course of optimisation:
+  Ascent2 asc
+  (
+    a_alpha1,       a_thrust2_vac, a_thrust1_vac,
+    a_payload_mass, a_h_perigee,   a_h_apogee,  a_incl,  a_launch_lat,
+    a_os,           a_log_level
+  );
+
+  // Set the Objective Function to be Minimised, and the Constraints. The "tols"
+  // are critically important:
+  opt.set_min_objective         (EvalNLOptObjective,   &asc);
+
+  std::vector<double> tols { (0.1_km).Magnitude(), VelK(0.05).Magnitude() };
+  opt.add_inequality_mconstraint(EvalNLOptConstraints, &asc, tols);
+
+  // Set the bounds for:
+  // [aHat2, aMuHat2, aAoA2, bAoA2, TGap, aHat1, aMuHat1, aAoA1, bAoA1]:
+  //
+  std::vector<double> loBounds
+    { -1.0,  0.0,     0.0,   0.0,   0.0,  -1.0,  0.0,     0.0,   0.0  };
+  std::vector<double> upBounds
+    {  1.0,  1.0,     1.0,   1.0, 300.0,   1.0,  1.0,     1.0,   1.0  };
+
+  opt.set_lower_bounds(loBounds);
+  opt.set_upper_bounds(upBounds);
+
+  // Set the max number of evaluations to prevent infinite loops:
+  opt.set_maxeval(1000);
+
+  // Set the stopping criteria for finding the StartMass minimum: 100 kg is OK:
+  opt.set_ftol_abs((100.0_kg).Magnitude());
+
+  // Run the Optimisation:
+  std::vector<double>   optArgs
+    {  0.0,  0.5,     0.5,   0.5,  60.0,   0.0,  0.5,     0.5,   0.5  };
+
+  double optVal = NAN;      // Will become the minimised StartMass
+  nlopt::result rc = opt.optimize(optArgs, optVal);
+
+  if (rc != nlopt::SUCCESS && rc != nlopt::FTOL_REACHED)
+    return std::nullopt;    // Optimisation definitely unsuccessful...
+
+  // XXX: However, it looks like that we can get FTOL_REACHED,  but the
+  // constraints are unsatisfied. So re-evaluate the constraints on the
+  // final "optArgs":
+  double optConstrs   [2];
+  EvalNLOptConstraints(2, optConstrs, NP, optArgs.data(), nullptr, &asc);
+
+  if (optConstrs[0] > tols[0]  || optConstrs[1] > tols[1])
+    return std::nullopt;    // Failed to satisfy the constraints
+
+  // If OK:
+  // In order to get the resulting "AscCtlsD", put the "AscCtlsL" into the
+  // "asc" obj:
+  asc.SetCtlParams
+    (optArgs[0], optArgs[1], optArgs[2], optArgs[3],
+     optArgs[4],
+     optArgs[5], optArgs[6], optArgs[7], optArgs[8]
+    );
+
+  // The result:
+  AscCtlsD res
+  {
+    // For Stage2:
+    .m_T2         = asc.m_T2,
+    .m_aMu2       = asc.m_aMu2,
+    .m_bMu2       = asc.m_bMu2,
+    .m_aAoA2      = asc.m_aAoA2,
+    .m_bAoA2      = asc.m_bAoA2,
+
+    // Ballistic Gap:
+    .m_TGap       = asc.m_TGap,
+
+    // For Stage1:
+    .m_T1         = asc.m_T1,
+    .m_aMu1       = asc.m_aMu1,
+    .m_bMu1       = asc.m_bMu1,
+    .m_aAoA1      = asc.m_aAoA1,
+    .m_bAoA1      = asc.m_bAoA1,
+
+    // Start Mass:
+    .m_startMass  = Mass(optVal)
+  };
+  return res;
 }
 
 }

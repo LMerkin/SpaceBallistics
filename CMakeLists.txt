@@ -56,6 +56,13 @@ SET(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${ENV_PREFIX}/lib/pkgconfig")
 FIND_PACKAGE(GSL REQUIRED)
 SET(GSL_LIBS "gsl" "openblas")
 
+# Boost:
+# Boost (no specific version checks):
+FIND_PACKAGE(Boost  REQUIRED)
+
+# NLOpt:
+FIND_PACKAGE(NLOPT  REQUIRED)
+
 #=============================================================================#
 # Compiler Settings:                                                          #
 #=============================================================================#
@@ -142,7 +149,11 @@ SET(CMAKE_CXX_FLAGS_DEBUG          "")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXXFLAGS}")
 
-ADD_DEFINITIONS(-DUNCHECKED_MODE=${UNCHECKED_MODE})
+ADD_DEFINITIONS(-DUNCHECKED_MODE=${UNCHECKED_MODE}
+                -DBOOST_SYSTEM_NO_DEPRECATED
+                -UBOOST_CB_ENABLE_DEBUG
+                -DBOOST_CB_DISABLE_DEBUG)
+
 IF (UNCHECKED_MODE)
   ADD_DEFINITIONS(-DNDEBUG)
 ENDIF()
@@ -168,7 +179,8 @@ SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/Include"
                     "${DIMTYPES_TOP_DIR}/Include"
-)
+                    ${NLOPT_INCLUDE_DIR})
+
 LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
 
 #=============================================================================#
@@ -193,7 +205,8 @@ IF ("${TOOL_CHAIN}" STREQUAL "CLang")
     Src/PhysEffects/EarthAtmosphereModel.cpp)
 ENDIF()
 
-ADD_LIBRARY(${PROJECT_NAME} STATIC ${SRCS})
+ADD_LIBRARY          (${PROJECT_NAME} STATIC   ${SRCS})
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${NLOPT_LIBRARY})
 
 #=============================================================================#
 # Tests:                                                                      #
@@ -224,8 +237,8 @@ SET(SB_TESTS
   AscentTest)
 
 FOREACH(SB_TEST ${SB_TESTS})
-  ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)
-  TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME}
+  ADD_EXECUTABLE         (${SB_TEST}  Tests/${SB_TEST}.cpp)
+  TARGET_LINK_LIBRARIES  (${SB_TEST}  ${PROJECT_NAME}
                           ${GSL_LIBS} ${OPENMP_LIBS})
 
   IF (${SB_TEST} STREQUAL "MkSoyuz21bMesh")
