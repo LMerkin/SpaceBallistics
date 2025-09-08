@@ -1,4 +1,4 @@
-// vim:ts=2:et
+vim:ts=2:et
 //===========================================================================//
 //                     "SpaceBallistics/Missions/Ascent2.h":                 //
 //                   Ascent-to-Orbit for a "Model" 2-Stage LV                //
@@ -9,6 +9,7 @@
 #include <ostream>
 #include <optional>
 #include <utility>
+#include <unordered_map>
 
 namespace SpaceBallistics
 {
@@ -46,7 +47,7 @@ namespace SpaceBallistics
     constexpr static double PropRem2         = 0.01;
 
     // Total Start Mass (Constant):
-    constexpr static Mass   StartMass        = 360'000.0_kg;
+    constexpr static Mass   MaxStartMass     = 360'000.0_kg;
 
     // Body and Fairing:
     // XXX: It is currently assumed that Fairing separation occurs whan the
@@ -71,6 +72,11 @@ namespace SpaceBallistics
     // Angle-of-Attack (AoA) Limits for the 1st and the 2nd stage:
     constexpr static Angle  MaxAoA2          = To_Angle(10.0_deg);
     constexpr static Angle  MaxAoA1          = To_Angle( 1.0_deg);
+
+    // The Number of Ctl Params in the optimisation algorithm for construction
+    // of the ascent-to-orbit trajectory:
+    // [aHat2, aMuHat2, aAoA2, bAoA2, TGap, aHat1, aMuHat1, aAoA1, bAoA1], so:
+    constexpr static int    NP               = 9;
 
     //=======================================================================//
     // Types:                                                                //
@@ -192,6 +198,7 @@ namespace SpaceBallistics
       Mass  m_mT;   // Final (actually start) Mass
     };
 
+  public:
     //-----------------------------------------------------------------------//
     // "AscCtls" Struct:                                                     //
     //-----------------------------------------------------------------------//
@@ -207,8 +214,9 @@ namespace SpaceBallistics
       double  m_aAoA2  = 0.0;     // Must be in [ 0 .. 1]
       double  m_bAoA2  = 0.0;     // Must be in [ 0 .. 1]
 
-      // Ballistic Gap:
-      Time    m_TGap   = 0.0_sec;
+      // Ballistic Gap: XXX: Using "double" rather than "Time" here, for STL
+      // compatibility:
+      double  m_TGap   = 0.0;
 
       // BurnRate ctl params for Stage1: The defaults corresp to const BurnRate:
       double  m_aHat1  = 0.0;     // Must be in [-1 .. 1]
@@ -219,13 +227,17 @@ namespace SpaceBallistics
       double  m_bAoA1  = 0.0;     // Must be in [ 0 .. 1]
     };
 
+  private:
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
-    Mass     const        m_payLoadMass;
-    LenK                  m_Rins;       // Radius-Vector @ Orbital Insertion
-    VelK                  m_Vins;       // LV Velocity   @ Orbital Insertion
-
+    //-----------------------------------------------------------------------//
+    // LV Params                                                             //
+    //-----------------------------------------------------------------------//
+    // XXX: In the future, these params may become "constexpr"s, or other way
+    // round,  the params which are now "constexpr"s may be moved to here for
+    // the maximum flexibility...
+    //
     // Stage2 Params:
     Mass     const        m_fullMass2;
     Mass     const        m_emptyMass2;
@@ -240,12 +252,20 @@ namespace SpaceBallistics
     ForceK   const        m_thrustVac1;
     MassRate const        m_burnRateI1; // BurnRate @ Stage1 Ignition Time
 
+    //-----------------------------------------------------------------------//
+    // Mission Params:                                                       //
+    //-----------------------------------------------------------------------//
+    Mass     const        m_payLoadMass;
+    LenK                  m_Rins;       // Radius-Vector @ Orbital Insertion
+    VelK                  m_Vins;       // LV Velocity   @ Orbital Insertion
+
+    //-----------------------------------------------------------------------//
+    // Flight Control Program Parameterisation:                              //
+    //-----------------------------------------------------------------------//
     // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
     // ignition):
     Time                  m_TGap;
 
-    // Flight Control Program Parameterisation:
-    //
     // BurnRate for Stages 1 and 2:
     // It is a non-increasing quadratic function of time, which coeffs depend-
     // ing (somehow) on 2 dimension-less params: "aHat" and "muHat":
@@ -284,6 +304,9 @@ namespace SpaceBallistics
     std::ostream* const   m_os;
     int           const   m_logLevel;
 
+    // Static Cache for "RunRes"es (for use with NLOpt):
+    static std::unordered_map<AscCtls, RunRes> s_Cache;
+
   public:
     //=======================================================================//
     // Methods:                                                              //
@@ -293,6 +316,12 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     Ascent2
     (
+      // LV Params (XXX: they should either be all "constexpr"s or all configu-
+      // rable; but for now, some params are "fixed" and some are not):
+      double         a_alpha1,         // FullMass1 / FullMass2
+      ForceK         a_thrust2_vac,
+      ForceK         a_thrust1_vac,
+
       // Mission Params:
       Mass           a_payload_mass,
       LenK           a_h_perigee,
@@ -301,16 +330,15 @@ namespace SpaceBallistics
       Angle_deg      a_launch_lat,
       AscCtls const& a_ctls,           // Trajectory Ctls
 
-      // LV Params (XXX: they should either be all "constexpr"s or all configu-
-      // rable; but for now, some params are "fixed" and some are not):
-      double         a_alpha1,         // FullMass1 / FullMass2
-      ForceK         a_thrust2_vac,
-      ForceK         a_thrust1_vac,
-
       // Logging Params:
       std::ostream*  a_os,
       int            a_log_level
     );
+
+    //-----------------------------------------------------------------------//
+    // Copy Ctor: Required for NLOpt-based optimisations:                    //
+    //-----------------------------------------------------------------------//
+    Ascent2(Ascent2 const&) = default;
 
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Ascent Trajectory:                               //
@@ -319,26 +347,40 @@ namespace SpaceBallistics
 
   private:
     //-----------------------------------------------------------------------//
-    // ODE RHS for Ascent Trajectory Integration:                            //
+    // Internal Helpers:                                                     //
     //-----------------------------------------------------------------------//
+    // "SetCtlsParams":
+    // Setting the Flight Ctl Params. Used in the Ctor and in the optimisation
+    // loop:
+    void SetCtlParams(AscCtls const& a_ctls);
+
+    void SetCtlParams
+    (
+      double a_aHat2, double a_muHat2,  // Stage2 BurnRate
+      double a_aAoA2, double a_bAoA2,   // Stage2 AoA
+      double a_TGap,                    // Ballistic Gap in sec
+      double a_aHat1, double a_muHat1,  // Stage1 BurnRate
+      double a_aAoA1, double a_bAoA1    // Stage1 AoA
+    );
+
+    // "ODERHS":
+    // For Ascent Trajectory Integration:
+    //
     DStateV ODERHS(StateV const& a_s, Time a_t);
 
-    //-----------------------------------------------------------------------//
-    // ODE CallBack (invoked after the completion of each integration step): //
-    //-----------------------------------------------------------------------//
+    // "ODECB":
+    // CallBack (invoked after the completion of each integration step):
     // Here FlightMode switching occurs, so this method is non-"const":
     //
     bool ODECB(StateV* a_s, Time a_t);
 
-    //-----------------------------------------------------------------------//
-    // Atmospheric Conditions and Aerodynamic Drag Force:                    //
-    //-----------------------------------------------------------------------//
+    // "AeroDynForces":
+    // Atmospheric Conditions and Aerodynamic Drag Force:
+    //
     static std::tuple<EAM::AtmConds, ForceK, ForceK>
     AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA);
 
-    //-----------------------------------------------------------------------//
-    // "LocateSingularPoint":                                                //
-    //-----------------------------------------------------------------------//
+    // "LocateSingularPoint":
     // The final stage of integration, where we assume omega=0 (a purely vert-
     // ical motion)   and integrate the simplified ODEs ANALYTICALLY to avoid
     // numerical instabilities in the viciniy of the singular point.
@@ -348,30 +390,49 @@ namespace SpaceBallistics
     std::optional<std::pair<StateV, Time>>
     LocateSingularPoint(NearSingularityExn const& a_nse);
 
-    //-----------------------------------------------------------------------//
-    // Propellant Burn Rate (it may be variable over time):                  //
-    //-----------------------------------------------------------------------//
+    // "PropBurnRate": (may be variable over time, >= 0):
+    //
     MassRate PropBurnRate(Time a_t) const;
 
-    //-----------------------------------------------------------------------//
-    // Angle-of-Attack (variable over time):                                 //
-    //-----------------------------------------------------------------------//
+    // "AoA": Angle-of-Attack (variable over time):
+    //
     Angle AoA(Time a_t) const;
 
-    //-----------------------------------------------------------------------//
-    // Thrust (depends on the Mode, BurnRate and the Counter-Pressure):      //
-    //-----------------------------------------------------------------------//
+    // "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
+    //
     ForceK Thrust(MassRate a_burn_rate, Pressure a_p) const;
 
-    //-----------------------------------------------------------------------//
-    // Current Mass (LV + PayLoad):                                          //
-    //-----------------------------------------------------------------------//
+    // "LVMass": Current Mass (LV + PayLoad):
+    //
     Mass LVMass(StateV const& a_s, Time a_t) const;
 
-    //-----------------------------------------------------------------------//
-    // For Testing Only:                                                     //
-    //-----------------------------------------------------------------------//
+    // "OutputCtls": For Testing Only:
+    //
     void OutputCtls() const;
+
+    //-----------------------------------------------------------------------//
+    // NLOpt Support:                                                        //
+    //-----------------------------------------------------------------------//
+    static std::option<Ascent2::RunRes> GetRunRes
+           (double const a_xs[NP], void* a_env);
+
+    static double EvalNLoptObjective
+    (
+      unsigned     a_n,
+      double const a_xs[NP],
+      double*      a_grad,
+      void*        a_env
+    );
+
+    void Ascent2::EvalNLOptConstraints
+    (
+      unsigned     a_m,
+      double       a_constrs[],
+      unsigned     a_n,
+      double const a_xs[NP],
+      double*      a_grad,
+      void*        a_env
+    );
 
   public:
     //-----------------------------------------------------------------------//
@@ -380,9 +441,10 @@ namespace SpaceBallistics
     // Tries to find the "AscCtls"  such that the specified target orbit is
     // reached (with the orbital insertion occurring in the perigee, if the
     // orbit is elliptical), and that requires the minimum LV start mass
-    // (whereas the payload mass is fixed):
+    // (whereas the payload mass is fixed).
+    // Returns (OptAscCtls, MinStartMass):
     //
-    static void FindOptimalAscentCtls
+    static std::pair<AscCtls, Mass> FindOptimalAscentCtls
     (
       // Mission Params:
       Mass            a_payload_mass,

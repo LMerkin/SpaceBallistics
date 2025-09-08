@@ -6,36 +6,42 @@
 #include "SpaceBallistics/Missions/Ascent2.h"
 #include "SpaceBallistics/PhysEffects/LVAeroDyn.hpp"
 #include "SpaceBallistics/Maths/RKF5.hpp"
-//#include <nlopt.hpp>
+#include <nlopt.hpp>
 
 namespace SpaceBallistics
 {
+//===========================================================================//
+// Static Cache:                                                             //
+//===========================================================================//
+std::unordered_map<Ascent2::AscCtls, Ascent2::RunRes> Ascent2::s_Cache;
+
 //===========================================================================//
 // "Ascent2": Non-Default Ctor:                                              //
 //===========================================================================//
 Ascent2::Ascent2
 (
+  // LV Params:
+  double          a_alpha1,      // FullMass1 / FullMass2
+  ForceK          a_thrust2_vac,
+  ForceK          a_thrust1_vac,
+
   // Mission Params:
   Mass            a_payload_mass,
   LenK            a_h_perigee,
   LenK            a_h_apogee,
   Angle_deg       a_incl,
   Angle_deg       a_launch_lat,
-  AscCtls const&  a_ctls,        // Trajectory Ctls
-  // LV Params:
-  double          a_alpha1,      // FullMass1 / FullMass2
-  ForceK          a_thrust2_vac,
-  ForceK          a_thrust1_vac,
+  AscCtls const&  a_ctls,        // Flight Ctls
+
   // Logging Params:
   std::ostream*   a_os,
   int             a_log_level
 )
-: m_payLoadMass   (a_payload_mass),
-  m_Rins          (),            // Not yet...
-  m_Vins          (),
-
+: //-------------------------------------------------------------------------//
+  // LV Params:                                                              //
+  //-------------------------------------------------------------------------//
   // Stage2 Params:
-  m_fullMass2     ((StartMass - FairingMass - m_payLoadMass) /
+  m_fullMass2     ((MaxStartMass - FairingMass - a_payload_mass) /
                    (1.0 + a_alpha1)),
   m_emptyMass2    (m_fullMass2   * (1.0 - K2)),
   m_propMass2     (m_fullMass2   * K2),
@@ -43,13 +49,23 @@ Ascent2::Ascent2
   m_burnRateI2    (m_thrustVac2  / (IspVac2  * g0K)),
 
   // Stage1 Params:
-  m_fullMass1     ((StartMass - FairingMass - m_payLoadMass) /
+  m_fullMass1     ((MaxStartMass - FairingMass - a_payload_mass) /
                    (1.0 + a_alpha1) * a_alpha1),
   m_emptyMass1    (m_fullMass1  * (1.0 - K1)),
   m_propMass1     (m_fullMass1  * K1),
   m_thrustVac1    (a_thrust1_vac),
   m_burnRateI1    (m_thrustVac1  / (IspVac1  * g0K)),
 
+  //-------------------------------------------------------------------------//
+  // Mission Params:                                                         //
+  //-------------------------------------------------------------------------//
+  m_payLoadMass   (a_payload_mass),
+  m_Rins          (),            // Not yet...
+  m_Vins          (),            //
+
+  //-------------------------------------------------------------------------//
+  // Flight Ctl Params:                                                      //
+  //-------------------------------------------------------------------------//
   m_TGap          (),            // 0 by default
 
   // BurnRate Ctls and AoA Ctls. NB: "m_T{1,2}" are initialised to Actual
@@ -67,21 +83,26 @@ Ascent2::Ascent2
   m_aAoA1         (AngAcc(0.0)),
   m_bAoA1         (AngVel(0.0)),
 
-  // Transient Data:
+  //-------------------------------------------------------------------------//
+  // Transient Data:                                                         //
+  //-------------------------------------------------------------------------//
   m_mode          (FlightMode::UNDEFINED),
   m_ignTime2      (Time(NAN)),
   m_fairingSepTime(Time(NAN)),
   m_cutOffTime1   (Time(NAN)),
   m_ignTime1      (Time(NAN)),
 
-  m_os            (a_os), // May be NULL
+  //------------------------------------------------------------------------//
+  // Logging Params:                                                        //
+  //------------------------------------------------------------------------//
+  m_os            (a_os),        // May be NULL
   m_logLevel      (a_log_level)
 {
   //-------------------------------------------------------------------------//
   // Check the Params:                                                       //
   //-------------------------------------------------------------------------//
   if ( IsNeg(m_payLoadMass) || !IsPos(m_fullMass2) || !IsPos(m_thrustVac2)  ||
-      !IsPos(m_fullMass1) || !IsPos(m_thrustVac1))
+      !IsPos(m_fullMass1)   || !IsPos(m_thrustVac1))
     throw std::invalid_argument("Ascent2::Ctor: Invalid LV param(s)");
 
   // Therefore:
@@ -94,17 +115,6 @@ Ascent2::Ascent2
       a_launch_lat <   0.0_deg || a_launch_lat >= 90.0_deg)
     throw std::invalid_argument
           ("Ascent2::Ctor: Invalid Orbit/Launch  Param(s)");
-
-  // BurnRate ctls:
-  if (IsNeg(a_ctls.m_TGap)     || std::fabs(a_ctls.m_aHat2) > 1.0 ||
-      a_ctls.m_muHat2 <= 0.0   || a_ctls.m_muHat2 > 1.0     ||
-      a_ctls.m_aAoA2  <  0.0   || a_ctls.m_aAoA2  > 1.0     ||
-      a_ctls.m_bAoA2  <  0.0   || a_ctls.m_bAoA2  > 1.0     ||
-      std::fabs(a_ctls.m_aHat1) > 1.0                       ||
-      a_ctls.m_muHat1 <= 0.0   || a_ctls.m_muHat2 > 1.0     ||
-      a_ctls.m_aAoA1  <  0.0   || a_ctls.m_aAoA1  > 1.0     ||
-      a_ctls.m_bAoA1  <  0.0   || a_ctls.m_bAoA1  > 1.0)
-      throw std::invalid_argument("Ascent2::Ctor: Invalid Ctl Param(s)");
 
   //-------------------------------------------------------------------------//
   // Orbital and Launch Params:                                              //
@@ -146,16 +156,66 @@ Ascent2::Ascent2
   m_Vins        = SqRt(Sqr(Vlat) + Sqr(Vlong));
 
   //-------------------------------------------------------------------------//
+  // Finally, set the Flight Ctl Params:                                     //
+  //-------------------------------------------------------------------------//
+  SetCtlParams(a_ctls);
+}
+
+//===========================================================================//
+// "SetCtlParams":                                                           //
+//===========================================================================//
+// With "AscCtls" struct:
+//
+void Ascent2::SetCtlParams(AscCtls const& a_ctls)
+{
+  SetCtlParams(a_ctls.m_aHat2, a_ctls.m_muHat2,
+               a_ctls.m_aAoA2, a_ctls.m_bAoA2,
+               a_ctls.m_TGap,
+               a_ctls.m_aHat1, a_ctls.m_muHat1,
+               a_ctls.m_aAoA1, a_ctls.m_bAoA1);
+}
+
+// With individual params: The actual implementation:
+//
+void Ascent2::SetCtlParams
+(
+  double a_aHat2, double a_muHat2,  // Stage2 BurnRate
+  double a_aAoA2, double a_bAoA2,   // Stage2 AoA
+  double a_TGap,                    // Ballistic Gap in sec
+  double a_aHat1, double a_muHat1,  // Stage1 BurnRate
+  double a_aAoA1, double a_bAoA1    // Stage1 AoA
+)
+{
+  //-------------------------------------------------------------------------//
+  // Checks:                                                                 //
+  //-------------------------------------------------------------------------//
+  if (a_TGap   <  0.0                      ||
+      std::fabs(a_aHat2)            > 1.0  ||
+      a_muHat2 <= 0.0   || a_muHat2 > 1.0  ||
+      a_aAoA2  <  0.0   || a_aAoA2  > 1.0  ||
+      a_bAoA2  <  0.0   || a_bAoA2  > 1.0  ||
+      std::fabs(a_aHat1)            > 1.0  ||
+      a_muHat1 <= 0.0   || a_muHat2 > 1.0  ||
+      a_aAoA1  <  0.0   || a_aAoA1  > 1.0  ||
+      a_bAoA1  <  0.0   || a_bAoA1  > 1.0)
+      throw std::invalid_argument("Ascent2::SetCtlParams: Invalid Param(s)");
+
+  //-------------------------------------------------------------------------//
+  // Ballistic Gap:                                                          //
+  //-------------------------------------------------------------------------//
+  m_TGap = Time(a_TGap);
+
+  //-------------------------------------------------------------------------//
   // BurnRate Coeffs:                                                        //
   //-------------------------------------------------------------------------//
   // Normalise "aHat"s to [-1/3 .. +1/3], then compute the actual limits for
   // "muHat", and the actual "muHat" within those limits:
   // Stage2:
-  double aHat2    = a_ctls.m_aHat2 / 3.0;
+  double aHat2    = a_aHat2 / 3.0;
   double muHatLo2 = (1.0 - aHat2)  / 2.0;
   double muHatUp2 = (aHat2 < 0.0) ? 1.0 + aHat2 : 1.0 - 2.0 * aHat2;
   assert(muHatLo2 <= muHatUp2);
-  double muHat2   = a_ctls.m_muHat2 * (muHatUp2 - muHatLo2);
+  double muHat2   = a_muHat2 * (muHatUp2 - muHatLo2);
   // XXX: In a very degenerate case, we may get muHat2==0:
   assert(0.0 < muHat2 && muHat2 <= 1.0);
   m_T2            = m_propMass2 / (m_burnRateI2    * muHat2);
@@ -164,11 +224,11 @@ Ascent2::Ascent2
                            m_aMu2 * m_T2 / 3.0);
 
   // Stage1:
-  double aHat1    = a_ctls.m_aHat1 / 3.0;
+  double aHat1    = a_aHat1 / 3.0;
   double muHatLo1 = (1.0 - aHat1)  / 2.0;
   double muHatUp1 = (aHat1 < 0.0) ? 1.0 + aHat1 : 1.0 - 2.0 * aHat1;
   assert(muHatLo1 <= muHatUp1);
-  double muHat1   = a_ctls.m_muHat1 * (muHatUp1 - muHatLo1);
+  double muHat1   = a_muHat1 * (muHatUp1 - muHatLo1);
   // XXX: In a very degenerate case, we may get muHat1==0:
   assert(0.0 < muHat1 && muHat1 <= 1.0);
   m_T1            = m_propMass1 / (m_burnRateI1    * muHat1);
@@ -180,23 +240,22 @@ Ascent2::Ascent2
   // AoA Coeffs:                                                             //
   //-------------------------------------------------------------------------//
   // Stage2:
-  m_bAoA2        = - 4.0 * MaxAoA2 / m_T2 * a_ctls.m_bAoA2;
+  m_bAoA2        = - 4.0 * MaxAoA2 / m_T2 * a_bAoA2;
   AngAcc aAoALo2 = m_bAoA2 / m_T2;
   AngAcc aAoAUp2 =
-    (a_ctls.m_bAoA2 < 0.5)
+    (a_bAoA2 < 0.5)
     ? (MaxAoA2 / m_T2 + m_bAoA2) / m_T2
     : - Sqr(m_bAoA2) / (4.0 * MaxAoA2);
-  m_aAoA2 = aAoALo2  * (1.0 - a_ctls.m_aAoA2) + a_ctls.m_aAoA2 * aAoAUp2;
+  m_aAoA2 = aAoALo2  * (1.0 - a_aAoA2) + a_aAoA2 * aAoAUp2;
 
   // Stage1:
-  m_bAoA1        = - 4.0 * MaxAoA1 / m_T1 * a_ctls.m_bAoA1;
+  m_bAoA1        = - 4.0 * MaxAoA1 / m_T1 * a_bAoA1;
   AngAcc aAoALo1 = m_bAoA1 / m_T1;
   AngAcc aAoAUp1 =
-    (a_ctls.m_bAoA1 < 0.5)
+    (a_bAoA1 < 0.5)
     ? (MaxAoA1 / m_T1 + m_bAoA1) / m_T1
     : - Sqr(m_bAoA1) / (4.0 * MaxAoA1);
-  m_aAoA1 = aAoALo1  * (1.0 - a_ctls.m_aAoA1) + a_ctls.m_aAoA1 * aAoAUp1;
-
+  m_aAoA1 = aAoALo1  * (1.0 - a_aAoA1) + a_aAoA1 * aAoAUp1;
 }
 
 //===========================================================================//
@@ -978,14 +1037,134 @@ void Ascent2::OutputCtls() const
 }
 
 //===========================================================================//
-// "FindOptimaleAscentCtls"                                                  //
+// "GetRunRes":                                                              //
 //===========================================================================//
-// "TGap" is a control param  which must ensure a correct ascent to the
-// "a_hc" circular orbit. This method tries to find a suitable value of
-// "TGap" such that  the singular point of the ascent trajectory exists
-// and is @ h=0. Returns "TGap" if found, or nullopt otherwise:
+// Extract the "RunRes" from the Cache or compute a new one. If either method
+// fails, return the "nullopt":
 //
-void Ascent2::FindOptimalAscentCtls
+std::option<Ascent2::RunRes> Ascent2::GetRunRes
+(
+  double const a_xs[NP],
+  void*        a_env
+)
+{
+  assert(a_env != nullptr);
+
+  //-------------------------------------------------------------------------//
+  // Construct the "AscCtls" obj used for caching:                           //
+  //-------------------------------------------------------------------------//
+  // a_xs = [aHat2, aMuHat2, aAoA2, bAoA2, TGap, aHat1, aMuHat1, aAoA1, bAoA1]:
+  // XXX: Can we simply cast "a_xs" to an "AscCtls" ptr, w/o copying the data
+  // over?
+  AscCtls ctls
+  {
+    .m_aHat2  = a_xs[0], .m_muHat2 = a_xs[1],
+    .m_aAoA2  = a_xs[2], .m_bAoA2  = a_xs[3],
+    .m_TGap   = a_xs[4],
+    .m_aHat1  = a_xs[5], .m_muHat1 = a_xs[6],
+    .m_aAoA1  = a_xs[7], .m_bAoA1  = a_xs[8]
+  };
+
+  // Is the result already in the Cache?
+  // # pragma omp critical(Cache)
+  {
+    auto it = s_Cache.find(ctls);
+    if (it != s_Cache.end())
+      return  it->second;
+  }
+
+  //-------------------------------------------------------------------------//
+  // Otherwise, need a new Run:                                              //
+  //-------------------------------------------------------------------------//
+  // For safety, construct a new "Ascent2" obj from "a_env":
+  Ascent2 const* proto = reinterpret_cast<Ascent2 const*>(a_env);
+  Ascent2        asc(*proto);
+
+  // Set the Ctl Params in "asc":
+  asc.SetCtlParams(ctls);
+
+  // Run the integrator:
+  RunRes res  = asc.Run(); // NB: Exceptions are handled inside "Run"
+
+  if (res.m_rc != RunRC::Error)
+  {
+    // Cache the results:
+    // # pragma omp critical(Cache)
+    s_Cache[ctls] = res;
+    return res;
+  }
+
+  // If we got here: Both the Cache look-up and the new evaluation have
+  // failed:
+  return std::nullopt;
+}
+
+//===========================================================================//
+// "EvalNLOptObjective":                                                     //
+//===========================================================================//
+// Evaluate the Function to be Minimised (by NLopt): It is actually the LV Mass
+// at the end of Bwd integration:
+//
+double Ascent2::EvalNLoptObjective
+(
+  unsigned     DEBUG_ONLY(a_n),
+  double const a_xs[NP],
+  double*      DEBUG_ONLY(a_grad),
+  void*        a_env
+)
+{
+  assert(int(a_n) == NP && a_grad == nullptr && a_xs != nullptr);
+
+  // Find or compute the "RunRes":
+  std::optional<RunRes> res = GetRunRes(a_xs, a_env);
+
+  return
+    bool(res)
+    ? // Got a valid result, use its mass:
+      (res.value().m_mT)  .Magnitude()
+    : // Otherwise, we return large invalid mass, but not too large (so not to
+      // disrupt the optimisation algorithm):
+      (2.0 * MaxStartMass).Magnitude();
+}
+
+//===========================================================================//
+// "EvalNLOptConstraints":                                                   //
+//===========================================================================//
+// Evaluate the Constraints vector (all components must be <= 0) in NLopt:
+//
+void Ascent2::EvalNLOptConstraints
+(
+  unsigned     DEBUG_ONLY(a_m),
+  double       a_constrs[],
+  unsigned     DEBUG_ONLY(a_n),
+  double const a_xs[NP],
+  double*      DEBUG_ONLY(a_grad),
+  void*        a_env
+)
+{
+  assert(a_m == 2 && int(a_n) == NP && a_grad == nullptr && a_xs != nullptr);
+
+  // Find or compute the "RunRes":
+  std::optional<RunRes> res = GetRunRes(a_xs, a_env);
+
+  if (bool(res))
+  {
+    a_constrs[0] = (std::max(res.value().m_hT, 0.0_km)   ).Magnitude();
+    a_constrs[1] = (std::max(res.value().m_VT, VelK(0.0))).Magnitude();
+  }
+  else
+  {
+    // Failed to compute the "RunRes". Return positive but not too large
+    // values:
+    a_constrs[0] = (10.0_km).Magnitude();
+    a_constrs[1] = VelK(1.0).Magnitude();
+  }
+}
+
+//===========================================================================//
+// "FindOptimalAscentCtls"                                                   //
+//===========================================================================//
+std::pair<Ascent2::AsctCtls, Mass> Ascent2::FindOptimalAscentCtls
 (
   // Mission Params:
   Mass            a_payload_mass,
@@ -1002,118 +1181,12 @@ void Ascent2::FindOptimalAscentCtls
   int             a_log_level
 )
 {
-  // Perform Parallel Grid Search over the 9D Space of Params:
-  constexpr int    N       = 20;
-  constexpr double DN      = double(N);
-  constexpr Time   MaxTGap = 150.0_sec;
+  // Create the NLOpt obj. There are currently 9 params for optimization. Will
+  // use the "COBYLA" method which can handle non-linear constraints  (for the
+  // final "V" and "h" vals):
+  nlopt::opt opt(nlopt::LN_COBYLA, NP);
+  opt.set_min_objective(EvalNLOpt, this);
 
-  // The weight assigned to the StartMass: it is less important than arriving
-  // at h=0 and V=0:
-  constexpr double lambda  = 1e-6;
-
-  // The "cost function" value to be minimised, and the ArgMin:
-  double    minC           = Inf<double>;
-  AscCtls   optCtls;
-
-# pragma omp parallel for collapse(3)
-//for (int i0 = 0; i0 <= N; ++i0)
-//for (int i1 = 0; i1 <= N; ++i1)
-//for (int i2 = 1; i2 <= N; ++i2)   // muHat1, must be > 0
-//for (int i3 = 1; i3 <  N; ++i3)   // aHat1:  avoid corners
-  for (int i4 = 0; i4 <= N; ++i4)
-  for (int i5 = 0; i5 <= N; ++i5)
-  for (int i6 = 1; i6 <= N; ++i6)   // muHat2, must be > 0
-  for (int i7 = 1; i7 <  N; ++i7)   // aHat2:  avoid corners
-  for (int i8 = 0; i8 <= N; ++i8)
-  {
-    //-----------------------------------------------------------------------//
-    // Construct the Ctls and the "Ascent2" obj:                             //
-    //-----------------------------------------------------------------------//
-    // XXX: Most "effective" ctls correspond to the "inner-most" loops, in a
-    // hope we can get a reasonable solution reasonably quickly. Those  ctls
-    // are for Stage2 and the Gap:
-    //
-    AscCtls ctls
-    {
-      // Stage2 BurnRate Ctls:
-      .m_aHat2  =  double(i7) / DN * 2.0 - 1.0,
-      .m_muHat2 =  double(i6) / DN,
-
-      // Stage2 AoA Params:
-      .m_aAoA2  =  double(i5) / DN,
-      .m_bAoA2  =  double(i4) / DN,
-
-      // Ballistic Gap:
-      .m_TGap   = (double(i8) / DN) * MaxTGap,
-
-      // Now "less-effective" Ctls:
-      // Stage1 BurnRate Ctls:
-//    .m_aHat1  =  double(i3) / DN * 2.0 - 1.0,
-//    .m_muHat1 =  double(i2) / DN,
-      .m_aHat1  =  0.0,
-      .m_muHat1 =  1.0,
-
-      // Stage1 AoA Params:
-//    .m_aAoA1  =  double(i1) / DN,
-//    .m_bAoA1  =  double(i0) / DN
-      .m_aAoA1  =  0.0,
-      .m_bAoA1  =  0.0
-    };
-
-    Ascent2 asc
-    (
-      a_payload_mass,
-      a_h_perigee,
-      a_h_apogee, 
-      a_incl,
-      a_launch_lat,
-      ctls,
-      a_alpha1,
-      a_thrust2_vac,
-      a_thrust1_vac,
-      a_os,
-      a_log_level
-    );
-
-    //-------------------------------------------------------------------//
-    // Run the integrator and analyse the results:                       //
-    //-------------------------------------------------------------------//
-    RunRes res = asc.Run();
-
-    if (res.m_rc == RunRC::Error)
-      continue;
-
-    // In all valid cases, evaluate the Cost Function:
-    double C =
-      Log
-      (
-        Sqr     (double(res.m_hT / 1.0_km)   ) +
-        Sqr     (double(res.m_VT / VelK(1.0))) +
-        lambda * double(res.m_mT / 1.0_kg)
-      );
-
-#   pragma omp critical
-    if (C < minC)
-    {
-      minC    = C;
-      optCtls = ctls;
-
-      if (asc.m_os != nullptr)
-        *asc.m_os
-          << "# "
-          << ctls.m_aHat2 << "  " << ctls.m_muHat2 << "  "
-          << ctls.m_aAoA2 << "  " << ctls.m_bAoA2  << "  "
-          << ctls.m_TGap.Magnitude()               << "  "
-          << ctls.m_aHat1 << "  " << ctls.m_muHat1 << "  "
-          << ctls.m_aAoA1 << "  " << ctls.m_bAoA1  << " -> "
-          << res.m_hT.Magnitude()                  << "  "
-          << res.m_VT.Magnitude()                  << "  "
-          << res.m_mT.Magnitude()                  << "  "
-          << res.m_T .Magnitude()                  << "  "
-          << ToString(res.m_rc)                    << "  "
-          << C            << std::endl;
-    }
-  }
 }
 
 }

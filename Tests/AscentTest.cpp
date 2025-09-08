@@ -13,23 +13,24 @@ int main(int argc, char* argv[])
   using namespace SpaceBallistics;
   using namespace std;
 
-  if (argc < 4)
+  if (argc < 3)
   {
-    cerr << "PARAMETERS: LEO_Altitude_km PayLoad_kg m1/m2_Ratio" << endl;
+    cerr << "PARAMETERS: LEO_Altitude_km PayLoad_kg" << endl;
     return 1;
   }
-  LenK   hC     { atof(argv[1]) };
-  Mass   mL     { atof(argv[2]) };
-  double alpha1 { atof(argv[3]) };
+  LenK   hC { atof(argv[1]) };
+  Mass   mL { atof(argv[2]) };
 
-  ForceK thrust2Vac = 1.0 * 63'700.0_kg * g0K;
-  ForceK thrust1Vac = 9.0 * 59'500.0_kg * g0K;
+  constexpr ForceK thrust2Vac = 1.0 * 63'700.0_kg * g0K;
+  constexpr ForceK thrust1Vac = 9.0 * 59'500.0_kg * g0K;
+  constexpr double alpha1     = 4.11;
   try
   {
-    Ascent2::FindOptimalAscentCtls
+    Ascent2 asc
     (
-      mL, hC, hC, 64.0_deg, 63.0_deg,
-      alpha1, thrust2Vac,   thrust1Vac, &cout, 0
+      alpha1, thrust2Vac,   thrust1Vac,
+      mL, hC, hC, 64.0_deg, 63.0_deg, Ascent2::AscCtls{},
+      &cout,  0
     );
   }
   catch (exception const& exn)
