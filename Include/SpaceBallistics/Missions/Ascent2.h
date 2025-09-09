@@ -74,9 +74,13 @@ namespace SpaceBallistics
     constexpr static Angle  MaxAoA2          = To_Angle(20.0_deg);
     constexpr static Angle  MaxAoA1          = To_Angle( 2.0_deg);
 
+    // The Deepest Throttling Level (ie the Min BurnRate relative to the Max
+    // one) for all engines:
+    constexpr static double DT               = 0.5;
+
     // The Number of Ctl Params in the optimisation algorithm for construction
     // of the ascent-to-orbit trajectory:
-    // [aHat2, aMuHat2, aAoA2, bAoA2, TGap, aHat1, aMuHat1, aAoA1, bAoA1], so:
+    // [bHat2, muHat2, aAoA2, bAoA2, TGap, bHat1, muHat1, aAoA1, bAoA1], so:
     constexpr static int    NP               = 9;
 
     //=======================================================================//
@@ -211,24 +215,24 @@ namespace SpaceBallistics
       // Data Flds:                                                          //
       //---------------------------------------------------------------------//
       // BurnRate Ctl Params for Stage2: The defaults corresp to const BurnRate:
-      double  m_aHat2;            // Must be in [-1 .. 1], default is 0
-      double  m_muHat2;           // Must be in [ 0 .. 1], default is 1
+      double  m_bHat2;            // Must be in [0 .. 1], default is 0
+      double  m_muHat2;           // Must be in [0 .. 1], default is 1
 
       // AoA Ctl Params for Stage2: The defaults corresp to AoA = 0:
-      double  m_aAoA2;            // Must be in [ 0 .. 1], default is 0
-      double  m_bAoA2;            // Must be in [ 0 .. 1], default is 0
+      double  m_aAoA2;            // Must be in [0 .. 1], default is 0
+      double  m_bAoA2;            // Must be in [0 .. 1], default is 0
 
       // Ballistic Gap: XXX: Using "double" rather than "Time" here, for STL
       // compatibility:
       double  m_TGap;             // Default is 0
 
       // BurnRate ctl params for Stage1: The defaults corresp to const BurnRate:
-      double  m_aHat1;            // Must be in [-1 .. 1], default is 0
-      double  m_muHat1;           // Must be in [ 0 .. 1], default is 1
+      double  m_bHat1;            // Must be in [0 .. 1], default is 0
+      double  m_muHat1;           // Must be in [0 .. 1], default is 1
 
       // AoA ctl param for Stage1: The defaults corresp to AoA = 0:
-      double  m_aAoA1;            // Must be in [ 0 .. 1], default is 0
-      double  m_bAoA1;            // Must be in [ 0 .. 1], default is 0
+      double  m_aAoA1;            // Must be in [0 .. 1], default is 0
+      double  m_bAoA1;            // Must be in [0 .. 1], default is 0
 
       //---------------------------------------------------------------------//
       // To use "AscCtlsL" as an "unordered_map" key, we need Hash and (==): //
@@ -310,16 +314,18 @@ namespace SpaceBallistics
     // Flight Control Program Parameterisation:                              //
     //-----------------------------------------------------------------------//
     // BurnRate for Stage2:
-    // It is a non-increasing quadratic function of time, which coeffs depend-
-    // ing (somehow) on 2 dimension-less params: "aHat" and "muHat":
+    // It is a non-increasing quadratic function of time:
     // BurnRate(tau) = BurnRateI + bMu * tau + aMu * tau^2, where "tau" is the
-    // time since ignition of the corresp Stage:
+    // time since Stage2 ignition (0 <= tau <= T2):
     //
     Time                  m_T2;         // Actual Stage2 BurnTime
     MassT3                m_aMu2;
     MassT2                m_bMu2;
 
-    // AoA for Stage2: AoA(t) = t * (a * t + b), t <= 0:
+    // AoA for Stage2: AoA(t) = t * (a * t - b),
+    // where t <= 0 is our standard integration backward-running time    (t=0
+    // corresponds  to the orbital insertion instant, and AoA=0 at that point);
+    // NB: the (-b) coeff !!!
     AngAcc                m_aAoA2;
     AngVel                m_bAoA2;
 
@@ -327,14 +333,17 @@ namespace SpaceBallistics
     // ignition):
     Time                  m_TGap;
 
-    // BurnRate for Stage1:
+    // BurnRate for Stage1: Similar to that of Stage1, where "tau" is the time
+    // since Stage1 ignition (0 <= tau <= T1):
     Time                  m_T1;         // Actual Stage1 BurnTime
     MassT3                m_aMu1;
     MassT2                m_bMu1;
 
-    // AoA for Stage1: AoA(nt)  = nt *  (a * nt  + b),
-    // where nt = -tau =  tIgn1 - t <= 0;
-    // thus,           AOA(tau) = tau * (a * tau - b):
+    // AoA for Stage1: for similarity with Stage2,
+    // AoA(nt)  = nt * (a * nt  - b),
+    // where nt = -tau  = tIgn1 - t <= 0,  so AoA=0 @ nt=0 (Stage1 ignition);
+    // thus,   AOA(tau) = tau * (a * tau + b),
+    // where "tau" is again the time since Stage1 ignition (0 <= tau <= T1):
     AngAcc                m_aAoA1;
     AngVel                m_bAoA1;
 
@@ -400,10 +409,10 @@ namespace SpaceBallistics
 
     void SetCtlParams
     (
-      double a_aHat2, double a_muHat2,  // Stage2 BurnRate
+      double a_bHat2, double a_muHat2,  // Stage2 BurnRate
       double a_aAoA2, double a_bAoA2,   // Stage2 AoA
       double a_TGap,                    // Ballistic Gap in sec
-      double a_aHat1, double a_muHat1,  // Stage1 BurnRate
+      double a_bHat1, double a_muHat1,  // Stage1 BurnRate
       double a_aAoA1, double a_bAoA1    // Stage1 AoA
     );
 
@@ -527,12 +536,12 @@ namespace std
                    { return (a_x  == 0.0) ? 0.0 : a_x; };
 
       size_t seed = 0;
-      boost::hash_combine(seed, norm0(c.m_aHat2 ));
+      boost::hash_combine(seed, norm0(c.m_bHat2 ));
       boost::hash_combine(seed, norm0(c.m_muHat2));
       boost::hash_combine(seed, norm0(c.m_aAoA2 ));
       boost::hash_combine(seed, norm0(c.m_bAoA2 ));
       boost::hash_combine(seed, norm0(c.m_TGap  ));
-      boost::hash_combine(seed, norm0(c.m_aHat1 ));
+      boost::hash_combine(seed, norm0(c.m_bHat1 ));
       boost::hash_combine(seed, norm0(c.m_muHat1));
       boost::hash_combine(seed, norm0(c.m_aAoA1 ));
       boost::hash_combine(seed, norm0(c.m_bAoA1 ));

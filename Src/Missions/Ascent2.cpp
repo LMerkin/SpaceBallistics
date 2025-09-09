@@ -157,34 +157,34 @@ Ascent2::Ascent2
 //===========================================================================//
 void Ascent2::SetCtlParams(AscCtlsL const& a_ctls)
 {
-  SetCtlParams(a_ctls.m_aHat2, a_ctls.m_muHat2,
+  SetCtlParams(a_ctls.m_bHat2, a_ctls.m_muHat2,
                a_ctls.m_aAoA2, a_ctls.m_bAoA2,
                a_ctls.m_TGap,
-               a_ctls.m_aHat1, a_ctls.m_muHat1,
+               a_ctls.m_bHat1, a_ctls.m_muHat1,
                a_ctls.m_aAoA1, a_ctls.m_bAoA1);
 }
 
 void Ascent2::SetCtlParams
 (
-  double a_aHat2, double a_muHat2,  // Stage2 BurnRate
+  double a_bHat2, double a_muHat2,  // Stage2 BurnRate
   double a_aAoA2, double a_bAoA2,   // Stage2 AoA
   double a_TGap,                    // Ballistic Gap in sec
-  double a_aHat1, double a_muHat1,  // Stage1 BurnRate
+  double a_bHat1, double a_muHat1,  // Stage1 BurnRate
   double a_aAoA1, double a_bAoA1    // Stage1 AoA
 )
 {
   //-------------------------------------------------------------------------//
   // Checks:                                                                 //
   //-------------------------------------------------------------------------//
-  if (a_TGap   <  0.0                      ||
-      std::fabs(a_aHat2)            > 1.0  ||
-      a_muHat2 <= 0.0   || a_muHat2 > 1.0  ||
-      a_aAoA2  <  0.0   || a_aAoA2  > 1.0  ||
-      a_bAoA2  <  0.0   || a_bAoA2  > 1.0  ||
-      std::fabs(a_aHat1)            > 1.0  ||
-      a_muHat1 <= 0.0   || a_muHat2 > 1.0  ||
-      a_aAoA1  <  0.0   || a_aAoA1  > 1.0  ||
-      a_bAoA1  <  0.0   || a_bAoA1  > 1.0)
+  if (a_bHat2  < 0.0   || a_bHat2  > 1.0  ||
+      a_muHat2 < 0.0   || a_muHat2 > 1.0  ||
+      a_aAoA2  < 0.0   || a_aAoA2  > 1.0  ||
+      a_bAoA2  < 0.0   || a_bAoA2  > 1.0  ||
+      a_TGap   < 0.0                      ||
+      a_bHat1  < 0.0   || a_bHat1  > 1.0  ||
+      a_muHat1 < 0.0   || a_muHat1 > 1.0  ||
+      a_aAoA1  < 0.0   || a_aAoA1  > 1.0  ||
+      a_bAoA1  < 0.0   || a_bAoA1  > 1.0)
       throw std::invalid_argument("Ascent2::SetCtlParams: Invalid Param(s)");
 
   //-------------------------------------------------------------------------//
@@ -195,54 +195,70 @@ void Ascent2::SetCtlParams
   //-------------------------------------------------------------------------//
   // BurnRate Coeffs:                                                        //
   //-------------------------------------------------------------------------//
-  // Normalise "aHat"s to [-1/3 .. +1/3], then compute the actual limits for
-  // "muHat", and the actual "muHat" within those limits:
+  // Must have (2*DT+1)/3 <= muHat <= 1:
+  constexpr double muHatLo = (2.0 * DT + 1.0) / 3.0;
+  constexpr double muHatUp = 1.0;
+
   // Stage2:
-  double aHat2    = a_aHat2 / 3.0;
-  double muHatLo2 = (1.0 - aHat2)  / 2.0;
-  double muHatUp2 = (aHat2 < 0.0) ? 1.0 + aHat2 : 1.0 - 2.0 * aHat2;
-  assert(muHatLo2 <= muHatUp2);
-  double muHat2   = a_muHat2 * (muHatUp2 - muHatLo2);
-  // XXX: In a very degenerate case, we may get muHat2==0:
-  assert(0.0 < muHat2 && muHat2 <= 1.0);
-  m_T2            = m_propMass2 / (m_burnRateI2    * muHat2);
-  m_aMu2          = 3.0 * m_burnRateI2 / Sqr(m_T2) * aHat2;
-  m_bMu2          = 2.0 * (m_propMass2 / Sqr(m_T2) - m_burnRateI2 / m_T2 -
-                           m_aMu2 * m_T2 / 3.0);
+  double muHat2  = muHatLo * (1.0 - a_muHat2) + muHatUp * a_muHat2;
+  assert(0.0 < muHat2 && muHat2 <=  1.0);
+
+  double bHatLo2 =  3.0 * muHat2 * (muHat2 - 1.0);
+  assert(bHatLo2 <= 0.0);
+  double bHatUp2 =  2.0 * muHat2 * (3.0 * muHat2 - (2.0 + DT));
+  bHatUp2 =  std::min(bHatUp2, 0.0);
+  // NB: We must have bHatLo2 <= bHatUp2, up to rounding errors:
+  double bHat2   = bHatLo2 * (1.0 - a_bHat2)  + bHatUp2 * a_bHat2;
+  assert(bHat2  <=  0.0);
+
+  // Then set the actual (dimensioned) coeffs for Stage2 (using the actual
+  // "propMass2" w/o the Remnants):
+  Mass     propMass2  = (1.0 - PropRem2) * m_propMass2;
+  m_T2   = propMass2  / (m_burnRateI2    * muHat2);
+  m_bMu2 = Sqr(m_burnRateI2) / propMass2 * bHat2;
+  m_aMu2 = 3.0 / Cube(m_T2)  *
+           (propMass2  - m_burnRateI2 * m_T2 - 0.5 * m_bMu2 * Sqr(m_T2));
 
   // Stage1:
-  double aHat1    = a_aHat1 / 3.0;
-  double muHatLo1 = (1.0 - aHat1)  / 2.0;
-  double muHatUp1 = (aHat1 < 0.0) ? 1.0 + aHat1 : 1.0 - 2.0 * aHat1;
-  assert(muHatLo1 <= muHatUp1);
-  double muHat1   = a_muHat1 * (muHatUp1 - muHatLo1);
-  // XXX: In a very degenerate case, we may get muHat1==0:
-  assert(0.0 < muHat1 && muHat1 <= 1.0);
-  m_T1            = m_propMass1 / (m_burnRateI1    * muHat1);
-  m_aMu1          = 3.0 * m_burnRateI1 / Sqr(m_T1) * aHat1;
-  m_bMu1          = 2.0 * (m_propMass1 / Sqr(m_T1) - m_burnRateI1 / m_T1 -
-                           m_aMu1 * m_T1 / 3.0);
+  double muHat1  = muHatLo * (1.0 - a_muHat1) + muHatUp * a_muHat1;
+  assert(0.0 < muHat1 && muHat1 <=  1.0);
+
+  double bHatLo1 =  3.0 * muHat1 * (muHat1 - 1.0);
+  assert(bHatLo1 <= 0.0);
+  double bHatUp1 =  2.0 * muHat1 * (3.0 * muHat1 - (2.0 + DT));
+  bHatUp1 =  std::min(bHatUp1, 0.0);
+  // NB: We must have bHatLo1 <= bHatUp1, up to rounding errors:
+  double bHat1   = bHatLo1 * (1.0 - a_bHat1)  + bHatUp1 * a_bHat1;
+  assert(bHat1  <=  0.0);
+
+  // Then set the actual (dimensioned) coeffs for Stage1 (using the actual
+  // "propMass1" w/o the Remnants):
+  Mass     propMass1  = (1.0 - PropRem1) * m_propMass1;
+  m_T1   = propMass1  / (m_burnRateI1    * muHat1);
+  m_bMu1 = Sqr(m_burnRateI1) / propMass1 * bHat1;
+  m_aMu1 = 3.0 / Cube(m_T1)  *
+           (propMass1  - m_burnRateI1 * m_T1 - 0.5 * m_bMu1 * Sqr(m_T1));
 
   //-------------------------------------------------------------------------//
   // AoA Coeffs:                                                             //
   //-------------------------------------------------------------------------//
   // Stage2:
-  m_bAoA2        = - 4.0 * MaxAoA2 / m_T2 * a_bAoA2;
-  AngAcc aAoALo2 = m_bAoA2 / m_T2;
+  m_bAoA2        = 4.0 * MaxAoA2 / m_T2 * a_bAoA2;
+  AngAcc aAoALo2 = - m_bAoA2     / m_T2;
   AngAcc aAoAUp2 =
     (a_bAoA2 < 0.5)
-    ? (MaxAoA2 / m_T2 + m_bAoA2) / m_T2
+    ? (MaxAoA2 / m_T2 - m_bAoA2) / m_T2
     : - Sqr(m_bAoA2) / (4.0 * MaxAoA2);
-  m_aAoA2 = aAoALo2  * (1.0 - a_aAoA2) + a_aAoA2 * aAoAUp2;
+  m_aAoA2 = aAoALo2  * (1.0 - a_aAoA2) + aAoAUp2 * a_aAoA2;
 
   // Stage1:
-  m_bAoA1        = - 4.0 * MaxAoA1 / m_T1 * a_bAoA1;
-  AngAcc aAoALo1 = m_bAoA1 / m_T1;
+  m_bAoA1        = 4.0 * MaxAoA1 / m_T1 * a_bAoA1;
+  AngAcc aAoALo1 = - m_bAoA1     / m_T1;
   AngAcc aAoAUp1 =
     (a_bAoA1 < 0.5)
-    ? (MaxAoA1 / m_T1 + m_bAoA1) / m_T1
+    ? (MaxAoA1 / m_T1 - m_bAoA1) / m_T1
     : - Sqr(m_bAoA1) / (4.0 * MaxAoA1);
-  m_aAoA1 = aAoALo1  * (1.0 - a_aAoA1) + a_aAoA1 * aAoAUp1;
+  m_aAoA1 = aAoALo1  * (1.0 - a_aAoA1) + aAoAUp1 * a_aAoA1;
 }
 
 //===========================================================================//
@@ -849,10 +865,12 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
   {
   case FlightMode::Burn1:
   {
-    // Arg: "t" is the time from Stage1 cut-off (so -T1 <= t <= 0):
-    Time     t   = std::max(std::min(a_t - m_cutOffTime1, 0.0_sec), -m_T1);
-    MassRate res = std::max(m_burnRateI1 + (m_bMu1 + m_aMu1 * t) * t, 
-                            MassRate(0.0));
+    // Arg: "tau" is the time since Stage1 ignition  (so 0 <= t <= T1); but the
+    // latter is not yet reached, so calculate it using "T1":
+    Time     tIgn1 = m_cutOffTime1  - m_T1;
+    Time     tau   = std::min(std::max(a_t - tIgn1,    0.0_sec), m_T1);
+    MassRate res   = std::max(m_burnRateI1 + (m_bMu1 + m_aMu1 * tau) * tau,
+                              MassRate(0.0));
     assert(IsFinite(res) && !IsNeg(res));
     return res;
   }
@@ -861,14 +879,13 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
 
   case FlightMode::Burn2:
   {
-    // Arg: "t" is time from Stage2 cut-off (same as orbital insertion
-    // time), so it is just the main time "a_t": -T2 <= t <= 0; enforce
-    // those constraints:
-    assert(!IsPos(a_t));
-    Time     t   = std::max(a_t, -m_T2);
-    MassRate res = std::max(m_burnRateI2 + (m_bMu2 + m_aMu2 * t) * t,
-                            MassRate(0.0));
-    assert(IsFinite(res) && !IsNeg(res));   // MuHat1, must be > 0
+    // Arg: "tau" is the time since Stage2 ignition  (so 0 <= t <= T2); but the
+    // latter is not yet reached, so calculate it using "T2":
+    Time     tIgn2 = - m_T2;
+    Time     tau   = std::min(std::max(a_t - tIgn2,    0.0_sec), m_T2);
+    MassRate res   = std::max(m_burnRateI2 + (m_bMu2 + m_aMu2 * tau) * tau,
+                              MassRate(0.0));
+    assert(IsFinite(res) && !IsNeg(res));
     return res;
   }
   default:
@@ -885,13 +902,12 @@ Angle Ascent2::AoA(Time a_t) const
   {
   case FlightMode::Burn1:
   {
-    // Arg: "tau" which is the time since Stage1 ignition (where the latter
-    // is calculated via "m_T1", because the actual event-based "m_ignTime1"
-    // is not known yet), so AoA1(tau=0)=0, ie @ launch;   0 <= tau <= T1;
-    // NB: The coeff "b" @ "tau" has INVERTED sign:
+    // Arg: "tau" which is the time since Stage1 ignition (where the latter is
+    // calculated via "m_T1", because the actual event-based "m_ignTime1"   is
+    // not reached yet), so AoA1(tau=0)=0, ie @ launch;   0 <= tau <= T1:
     Time   tIgn1 = m_cutOffTime1  - m_T1;
     Time   tau   = std::min(std::max(a_t - tIgn1,    0.0_sec), m_T1);
-    Angle  res   = std::max(tau * (m_aAoA1 * tau - m_bAoA1), 0.0_rad);
+    Angle  res   = std::max(tau * (m_aAoA1 * tau + m_bAoA1), 0.0_rad);
     if (res > 1.01 * MaxAoA1)
     {
       OutputCtls();
@@ -907,12 +923,13 @@ Angle Ascent2::AoA(Time a_t) const
 
   case FlightMode::Burn2:
   {
-    // Arg: "t" is time from Stage2 cut-off (same as orbital insertion
-    // time), so it is just the main time "a_t": -T2 <= t <= 0; enforce
-    // those constraints:
+    // Arg: "t" is time from Stage2 cut-off (same as orbital insertion time),
+    // so it is just the main time "a_t": -T2 <= t <= 0; enforce those constr-
+    // aints. NB: Formulas similar to those for Stage2, but with the INVERTED
+    // sign of "b"; AoA2(t=0)=0, ie @ orbital insetrion:
     assert(!IsPos(a_t));
     Time  t   = std::max(a_t, -m_T2);
-    Angle res = std::max(t *  (m_aAoA2 * t + m_bAoA2), 0.0_rad);
+    Angle res = std::max(t *  (m_aAoA2 * t - m_bAoA2), 0.0_rad);
     if (res > 1.01 * MaxAoA2)
     {
       OutputCtls();
@@ -1005,22 +1022,25 @@ void Ascent2::OutputCtls() const
     return;
 
   // Here "t" is the time from Stage2 cut-off (so t=-T2..0):
-  std::cout << "# T2   := " << m_T2.Magnitude() << ';'    << std::endl;
-  std::cout << "# AoA2 := t * ("   << m_aAoA2.Magnitude() << " * t + ("
-            << m_bAoA2.Magnitude() << ")); "              << std::endl;
-  std::cout << "# mu2  := " << m_burnRateI2.Magnitude()   << " + ("
-            << m_bMu2.Magnitude()  << ") * t + ("
-            << m_aMu2.Magnitude()  << ") * t^2;"          << std::endl;
+  *m_os << "# T2   := " << m_T2.Magnitude() << ';'    << std::endl;
+  *m_os << "# 0  <= tau <= T2"                        << std::endl;
+  *m_os << "#-T2 <= t   <= 0"                         << std::endl;
+  *m_os << "# AoA2 := t * ("   << m_aAoA2.Magnitude() << " * t - ("
+        << m_bAoA2.Magnitude() << ")); "              << std::endl;
+  *m_os << "# mu2  := " << m_burnRateI2.Magnitude()   << " + ("
+        << m_bMu2.Magnitude()  << ") * tau + ("
+        << m_aMu2.Magnitude()  << ") * tau^2;"        << std::endl;
 
   // Here "t" is the time from Stage1 cut-off (so t=-T1..0), and "tau" is
   // the time since Stage1 ignition (NB: the (-b) coeff at "tau" for AoA),
   // so tau=0..T1:
-  std::cout << "# T1   := " << m_T1.Magnitude() << ';'    << std::endl;
-  std::cout << "# AoA1 := tau * (" << m_aAoA1.Magnitude() << " * tau - ("
-            << m_bAoA1.Magnitude() << ")); "              << std::endl;
-  std::cout << "# mu1  := " << m_burnRateI1.Magnitude()   << " + ("
-            << m_bMu1.Magnitude()  << ") * t + ("
-            << m_aMu1.Magnitude()  << ") * t^2;"          << std::endl;
+  *m_os << "# T1   := " << m_T1.Magnitude() << ';'    << std::endl;
+  *m_os << "# 0  <= tau <= T1"                        << std::endl;
+  *m_os << "# AoA1 := tau * (" << m_aAoA1.Magnitude() << " * tau + ("
+        << m_bAoA1.Magnitude() << ")); "              << std::endl;
+  *m_os << "# mu1  := " << m_burnRateI1.Magnitude()   << " + ("
+        << m_bMu1.Magnitude()  << ") * tau + ("
+        << m_aMu1.Magnitude()  << ") * tau^2;"        << std::endl;
 }
 
 //===========================================================================//
@@ -1040,15 +1060,15 @@ std::optional<Ascent2::RunRes> Ascent2::GetRunRes
   //-------------------------------------------------------------------------//
   // Construct the "AscCtlsL" obj used for caching:                          //
   //-------------------------------------------------------------------------//
-  // a_xs = [aHat2, aMuHat2, aAoA2, bAoA2, TGap, aHat1, aMuHat1, aAoA1, bAoA1]:
+  // a_xs = [bHat2, muHat2, aAoA2, bAoA2, TGap, bHat1, muHat1, aAoA1, bAoA1]:
   // XXX: Can we simply cast "a_xs" to an "AscCtlsL" ptr, w/o copying the data
   // over?
   AscCtlsL ctls
   {
-    .m_aHat2  = a_xs[0], .m_muHat2 = a_xs[1],
+    .m_bHat2  = a_xs[0], .m_muHat2 = a_xs[1],
     .m_aAoA2  = a_xs[2], .m_bAoA2  = a_xs[3],
     .m_TGap   = a_xs[4],
-    .m_aHat1  = a_xs[5], .m_muHat1 = a_xs[6],
+    .m_bHat1  = a_xs[5], .m_muHat1 = a_xs[6],
     .m_aAoA1  = a_xs[7], .m_bAoA1  = a_xs[8]
   };
 
@@ -1194,12 +1214,12 @@ std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
   opt.add_inequality_mconstraint(EvalNLOptConstraints, &asc, tols);
 
   // Set the bounds for:
-  // [aHat2, aMuHat2, aAoA2, bAoA2, TGap, aHat1, aMuHat1, aAoA1, bAoA1]:
+  // [bHat2, muHat2, aAoA2, bAoA2, TGap,  bHat1, muHat1, aAoA1, bAoA1]:
   //
   std::vector<double> loBounds
-    { -1.0,  0.0,     0.0,   0.0,   0.0,  -1.0,  0.0,     0.0,   0.0  };
+    { 0.0,   0.0,    0.0,   0.0,    0.0,  0.0,   0.0,    0.0,   0.0  };
   std::vector<double> upBounds
-    {  1.0,  1.0,     1.0,   1.0, 300.0,   1.0,  1.0,     1.0,   1.0  };
+    { 1.0,   1.0,    1.0,   1.0,  300.0,  1.0,   1.0,    1.0,   1.0  };
 
   opt.set_lower_bounds(loBounds);
   opt.set_upper_bounds(upBounds);
@@ -1210,9 +1230,9 @@ std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
   // Set the stopping criteria for finding the StartMass minimum: 100 kg is OK:
   opt.set_ftol_abs((100.0_kg).Magnitude());
 
-  // Run the Optimisation:
+  // Run the Optimisation from the following initial vals:
   std::vector<double>   optArgs
-    {  0.0,  0.5,     0.5,   0.5,  60.0,   0.0,  0.5,     0.5,   0.5  };
+    { 0.5,   0.5,    0.5,   0.5,   60.0,  0.5,   0.5,    0.5,   0.5  };
 
   double optVal = NAN;      // Will become the minimised StartMass
   nlopt::result rc = opt.optimize(optArgs, optVal);
@@ -1237,6 +1257,9 @@ std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
      optArgs[4],
      optArgs[5], optArgs[6], optArgs[7], optArgs[8]
     );
+
+  // For info and verification:
+  asc.OutputCtls();
 
   // The result:
   AscCtlsD res
