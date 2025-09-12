@@ -8,6 +8,44 @@
 #include "SpaceBallistics/Maths/RKF5.hpp"
 #include <nlopt.hpp>
 
+// XXX: NOMAD headers produce tons of warnings, suppress them all:
+#ifdef   __clang__
+#pragma  clang diagnostic push
+#pragma  clang diagnostic ignored "-Wunused-parameter"
+#pragma  clang diagnostic ignored "-Wnon-virtual-dtor"
+#pragma  clang diagnostic ignored "-Wcast-qual"
+#pragma  clang diagnostic ignored "-Wcast-align"
+#pragma  clang diagnostic ignored "-Wold-style-cast"
+#pragma  clang diagnostic ignored "-Wsuggest-override"
+#pragma  clang diagnostic ignored "-Wsuggest-destructor-override"
+#pragma  clang diagnostic ignored "-Woverloaded-virtual"
+#pragma  clang diagnostic ignored "-Wshadow"
+#pragma  clang diagnostic ignored "-Wextra-semi"
+#pragma  clang diagnostic ignored "-Wunused-member-function"
+#pragma  clang diagnostic ignored "-Winconsistent-missing-destructor-override"
+#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-dtor"
+#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-copy"
+#pragma  clang diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
+#pragma  clang diagnostic ignored "-Wreserved-identifier"
+#pragma  clang diagnostic ignored "-Wheader-hygiene"
+#pragma  clang diagnostic ignored "-Wsign-conversion"
+#pragma  GCC   diagnostic ignored "-Warray-bounds"
+#else
+#pragma  GCC   diagnostic push
+#pragma  GCC   diagnostic ignored "-Wunused-parameter"
+#pragma  GCC   diagnostic ignored "-Woverloaded-virtual="
+#pragma  GCC   diagnostic ignored "-Wnon-virtual-dtor"
+#pragma  GCC   diagnostic ignored "-Wcast-qual"
+#pragma  GCC   diagnostic ignored "-Warray-bounds"
+#endif
+#include <Nomad/nomad.hpp>
+#include <Cache/CacheBase.hpp>
+#ifdef   __clang__
+#pragma  clang diagnostic pop
+#else
+#pragma  GCC   diagnostic pop
+#endif
+
 namespace SpaceBallistics
 {
 //===========================================================================//
@@ -44,16 +82,16 @@ Ascent2::Ascent2
                    (1.0 + a_alpha1)),
   m_emptyMass2    (m_fullMass2   * (1.0 - K2)),
   m_propMass2     (m_fullMass2   * K2),
-  m_thrustVac2    (a_thrust2_vac),
-  m_burnRateI2    (m_thrustVac2  / (IspVac2  * g0K)),
+  m_burnRateIN2   (a_thrust2_vac / (IspVac2  * g0K)),
+  m_burnRateIA2   (m_burnRateIN2), // Same as Nominal one to begin with
 
   // Stage1 Params:
   m_fullMass1     ((MaxStartMass - FairingMass - a_payload_mass) /
                    (1.0 + a_alpha1) * a_alpha1),
-  m_emptyMass1    (m_fullMass1  * (1.0 - K1)),
-  m_propMass1     (m_fullMass1  * K1),
-  m_thrustVac1    (a_thrust1_vac),
-  m_burnRateI1    (m_thrustVac1  / (IspVac1  * g0K)),
+  m_emptyMass1    (m_fullMass1   * (1.0 - K1)),
+  m_propMass1     (m_fullMass1   * K1),
+  m_burnRateIN1   (a_thrust1_vac / (IspVac1  * g0K)),
+  m_burnRateIA1   (m_burnRateIN1), // Same as Nominal one to begin with
 
   //-------------------------------------------------------------------------//
   // Mission Params:                                                         //
@@ -67,15 +105,17 @@ Ascent2::Ascent2
   //-------------------------------------------------------------------------//
   // BurnRate Ctls and AoA Ctls. NB: "m_T{1,2}" are initialised to Actual
   // BurnTimes (taking the Remnants into account):
-  m_T2            (m_propMass2 * (1.0 - PropRem2) / m_burnRateI2),
+  m_T2            (m_propMass2 * (1.0 - PropRem2) / m_burnRateIN2),
   m_aMu2          (MassT3(0.0)),
   m_bMu2          (MassT2(0.0)),
+  m_upRate2       (1.0),
   m_aAoA2         (AngAcc(0.0)),
   m_bAoA2         (AngVel(0.0)),
   m_TGap          (),            // 0 by default
-  m_T1            (m_propMass1 * (1.0 - PropRem1) / m_burnRateI1),
+  m_T1            (m_propMass1 * (1.0 - PropRem1) / m_burnRateIN1),
   m_aMu1          (MassT3(0.0)),
   m_bMu1          (MassT2(0.0)),
+  m_upRate1       (1.0),
   m_aAoA1         (AngAcc(0.0)),
   m_bAoA1         (AngVel(0.0)),
 
@@ -97,13 +137,13 @@ Ascent2::Ascent2
   //-------------------------------------------------------------------------//
   // Check the Params:                                                       //
   //-------------------------------------------------------------------------//
-  if ( IsNeg(m_payLoadMass) || !IsPos(m_fullMass2) || !IsPos(m_thrustVac2)  ||
-      !IsPos(m_fullMass1)   || !IsPos(m_thrustVac1))
+  if ( IsNeg(m_payLoadMass) || !IsPos(m_fullMass2) || !IsPos(m_burnRateIN2) ||
+      !IsPos(m_fullMass1)   || !IsPos(m_burnRateIN1))
     throw std::invalid_argument("Ascent2::Ctor: Invalid LV param(s)");
 
   // Therefore:
-  assert(IsPos(m_emptyMass2) && IsPos(m_propMass2) && IsPos(m_burnRateI2) &&
-         IsPos(m_emptyMass1) && IsPos(m_propMass1) && IsPos(m_burnRateI1));
+  assert(IsPos(m_emptyMass2) && IsPos(m_propMass2) &&
+         IsPos(m_emptyMass1) && IsPos(m_propMass1));
   if (a_h_perigee  <  100.0_km || a_h_perigee  > a_h_apogee ||
       a_incl       <  0.0_deg  || a_incl       > 180.0_deg  ||
       // NB: We assume launch from the Northern Hemisphere, and not from the
@@ -157,40 +197,25 @@ Ascent2::Ascent2
 //===========================================================================//
 void Ascent2::SetCtlParams(AscCtlsL const& a_ctls)
 {
-  SetCtlParams(a_ctls.m_bHat2, a_ctls.m_muHat2,
-               a_ctls.m_aAoA2, a_ctls.m_bAoA2,
-               a_ctls.m_TGap,
-               a_ctls.m_bHat1, a_ctls.m_muHat1,
-               a_ctls.m_aAoA1, a_ctls.m_bAoA1);
-}
-
-void Ascent2::SetCtlParams
-(
-  double a_bHat2, double a_muHat2,  // Stage2 BurnRate
-  double a_aAoA2, double a_bAoA2,   // Stage2 AoA
-  double a_TGap,                    // Ballistic Gap in sec
-  double a_bHat1, double a_muHat1,  // Stage1 BurnRate
-  double a_aAoA1, double a_bAoA1    // Stage1 AoA
-)
-{
   //-------------------------------------------------------------------------//
   // Checks:                                                                 //
   //-------------------------------------------------------------------------//
-  if (a_bHat2  < 0.0   || a_bHat2  > 1.0  ||
-      a_muHat2 < 0.0   || a_muHat2 > 1.0  ||
-      a_aAoA2  < 0.0   || a_aAoA2  > 1.0  ||
-      a_bAoA2  < 0.0   || a_bAoA2  > 1.0  ||
-      a_TGap   < 0.0                      ||
-      a_bHat1  < 0.0   || a_bHat1  > 1.0  ||
-      a_muHat1 < 0.0   || a_muHat1 > 1.0  ||
-      a_aAoA1  < 0.0   || a_aAoA1  > 1.0  ||
-      a_bAoA1  < 0.0   || a_bAoA1  > 1.0)
+  if (a_ctls.m_bHat2   < 0.0   || a_ctls.m_bHat2   > 1.0  ||
+      a_ctls.m_muHat2  < 0.0   || a_ctls.m_muHat2  > 1.0  ||
+      a_ctls.m_aAoA2   < 0.0   || a_ctls.m_aAoA2   > 1.0  ||
+      a_ctls.m_bAoA2   < 0.0   || a_ctls.m_bAoA2   > 1.0  ||
+      a_ctls.m_TGap    < 0.0   || a_ctls.m_TGap    > 1.0  ||
+      a_ctls.m_bHat1   < 0.0   || a_ctls.m_bHat1   > 1.0  ||
+      a_ctls.m_muHat1  < 0.0   || a_ctls.m_muHat1  > 1.0  ||
+      a_ctls.m_aAoA1   < 0.0   || a_ctls.m_aAoA1   > 1.0  ||
+      a_ctls.m_bAoA1   < 0.0   || a_ctls.m_bAoA1   > 1.0  ||
+      a_ctls.m_upRate2 < 1.0   || a_ctls.m_upRate1 < 1.0)
       throw std::invalid_argument("Ascent2::SetCtlParams: Invalid Param(s)");
 
   //-------------------------------------------------------------------------//
   // Ballistic Gap:                                                          //
   //-------------------------------------------------------------------------//
-  m_TGap = Time(a_TGap);
+  m_TGap = a_ctls.m_TGap * MaxTGap;
 
   //-------------------------------------------------------------------------//
   // BurnRate Coeffs:                                                        //
@@ -200,7 +225,7 @@ void Ascent2::SetCtlParams
   constexpr double muHatUp = 1.0;
 
   // Stage2:
-  double muHat2  = muHatLo * (1.0 - a_muHat2) + muHatUp * a_muHat2;
+  double muHat2  = muHatLo * (1.0 - a_ctls.m_muHat2) + muHatUp * a_ctls.m_muHat2;
   assert(0.0 < muHat2 && muHat2 <=  1.0);
 
   double bHatLo2 =  3.0 * muHat2 * (muHat2 - 1.0);
@@ -208,19 +233,21 @@ void Ascent2::SetCtlParams
   double bHatUp2 =  2.0 * muHat2 * (3.0 * muHat2 - (2.0 + DT));
   bHatUp2 =  std::min(bHatUp2, 0.0);
   // NB: We must have bHatLo2 <= bHatUp2, up to rounding errors:
-  double bHat2   = bHatLo2 * (1.0 - a_bHat2)  + bHatUp2 * a_bHat2;
+  double bHat2   = bHatLo2 * (1.0 - a_ctls.m_bHat2)  + bHatUp2 * a_ctls.m_bHat2;
   assert(bHat2  <=  0.0);
 
   // Then set the actual (dimensioned) coeffs for Stage2 (using the actual
   // "propMass2" w/o the Remnants):
-  Mass     propMass2  = (1.0 - PropRem2) * m_propMass2;
-  m_T2   = propMass2  / (m_burnRateI2    * muHat2);
-  m_bMu2 = Sqr(m_burnRateI2) / propMass2 * bHat2;
-  m_aMu2 = 3.0 / Cube(m_T2)  *
-           (propMass2  - m_burnRateI2 * m_T2 - 0.5 * m_bMu2 * Sqr(m_T2));
+  m_upRate2              = a_ctls.m_upRate2;
+  m_burnRateIA2          = m_burnRateIN2     * m_upRate2;
+  Mass        propMass2  = (1.0  - PropRem2) * m_propMass2;
+  m_T2      = propMass2  / (m_burnRateIA2    * muHat2);
+  m_bMu2    = Sqr(m_burnRateIA2) / propMass2 * bHat2;
+  m_aMu2    = 3.0 / Cube(m_T2)   *
+              (propMass2  - m_burnRateIA2 * m_T2 - 0.5 * m_bMu2 * Sqr(m_T2));
 
   // Stage1:
-  double muHat1  = muHatLo * (1.0 - a_muHat1) + muHatUp * a_muHat1;
+  double muHat1  = muHatLo * (1.0 - a_ctls.m_muHat1) + muHatUp * a_ctls.m_muHat1;
   assert(0.0 < muHat1 && muHat1 <=  1.0);
 
   double bHatLo1 =  3.0 * muHat1 * (muHat1 - 1.0);
@@ -228,37 +255,39 @@ void Ascent2::SetCtlParams
   double bHatUp1 =  2.0 * muHat1 * (3.0 * muHat1 - (2.0 + DT));
   bHatUp1 =  std::min(bHatUp1, 0.0);
   // NB: We must have bHatLo1 <= bHatUp1, up to rounding errors:
-  double bHat1   = bHatLo1 * (1.0 - a_bHat1)  + bHatUp1 * a_bHat1;
+  double bHat1   = bHatLo1 * (1.0 - a_ctls.m_bHat1)  + bHatUp1 * a_ctls.m_bHat1;
   assert(bHat1  <=  0.0);
 
   // Then set the actual (dimensioned) coeffs for Stage1 (using the actual
   // "propMass1" w/o the Remnants):
-  Mass     propMass1  = (1.0 - PropRem1) * m_propMass1;
-  m_T1   = propMass1  / (m_burnRateI1    * muHat1);
-  m_bMu1 = Sqr(m_burnRateI1) / propMass1 * bHat1;
-  m_aMu1 = 3.0 / Cube(m_T1)  *
-           (propMass1  - m_burnRateI1 * m_T1 - 0.5 * m_bMu1 * Sqr(m_T1));
+  m_upRate1              = a_ctls.m_upRate1;
+  m_burnRateIA1          = m_burnRateIN1     * m_upRate1;
+  Mass        propMass1  = (1.0  - PropRem1) * m_propMass1;
+  m_T1      = propMass1  / (m_burnRateIA1    * muHat1);
+  m_bMu1    = Sqr(m_burnRateIA1) / propMass1 * bHat1;
+  m_aMu1    = 3.0 / Cube(m_T1)   *
+              (propMass1  - m_burnRateIA1 * m_T1 - 0.5 * m_bMu1 * Sqr(m_T1));
 
   //-------------------------------------------------------------------------//
   // AoA Coeffs:                                                             //
   //-------------------------------------------------------------------------//
   // Stage2:
-  m_bAoA2        = 4.0 * MaxAoA2 / m_T2 * a_bAoA2;
+  m_bAoA2        = 4.0 * MaxAoA2 / m_T2 * a_ctls.m_bAoA2;
   AngAcc aAoALo2 = - m_bAoA2     / m_T2;
   AngAcc aAoAUp2 =
-    (a_bAoA2 < 0.5)
+    (a_ctls.m_bAoA2  < 0.5)
     ? (MaxAoA2 / m_T2 - m_bAoA2) / m_T2
     : - Sqr(m_bAoA2) / (4.0 * MaxAoA2);
-  m_aAoA2 = aAoALo2  * (1.0 - a_aAoA2) + aAoAUp2 * a_aAoA2;
+  m_aAoA2 = aAoALo2  * (1.0 - a_ctls.m_aAoA2) + aAoAUp2 * a_ctls.m_aAoA2;
 
   // Stage1:
-  m_bAoA1        = 4.0 * MaxAoA1 / m_T1 * a_bAoA1;
+  m_bAoA1        = 4.0 * MaxAoA1 / m_T1 * a_ctls.m_bAoA1;
   AngAcc aAoALo1 = - m_bAoA1     / m_T1;
   AngAcc aAoAUp1 =
-    (a_bAoA1 < 0.5)
+    (a_ctls.m_bAoA1  < 0.5)
     ? (MaxAoA1 / m_T1 - m_bAoA1) / m_T1
     : - Sqr(m_bAoA1) / (4.0 * MaxAoA1);
-  m_aAoA1 = aAoALo1  * (1.0 - a_aAoA1) + aAoAUp1 * a_aAoA1;
+  m_aAoA1 = aAoALo1  * (1.0 - a_ctls.m_aAoA1) + aAoAUp1 * a_ctls.m_aAoA1;
 }
 
 //===========================================================================//
@@ -428,6 +457,9 @@ Ascent2::DStateV Ascent2::ODERHS(StateV const& a_s, Time a_t)
     throw NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
   // Generic Case:
+  // Thus, omega < 0 cannot occur:
+  assert(!IsNeg(omega));
+
   // Abs Velocity: Since we are NOT near the singularity, it should be
   // sufficiently far away from 0:
   VelK   V  = SqRt(Sqr(Vr) + Sqr(Vhor));
@@ -454,24 +486,48 @@ Ascent2::DStateV Ascent2::ODERHS(StateV const& a_s, Time a_t)
   Mass   m  = LVMass(a_s, a_t);
   assert(IsPos(m));
 
-  // "u" unit vector: normal to the velocity (in the "up" direction)
-  // "v" unit vector: in the velocity direction
+  // "v" unit vector: in the velocity direction: "Th" is the velocity elevation
+  // of the hirizon (ie over the positive normal to the radius-vector):
+  // v = [sinTh, cosTh];
+  // at start, Th=Pi/2; at orbital insertion, Th=0:
+  double sinTh = double(Vr / V);
+  double cosTh = double(r * omega / V);
+  double v[2]  { sinTh, cosTh };
+  // NB:
+  // sinTh may be < 0 if we fall back to Earth (in that case Th = -Pi/2); but
+  // cosTh       >= 0 always (we do not move back in the polar angle):
+  assert(cosTh   >= 0.0);
+
+  // "u" unit vector: normal to the velocity (in the "up" direction):
   // Components of "u" in the (radius-vector, normal-to-radius-vector)
   // frame:
-  double v[2] { double(Vr / V), double(r * omega / V) };
-  double u[2] { v[1],           -v[0]                 };
+  double u[2] { cosTh, -sinTh };
+
+  // XXX: We do not allow A such that A + Th > Pi/2, because in that case, the
+  // Thrust force will move us towards negative polar angles, so constrain it:
+  // we want cos(A+Th) >= 0:
+  double sinApTh = v[0] * cosA + u[0] * sinA; // sin(A + Th)
+  double cosApTh = v[1] * cosA + u[1] * sinA; // cos(A + Th) 
+  if (cosApTh < 0.0)
+  {
+    cosApTh = 0.0;
+    sinApTh = IsPos(Vr) ? 1.0 : -1.0;
+  }
 
   // Thrust components (in the same frame):
-  ForceK T[2] { (v[0] * cosA + u[0] * sinA) * thrust,
-                (v[1] * cosA + u[1] * sinA) * thrust };
+  ForceK T[2]
+  {
+    sinApTh * thrust,  // sin(A + Th) * thrust
+    cosApTh * thrust   // cos(A + Th) * thrust
+  };
 
   // AeroDynamic Drag (-v) and Lift (+u) components:
-  ForceK D[2] { -v[0] * drag, -v[1] * drag };
-  ForceK L[2] {  u[0] * lift,  u[1] * lift };
+  ForceK AD[2] { -v[0] * drag, -v[1] * drag };
+  ForceK AL[2] {  u[0] * lift,  u[1] * lift };
 
   // Acceleration components due to the above forces:
-  AccK acc[2] { (T[0] + D[0] + L[0]) / m,
-                (T[1] + D[1] + L[1]) / m };
+  AccK acc[2] { (T[0] + AD[0] + AL[0]) / m,
+                (T[1] + AD[1] + AL[1]) / m };
 
   // The RHS components:
   AccK r2Dot =
@@ -739,7 +795,7 @@ Ascent2::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA)
   // The Aerodynamic Force Main Term:
   ForceK F  = 0.5 * To_Len_km(std::get<1>(atm)) * Sqr(a_v) * CroS;
 
-  // The Drag and Lift Coeffs:
+  // The Drag and Lift Coeffs, using the default model:
   double cD = LVAeroDyn::cD(M, a_AoA);
   double cL = LVAeroDyn::cL(M, a_AoA);
 
@@ -866,11 +922,12 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
   case FlightMode::Burn1:
   {
     // Arg: "tau" is the time since Stage1 ignition  (so 0 <= t <= T1); but the
-    // latter is not yet reached, so calculate it using "T1":
+    // latter is not yet reached, so calculate it using "T1";
+    // NB: Using the Actual (with possible UpRating) BurnRate1 here:
     Time     tIgn1 = m_cutOffTime1  - m_T1;
-    Time     tau   = std::min(std::max(a_t - tIgn1,    0.0_sec), m_T1);
-    MassRate res   = std::max(m_burnRateI1 + (m_bMu1 + m_aMu1 * tau) * tau,
-                              MassRate(0.0));
+    Time     tau   = std::min(std::max(a_t  - tIgn1,    0.0_sec), m_T1);
+    MassRate res   = std::max(m_burnRateIA1 + (m_bMu1 + m_aMu1 * tau) * tau,
+               MassRate(0.0));
     assert(IsFinite(res) && !IsNeg(res));
     return res;
   }
@@ -881,9 +938,10 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
   {
     // Arg: "tau" is the time since Stage2 ignition  (so 0 <= t <= T2); but the
     // latter is not yet reached, so calculate it using "T2":
+    // NB: Using the Actual (with possible UpRating) BurnRate2 here:
     Time     tIgn2 = - m_T2;
-    Time     tau   = std::min(std::max(a_t - tIgn2,    0.0_sec), m_T2);
-    MassRate res   = std::max(m_burnRateI2 + (m_bMu2 + m_aMu2 * tau) * tau,
+    Time     tau   = std::min(std::max(a_t  - tIgn2,    0.0_sec), m_T2);
+    MassRate res   = std::max(m_burnRateIA2 + (m_bMu2 + m_aMu2 * tau) * tau,
                               MassRate(0.0));
     assert(IsFinite(res) && !IsNeg(res));
     return res;
@@ -1027,7 +1085,7 @@ void Ascent2::OutputCtls() const
   *m_os << "#-T2 <= t   <= 0"                         << std::endl;
   *m_os << "# AoA2 := t * ("   << m_aAoA2.Magnitude() << " * t - ("
         << m_bAoA2.Magnitude() << ")); "              << std::endl;
-  *m_os << "# mu2  := " << m_burnRateI2.Magnitude()   << " + ("
+  *m_os << "# mu2  := " << m_burnRateIA2.Magnitude()  << " + ("
         << m_bMu2.Magnitude()  << ") * tau + ("
         << m_aMu2.Magnitude()  << ") * tau^2;"        << std::endl;
 
@@ -1038,10 +1096,33 @@ void Ascent2::OutputCtls() const
   *m_os << "# 0  <= tau <= T1"                        << std::endl;
   *m_os << "# AoA1 := tau * (" << m_aAoA1.Magnitude() << " * tau + ("
         << m_bAoA1.Magnitude() << ")); "              << std::endl;
-  *m_os << "# mu1  := " << m_burnRateI1.Magnitude()   << " + ("
+  *m_os << "# mu1  := " << m_burnRateIA1.Magnitude()  << " + ("
         << m_bMu1.Magnitude()  << ") * tau + ("
         << m_aMu1.Magnitude()  << ") * tau^2;"        << std::endl;
 }
+
+//===========================================================================//
+// "AscCtlsL" Ctor:                                                          //
+//===========================================================================//
+// If all params are variable, then
+// a_n  = 11 and
+// a_xs = [bHat2,   muHat2, aAoA2, bAoA2, TGap, bHat1, muHat1, aAoA1, bAoA1,
+//         upRate2, upRate1];
+// if a_n < 11, for the remaining params the defaults are used:
+//
+Ascent2::AscCtlsL::AscCtlsL(unsigned a_n, double const a_xs[])
+: m_bHat2  ((a_n >=  1 && a_xs != nullptr) ? a_xs[ 0] : 0.0),
+  m_muHat2 ((a_n >=  2 && a_xs != nullptr) ? a_xs[ 1] : 1.0),
+  m_aAoA2  ((a_n >=  3 && a_xs != nullptr) ? a_xs[ 2] : 0.0),
+  m_bAoA2  ((a_n >=  4 && a_xs != nullptr) ? a_xs[ 3] : 0.0),
+  m_TGap   ((a_n >=  5 && a_xs != nullptr) ? a_xs[ 4] : 0.0),
+  m_bHat1  ((a_n >=  6 && a_xs != nullptr) ? a_xs[ 5] : 0.0),
+  m_muHat1 ((a_n >=  7 && a_xs != nullptr) ? a_xs[ 6] : 1.0),
+  m_aAoA1  ((a_n >=  8 && a_xs != nullptr) ? a_xs[ 7] : 0.0),
+  m_bAoA1  ((a_n >=  9 && a_xs != nullptr) ? a_xs[ 8] : 0.0),
+  m_upRate2((a_n >= 10 && a_xs != nullptr) ? a_xs[ 9] : 1.0),
+  m_upRate1((a_n >= 11 && a_xs != nullptr) ? a_xs[10] : 1.0)
+{}
 
 //===========================================================================//
 // "GetRunRes":                                                              //
@@ -1051,34 +1132,31 @@ void Ascent2::OutputCtls() const
 //
 std::optional<Ascent2::RunRes> Ascent2::GetRunRes
 (
-  double const a_xs[NP],
+  unsigned     a_n,
+  double const a_xs[],
   void*        a_env
 )
 {
   assert(a_env != nullptr);
-
   //-------------------------------------------------------------------------//
   // Construct the "AscCtlsL" obj used for caching:                          //
   //-------------------------------------------------------------------------//
-  // a_xs = [bHat2, muHat2, aAoA2, bAoA2, TGap, bHat1, muHat1, aAoA1, bAoA1]:
-  // XXX: Can we simply cast "a_xs" to an "AscCtlsL" ptr, w/o copying the data
-  // over?
-  AscCtlsL ctls
-  {
-    .m_bHat2  = a_xs[0], .m_muHat2 = a_xs[1],
-    .m_aAoA2  = a_xs[2], .m_bAoA2  = a_xs[3],
-    .m_TGap   = a_xs[4],
-    .m_bHat1  = a_xs[5], .m_muHat1 = a_xs[6],
-    .m_aAoA1  = a_xs[7], .m_bAoA1  = a_xs[8]
-  };
+  AscCtlsL ctls(a_n, a_xs);
 
-  // Is the result already in the Cache?
-  // # pragma omp critical(Cache)
+  // Is the result already in the Cache? BEWARE that some optimisers use OpenMP:
+  RunRes res;
+  bool   found = false;
+# pragma omp critical(Ascent2Cache)
   {
     auto it = s_Cache.find(ctls);
     if (it != s_Cache.end())
-      return  it->second;
+    {
+      res   = it->second;
+      found = true;
+    }
   }
+  if (found)
+    return res;
 
   //-------------------------------------------------------------------------//
   // Otherwise, need a new Run:                                              //
@@ -1091,39 +1169,38 @@ std::optional<Ascent2::RunRes> Ascent2::GetRunRes
   asc.SetCtlParams(ctls);
 
   // Run the integrator:
-  RunRes res  = asc.Run(); // NB: Exceptions are handled inside "Run"
+  res = asc.Run();    // NB: Exceptions are handled inside "Run"
 
   if (res.m_rc != RunRC::Error)
   {
-    // Cache the results:
-    // # pragma omp critical(Cache)
+    // Cache the results. Again, BEWARE that some optimisers use OpenMP:
+#   pragma omp critical(Ascent2Cache)
     s_Cache[ctls] = res;
     return res;
   }
-
   // If we got here: Both the Cache look-up and the new evaluation have
   // failed:
   return std::nullopt;
 }
 
 //===========================================================================//
-// "EvalNLOptObjective":                                                     //
+// "EvalNLOptObjective0":                                                    //
 //===========================================================================//
 // Evaluate the Function to be Minimised (by NLOpt): It is actually the LV Mass
 // at the end of Bwd integration:
 //
-double Ascent2::EvalNLOptObjective
+double Ascent2::EvalNLOptObjective0
 (
-  unsigned     DEBUG_ONLY(a_n),
-  double const a_xs[NP],
+  unsigned     a_n,
+  double const a_xs[],
   double*      DEBUG_ONLY(a_grad),
   void*        a_env
 )
 {
-  assert(int(a_n) == NP && a_grad == nullptr && a_xs != nullptr);
+  assert(a_grad == nullptr && a_xs != nullptr);
 
   // Find or compute the "RunRes":
-  std::optional<RunRes> res = GetRunRes(a_xs, a_env);
+  std::optional<RunRes> res = GetRunRes(a_n, a_xs, a_env);
   return
     bool(res)
     ? // Got a valid result, use its mass:
@@ -1137,21 +1214,22 @@ double Ascent2::EvalNLOptObjective
 // "EvalNLOptConstraints":                                                   //
 //===========================================================================//
 // Evaluate the Constraints vector (all components must be <= 0) in NLOpt:
+// TODO: More constraints (MaxQ, MaxG, MaxSepM):
 //
 void Ascent2::EvalNLOptConstraints
 (
   unsigned     DEBUG_ONLY(a_m),
   double       a_constrs[],
-  unsigned     DEBUG_ONLY(a_n),
-  double const a_xs[NP],
+  unsigned     a_n,
+  double const a_xs[],
   double*      DEBUG_ONLY(a_grad),
   void*        a_env
 )
 {
-  assert(a_m == 2 && int(a_n) == NP && a_grad == nullptr && a_xs != nullptr);
+  assert(a_m == 2 && a_grad == nullptr && a_xs != nullptr);
 
   // Find or compute the "RunRes":
-  std::optional<RunRes> res = GetRunRes(a_xs, a_env);
+  std::optional<RunRes> res = GetRunRes(a_n, a_xs, a_env);
 
   double hT = NAN, VT = NAN;
   if (bool(res))
@@ -1168,6 +1246,132 @@ void Ascent2::EvalNLOptConstraints
   }
   a_constrs[0] = hT;
   a_constrs[1] = VT;
+}
+
+//===========================================================================//
+// "EvalNLOptObjective1":                                                    //
+//===========================================================================//
+// Evaluate the Function to be Minimised (by NLOpt): It is actually the LV Mass
+// at the end of Bwd integration:
+//
+double Ascent2::EvalNLOptObjective1
+(
+  unsigned     a_n,
+  double const a_xs[],
+  double*      DEBUG_ONLY(a_grad),
+  void*        a_env
+)
+{
+  assert(a_grad == nullptr && a_xs != nullptr);
+
+  // Find or compute the "RunRes":
+  std::optional<RunRes> res = GetRunRes(a_n, a_xs, a_env);
+  if (!bool(res))
+    // XXX: Return a large but not too large value:
+    return 1000.0;
+
+  // Generic Case:
+  // "lambda" is selected in such a was as to make the Objective Function Terms
+  // nearly equal when the optimisation constraints are satisfied:
+  //
+  constexpr double lambda  =  3e-9;
+  //
+  // MaxStartH^2           =  1e-2
+  // MaxStartV^2           =~ 1e-2
+  // lambda * MaxStartMass =~ 1e-2
+  //
+  // Using "Log" for a "more sharp" minimum:
+  return Log(Sqr(res.value().m_hT.Magnitude()) +
+             Sqr(res.value().m_VT.Magnitude()) +
+             lambda * res.value().m_mT.Magnitude());
+}
+
+namespace
+{
+  //=========================================================================//
+  // "NOMADEvaluator" Class:                                                 //
+  //=========================================================================//
+  // Using true Constraint Optimisation:
+  //
+  class NOMADEvaluator final: public NOMAD::Evaluator
+  {
+  private:
+    //-----------------------------------------------------------------------//
+    // Data Flds:                                                            //
+    //-----------------------------------------------------------------------//
+    Ascent2*      m_proto;
+    unsigned      m_n;
+    std::ostream* m_os;
+    int           m_logLevel;
+
+  public:
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctor, Dtor:                                               //
+    //-----------------------------------------------------------------------//
+    NOMADEvaluator
+    (
+      std::shared_ptr<NOMAD::EvalParameters> const& a_params,
+      Ascent2*                                      a_proto,
+      unsigned                                      a_n,
+      std::ostream*                                 a_os,
+      int                                           a_log_level
+    )
+    : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
+      m_proto         (a_proto),
+      m_n             (a_n),
+      m_os            (a_os),
+      m_logLevel      (a_log_level)
+    { assert(m_proto != nullptr); }
+
+    ~NOMADEvaluator() override   {}
+
+    //-----------------------------------------------------------------------//
+    // "eval_x":                                                             //
+    //-----------------------------------------------------------------------//
+    bool eval_x
+    (
+      NOMAD::EvalPoint&    a_x,  // Not "const" -- the result is also set here
+      NOMAD::Double const& UNUSED_PARAM(a_hMax),
+      bool&                a_countEval
+    )
+    const override
+    {
+      // Extract the "m_n" params from a_x:
+      double xs[m_n];
+      for (unsigned i = 0; i < m_n; ++i)
+        xs[i] = a_x[i].todouble();
+
+      // Find or compute the RunRes (using "m_proto"!):
+      std::optional<Ascent2::RunRes> res = Ascent2::GetRunRes(m_n, xs, m_proto);
+      if (!bool(res))
+        return false;
+
+      // If OK: Evaluate the constraints, re-using the NLOpt-related function:
+      // XXX: There are 2 constraints currently:
+      double constrs[2];
+      Ascent2::EvalNLOptConstraints(2, constrs, m_n, xs, nullptr, m_proto);
+
+      // Push the results back to NOMAD in string form:
+      char  buff[512];
+      char* curr  = buff;
+
+      // The Objective Function Value and the Constraints:
+      curr += sprintf(curr, "%.16e ", res.value().m_mT.Magnitude());
+      curr += sprintf(curr, "%.16e ",
+                      constrs[0] - Ascent2::MaxStartH.Magnitude());
+      curr += sprintf(curr, "%.16e",
+                      constrs[1] - Ascent2::MaxStartV.Magnitude());
+      assert(size_t(curr - buff) <= sizeof(buff));
+
+#     pragma omp critical(NOMADOutput)
+      if (m_os != nullptr && m_logLevel >= 1)
+        *m_os << buff << std::endl;
+
+      a_x.setBBO(buff);
+      a_countEval = true;
+      return true;
+    }
+  };
 }
 
 //===========================================================================//
@@ -1189,85 +1393,203 @@ std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
 
   // Logging Params:
   std::ostream*   a_os,
-  int             a_log_level
+  int             a_log_level,
+
+  // Optimisation params:
+  OptMethod       a_opt_method,
+  unsigned        a_np,
+  unsigned        a_max_evals
 )
 {
-  // Create the NLOpt obj. There are currently 9 params for optimization. Will
-  // use the "COBYLA" method which can handle non-linear constraints  (for the
-  // final "V" and "h" vals):
-  nlopt::opt opt(nlopt::LN_COBYLA, NP);
+  //-------------------------------------------------------------------------//
+  // Setup Common for all Methods:                                           //
+  //-------------------------------------------------------------------------//
+  // Set the bounds and the initial values for
+  // [bHat2, muHat2, aAoA2, bAoA2, TGap,  bHat1, muHat1, aAoA1, bAoA1, upRate2,
+  //  upRate1]:
+  // (or a shorter vector of params if some remain constant):
+  std::vector<double> loBounds
+    {0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,  1.0, 1.0};
 
-  // Create the "prototype" "Ascent2" obj; the actual Ctls to be evaluated will
-  // be installed in it in the course of optimisation:
+  std::vector<double> upBounds
+    {1.0,   1.0,    1.0,   1.0,   1.0,   1.0,   1.0,    1.0,   1.0,  2.0, 2.0};
+
+  std::vector<double> optArgs
+    {0.5,   0.5,    0.5,   0.5,   0.2,   0.5,   0.5,    0.5,   0.5,  1.5, 1.5};
+
+  // The "tols" are critically important for convergence (used in COBYLA for
+  // optimisation, and in all methods for verification of the results):
+  std::vector<double> tols { MaxStartH.Magnitude(), MaxStartV.Magnitude() };
+
+  if (a_np > optArgs.size() || loBounds.size() != optArgs.size() ||
+      upBounds.size()       != optArgs.size())
+    throw std::invalid_argument
+          ("FindOptimalAscentCtls: Invalid Params or Bounds size");
+
+  // NB: The leading "a_np" elements are preserved by "resize":
+  loBounds.resize(a_np);
+  upBounds.resize(a_np);
+  optArgs .resize(a_np);
+
+  // Create the "prototype" "Ascent2" obj; the actual Ctls to be evaluated
+  // will be installed in it in the course of optimisation:
   Ascent2 asc
   (
     a_alpha1,       a_thrust2_vac, a_thrust1_vac,
     a_payload_mass, a_h_perigee,   a_h_apogee,  a_incl,  a_launch_lat,
     a_os,           a_log_level
   );
+  double optVal    = NAN;  // Will become the minimised StartMass
 
-  // Set the Objective Function to be Minimised, and the Constraints. The "tols"
-  // are critically important:
-  opt.set_min_objective         (EvalNLOptObjective,   &asc);
+  //-------------------------------------------------------------------------//
+  // Method-Specific Functionaliy:                                           //
+  //-------------------------------------------------------------------------//
+  if (a_opt_method == OptMethod::COBYLA ||
+      a_opt_method == OptMethod::DIRECT)
+  {
+    //-----------------------------------------------------------------------//
+    // Will use NLOpt, so create the NLOpt obj:                              //
+    //-----------------------------------------------------------------------//
+    nlopt::opt opt
+    (
+      (a_opt_method == OptMethod::COBYLA)
+      ? nlopt::LN_COBYLA
+      : nlopt::GN_DIRECT,
+      a_np
+    );
 
-  std::vector<double> tols { (0.1_km).Magnitude(), VelK(0.05).Magnitude() };
-  opt.add_inequality_mconstraint(EvalNLOptConstraints, &asc, tols);
+    // Set the Objective Function to be Minimised, and the Constraints:
+    if (a_opt_method == OptMethod::COBYLA)
+    {
+      opt.set_min_objective         (EvalNLOptObjective0,  &asc);
+      opt.add_inequality_mconstraint(EvalNLOptConstraints, &asc, tols);
 
-  // Set the bounds for:
-  // [bHat2, muHat2, aAoA2, bAoA2, TGap,  bHat1, muHat1, aAoA1, bAoA1]:
-  //
-  std::vector<double> loBounds
-    { 0.0,   0.0,    0.0,   0.0,    0.0,  0.0,   0.0,    0.0,   0.0  };
-  std::vector<double> upBounds
-    { 1.0,   1.0,    1.0,   1.0,  300.0,  1.0,   1.0,    1.0,   1.0  };
+      // Set the stopping criteria for finding the StartMass minimum:
+      constexpr   Mass startMassPrec = 50.0_kg;
+      opt.set_ftol_abs(startMassPrec.Magnitude());
+    }
+    else
+    {
+      // Constraints are embedded into the Objective Function (as penalties):
+      opt.set_min_objective         (EvalNLOptObjective1,   &asc);
 
-  opt.set_lower_bounds(loBounds);
-  opt.set_upper_bounds(upBounds);
+      // In this case, the Objective Function is a log of quadratic discrepanc-
+      // ies (of the order of 1), so set a much lower tolerance:
+      opt.set_ftol_abs(1e-4);
+    }
+    opt.set_lower_bounds(loBounds);
+    opt.set_upper_bounds(upBounds);
 
-  // Set the max number of evaluations to prevent infinite loops:
-  opt.set_maxeval(1000);
+    // Set the max number of evaluations to prevent infinite loops:
+    opt.set_maxeval(a_max_evals);
+    nlopt::result rc = opt.optimize(optArgs, optVal);
 
-  // Set the stopping criteria for finding the StartMass minimum: 100 kg is OK:
-  opt.set_ftol_abs((100.0_kg).Magnitude());
+    if (rc != nlopt::SUCCESS && rc != nlopt::FTOL_REACHED)
+      return std::nullopt;   // Optimisation definitely unsuccessful...
+  }
+  else
+  {
+    //-----------------------------------------------------------------------//
+    // Using NOMAD:                                                          //
+    //-----------------------------------------------------------------------//
+    assert(a_opt_method == OptMethod::NOMAD4);
 
-  // Run the Optimisation from the following initial vals:
-  std::vector<double>   optArgs
-    { 0.5,   0.5,    0.5,   0.5,   60.0,  0.5,   0.5,    0.5,   0.5  };
+    // Create the Main NOMAD obj:
+    NOMAD::MainStep opt;
 
-  double optVal = NAN;      // Will become the minimised StartMass
-  nlopt::result rc = opt.optimize(optArgs, optVal);
+    // Create the Params:
+    // Problem Geometry:
+    auto params = std::make_shared<NOMAD::AllParameters>();
+    params->setAttributeValue("DIMENSION",         size_t(a_np));
+    params->setAttributeValue("X0",                NOMAD::Point(optArgs));
+    params->setAttributeValue
+      ("LOWER_BOUND", NOMAD::ArrayOfDouble(loBounds));
+    params->setAttributeValue
+      ("UPPER_BOUND", NOMAD::ArrayOfDouble(upBounds));
 
-  if (rc != nlopt::SUCCESS && rc != nlopt::FTOL_REACHED)
-    return std::nullopt;    // Optimisation definitely unsuccessful...
+    // Stopping Criterion: XXX: Currently, only via the MaxEvals:
+    params->setAttributeValue("MAX_BB_EVAL",       size_t(a_max_evals));
 
-  // XXX: However, it looks like that we can get FTOL_REACHED,  but the
-  // constraints are unsatisfied. So re-evaluate the constraints on the
-  // final "optArgs":
+    // XXX: The following must be compatible with "NOMADEvaluator::eval_x":
+    NOMAD::BBOutputTypeList  bbTypes;
+    bbTypes.push_back(NOMAD::BBOutputType::OBJ);
+    bbTypes.push_back(NOMAD::BBOutputType::PB);
+    bbTypes.push_back(NOMAD::BBOutputType::PB);
+    params->setAttributeValue("BB_OUTPUT_TYPE",    bbTypes );
+
+    // Parallel Evaluation: The number of threads is decided automatically:
+    params->setAttributeValue("NB_THREADS_PARALLEL_EVAL", -1);
+
+    // "DIRECTION_TYPE" selects a variant of the optimisation algorithm. Other
+    // possible vals include "ORTHO_NP1_NEG", "ORTHO_NP1_QUAD", "NP1_UNI"  and
+    // many others:
+    params->setAttributeValue("DIRECTION_TYPE",
+      NOMAD::DirectionType::ORTHO_2N);
+
+    // Other params:
+    params->setAttributeValue("DISPLAY_DEGREE",       2);
+    params->setAttributeValue("DISPLAY_ALL_EVAL",     false);
+    params->setAttributeValue("DISPLAY_UNSUCCESSFUL", false);
+    params->getRunParams()->setAttributeValue("HOT_RESTART_READ_FILES",  false);
+    params->getRunParams()->setAttributeValue("HOT_RESTART_WRITE_FILES", false);
+
+    // Validate the "params" and install them in the "opt":
+    params->checkAndComply();
+    opt.setAllParameters(params);
+
+    // Create and set the "NOMADEvaluator":
+    std::unique_ptr<NOMADEvaluator> ev
+      (new NOMADEvaluator
+      (
+        params->getEvalParams(),
+        &asc,
+        a_np,
+        a_os,
+        a_log_level
+      ));
+    opt.setEvaluator(std::move(ev));
+
+    // RUN!
+    opt.start();
+    opt.run();
+    opt.end();
+
+    // Extract the results:
+    std::vector<NOMAD::EvalPoint> feasPts;
+    (void) NOMAD::CacheBase::getInstance()->findBestFeas(feasPts);
+    if (feasPts.empty())
+      return std::nullopt;
+
+    // If OK: put the best solution back to "optArgs":
+    for (unsigned i = 0; i < a_np; ++i)
+      optArgs[i] = feasPts[0][i].todouble();
+  }
+  //-------------------------------------------------------------------------//
+  // Post-Processing:                                                        //
+  //-------------------------------------------------------------------------//
+  // XXX: It may happen (with all methods) that the minimum of the objecive
+  // function is found but the constraints are unsatisfied! So re-evaluate the
+  // constraints on the final "optArgs" -- for all methods:
   double optConstrs   [2];
-  EvalNLOptConstraints(2, optConstrs, NP, optArgs.data(), nullptr, &asc);
+  EvalNLOptConstraints(2, optConstrs, a_np, optArgs.data(), nullptr, &asc);
 
-  if (optConstrs[0] > tols[0]  || optConstrs[1] > tols[1])
-    return std::nullopt;    // Failed to satisfy the constraints
+  if (optConstrs[0] > tols[0] || optConstrs[1] > tols[1])
+    return std::nullopt;  // Failed to satisfy the constraints
 
   // If OK:
   // In order to get the resulting "AscCtlsD", put the "AscCtlsL" into the
-  // "asc" obj:
-  asc.SetCtlParams
-    (optArgs[0], optArgs[1], optArgs[2], optArgs[3],
-     optArgs[4],
-     optArgs[5], optArgs[6], optArgs[7], optArgs[8]
-    );
-
-  // For info and verification:
-  asc.OutputCtls();
+  // "asc" obj,  and output them:
+  asc.SetCtlParams(AscCtlsL(a_np, optArgs.data()));
+  asc.OutputCtls  ();
 
   // The result:
-  AscCtlsD res
+  AscCtlsD optArgsD
   {
     // For Stage2:
     .m_T2         = asc.m_T2,
     .m_aMu2       = asc.m_aMu2,
     .m_bMu2       = asc.m_bMu2,
+    .m_upRate2    = asc.m_upRate2,
     .m_aAoA2      = asc.m_aAoA2,
     .m_bAoA2      = asc.m_bAoA2,
 
@@ -1278,13 +1600,17 @@ std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
     .m_T1         = asc.m_T1,
     .m_aMu1       = asc.m_aMu1,
     .m_bMu1       = asc.m_bMu1,
+    .m_upRate1    = asc.m_upRate1,
     .m_aAoA1      = asc.m_aAoA1,
     .m_bAoA1      = asc.m_bAoA1,
 
-    // Start Mass:
-    .m_startMass  = Mass(optVal)
+    // Optimisation Results:
+    .m_startH     = LenK(optConstrs[0]),
+    .m_startV     = VelK(optConstrs[1]),
+    .m_startMass  = Mass(),
+    .m_objVal     = optVal
   };
-  return res;
+  return optArgsD;
 }
 
 }

@@ -9,6 +9,7 @@
 #
 CMAKE_MINIMUM_REQUIRED(VERSION 3.27)
 CMAKE_POLICY(          VERSION 3.27)
+CMAKE_POLICY(SET       CMP0167 NEW)
 
 IF (NOT UNIX)
   MESSAGE(FATAL_ERROR "Non-UNIX platforms are not supported")
@@ -62,6 +63,10 @@ FIND_PACKAGE(Boost  REQUIRED)
 
 # NLOpt:
 FIND_PACKAGE(NLOPT  REQUIRED)
+
+# XXX: For NOMAD, we currently need an explicit location:
+SET(NOMAD_DIR  "/opt/NOMAD/4.5.0")
+SET(NOMAD_LIBS "nomadAlgos" "nomadUtils" "nomadEval")
 
 #=============================================================================#
 # Compiler Settings:                                                          #
@@ -179,9 +184,12 @@ SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/Include"
                     "${DIMTYPES_TOP_DIR}/Include"
-                    ${NLOPT_INCLUDE_DIR})
+                     ${NLOPT_INCLUDE_DIR}
+                    "${NOMAD_DIR}/include/nomad")
 
-LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}" "${LIB_DIR}")
+LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}"
+                    "${LIB_DIR}"
+                    "${NOMAD_DIR}/lib64")
 
 #=============================================================================#
 # The Target Library:                                                         #
@@ -205,8 +213,12 @@ IF ("${TOOL_CHAIN}" STREQUAL "CLang")
     Src/PhysEffects/EarthAtmosphereModel.cpp)
 ENDIF()
 
-ADD_LIBRARY          (${PROJECT_NAME} STATIC   ${SRCS})
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${NLOPT_LIBRARY})
+ADD_LIBRARY          (${PROJECT_NAME} STATIC ${SRCS})
+
+TARGET_LINK_LIBRARIES(${PROJECT_NAME}
+                      ${NLOPT_LIBRARY}
+                      ${NOMAD_LIBS}
+                      ${OPENMP_LIBS})
 
 #=============================================================================#
 # Tests:                                                                      #
@@ -237,16 +249,10 @@ SET(SB_TESTS
   AscentTest)
 
 FOREACH(SB_TEST ${SB_TESTS})
-  ADD_EXECUTABLE         (${SB_TEST}  Tests/${SB_TEST}.cpp)
-  TARGET_LINK_LIBRARIES  (${SB_TEST}  ${PROJECT_NAME}
-                          ${GSL_LIBS} ${OPENMP_LIBS})
+  ADD_EXECUTABLE         (${SB_TEST} Tests/${SB_TEST}.cpp)
+  TARGET_LINK_LIBRARIES  (${SB_TEST} ${PROJECT_NAME} ${GSL_LIBS})
 
   IF (${SB_TEST} STREQUAL "MkSoyuz21bMesh")
-    TARGET_LINK_LIBRARIES( ${SB_TEST} "gmsh")
+    TARGET_LINK_LIBRARIES(${SB_TEST} "gmsh")
   ENDIF()
-
-# IF (${SB_TEST} STREQUAL "AscentTest")
-#   TARGET_COMPILE_OPTIONS(${SB_TEST} PRIVATE ${OPENMP_FLAGS})
-#   TARGET_LINK_LIBRARIES( ${SB_TEST}         ${OPENMP_LIBS})
-# ENDIF()
 ENDFOREACH(SB_TEST)

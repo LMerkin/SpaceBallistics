@@ -78,10 +78,11 @@ namespace SpaceBallistics
     // one) for all engines:
     constexpr static double DT               = 0.5;
 
-    // The Number of Ctl Params in the optimisation algorithm for construction
-    // of the ascent-to-orbit trajectory:
-    // [bHat2, muHat2, aAoA2, bAoA2, TGap, bHat1, muHat1, aAoA1, bAoA1], so:
-    constexpr static int    NP               = 9;
+    // For Constrained Optimisation: Constraints on Start Altitude and Start
+    // Velocity (both should be close to 0):
+    constexpr static LenK   MaxStartH        = 0.1_km;      // 100 m
+    constexpr static VelK   MaxStartV        = VelK(0.03);  //  30 m/sec
+    constexpr static Time   MaxTGap          = 300.0_sec;
 
     //=======================================================================//
     // Types:                                                                //
@@ -191,6 +192,7 @@ namespace SpaceBallistics
       }
     }
 
+  public:
     //-----------------------------------------------------------------------//
     // "RunRes" Struct:                                                      //
     //-----------------------------------------------------------------------//
@@ -203,7 +205,6 @@ namespace SpaceBallistics
       Mass  m_mT;   // Final (actually start) Mass
     };
 
-  public:
     //-----------------------------------------------------------------------//
     // "AscCtlsL" Struct:                                                    //
     //-----------------------------------------------------------------------//
@@ -234,6 +235,18 @@ namespace SpaceBallistics
       double  m_aAoA1;            // Must be in [0 .. 1], default is 0
       double  m_bAoA1;            // Must be in [0 .. 1], default is 0
 
+      // Stage2 Thrust UpRate:
+      double  m_upRate2;          // Must be >= 1; default is 1
+
+      // Stage1 Thrust UpRate:
+      double  m_upRate1;          // Must be >= 1; default is 1
+
+      //---------------------------------------------------------------------//
+      // Ctors:                                                              //
+      //---------------------------------------------------------------------//
+      // Default / Non-Default Ctor:
+      AscCtlsL(unsigned a_n = 0, double const a_xs[] = nullptr);
+
       //---------------------------------------------------------------------//
       // To use "AscCtlsL" as an "unordered_map" key, we need Hash and (==): //
       //---------------------------------------------------------------------//
@@ -255,6 +268,8 @@ namespace SpaceBallistics
       Time                  m_T2;         // Actual Stage2 BurnTime
       MassT3                m_aMu2;
       MassT2                m_bMu2;
+      double                m_upRate2;
+
       // AoA for Stage2: AoA(t) = t * (a * t + b), t <= 0:
       AngAcc                m_aAoA2;
       AngVel                m_bAoA2;
@@ -267,6 +282,7 @@ namespace SpaceBallistics
       Time                  m_T1;         // Actual Stage1 BurnTime
       MassT3                m_aMu1;
       MassT2                m_bMu1;
+      double                m_upRate1;
 
       // AoA for Stage1: AoA(nt)  = nt *  (a * nt  + b),
       // where nt = -tau =  tIgn1 - t <= 0;
@@ -274,8 +290,11 @@ namespace SpaceBallistics
       AngAcc                m_aAoA1;
       AngVel                m_bAoA1;
 
-      // In addition, we provide the LV StartMass (<= MaxStartMass):
-      Mass                  m_startMass;
+      // Optimisation results are also stored here:
+      LenK                  m_startH;     // Must be close to 0
+      VelK                  m_startV;     // Must be close to 0
+      Mass                  m_startMass;  // Must be minimised
+      double                m_objVal;     // The over-all minimised Objective
     };
 
   private:
@@ -293,22 +312,24 @@ namespace SpaceBallistics
     Mass     const        m_fullMass2;
     Mass     const        m_emptyMass2;
     Mass     const        m_propMass2;
-    ForceK   const        m_thrustVac2;
-    MassRate const        m_burnRateI2; // BurnRate @ Stage2 Ignition Time
+    ForceK   const        m_thrustVac2;  // Nominal (w/o UpRate2)
+    MassRate const        m_burnRateIN2; // Nominal BurnRate @ Stage2 IgnTime
+    MassRate              m_burnRateIA2; // Actual  BurnRate @ Stage2 IgnTime
 
     // Stage1 Params:
     Mass     const        m_fullMass1;
     Mass     const        m_emptyMass1;
     Mass     const        m_propMass1;
-    ForceK   const        m_thrustVac1;
-    MassRate const        m_burnRateI1; // BurnRate @ Stage1 Ignition Time
+    ForceK   const        m_thrustVac1;  // Nominal (w/o UpRate1)
+    MassRate const        m_burnRateIN1; // Nominal BurnRate @ Stage1 IgnTime
+    MassRate              m_burnRateIA1; // Actual  BurnRate @ Stage1 IgnTime
 
     //-----------------------------------------------------------------------//
     // Mission Params:                                                       //
     //-----------------------------------------------------------------------//
     Mass     const        m_payLoadMass;
-    LenK                  m_Rins;       // Radius-Vector @ Orbital Insertion
-    VelK                  m_Vins;       // LV Velocity   @ Orbital Insertion
+    LenK                  m_Rins;        // Radius-Vector @ Orbital Insertion
+    VelK                  m_Vins;        // LV Velocity   @ Orbital Insertion
 
     //-----------------------------------------------------------------------//
     // Flight Control Program Parameterisation:                              //
@@ -318,9 +339,10 @@ namespace SpaceBallistics
     // BurnRate(tau) = BurnRateI + bMu * tau + aMu * tau^2, where "tau" is the
     // time since Stage2 ignition (0 <= tau <= T2):
     //
-    Time                  m_T2;         // Actual Stage2 BurnTime
+    Time                  m_T2;          // Actual Stage2 BurnTime
     MassT3                m_aMu2;
     MassT2                m_bMu2;
+    double                m_upRate2;
 
     // AoA for Stage2: AoA(t) = t * (a * t - b),
     // where t <= 0 is our standard integration backward-running time    (t=0
@@ -338,6 +360,7 @@ namespace SpaceBallistics
     Time                  m_T1;         // Actual Stage1 BurnTime
     MassT3                m_aMu1;
     MassT2                m_bMu1;
+    double                m_upRate1;
 
     // AoA for Stage1: for similarity with Stage2,
     // AoA(nt)  = nt * (a * nt  - b),
@@ -403,18 +426,9 @@ namespace SpaceBallistics
     // Internal Helpers:                                                     //
     //-----------------------------------------------------------------------//
     // "SetCtlsParams":
-    // Setting the Flight Ctl Params. Used in the Ctor and in the optimisation
-    // loop:
+    // Setting the Flight Ctl Params. Used in the optimisation procedure:
+    //
     void SetCtlParams(AscCtlsL const& a_ctls);
-
-    void SetCtlParams
-    (
-      double a_bHat2, double a_muHat2,  // Stage2 BurnRate
-      double a_aAoA2, double a_bAoA2,   // Stage2 AoA
-      double a_TGap,                    // Ballistic Gap in sec
-      double a_bHat1, double a_muHat1,  // Stage1 BurnRate
-      double a_aAoA1, double a_bAoA1    // Stage1 AoA
-    );
 
     // "ODERHS":
     // For Ascent Trajectory Integration:
@@ -439,40 +453,49 @@ namespace SpaceBallistics
     // numerical instabilities in the viciniy of the singular point.
     // Returns (singH, singT)  if the singular point has been found, otherwise
     // "nullopt":
-    //
     std::optional<std::pair<StateV, Time>>
     LocateSingularPoint(NearSingularityExn const& a_nse);
 
-    // "PropBurnRate": (may be variable over time, >= 0):
-    //
+    //      "PropBurnRate": (may be variable over time, >= 0):
     MassRate PropBurnRate(Time a_t) const;
 
-    // "AoA": Angle-of-Attack (variable over time):
-    //
+    //   "AoA": Angle-of-Attack (variable over time):
     Angle AoA(Time a_t) const;
 
-    // "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
-    //
+    //    "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
     ForceK Thrust(MassRate a_burn_rate, Pressure a_p) const;
 
-    // "LVMass": Current Mass (LV + PayLoad):
-    //
+    //  "LVMass": Current Mass (LV + PayLoad):
     Mass LVMass(StateV const& a_s, Time a_t) const;
 
-    // "OutputCtls": For Testing Only:
-    //
+    //  "OutputCtls": For Testing Only:
     void OutputCtls() const;
 
+  public:
     //-----------------------------------------------------------------------//
-    // NLOpt Support:                                                        //
+    // NLOpt Helpers:                                                        //
     //-----------------------------------------------------------------------//
+    // They may also be called from outside, hence "public":
+    //
     static std::optional<Ascent2::RunRes> GetRunRes
-           (double const a_xs[NP], void* a_env);
-
-    static double EvalNLOptObjective
     (
       unsigned     a_n,
-      double const a_xs[NP],
+      double const a_xs[],        // Of length "a_n"
+      void*        a_env
+    );
+
+    static double EvalNLOptObjective0
+    (
+      unsigned     a_n,
+      double const a_xs[],        // Of length "a_n"
+      double*      a_grad,
+      void*        a_env
+    );
+
+    static double EvalNLOptObjective1
+    (
+      unsigned     a_n,
+      double const a_xs[],        // Of length "a_n"
       double*      a_grad,
       void*        a_env
     );
@@ -480,16 +503,25 @@ namespace SpaceBallistics
     static void EvalNLOptConstraints
     (
       unsigned     a_m,
-      double       a_constrs[],
+      double       a_constrs[],   // Of length "a_m"
       unsigned     a_n,
-      double const a_xs[NP],
+      double const a_xs[],
       double*      a_grad,
       void*        a_env
     );
 
-  public:
     //-----------------------------------------------------------------------//
-    // "FindOptimalAscentCtls"                                               //
+    // "OptMethod" Enum Class:                                               //
+    //-----------------------------------------------------------------------//
+    enum class OptMethod: int
+    {
+      COBYLA = 0,
+      DIRECT = 1,
+      NOMAD4 = 2
+    };
+
+    //-----------------------------------------------------------------------//
+    // "FindOptimalAscentCtls":                                              //
     //-----------------------------------------------------------------------//
     // Tries to find the Flight Control Params such that  the specified target
     // orbit is reached (with the orbital insertion occurring in the perigee,
@@ -513,7 +545,12 @@ namespace SpaceBallistics
 
       // Logging Params:
       std::ostream*   a_os,
-      int             a_log_level
+      int             a_log_level,
+
+      // Optimisation Params:
+      OptMethod       a_method,
+      unsigned        a_np,
+      unsigned        a_max_evals
     );
   };
 }
