@@ -49,11 +49,6 @@
 namespace SpaceBallistics
 {
 //===========================================================================//
-// Static Cache:                                                             //
-//===========================================================================//
-std::unordered_map<Ascent2::AscCtlsL, Ascent2::RunRes> Ascent2::s_Cache;
-
-//===========================================================================//
 // "Ascent2": Non-Default Ctor:                                              //
 //===========================================================================//
 Ascent2::Ascent2
@@ -127,6 +122,10 @@ Ascent2::Ascent2
   m_fairingSepTime(Time(NAN)),
   m_cutOffTime1   (Time(NAN)),
   m_ignTime1      (Time(NAN)),
+  // Constraints:
+  m_maxQ          (0.0),
+  m_sepQ          (0.0),
+  m_maxLongG      (0.0),
 
   //------------------------------------------------------------------------//
   // Logging Params:                                                        //
@@ -291,6 +290,24 @@ void Ascent2::SetCtlParams(AscCtlsL const& a_ctls)
 }
 
 //===========================================================================//
+// The Mach Number:                                                          //
+//===========================================================================//
+namespace
+{
+  inline double Mach(EAM::AtmConds const& a_atm, VelK a_v)
+  {
+    assert(!IsNeg(a_v));
+
+    // The Speed of Sound:
+    Vel A = std::get<3>(a_atm);
+    return
+      IsZero(A)
+      ? Inf<double>                 // We are above the atmosphere
+      : double(To_Len_m(a_v) / A);  // Genertic case
+  }
+}
+
+//===========================================================================//
 // "Run": Integrate the Ascent Trajectory:                                   //
 //===========================================================================//
 // Returns (RunRC, FinalH, FlightTime, ActStartMass):
@@ -358,12 +375,15 @@ Ascent2::RunRes Ascent2::Run()
       assert(!IsNeg(singH));
       Mass          singM = LVMass(singS, singT);
 
-      return RunRes{RunRC::Singularity, singT, singH, VelK(0.0), singM};
+      return RunRes{RunRC::Singularity, singT, singH, VelK(0.0), singM,
+                    m_maxQ, m_sepQ, m_maxLongG};
     }
     else
       // Although we got a "NearSingularityExn", we could not determine the
-      // precise location of the singular point:
-      return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN)};
+      // precise location of the singular point. Yet the constraints are
+      // returned:
+      return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
+                    m_maxQ, m_sepQ, m_maxLongG};
   }
   catch (std::exception const& exn)
   {
@@ -373,7 +393,8 @@ Ascent2::RunRes Ascent2::Run()
     if (m_os != nullptr)
       *m_os  << "# Ascent2::Run: Exception: " << exn.what() << std::endl;
 
-    return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN)};
+    return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
+                  m_maxQ, m_sepQ, m_maxLongG};
   }
   catch (...)
   {
@@ -381,7 +402,8 @@ Ascent2::RunRes Ascent2::Run()
     if (m_os != nullptr)
       *m_os  << "# Ascent2::Run: UnKnown Exception" << std::endl;
 
-    return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN)};
+    return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
+                  m_maxQ, m_sepQ, m_maxLongG};
   }
 
   //-------------------------------------------------------------------------//
@@ -407,7 +429,8 @@ Ascent2::RunRes Ascent2::Run()
               << hEnd.Magnitude() << " km" << std::endl;
       hEnd = 0.0_km;
     }
-    return RunRes{RunRC::FlameOut, tEnd, hEnd, VEnd, mEnd};
+    return RunRes{RunRC::FlameOut, tEnd, hEnd, VEnd, mEnd,
+                  m_maxQ,  m_sepQ, m_maxLongG};
   }
   else
   {
@@ -419,8 +442,108 @@ Ascent2::RunRes Ascent2::Run()
         *m_os << "# Ascent2::Run: Expected h=0 but got h="
               << hEnd.Magnitude() << " km" << std::endl;
     }
-    return RunRes{RunRC::ZeroH, tEnd, 0.0_km, VEnd, mEnd};
+    return RunRes{RunRC::ZeroH, tEnd, 0.0_km, VEnd, mEnd,
+                  m_maxQ, m_sepQ, m_maxLongG};
   }
+}
+
+//===========================================================================//
+// "NonGravForces":                                                          //
+//===========================================================================//
+// Common Helper for "ODERHS" and "ODECB":
+//
+void Ascent2::NonGravForces
+(
+  Time           a_t,
+  LenK           a_r,
+  VelK           a_Vr,
+  VelK           a_Vhor,
+  Mass           a_m,
+  VelK*          a_V,
+  Angle*         a_psi,
+  Angle*         a_aoa,
+  EAM::AtmConds* a_atm,
+  MassRate*      a_burn_rate,
+  ForceK*        a_thrust,
+  double         a_lv_axis[2],  // In the (r, normal-to-r) frame
+  AccK           a_ng_acc [2]   // ditto
+)
+const
+{
+  assert(IsPos(a_r)          && !IsNeg(a_Vhor)         && IsPos(a_m));
+  assert(a_V      != nullptr && a_psi       != nullptr && a_aoa    != nullptr &&
+         a_atm    != nullptr && a_burn_rate != nullptr && a_thrust != nullptr &&
+         a_ng_acc != nullptr && a_lv_axis   != nullptr);
+
+  // The Absolute Velocity, should be bounded away from 0:
+  VelK   V  = SqRt(Sqr(a_Vr) + Sqr(a_Vhor));
+  assert(IsPos(V));
+
+  // The Angle-of-Attack:
+  Angle psi    = Angle(ATan2(a_Vr, a_Vhor)); // Trajectory Inclination Angle
+  Angle aoa    = AoA(a_t, psi);
+  assert(!IsNeg(aoa));
+  double cosA  = Cos(aoa);
+  double sinA  = Sin(aoa);
+
+  // AeroDynamic Drag and Lift:
+  auto [atm, drag, lift]  = AeroDynForces(a_r, V, aoa);
+  assert(!(IsNeg(drag) || IsNeg(lift)));
+
+  // Propellant Burn Rate (>= 0) and Thrust:
+  MassRate burnRate = PropBurnRate(a_t);
+  assert(!IsNeg(burnRate));
+
+  Pressure p        = std::get<0> (atm);
+  ForceK   thrust   = Thrust(burnRate, p);
+  assert(!IsNeg(thrust) && IsZero(thrust) == IsZero(burnRate));
+
+  // "v" unit vector: in the velocity direction: "Th" is the velocity elevation
+  // of the hirizon (ie over the positive normal to the radius-vector):
+  // v = [sinTh, cosTh];
+  // at start, Th=Pi/2; at orbital insertion, Th=0:
+  double sinTh = double(a_Vr   / V);
+  double cosTh = double(a_Vhor / V);
+  double v[2]  { sinTh,  cosTh };
+  // NB:
+  // sinTh may be < 0 if we Fall Back to Earth (in that case Th = -Pi/2); but
+  // cosTh       >= 0 always (we do not move back in the polar angle):
+  assert(cosTh   >= 0.0);
+
+  // "u" unit vector: normal to the velocity (in the "up" direction):
+  // Components of "u" in the (radius-vector, normal-to-radius-vector)
+  // frame:
+  double u[2]  { cosTh, -sinTh };
+
+  // Thrust components (in the same frame):
+  double sinApTh = v[0] * cosA + u[0] * sinA; // sin(A + Th)
+  double cosApTh = v[1] * cosA + u[1] * sinA; // cos(A + Th) 
+  ForceK T[2]
+  {
+    sinApTh * thrust,  // sin(A + Th) * thrust
+    cosApTh * thrust   // cos(A + Th) * thrust
+  };
+
+  // AeroDynamic Drag (-v) and Lift (+u) components:
+  ForceK AD[2] { -v[0] * drag, -v[1] * drag };
+  ForceK AL[2] {  u[0] * lift,  u[1] * lift };
+
+  // Acceleration components due to the above forces:
+  a_ng_acc [0] = (T[0] + AD[0] + AL[0]) / a_m;
+  a_ng_acc [1] = (T[1] + AD[1] + AL[1]) / a_m;
+
+  // The components of the logitudinal (X) axis of the LV in the
+  // (r, normal_to_r) frame:
+  a_lv_axis[0] = sinApTh;
+  a_lv_axis[1] = cosApTh;
+
+  // Return other "physical" variables as well:
+  *a_V         = V;
+  *a_psi       = psi;
+  *a_aoa       = aoa;
+  *a_atm       = atm;
+  *a_burn_rate = burnRate;
+  *a_thrust    = thrust;
 }
 
 //===========================================================================//
@@ -460,85 +583,32 @@ Ascent2::DStateV Ascent2::ODERHS(StateV const& a_s, Time a_t)
   // Thus, omega < 0 cannot occur:
   assert(!IsNeg(omega));
 
-  // Abs Velocity: Since we are NOT near the singularity, it should be
-  // sufficiently far away from 0:
-  VelK   V  = SqRt(Sqr(Vr) + Sqr(Vhor));
-  assert(IsPos(V));
-
-  // The Angle-of-Attack:
-  Angle  aoa  = AoA(a_t);
-  assert(!IsNeg(aoa));
-  double cosA = Cos(aoa);
-  double sinA = Sin(aoa);
-
-  // AeroDynamic Drag and Lift:
-  auto [atm, drag, lift]  = AeroDynForces(r, V, aoa);
-  assert(!(IsNeg(drag) || IsNeg(lift)));
-
-  // Propellant Burn Rate (>= 0) and Thrust:
-  MassRate burnRate = PropBurnRate(a_t);
-  assert(!IsNeg(burnRate));
-
-  ForceK   thrust   = Thrust(burnRate, std::get<0>(atm));
-  assert(!IsNeg(thrust) && IsZero(thrust) == IsZero(burnRate));
-
   // The curr mass:
   Mass   m  = LVMass(a_s, a_t);
   assert(IsPos(m));
 
-  // "v" unit vector: in the velocity direction: "Th" is the velocity elevation
-  // of the hirizon (ie over the positive normal to the radius-vector):
-  // v = [sinTh, cosTh];
-  // at start, Th=Pi/2; at orbital insertion, Th=0:
-  double sinTh = double(Vr / V);
-  double cosTh = double(r * omega / V);
-  double v[2]  { sinTh, cosTh };
-  // NB:
-  // sinTh may be < 0 if we fall back to Earth (in that case Th = -Pi/2); but
-  // cosTh       >= 0 always (we do not move back in the polar angle):
-  assert(cosTh   >= 0.0);
-
-  // "u" unit vector: normal to the velocity (in the "up" direction):
-  // Components of "u" in the (radius-vector, normal-to-radius-vector)
-  // frame:
-  double u[2] { cosTh, -sinTh };
-
-  // XXX: We do not allow A such that A + Th > Pi/2, because in that case, the
-  // Thrust force will move us towards negative polar angles, so constrain it:
-  // we want cos(A+Th) >= 0:
-  double sinApTh = v[0] * cosA + u[0] * sinA; // sin(A + Th)
-  double cosApTh = v[1] * cosA + u[1] * sinA; // cos(A + Th) 
-  if (cosApTh < 0.0)
-  {
-    cosApTh = 0.0;
-    sinApTh = IsPos(Vr) ? 1.0 : -1.0;
-  }
-
-  // Thrust components (in the same frame):
-  ForceK T[2]
-  {
-    sinApTh * thrust,  // sin(A + Th) * thrust
-    cosApTh * thrust   // cos(A + Th) * thrust
-  };
-
-  // AeroDynamic Drag (-v) and Lift (+u) components:
-  ForceK AD[2] { -v[0] * drag, -v[1] * drag };
-  ForceK AL[2] {  u[0] * lift,  u[1] * lift };
-
-  // Acceleration components due to the above forces:
-  AccK acc[2] { (T[0] + AD[0] + AL[0]) / m,
-                (T[1] + AD[1] + AL[1]) / m };
+  // Compute the Non-Gravitational Acceleration Components:
+  VelK          V;
+  Angle         psi, aoa;
+  EAM::AtmConds atm;
+  MassRate      burnRate;
+  ForceK        thrust;
+  double        lvAxis[2];
+  AccK          ngAcc [2];
+  NonGravForces
+    (a_t, r, Vr, Vhor, m, &V, &psi, &aoa, &atm, &burnRate, &thrust,
+     lvAxis, ngAcc);
 
   // The RHS components:
   AccK r2Dot =
-      r * Sqr(omega / 1.0_rad)   // "Kinematic"     term
-    - K / Sqr(r)                 // Gravitational   term
-    + acc[0];                    // Thrust-, Drag-, Lift-indiced accs
+      r * Sqr(omega / 1.0_rad)   // "Kinematic"       term
+    - K / Sqr(r)                 // Gravitational     term
+    + ngAcc[0];                  // Non-Gravitational accs
 
   AngAcc omegaDot =
     (
-      - 2.0 * Vr * omega         // "Kinematic"     term
-      + acc[1]   * 1.0_rad       // Thrust-, Drag-, Lift-indiced accs
+      - 2.0 * Vr * omega         // "Kinematic"       term
+      + ngAcc[1] * 1.0_rad       // Non-Gravitational accs
     )
     / r;
 
@@ -557,24 +627,26 @@ bool Ascent2::ODECB(StateV* a_s, Time a_t)
 {
   assert(a_s != nullptr && !IsPos(a_t));
   LenK   r             = std::get<0>(*a_s);
-  LenK   h             = r - R;
+  LenK   h             = r - R;             // Altitude
   VelK   Vr            = std::get<1>(*a_s);
   AngVel omega         = std::get<2>(*a_s);
   Mass   spentPropMass = std::get<3>(*a_s);
-  Mass   m             = LVMass(*a_s, a_t); // Using the "old" Mode yet!
   Angle  phi           = std::get<4>(*a_s);
+
+  // NB: "spentPropMass" decreases over time, so increases in Bwd time.
+  // It is 0 at Orbit Insertion Time (t=0):
+  assert(IsPos(r) && !IsNeg(spentPropMass));
 
   //-------------------------------------------------------------------------//
   // Similar to "ODERHS", check if we are approaching the singularity:       //
   //-------------------------------------------------------------------------//
   VelK   Vhor          = r * omega / 1.0_rad;
-  auto   V2K           = Sqr(Vr) + Sqr(Vhor);
-  VelK   V             = SqRt(V2K);
+
   if (Vhor < SingVhor)
   {
-    omega             = AngVel(0.0);
-    std::get<2>(*a_s) = AngVel(0.0);
-    Vhor              = VelK(0.0);
+    omega              = AngVel(0.0);
+    std::get<2>(*a_s)  = AngVel(0.0);
+    Vhor               = VelK(0.0);
   }
   if (IsZero(omega) && Vr < SingVr)
     throw NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
@@ -582,9 +654,28 @@ bool Ascent2::ODECB(StateV* a_s, Time a_t)
   //-------------------------------------------------------------------------//
   // Generic Case:                                                           //
   //-------------------------------------------------------------------------//
-  // NB: "spentPropMass" decreases over time, so increases in Bwd time.
-  // It is 0 at Orbit Insertion Time (t=0):
-  assert(IsPos(r) && !IsNeg(spentPropMass) && IsPos(m) && IsPos(V));
+  // Compute the Non-Gravitational Acceleration Components:
+  Mass          m      = LVMass(*a_s, a_t);  // Using the "old" Mode yet!
+  VelK          V;
+  Angle         psi, aoa;
+  EAM::AtmConds atm;
+  MassRate      burnRate;
+  ForceK        thrust;
+  double        lvAxis[2];
+  AccK          ngAcc [2];
+  NonGravForces
+    (a_t, r, Vr, Vhor, m, &V, &psi, &aoa, &atm, &burnRate, &thrust,
+     lvAxis, ngAcc);
+
+  LenK      L          = R * phi / 1.0_rad; // Down-Range Earth Distance, <= 0
+  Angle_deg psi_deg    = To_Angle_deg(psi);
+  Angle_deg aoa_deg    = To_Angle_deg(aoa);
+
+  // AeroDynamic Conditions:
+  double   M           = Mach(atm, V);
+  Density  rho         = std::get<1>(atm);
+  auto     V2          = To_Len_m(Sqr(V));
+  Pressure Q           = 0.5 * rho * V2;
 
   // Output at the beginning:
   if (IsZero(a_t) && m_os != nullptr && m_logLevel >= 1)
@@ -603,29 +694,23 @@ bool Ascent2::ODECB(StateV* a_s, Time a_t)
   if (m_mode == FlightMode::Burn2  &&
       spentPropMass >= m_propMass2 * (1.0 - PropRem2))
   {
+    assert(!IsFinite(m_ignTime2));
     m_ignTime2    = a_t;
     assert(IsNeg(m_ignTime2));
     m_mode        = FlightMode::Gap;
     // Furthermore, since the duration of the Ballistic Gap is known, at
     // this point we already know the Stage1 Cut-Off time:
     // NB: HERE "m_TGap" is used:
-    assert(!IsNeg(m_TGap));
+    assert(!IsNeg(m_TGap) && !IsFinite(m_cutOffTime1));
     m_cutOffTime1 = a_t - m_TGap;
     assert(m_cutOffTime1 <= m_ignTime2);
 
     if (m_os != nullptr && m_logLevel >= 1)
-    {
-      // It might useful to output the Pitch (= Trajectory Inclination in
-      // this case) Angle, and DownRange distance (along the Earth surface):
-      double psi = ATan2(Vr, Vhor);
-      LenK   L   = R * double(phi);    // Will be < 0
-
       *m_os << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
             << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
-            << " km/sec, psi="              << psi        << ", m="
-            << m.Magnitude()                << " kg: "
+            << " km/sec, psi="              << psi_deg.Magnitude()
+            << " deg, m=" << m.Magnitude()  << " kg: "
                "Stage2 Ignition, Ballistic Gap Ends"      << std::endl;
-    }
   }
   //-------------------------------------------------------------------------//
   // Switching Gap -> Burn1:                                                 //
@@ -640,19 +725,21 @@ bool Ascent2::ODECB(StateV* a_s, Time a_t)
     {
       m_mode   = FlightMode::Burn1;
 
+      // XXX: We assume that Stage1 separation occures at the cut-off moment,
+      // so record the corresp Mach number:
+      m_sepQ   = Q;
+
       if (m_os != nullptr && m_logLevel >= 1)
       {
-        // Re-calculate the Mass in Burn1 for the output (with Stage1);
-        // again, output "L" and "psi":
-        m          = LVMass(*a_s, a_t);
-        double psi = ATan2(Vr, Vhor);
-        LenK   L   = R * double(phi);  // Will be < 0
-
-        *m_os << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-              << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
-              << " km/sec, psi="              << psi        << ", m="
-              << m.Magnitude()                << " kg: "
-                   "Stage1 Cut-Off,  Ballistic Gap Starts"  << std::endl;
+        // Re-calculate the Mass in Burn1 for the output (now with Stage1):
+        m      = LVMass(*a_s, a_t);
+        *m_os << "# t="     << a_t.Magnitude() << " sec, h=" << h.Magnitude()
+              << " km, L="  << L.Magnitude()   << " km, V="  << V.Magnitude()
+              << " km/sec, psi="               << psi_deg.Magnitude()
+              << " deg, m=" << m.Magnitude()   << " kg, M= " << M
+              << ", Q="     << Q.Magnitude()
+              << ": Stage1 Cut-Off and Separation,  Ballistic Gap Starts"
+              << std::endl;
       }
     }
   }
@@ -665,50 +752,51 @@ bool Ascent2::ODECB(StateV* a_s, Time a_t)
       spentPropMass >= m_propMass2 * (1.0 - PropRem2) +
                        m_propMass1 * (1.0 - PropRem1))
   {
+    assert(!IsFinite(m_ignTime1));
     m_ignTime1 = a_t;
     m_mode     = FlightMode::UNDEFINED;
     assert(m_ignTime1 < m_cutOffTime1 && m_cutOffTime1 <= m_ignTime2 &&
            IsNeg(m_ignTime2));
 
     if (m_os != nullptr && m_logLevel >= 1)
-    {
-      // Again, output "L" and "psi":
-      double psi = ATan2(Vr, Vhor);
-      LenK   L   = R * double(phi);  // Will be < 0
-
-      *m_os << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-            << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
-            << " km/sec, psi="              << psi        << ", m="
-            << m.Magnitude()                << " kg: "
-               "Stage1 Ignition"            << std::endl;
-    }
+      *m_os << "# t="     << a_t.Magnitude() << " sec, h=" << h.Magnitude()
+            << " km, L="  << L.Magnitude()   << " km, V="  << V.Magnitude()
+            << " km/sec, psi="               << psi_deg.Magnitude()
+            << " deg, m=" << m.Magnitude()   << " kg: "
+               "Stage1 Ignition"             << std::endl;
   }
+
+  //-------------------------------------------------------------------------//
+  // Monitor the Constraints:                                                //
+  //-------------------------------------------------------------------------//
+  // Dynamic Pressure:
+  m_maxQ            = std::max(Q, m_maxQ);
+
+  // LongG:
+  // This is a projection of "ngAcc" to the main LV axis (XXX: verify whether
+  // this expr is also correct in case of Falling Back to Earth).
+  // In the (r, normal_to_r) frame, the longitudinal LV axis is given by the
+  // (psi + aoa) angle:
+  AccK   longAcc = lvAxis[0] * ngAcc[0] + lvAxis[1] * ngAcc[1];
+  double longG   = double  (longAcc / g0K);
+  m_maxLongG     = std::max(longG,  m_maxLongG);
+
   //-------------------------------------------------------------------------//
   // In any mode, detect the Fairing Separation Condition:                   //
   //-------------------------------------------------------------------------//
   // In the reverse time, it's when the Dynamic Pressure becomes HIGHER
   // that the threshold:
-  auto     atm = EAM::GetAtmConds(std::max(h, 0.0_km));
-  Density  rho = std::get<1>(atm);
-  auto     V2  = To_Len_m(V2K);
-  Pressure Q   = 0.5 * rho * V2;
-
-  if (IsZero(m_fairingSepTime) && Q >= FairingSepCond)
+  if (!IsFinite(m_fairingSepTime) && Q >= FairingSepCond)
   {
     m_fairingSepTime = a_t;
 
     if (m_os != nullptr && m_logLevel >= 1)
-    {
-      // Again, output "L" and "psi":
-      double psi = ATan2(Vr, Vhor);
-      LenK   L   = R * double(phi);  // Will be < 0
-
-      *m_os << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-            << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
-            << " km/sec, psi="              << psi        << ", m="
-            << m.Magnitude()                << " kg: "
-               "Fairing Separation"         << std::endl;
-    }
+      *m_os << "# t="     << a_t.Magnitude() << " sec, h=" << h.Magnitude()
+            << " km, L="  << L.Magnitude()   << " km, V="  << V.Magnitude()
+            << " km/sec, psi="               << psi_deg.Magnitude()
+            << " deg, m=" << m.Magnitude()   << " kg, M="  << M
+            << ", Q="     << Q.Magnitude()   << ": Fairing Separation"
+            << std::endl;
   }
   //---------------------------------------------------------------------//
   // Stopping Conds:                                                     //
@@ -723,51 +811,39 @@ bool Ascent2::ODECB(StateV* a_s, Time a_t)
     cont = false;
 
     if (m_os != nullptr && m_logLevel >= 1)
-    {
-      // Again, output "L" and "psi":
-      double psi = ATan2(Vr, Vhor);
-      LenK   L   = R * double(phi);  // Will be < 0
-
-      *m_os << "# t=" << a_t.Magnitude()          << " sec: H=0, Vr="
+      *m_os << "# STOP: t="   << a_t.Magnitude()  << " sec: H=0, Vr="
             << Vr.Magnitude() << " km/sec, Vhor=" << Vhor.Magnitude()
             << " km/sec, m="  << m.Magnitude()    << " kg, L="
-            << L.Magnitude()  << " km, psi="      << psi
-            << ", "           << ToString(m_mode) << std::endl;
-    }
+            << L.Magnitude()  << " km, psi="      << psi_deg.Magnitude()
+            << " deg, "       << ToString(m_mode) << std::endl;
   }
   if (m_mode == FlightMode::UNDEFINED)
   {
     cont = false;
 
     if (m_os != nullptr && m_logLevel >= 1)
-    {
-      // Again, output "L" and "psi":
-      double psi = ATan2(Vr, Vhor);
-      LenK   L   = R * double(phi);  // Will be < 0
-
-      *m_os << "# t=" << a_t.Magnitude()            << " sec: UNDEF, Vr="
-            << Vr.Magnitude()   << " km/sec, Vhor=" << Vhor.Magnitude()
-            << " km/sec, m="    << m.Magnitude()    << " kg, L="
-            << L.Magnitude()    << " km, psi="      << psi
-            << ", "             << ToString(m_mode) << std::endl;
-    }
+      *m_os << "# STOP: t="   << a_t.Magnitude()  << " sec: UNDEF, Vr="
+            << Vr.Magnitude() << " km/sec, Vhor=" << Vhor.Magnitude()
+            << " km/sec, m="  << m.Magnitude()    << " kg, L="
+            << L.Magnitude()  << " km, psi="      << psi_deg.Magnitude()
+            << " deg, "       << ToString(m_mode) << std::endl;
   }
 
-  // XXX: Output (with a 100 msec step, or if we are going to stop now):
+  // XXX: OUTPUT (with a 100 msec step, or if we are going to stop now):
   if (m_os  != nullptr && m_logLevel >= 3 &&
      (!cont || int(Round(double(a_t / 0.001_sec))) % 100 == 0))
   {
-    // Thrust and BurnRate are for info only:
-    MassRate burnRate = PropBurnRate(a_t);
-    Pressure p        = std::get<0>(atm);
-    auto     thrust   = Thrust(burnRate, p) / g0K;
+    // Thrust is more conveniently reported in kgf:
+    auto tkg = thrust / g0K;
 
-    *m_os << a_t.Magnitude()      << '\t' << h.Magnitude()      << '\t'
-          << Vr.Magnitude()       << '\t' << Vhor.Magnitude()   << '\t'
-          << V.Magnitude()        << '\t' << m.Magnitude()      << '\t'
-          << ToString(m_mode)     << '\t' << thrust.Magnitude() << '\t'
-          << burnRate.Magnitude() << '\t' << Q.Magnitude()
-          << std::endl;
+    *m_os << a_t.Magnitude()     << '\t' << h.Magnitude()        << '\t'
+          << L.Magnitude()       << '\t' << Vr.Magnitude()       << '\t'
+          << Vhor.Magnitude()    << '\t' << V.Magnitude()        << '\t'
+          << psi_deg.Magnitude() << '\t' << aoa_deg.Magnitude()  << '\t'
+          << m.Magnitude()       << '\t' << ToString(m_mode)     << '\t'
+          << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
+          << Q.Magnitude()       << '\t' << M                    << '\t'
+          << longG               << std::endl;
   }
   return cont;
 }
@@ -779,17 +855,12 @@ bool Ascent2::ODECB(StateV* a_s, Time a_t)
 std::tuple<EAM::AtmConds, ForceK,   ForceK>
 Ascent2::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA)
 {
-  // Curr altitude (possible slightly negative vals are rounded to 0):
-  auto atm  = EAM::GetAtmConds(a_r - R);
-
-  // The Speed of Sound:
-  Vel  A    = std::get<3>(atm);
-  if (IsZero(A))
-    // We are above the atmosphere:
+  auto atm  = EAM::GetAtmConds(std::max(a_r - R, 0.0_km));
+  double M  = Mach(atm, a_v);
+  if (!IsFinite(M))
     return std::make_tuple(atm, ForceK(0.0), ForceK(0.0));
 
-  // The Mach Number:
-  double M  = double(To_Len_m(a_v) / A);
+  // Generic Case:
   assert(M >= 0.0);
 
   // The Aerodynamic Force Main Term:
@@ -840,7 +911,8 @@ Ascent2::LocateSingularPoint(NearSingularityExn const& a_nse)
   // Assume that only the Gravitational Force and the Thrust are applicable
   // (the AeroDynamic Force can be neglected because the velocity is near-0,
   // yet we still need the air pressure to adjust the Thrust), and the LV
-  // Mass is CONSTANT at this final short interval:
+  // Mass is CONSTANT at this final short interval; yet we need the "atm" for
+  // Thrust conputation:
   AccK  g1 = K / Sqr(r1);
   auto atm = EAM::GetAtmConds(h1);
 
@@ -860,7 +932,7 @@ Ascent2::LocateSingularPoint(NearSingularityExn const& a_nse)
   AccK   acc1 = thrust1 / m1 - g1;
   if (!IsPos(acc1))
   {
-    // Then the LV is falling back to the pad, and the singular point is not
+    // Then the LV is Falling Back to the pad, and the singular point is not
     // reachable; this is because we have arrived at the mass "m1"  which is
     // too large:
     if (m_os != nullptr && m_logLevel >= 2)
@@ -954,8 +1026,10 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
 //===========================================================================//
 // Angle-of-Attack:                                                          //
 //===========================================================================//
-Angle Ascent2::AoA(Time a_t) const
+Angle Ascent2::AoA(Time a_t, Angle a_psi) const
 {
+  Angle  aoa = 0.0_rad;
+
   switch (m_mode)
   {
   case FlightMode::Burn1:
@@ -963,17 +1037,17 @@ Angle Ascent2::AoA(Time a_t) const
     // Arg: "tau" which is the time since Stage1 ignition (where the latter is
     // calculated via "m_T1", because the actual event-based "m_ignTime1"   is
     // not reached yet), so AoA1(tau=0)=0, ie @ launch;   0 <= tau <= T1:
-    Time   tIgn1 = m_cutOffTime1  - m_T1;
-    Time   tau   = std::min(std::max(a_t - tIgn1,    0.0_sec), m_T1);
-    Angle  res   = std::max(tau * (m_aAoA1 * tau + m_bAoA1), 0.0_rad);
-    if (res > 1.01 * MaxAoA1)
+    Time tIgn1 = m_cutOffTime1  - m_T1;
+    Time tau   = std::min(std::max(a_t - tIgn1,    0.0_sec), m_T1);
+    aoa        = std::max(tau * (m_aAoA1 * tau + m_bAoA1), 0.0_rad);
+    if (aoa > 1.01 * MaxAoA1)
     {
       OutputCtls();
       throw std::logic_error
             ("Burn1: MaxAoA1=" + std::to_string(MaxAoA1.Magnitude()) +
-             " exceeded: AoA=" + std::to_string(res    .Magnitude()));
+             " exceeded: AoA=" + std::to_string(aoa    .Magnitude()));
     }
-    return res;
+    break;
   }
 
   case FlightMode::Gap:
@@ -986,21 +1060,26 @@ Angle Ascent2::AoA(Time a_t) const
     // aints. NB: Formulas similar to those for Stage2, but with the INVERTED
     // sign of "b"; AoA2(t=0)=0, ie @ orbital insetrion:
     assert(!IsPos(a_t));
-    Time  t   = std::max(a_t, -m_T2);
-    Angle res = std::max(t *  (m_aAoA2 * t - m_bAoA2), 0.0_rad);
-    if (res > 1.01 * MaxAoA2)
+    Time t = std::max(a_t, -m_T2);
+    aoa    = std::max(t *  (m_aAoA2 * t - m_bAoA2), 0.0_rad);
+    if (aoa > 1.01 * MaxAoA2)
     {
       OutputCtls();
       throw std::logic_error
             ("Burn2: MaxAoA2=" + std::to_string(MaxAoA2.Magnitude()) +
-             " exceeded: AoA=" + std::to_string(res    .Magnitude()));
+             " exceeded: AoA=" + std::to_string(aoa    .Magnitude()));
     }
-    return res;
+    break;
   }
 
   default:
     return 0.0_rad;
   }
+  // Check that (AoA + TrajIncl <= Pi/2), ie, the AoA does not point the thrust
+  // backwards  (XXX: there is no similar constraint if we are descending):
+  if (aoa + a_psi > PI_2)
+    aoa = PI_2 - a_psi;
+  return aoa;
 }
 
 //===========================================================================//
@@ -1061,7 +1140,7 @@ Mass Ascent2::LVMass(StateV const& a_s, Time a_t) const
   // Add the FairingMass if the Fairing has NOT separated @  "a_t". In the
   // Bwd time, it means that "m_fairingSepTime" is known and "a_t" is below
   // it:
-  if (!IsZero(m_fairingSepTime) && a_t < m_fairingSepTime)
+  if (IsFinite(m_fairingSepTime) && a_t < m_fairingSepTime)
     m += FairingMass;
 
   // All Done:
@@ -1127,9 +1206,6 @@ Ascent2::AscCtlsL::AscCtlsL(unsigned a_n, double const a_xs[])
 //===========================================================================//
 // "GetRunRes":                                                              //
 //===========================================================================//
-// Extract the "RunRes" from the Cache or compute a new one. If either method
-// fails, return the "nullopt":
-//
 std::optional<Ascent2::RunRes> Ascent2::GetRunRes
 (
   unsigned     a_n,
@@ -1138,152 +1214,21 @@ std::optional<Ascent2::RunRes> Ascent2::GetRunRes
 )
 {
   assert(a_env != nullptr);
-  //-------------------------------------------------------------------------//
-  // Construct the "AscCtlsL" obj used for caching:                          //
-  //-------------------------------------------------------------------------//
-  AscCtlsL ctls(a_n, a_xs);
 
-  // Is the result already in the Cache? BEWARE that some optimisers use OpenMP:
-  RunRes res;
-  bool   found = false;
-# pragma omp critical(Ascent2Cache)
-  {
-    auto it = s_Cache.find(ctls);
-    if (it != s_Cache.end())
-    {
-      res   = it->second;
-      found = true;
-    }
-  }
-  if (found)
-    return res;
-
-  //-------------------------------------------------------------------------//
-  // Otherwise, need a new Run:                                              //
-  //-------------------------------------------------------------------------//
-  // For safety, construct a new "Ascent2" obj from "a_env":
+  // For thread-safety, construct a new "Ascent2" obj from "a_env":
   Ascent2 const* proto = reinterpret_cast<Ascent2 const*>(a_env);
   Ascent2        asc(*proto);
 
-  // Set the Ctl Params in "asc":
+  // Construct and set the Ctl Params in "asc":
+  AscCtlsL ctls   (a_n, a_xs);
   asc.SetCtlParams(ctls);
 
   // Run the integrator:
-  res = asc.Run();    // NB: Exceptions are handled inside "Run"
+  RunRes res = asc.Run();  // NB: Exceptions are handled inside "Run"
 
-  if (res.m_rc != RunRC::Error)
-  {
-    // Cache the results. Again, BEWARE that some optimisers use OpenMP:
-#   pragma omp critical(Ascent2Cache)
-    s_Cache[ctls] = res;
-    return res;
-  }
-  // If we got here: Both the Cache look-up and the new evaluation have
-  // failed:
-  return std::nullopt;
-}
-
-//===========================================================================//
-// "EvalNLOptObjective0":                                                    //
-//===========================================================================//
-// Evaluate the Function to be Minimised (by NLOpt): It is actually the LV Mass
-// at the end of Bwd integration:
-//
-double Ascent2::EvalNLOptObjective0
-(
-  unsigned     a_n,
-  double const a_xs[],
-  double*      DEBUG_ONLY(a_grad),
-  void*        a_env
-)
-{
-  assert(a_grad == nullptr && a_xs != nullptr);
-
-  // Find or compute the "RunRes":
-  std::optional<RunRes> res = GetRunRes(a_n, a_xs, a_env);
-  return
-    bool(res)
-    ? // Got a valid result, use its mass:
-      res.value().m_mT  .Magnitude()
-    : // Otherwise, we return large invalid mass, but not too large (so not to
-      // disrupt the optimisation algorithm):
-      2.0 * MaxStartMass.Magnitude();
-}
-
-//===========================================================================//
-// "EvalNLOptConstraints":                                                   //
-//===========================================================================//
-// Evaluate the Constraints vector (all components must be <= 0) in NLOpt:
-// TODO: More constraints (MaxQ, MaxG, MaxSepM):
-//
-void Ascent2::EvalNLOptConstraints
-(
-  unsigned     DEBUG_ONLY(a_m),
-  double       a_constrs[],
-  unsigned     a_n,
-  double const a_xs[],
-  double*      DEBUG_ONLY(a_grad),
-  void*        a_env
-)
-{
-  assert(a_m == 2 && a_grad == nullptr && a_xs != nullptr);
-
-  // Find or compute the "RunRes":
-  std::optional<RunRes> res = GetRunRes(a_n, a_xs, a_env);
-
-  double hT = NAN, VT = NAN;
-  if (bool(res))
-  {
-    hT = (std::max(res.value().m_hT, 0.0_km)   ).Magnitude();
-    VT = (std::max(res.value().m_VT, VelK(0.0))).Magnitude();
-  }
-  else
-  {
-    // Failed to compute the "RunRes". Return positive but not too large
-    // values:
-    hT = (10.0_km).Magnitude();
-    VT = VelK(1.0).Magnitude();
-  }
-  a_constrs[0] = hT;
-  a_constrs[1] = VT;
-}
-
-//===========================================================================//
-// "EvalNLOptObjective1":                                                    //
-//===========================================================================//
-// Evaluate the Function to be Minimised (by NLOpt): It is actually the LV Mass
-// at the end of Bwd integration:
-//
-double Ascent2::EvalNLOptObjective1
-(
-  unsigned     a_n,
-  double const a_xs[],
-  double*      DEBUG_ONLY(a_grad),
-  void*        a_env
-)
-{
-  assert(a_grad == nullptr && a_xs != nullptr);
-
-  // Find or compute the "RunRes":
-  std::optional<RunRes> res = GetRunRes(a_n, a_xs, a_env);
-  if (!bool(res))
-    // XXX: Return a large but not too large value:
-    return 1000.0;
-
-  // Generic Case:
-  // "lambda" is selected in such a was as to make the Objective Function Terms
-  // nearly equal when the optimisation constraints are satisfied:
-  //
-  constexpr double lambda  =  3e-9;
-  //
-  // MaxStartH^2           =  1e-2
-  // MaxStartV^2           =~ 1e-2
-  // lambda * MaxStartMass =~ 1e-2
-  //
-  // Using "Log" for a "more sharp" minimum:
-  return Log(Sqr(res.value().m_hT.Magnitude()) +
-             Sqr(res.value().m_VT.Magnitude()) +
-             lambda * res.value().m_mT.Magnitude());
+  if (res.m_rc == RunRC::Error)
+    return std::nullopt;
+  return res;
 }
 
 namespace
@@ -1346,27 +1291,45 @@ namespace
       if (!bool(res))
         return false;
 
-      // If OK: Evaluate the constraints, re-using the NLOpt-related function:
-      // XXX: There are 2 constraints currently:
-      double constrs[2];
-      Ascent2::EvalNLOptConstraints(2, constrs, m_n, xs, nullptr, m_proto);
+      // StartH:
+      LenK hT = std::max(res.value().m_hT, 0.0_km);
+
+      // StartV:
+      VelK VT = std::max(res.value().m_VT, VelK(0.0));
 
       // Push the results back to NOMAD in string form:
       char  buff[512];
       char* curr  = buff;
 
-      // The Objective Function Value and the Constraints:
+      // The Objective Function Value: StartMass:
       curr += sprintf(curr, "%.16e ", res.value().m_mT.Magnitude());
+
+      // Constraint0: StartH:
+      curr += sprintf(curr, "%.16e ", (hT - Ascent2::MaxStartH).Magnitude());
+
+      // Constraint1: StartV:
+      curr += sprintf(curr, "%.16e",  (VT - Ascent2::MaxStartV).Magnitude());
+/*
+      // Constraint2: MaxQ:
       curr += sprintf(curr, "%.16e ",
-                      constrs[0] - Ascent2::MaxStartH.Magnitude());
+                     (res.value().m_maxQ  - Ascent2::MaxQLimit).Magnitude());
+
+      // Constraint3: MaxSepQ:
+      curr += sprintf(curr, "%.16e ",
+                     (res.value().m_sepQ  - Ascent2::MaxSepQ)  .Magnitude());
+
+      // Constraint4: MaxLongG:
       curr += sprintf(curr, "%.16e",
-                      constrs[1] - Ascent2::MaxStartV.Magnitude());
+                      res.value().m_maxLongG - Ascent2::MaxLongG);
+*/
       assert(size_t(curr - buff) <= sizeof(buff));
 
-#     pragma omp critical(NOMADOutput)
       if (m_os != nullptr && m_logLevel >= 1)
+      {
+#       pragma omp critical(NOMADOutput)
         *m_os << buff << std::endl;
-
+      }
+      // Set the results back in "a_x":
       a_x.setBBO(buff);
       a_countEval = true;
       return true;
@@ -1377,7 +1340,8 @@ namespace
 //===========================================================================//
 // "FindOptimalAscentCtls"                                                   //
 //===========================================================================//
-std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
+std::optional<std::pair<Ascent2::AscCtlsL,Ascent2::AscCtlsD>>
+Ascent2::FindOptimalAscentCtls
 (
   // LV Params (those which are considered to be non-"constexpr"):
   double          a_alpha1,      // FullMass1 / FullMass2
@@ -1396,13 +1360,12 @@ std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
   int             a_log_level,
 
   // Optimisation params:
-  OptMethod       a_opt_method,
   unsigned        a_np,
   unsigned        a_max_evals
 )
 {
   //-------------------------------------------------------------------------//
-  // Setup Common for all Methods:                                           //
+  // General Setup:                                                          //
   //-------------------------------------------------------------------------//
   // Set the bounds and the initial values for
   // [bHat2, muHat2, aAoA2, bAoA2, TGap,  bHat1, muHat1, aAoA1, bAoA1, upRate2,
@@ -1439,148 +1402,100 @@ std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
     a_payload_mass, a_h_perigee,   a_h_apogee,  a_incl,  a_launch_lat,
     a_os,           a_log_level
   );
-  double optVal    = NAN;  // Will become the minimised StartMass
+  double optVal     = NAN;  // Will become the minimised StartMass
+  Mass   optStartMass(NAN);
 
   //-------------------------------------------------------------------------//
-  // Method-Specific Functionaliy:                                           //
+  // NOMAD Setup:                                                            //
   //-------------------------------------------------------------------------//
-  if (a_opt_method == OptMethod::COBYLA ||
-      a_opt_method == OptMethod::DIRECT)
-  {
-    //-----------------------------------------------------------------------//
-    // Will use NLOpt, so create the NLOpt obj:                              //
-    //-----------------------------------------------------------------------//
-    nlopt::opt opt
+  // Create the Main NOMAD obj:
+  NOMAD::MainStep opt;
+
+  // Create the Params:
+  // Problem Geometry:
+  auto params = std::make_shared<NOMAD::AllParameters>();
+  params->setAttributeValue("DIMENSION",         size_t(a_np));
+  params->setAttributeValue("X0",                NOMAD::Point(optArgs));
+  params->setAttributeValue
+    ("LOWER_BOUND", NOMAD::ArrayOfDouble(loBounds));
+  params->setAttributeValue
+    ("UPPER_BOUND", NOMAD::ArrayOfDouble(upBounds));
+
+  // Stopping Criterion: XXX: Currently, only via the MaxEvals:
+  params->setAttributeValue("MAX_BB_EVAL",       size_t(a_max_evals));
+
+  // XXX: The following must be compatible with "NOMADEvaluator::eval_x":
+  NOMAD::BBOutputTypeList  bbTypes;
+  bbTypes.push_back(NOMAD::BBOutputType::OBJ);
+  // 2 constraints, to be satisfied at the solution point only:
+  bbTypes.push_back(NOMAD::BBOutputType::PB);
+  bbTypes.push_back(NOMAD::BBOutputType::PB);
+  /*
+  bbTypes.push_back(NOMAD::BBOutputType::PB);
+  bbTypes.push_back(NOMAD::BBOutputType::PB);
+  bbTypes.push_back(NOMAD::BBOutputType::PB);
+  */
+  params->setAttributeValue("BB_OUTPUT_TYPE",    bbTypes );
+  // Parallel Evaluation: The number of threads is decided automatically:
+  params->setAttributeValue("NB_THREADS_PARALLEL_EVAL", -1);
+
+  // "DIRECTION_TYPE" selects a variant of the optimisation algorithm. Other
+  // possible vals include "ORTHO_NP1_NEG", "ORTHO_NP1_QUAD", "NP1_UNI"  and
+  // many others:
+  params->setAttributeValue("DIRECTION_TYPE",
+    NOMAD::DirectionType::ORTHO_2N);
+
+  // Other params:
+  params->setAttributeValue("DISPLAY_DEGREE",       2);
+  params->setAttributeValue("DISPLAY_ALL_EVAL",     false);
+  params->setAttributeValue("DISPLAY_UNSUCCESSFUL", false);
+  params->getRunParams()->setAttributeValue("HOT_RESTART_READ_FILES",  false);
+  params->getRunParams()->setAttributeValue("HOT_RESTART_WRITE_FILES", false);
+
+  // Validate the "params" and install them in the "opt":
+  params->checkAndComply();
+  opt.setAllParameters(params);
+
+  // Create and set the "NOMADEvaluator":
+  std::unique_ptr<NOMADEvaluator> ev
+    (new NOMADEvaluator
     (
-      (a_opt_method == OptMethod::COBYLA)
-      ? nlopt::LN_COBYLA
-      : nlopt::GN_DIRECT,
-      a_np
-    );
+      params->getEvalParams(),
+      &asc,
+      a_np,
+      a_os,
+      a_log_level
+    ));
+  opt.setEvaluator(std::move(ev));
 
-    // Set the Objective Function to be Minimised, and the Constraints:
-    if (a_opt_method == OptMethod::COBYLA)
-    {
-      opt.set_min_objective         (EvalNLOptObjective0,  &asc);
-      opt.add_inequality_mconstraint(EvalNLOptConstraints, &asc, tols);
+  // RUN!
+  opt.start();
+  opt.run();
+  opt.end();
 
-      // Set the stopping criteria for finding the StartMass minimum:
-      constexpr   Mass startMassPrec = 50.0_kg;
-      opt.set_ftol_abs(startMassPrec.Magnitude());
-    }
-    else
-    {
-      // Constraints are embedded into the Objective Function (as penalties):
-      opt.set_min_objective         (EvalNLOptObjective1,   &asc);
+  // Extract the results:
+  std::vector<NOMAD::EvalPoint> feasPts;
+  (void) NOMAD::CacheBase::getInstance()->findBestFeas(feasPts);
+  if (feasPts.empty())
+    return std::nullopt;
 
-      // In this case, the Objective Function is a log of quadratic discrepanc-
-      // ies (of the order of 1), so set a much lower tolerance:
-      opt.set_ftol_abs(1e-4);
-    }
-    opt.set_lower_bounds(loBounds);
-    opt.set_upper_bounds(upBounds);
+  // If OK: put the best solution back to "optArgs":
+  NOMAD::EvalPoint bestF = feasPts[0];
 
-    // Set the max number of evaluations to prevent infinite loops:
-    opt.set_maxeval(a_max_evals);
-    nlopt::result rc = opt.optimize(optArgs, optVal);
+  for (unsigned i = 0; i < a_np; ++i)
+    optArgs[i] = bestF[i].todouble();
 
-    if (rc != nlopt::SUCCESS && rc != nlopt::FTOL_REACHED)
-      return std::nullopt;   // Optimisation definitely unsuccessful...
-  }
-  else
-  {
-    //-----------------------------------------------------------------------//
-    // Using NOMAD:                                                          //
-    //-----------------------------------------------------------------------//
-    assert(a_opt_method == OptMethod::NOMAD4);
+  optVal       = bestF.getF(NOMAD::defaultFHComputeType).todouble();
+  optStartMass = Mass(optVal);
 
-    // Create the Main NOMAD obj:
-    NOMAD::MainStep opt;
-
-    // Create the Params:
-    // Problem Geometry:
-    auto params = std::make_shared<NOMAD::AllParameters>();
-    params->setAttributeValue("DIMENSION",         size_t(a_np));
-    params->setAttributeValue("X0",                NOMAD::Point(optArgs));
-    params->setAttributeValue
-      ("LOWER_BOUND", NOMAD::ArrayOfDouble(loBounds));
-    params->setAttributeValue
-      ("UPPER_BOUND", NOMAD::ArrayOfDouble(upBounds));
-
-    // Stopping Criterion: XXX: Currently, only via the MaxEvals:
-    params->setAttributeValue("MAX_BB_EVAL",       size_t(a_max_evals));
-
-    // XXX: The following must be compatible with "NOMADEvaluator::eval_x":
-    NOMAD::BBOutputTypeList  bbTypes;
-    bbTypes.push_back(NOMAD::BBOutputType::OBJ);
-    bbTypes.push_back(NOMAD::BBOutputType::PB);
-    bbTypes.push_back(NOMAD::BBOutputType::PB);
-    params->setAttributeValue("BB_OUTPUT_TYPE",    bbTypes );
-
-    // Parallel Evaluation: The number of threads is decided automatically:
-    params->setAttributeValue("NB_THREADS_PARALLEL_EVAL", -1);
-
-    // "DIRECTION_TYPE" selects a variant of the optimisation algorithm. Other
-    // possible vals include "ORTHO_NP1_NEG", "ORTHO_NP1_QUAD", "NP1_UNI"  and
-    // many others:
-    params->setAttributeValue("DIRECTION_TYPE",
-      NOMAD::DirectionType::ORTHO_2N);
-
-    // Other params:
-    params->setAttributeValue("DISPLAY_DEGREE",       2);
-    params->setAttributeValue("DISPLAY_ALL_EVAL",     false);
-    params->setAttributeValue("DISPLAY_UNSUCCESSFUL", false);
-    params->getRunParams()->setAttributeValue("HOT_RESTART_READ_FILES",  false);
-    params->getRunParams()->setAttributeValue("HOT_RESTART_WRITE_FILES", false);
-
-    // Validate the "params" and install them in the "opt":
-    params->checkAndComply();
-    opt.setAllParameters(params);
-
-    // Create and set the "NOMADEvaluator":
-    std::unique_ptr<NOMADEvaluator> ev
-      (new NOMADEvaluator
-      (
-        params->getEvalParams(),
-        &asc,
-        a_np,
-        a_os,
-        a_log_level
-      ));
-    opt.setEvaluator(std::move(ev));
-
-    // RUN!
-    opt.start();
-    opt.run();
-    opt.end();
-
-    // Extract the results:
-    std::vector<NOMAD::EvalPoint> feasPts;
-    (void) NOMAD::CacheBase::getInstance()->findBestFeas(feasPts);
-    if (feasPts.empty())
-      return std::nullopt;
-
-    // If OK: put the best solution back to "optArgs":
-    for (unsigned i = 0; i < a_np; ++i)
-      optArgs[i] = feasPts[0][i].todouble();
-  }
   //-------------------------------------------------------------------------//
   // Post-Processing:                                                        //
   //-------------------------------------------------------------------------//
-  // XXX: It may happen (with all methods) that the minimum of the objecive
-  // function is found but the constraints are unsatisfied! So re-evaluate the
-  // constraints on the final "optArgs" -- for all methods:
-  double optConstrs   [2];
-  EvalNLOptConstraints(2, optConstrs, a_np, optArgs.data(), nullptr, &asc);
-
-  if (optConstrs[0] > tols[0] || optConstrs[1] > tols[1])
-    return std::nullopt;  // Failed to satisfy the constraints
-
-  // If OK:
   // In order to get the resulting "AscCtlsD", put the "AscCtlsL" into the
   // "asc" obj,  and output them:
-  asc.SetCtlParams(AscCtlsL(a_np, optArgs.data()));
-  asc.OutputCtls  ();
+  AscCtlsL optArgsL(a_np, optArgs.data());
+  asc.SetCtlParams (optArgsL);
+  asc.OutputCtls   ();
 
   // The result:
   AscCtlsD optArgsD
@@ -1602,15 +1517,9 @@ std::optional<Ascent2::AscCtlsD> Ascent2::FindOptimalAscentCtls
     .m_bMu1       = asc.m_bMu1,
     .m_upRate1    = asc.m_upRate1,
     .m_aAoA1      = asc.m_aAoA1,
-    .m_bAoA1      = asc.m_bAoA1,
-
-    // Optimisation Results:
-    .m_startH     = LenK(optConstrs[0]),
-    .m_startV     = VelK(optConstrs[1]),
-    .m_startMass  = Mass(),
-    .m_objVal     = optVal
+    .m_bAoA1      = asc.m_bAoA1
   };
-  return optArgsD;
+  return std::make_pair(optArgsL, optArgsD);
 }
 
 }

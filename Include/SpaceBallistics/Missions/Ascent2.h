@@ -61,28 +61,33 @@ namespace SpaceBallistics
 
     // ODE Integration Params: 1 msec step; it may only be reduced, never
     // increased beyond the original value:
-    constexpr static Time   ODEInitStep      = 0.001_sec;
-    constexpr static Time   ODEMaxStep       = ODEInitStep;
-    constexpr static double ODERelPrec       = 1e-6;
+    constexpr static Time     ODEInitStep    = 0.001_sec;
+    constexpr static Time     ODEMaxStep     = ODEInitStep;
+    constexpr static double   ODERelPrec     = 1e-6;
 
     // Singular point detection criteria: NB: "Vhor" approaches 0 much faster
     // than "Vr":
-    constexpr static VelK   SingVr           = VelK(1e-2); // 10   m/sec
-    constexpr static VelK   SingVhor         = VelK(1e-4); //  0.1 m/sec
+    constexpr static VelK     SingVr         = VelK(1e-2); // 10   m/sec
+    constexpr static VelK     SingVhor       = VelK(1e-4); //  0.1 m/sec
 
     // Angle-of-Attack (AoA) Limits for the 1st and the 2nd stage:
-    constexpr static Angle  MaxAoA2          = To_Angle(20.0_deg);
-    constexpr static Angle  MaxAoA1          = To_Angle( 2.0_deg);
+    constexpr static Angle    MaxAoA2        = To_Angle(20.0_deg);
+    constexpr static Angle    MaxAoA1        = To_Angle( 2.0_deg);
 
     // The Deepest Throttling Level (ie the Min BurnRate relative to the Max
     // one) for all engines:
-    constexpr static double DT               = 0.5;
+    constexpr static double   DT             = 0.5;
 
     // For Constrained Optimisation: Constraints on Start Altitude and Start
     // Velocity (both should be close to 0):
-    constexpr static LenK   MaxStartH        = 0.1_km;      // 100 m
-    constexpr static VelK   MaxStartV        = VelK(0.03);  //  30 m/sec
-    constexpr static Time   MaxTGap          = 300.0_sec;
+    constexpr static Time     MaxTGap        = 300.0_sec;
+    constexpr static LenK     MaxStartH      = 0.1_km;          // 100 m
+    constexpr static VelK     MaxStartV      = VelK(0.03);      //  30 m/sec
+    /*
+    constexpr static Pressure MaxQLimit      = Pressure(35e3);  // 35  kPa
+    constexpr static Pressure MaxSepQ        = Pressure(0.5e3); // 0.5 kPa
+    constexpr static double   MaxLongG       = 4.5;
+    */
 
     //=======================================================================//
     // Types:                                                                //
@@ -159,6 +164,7 @@ namespace SpaceBallistics
       {}
     };
 
+  public:
     //-----------------------------------------------------------------------//
     // "RunRC":                                                              //
     //-----------------------------------------------------------------------//
@@ -192,17 +198,19 @@ namespace SpaceBallistics
       }
     }
 
-  public:
     //-----------------------------------------------------------------------//
     // "RunRes" Struct:                                                      //
     //-----------------------------------------------------------------------//
     struct RunRes
     {
-      RunRC m_rc;   // Return Code
-      Time  m_T;    // Final (actually start) Time, < 0
-      LenK  m_hT;   // Final (actually start) Altitude
-      VelK  m_VT;   // Final (sctually start) Velocity
-      Mass  m_mT;   // Final (actually start) Mass
+      RunRC     m_rc;       // Return Code
+      Time      m_T;        // Final (actually start) Time, < 0
+      LenK      m_hT;       // Final (actually start) Altitude
+      VelK      m_VT;       // Final (sctually start) Velocity
+      Mass      m_mT;       // Final (actually start) Mass
+      Pressure  m_maxQ;     // Max Dynamic Pressure (Q)
+      Pressure  m_sepQ;     // Q @ Stage1 Separation
+      double    m_maxLongG; // Max Longitudinal G
     };
 
     //-----------------------------------------------------------------------//
@@ -246,13 +254,6 @@ namespace SpaceBallistics
       //---------------------------------------------------------------------//
       // Default / Non-Default Ctor:
       AscCtlsL(unsigned a_n = 0, double const a_xs[] = nullptr);
-
-      //---------------------------------------------------------------------//
-      // To use "AscCtlsL" as an "unordered_map" key, we need Hash and (==): //
-      //---------------------------------------------------------------------//
-      bool operator==(AscCtlsL const&) const = default;
-
-      // For Hash, see the end of this header...
     };
 
     //-----------------------------------------------------------------------//
@@ -289,12 +290,6 @@ namespace SpaceBallistics
       // thus,           AOA(tau) = tau * (a * tau - b):
       AngAcc                m_aAoA1;
       AngVel                m_bAoA1;
-
-      // Optimisation results are also stored here:
-      LenK                  m_startH;     // Must be close to 0
-      VelK                  m_startV;     // Must be close to 0
-      Mass                  m_startMass;  // Must be minimised
-      double                m_objVal;     // The over-all minimised Objective
     };
 
   private:
@@ -377,12 +372,14 @@ namespace SpaceBallistics
     Time                  m_cutOffTime1;    // Gap   start: St1 Cut-Off  Time
     Time                  m_ignTime1;       // Burn1 start: St1 Ignition Time
 
+    // Constraints:
+    Pressure              m_maxQ;           // Max Dynamic Pressure (Q)
+    Pressure              m_sepQ;           // Q @ Stage1 separation
+    double                m_maxLongG;       // Max Longitudinal G
+
     // For output:
     std::ostream* const   m_os;
     int           const   m_logLevel;
-
-    // Static Cache for "RunRes"es (for use with NLOpt):
-    static std::unordered_map<AscCtlsL, RunRes> s_Cache;
 
   public:
     //=======================================================================//
@@ -412,9 +409,15 @@ namespace SpaceBallistics
     );
 
     //-----------------------------------------------------------------------//
-    // Copy Ctor: Required for NLOpt-based optimisations:                    //
+    // Copy Ctor: Required for optimisation:                                 //
     //-----------------------------------------------------------------------//
     Ascent2(Ascent2 const&) = default;
+
+    //-----------------------------------------------------------------------//
+    // "SetCtlsParams":                                                      //
+    //-----------------------------------------------------------------------//
+    // Setting the Flight Ctl Params. Used eg in the optimisation procedures:
+    void SetCtlParams(AscCtlsL const& a_ctls);
 
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Ascent Trajectory:                               //
@@ -425,11 +428,6 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Internal Helpers:                                                     //
     //-----------------------------------------------------------------------//
-    // "SetCtlsParams":
-    // Setting the Flight Ctl Params. Used in the optimisation procedure:
-    //
-    void SetCtlParams(AscCtlsL const& a_ctls);
-
     // "ODERHS":
     // For Ascent Trajectory Integration:
     //
@@ -440,6 +438,27 @@ namespace SpaceBallistics
     // Here FlightMode switching occurs, so this method is non-"const":
     //
     bool ODECB(StateV* a_s, Time a_t);
+
+    // Common part of "ODERHS" and "ODECB":
+    void NonGravForces
+    ( 
+      // Inputs:
+      Time           a_t,
+      LenK           a_r,
+      VelK           a_Vr,
+      VelK           a_Vhor,
+      Mass           a_m,
+      // Outputs:
+      VelK*          a_V,
+      Angle*         a_psi,
+      Angle*         a_aoa,
+      EAM::AtmConds* a_atm, 
+      MassRate*      a_burn_rate,
+      ForceK*        a_thrust,
+      double         a_lv_axis[2],  // In the (r, normal-to-r) frame
+      AccK           a_ng_acc [2]   // ditto
+    ) 
+    const;
 
     // "AeroDynForces":
     // Atmospheric Conditions and Aerodynamic Drag Force:
@@ -459,8 +478,9 @@ namespace SpaceBallistics
     //      "PropBurnRate": (may be variable over time, >= 0):
     MassRate PropBurnRate(Time a_t) const;
 
-    //   "AoA": Angle-of-Attack (variable over time):
-    Angle AoA(Time a_t) const;
+    //   "AoA": Angle-of-Attack (variable over time, also constrained with the
+    //   curr pitch "psi"):
+    Angle AoA(Time a_t, Angle a_psi) const;
 
     //    "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
     ForceK Thrust(MassRate a_burn_rate, Pressure a_p) const;
@@ -473,7 +493,7 @@ namespace SpaceBallistics
 
   public:
     //-----------------------------------------------------------------------//
-    // NLOpt Helpers:                                                        //
+    // Optimisation Helpers:                                                 //
     //-----------------------------------------------------------------------//
     // They may also be called from outside, hence "public":
     //
@@ -484,42 +504,6 @@ namespace SpaceBallistics
       void*        a_env
     );
 
-    static double EvalNLOptObjective0
-    (
-      unsigned     a_n,
-      double const a_xs[],        // Of length "a_n"
-      double*      a_grad,
-      void*        a_env
-    );
-
-    static double EvalNLOptObjective1
-    (
-      unsigned     a_n,
-      double const a_xs[],        // Of length "a_n"
-      double*      a_grad,
-      void*        a_env
-    );
-
-    static void EvalNLOptConstraints
-    (
-      unsigned     a_m,
-      double       a_constrs[],   // Of length "a_m"
-      unsigned     a_n,
-      double const a_xs[],
-      double*      a_grad,
-      void*        a_env
-    );
-
-    //-----------------------------------------------------------------------//
-    // "OptMethod" Enum Class:                                               //
-    //-----------------------------------------------------------------------//
-    enum class OptMethod: int
-    {
-      COBYLA = 0,
-      DIRECT = 1,
-      NOMAD4 = 2
-    };
-
     //-----------------------------------------------------------------------//
     // "FindOptimalAscentCtls":                                              //
     //-----------------------------------------------------------------------//
@@ -527,9 +511,9 @@ namespace SpaceBallistics
     // orbit is reached (with the orbital insertion occurring in the perigee,
     // if the orbit is elliptical) and that requires the minimum LV start mass
     // (whereas the payload mass is fixed).
-    // Returns (OptAscCtlsD, MinStartMass):
+    // Returns  (OptAscCtlsL, OptAscCtlsD) if available, "nullopt" otherwise:
     //
-    static std::optional<AscCtlsD> FindOptimalAscentCtls
+    static std::optional<std::pair<AscCtlsL,AscCtlsD>> FindOptimalAscentCtls
     (
       // LV Params (those which are considered to be non-"constexpr"):
       double          a_alpha1,      // FullMass1 / FullMass2
@@ -548,42 +532,9 @@ namespace SpaceBallistics
       int             a_log_level,
 
       // Optimisation Params:
-      OptMethod       a_method,
       unsigned        a_np,
       unsigned        a_max_evals
     );
   };
 }
 // End namespace SpaceBallistics
-
-namespace std
-{
-  //=========================================================================//
-  // Specialize "std::hash" for "Ascent2::AscCtlsL":                         //
-  //=========================================================================//
-  // Using "boost::hash_combine":
-  //
-  template <>
-  struct hash<SpaceBallistics::Ascent2::AscCtlsL>
-  {
-    size_t operator() (SpaceBallistics::Ascent2::AscCtlsL const& c) const
-    {
-      // Normalize -0.0 to 0.0 to avoid inconsistency with (==):
-      auto norm0 = [](double a_x) -> double
-                   { return (a_x  == 0.0) ? 0.0 : a_x; };
-
-      size_t seed = 0;
-      boost::hash_combine(seed, norm0(c.m_bHat2 ));
-      boost::hash_combine(seed, norm0(c.m_muHat2));
-      boost::hash_combine(seed, norm0(c.m_aAoA2 ));
-      boost::hash_combine(seed, norm0(c.m_bAoA2 ));
-      boost::hash_combine(seed, norm0(c.m_TGap  ));
-      boost::hash_combine(seed, norm0(c.m_bHat1 ));
-      boost::hash_combine(seed, norm0(c.m_muHat1));
-      boost::hash_combine(seed, norm0(c.m_aAoA1 ));
-      boost::hash_combine(seed, norm0(c.m_bAoA1 ));
-      return seed;
-    }
-  };
-}
-// End namespace "std"
