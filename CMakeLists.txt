@@ -204,14 +204,8 @@ SET(SRCS
   Src/PhysEffects/DE440T.cpp
   Src/PhysEffects/DE440T-Data.cpp
   Src/PhysEffects/EarthRotationModel.cpp
+  Src/PhysEffects/EarthAtmosphereModel.cpp
   Src/Missions/Ascent2.cpp)
-
-# With CLang, we need some more .CPP files (to circumvent the unavailability of
-# some "constexpr" functions):
-IF ("${TOOL_CHAIN}" STREQUAL "CLang")
-  LIST(APPEND SRCS
-    Src/PhysEffects/EarthAtmosphereModel.cpp)
-ENDIF()
 
 ADD_LIBRARY          (${PROJECT_NAME} STATIC ${SRCS})
 

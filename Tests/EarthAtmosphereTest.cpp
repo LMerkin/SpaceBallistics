@@ -1,4 +1,4 @@
-// vim:ts=2
+// vim:ts=2:et
 //===========================================================================//
 //                     "Tests/EarthAtmosphereTest.cpp":                      //
 //===========================================================================//
@@ -7,22 +7,16 @@
 
 int main()
 {
-	namespace EAM = SpaceBallistics::EarthAtmosphereModel;
-	using namespace SpaceBallistics;
-	using namespace std;
+  namespace EAM = SpaceBallistics::EarthAtmosphereModel;
+  using namespace SpaceBallistics;
+  using namespace std;
 
-	for (int i = 0; i <= 6; ++i)
-	{
-		EAM::LayerInfo const& l = EAM::Layers[i];
-
-		// Output the info at the "base" of the Layer:
-		cout << l.m_baseH << '\t' << l.m_baseP << '\t' << l.m_baseT << endl;
-
-		if (i == 6)
-			// This is the last Layer, so output the info at its upper boundary
-			// as well:
-			cout << l.m_endH << '\t' << l.P(l.m_endH) << '\t' << l.T(l.m_endH)
-					 << endl;
-	}
-	return 0;
+  for (LenK z = 0.0_km; z <= 1201.0_km; z += 1.0_km)
+  {
+    auto [p, rho, T, a] = EAM::GetAtmConds(z);
+    cout << z.Magnitude() << '\t' << T  .Magnitude() << '\t'
+         << p.Magnitude() << '\t' << rho.Magnitude() << '\t'
+         << a.Magnitude() << std::endl;
+  }
+  return 0;
 }

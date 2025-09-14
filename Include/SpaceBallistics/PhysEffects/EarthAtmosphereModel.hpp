@@ -2,9 +2,10 @@
 //===========================================================================//
 //          "SpaceBallistics/PhysEffects/EarthAtmosphereModel.hpp":          //
 //===========================================================================//
-// NB: This model is the International Standard Atmosphere (ISA),  valid up to
-// the altitude of ~85 km. TODO: Extensions for higher altitudes (eg for pred-
-// ictions of satellite orbits decay):
+// NB: This model is the Russian GOST 4401-81 (which coincides with the Inter-
+// national Standard Atmosphere up to the altitude of 85 km).  XXX: It is not
+// detailed enough to predict satellite orbits decay; for that, NRLMSISE-00 or
+// JB2008 should be used (TODO):
 //
 #pragma  once
 #include "SpaceBallistics/Types.hpp"
@@ -26,9 +27,11 @@ namespace SpaceBallistics::EarthAtmosphereModel
   // XXX: In SU2 Standard Air model:           1.2172 -- why?
   constexpr inline Density  Rho0     = Density(1.225);
 
-  // Specific Gas Constant for Dry Air (J/K):
+  // Specific Gas Constant for Dry Air (J/K), assuming the constant Molar Mass
+  // (0.0028964420 kg/mol) for the altitudes up to 94 km; above that,  the air
+  // composition and molar mass are not invariant anymore:
   // XXX: In SU2 Standard Air model:   287.058 -- why?
-  constexpr inline auto     RAir     = 287.0528 * Sqr(Vel(1.0)) / 1.0_K;
+  constexpr inline auto     RAir     = 287.05287 * Sqr(Vel(1.0)) / 1.0_K;
 
   // cP/cV Ratio for the Dry Air:
   constexpr inline double   GammaAir = 1.4;
@@ -36,22 +39,14 @@ namespace SpaceBallistics::EarthAtmosphereModel
   using     TempGrad                 = decltype(1.0_K / 1.0_km);
 
   //=========================================================================//
-  // "LayerInfo" Struct:                                                     //
+  // "LowLayerInfo" Struct:                                                  //
   //=========================================================================//
-  // NB: Here all altitudes are GeoPotential ones above the Mean Sea Level.
-  // XXX:
-  // (*) Interestingly, the functions below use "g0K" rather than variable
-  //     (with the altitude) acceleration of gravity:
-  // (*) In CLang (major version <= 20),  C++23 "constexpr" mathematical funct-
-  //     ions are not yet implemented, so some methods of this struct are decl-
-  //     ared "constexpr" in GCC but not in CLang:
-  //
-  struct LayerInfo
+  struct LowLayerInfo
   {
     //-----------------------------------------------------------------------//
     // Data Flds:                                                            //
     //-----------------------------------------------------------------------//
-    LenK     const m_baseH;
+    LenK     const m_baseH;     // GEOPOTENTIAL Altitude ("h")
     Pressure const m_baseP;
     AbsTemp  const m_baseT;
     TempGrad const m_tempGrad;
@@ -60,7 +55,7 @@ namespace SpaceBallistics::EarthAtmosphereModel
     //-----------------------------------------------------------------------//
     // Non-Default Ctor:                                                     //
     //-----------------------------------------------------------------------//
-    constexpr LayerInfo
+    constexpr LowLayerInfo
     (
       LenK         a_base_h,
       Pressure     a_base_p,
@@ -78,14 +73,13 @@ namespace SpaceBallistics::EarthAtmosphereModel
     }
 
     // Default Ctor is auto-generated (XXX: for some reason, we need it...):
-    constexpr LayerInfo() = default;
+    constexpr LowLayerInfo() = default;
 
     //-----------------------------------------------------------------------//
     // Pressure within this Layer:                                           //
     //-----------------------------------------------------------------------//
-#   ifndef __clang_
-    constexpr
-#   endif
+    // Non-"constexpr" because of CLang issues:
+    //
     Pressure P(LenK a_h) const
     {
       assert(m_baseH <= a_h && a_h <= m_endH);
@@ -111,10 +105,9 @@ namespace SpaceBallistics::EarthAtmosphereModel
     //-----------------------------------------------------------------------//
     // Constructing the "next" ("above") Layer from this one:                //
     //-----------------------------------------------------------------------//
-#   ifndef __clang__
-    constexpr
-#   endif
-    LayerInfo MkNextLayer
+    // Non-"constexpr" because of CLang issues:
+    //
+    LowLayerInfo MkNextLayer
     (
       TempGrad  a_next_temp_grad,
       LenK      a_next_end_h
@@ -122,61 +115,49 @@ namespace SpaceBallistics::EarthAtmosphereModel
     const
     {
       assert(a_next_end_h > m_endH);
-      return LayerInfo
+      return LowLayerInfo
              (m_endH, P(m_endH), T(m_endH), a_next_temp_grad, a_next_end_h);
     }
   };
 
   //=========================================================================//
-  // All Layers (up to ~85 km):                                              //
+  // "UpperLayerInfo":                                                       //
   //=========================================================================//
-# ifndef __clang__
-  constexpr inline LayerInfo Layers[7]
+  struct UpperLayerInfo
   {
-# include "SpaceBallistics/PhysEffects/EarthAtmosphereLayers.h"
+    LenK     const m_baseZ;   // GEOMETRIC Altitude ("z")
+    AbsTemp  const m_baseT;
+    Pressure const m_baseP;
+    Density  const m_baseRho;
   };
-# else
-  // In CLang (major ver <= 20), we cannot create "constexpr" Layers:
-  extern LayerInfo const Layers[7];
-# endif
+
+  //=========================================================================//
+  // Info Tables:                                                            //
+  //=========================================================================//
+  // "Low"     Layers (z = 0 .. 93 km):
+  constexpr inline int  NLowLayers    = 8;
+  extern LowLayerInfo   const     LowLayers   [NLowLayers];
+
+  // "Upper1"  Layers (z = 93+ .. 300   km, step = 1 km):
+  constexpr inline int  NUpperLayers1 = 208;
+  extern UpperLayerInfo const     UpperLayers1[NUpperLayers1];
+
+  // "Upper2"  Layers (z = 300+ .. 500  km, step = 2 km):
+  constexpr inline int  NUpperLayers2 = 101;
+  extern UpperLayerInfo const     UpperLayers2[NUpperLayers2];
+
+  // "Upper5"  Layers (z = 500+ .. 1200 km, step = 5 km):
+  constexpr inline int  NUpperLayers5 = 141;
+  extern UpperLayerInfo const     UpperLayers5[NUpperLayers5];
 
   //=========================================================================//
   // Atmospheric Conditions for Any Altitide:                                //
   //=========================================================================//
   using AtmConds = std::tuple<Pressure, Density, AbsTemp, Vel>;
 
-  // NB: here "a_z" is a Geometric Altitude, NOT The GeoPotential one.
+  // NB: here "a_z" is a GEOMETRIC Altitude, NOT The GeoPotential one;
   // Returns (P, Rho, T, SpeedOfSound):
-# ifndef __clang__
-  constexpr
-# else
-  inline
-# endif
-  AtmConds GetAtmConds(LenK a_z)
-  {
-    // XXX: For the moment, altitudes below the MSL are not allowed, so adjust
-    // "a_z" if necessary:
-    a_z = std::max(a_z, 0.0_km);
-
-    // First, compute the GeoPotential altitude from the Geometric one:
-    LenK h = BodyData<Body::Earth>::Rp * a_z /
-            (BodyData<Body::Earth>::Rp + a_z);
-    assert(h <= a_z);
-
-    for (LayerInfo const& l: Layers)
-      if (l.m_baseH <= h && h <= l.m_endH)
-      {
-        // Found the Layer which "h" belongs to:
-        Pressure p   =  l.P(h);
-        AbsTemp  T   =  l.T(h);
-        assert(IsPos(p) &&  IsPos(T));
-        Density  rho = p / (RAir * T);
-        Vel      a   = SqRt(GammaAir * RAir * T);
-        return std::make_tuple(p, rho, T, a);
-      }
-    // If we got here: We must be above all Layers:
-    return std::make_tuple
-           (Pressure(0.0), Density(0.0), AbsTemp(0.0), Vel(0.0));
-  }
+  //
+  AtmConds GetAtmConds(LenK a_z);
 }
 // End namespace SpaceBallistics::EarthAtmosphereModel
