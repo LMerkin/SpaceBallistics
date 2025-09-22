@@ -61,9 +61,6 @@ SET(GSL_LIBS "gsl" "openblas")
 # Boost (no specific version checks):
 FIND_PACKAGE(Boost  REQUIRED)
 
-# NLOpt:
-FIND_PACKAGE(NLOPT  REQUIRED)
-
 # XXX: For NOMAD, we currently need an explicit location:
 SET(NOMAD_DIR  "/opt/NOMAD/4.5.0")
 SET(NOMAD_LIBS "nomadAlgos" "nomadUtils" "nomadEval")
@@ -184,7 +181,6 @@ SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/Include"
                     "${DIMTYPES_TOP_DIR}/Include"
-                     ${NLOPT_INCLUDE_DIR}
                     "${NOMAD_DIR}/include/nomad")
 
 LINK_DIRECTORIES   ("${CMAKE_BINARY_DIR}"
@@ -210,7 +206,6 @@ SET(SRCS
 ADD_LIBRARY          (${PROJECT_NAME} STATIC ${SRCS})
 
 TARGET_LINK_LIBRARIES(${PROJECT_NAME}
-                      ${NLOPT_LIBRARY}
                       ${NOMAD_LIBS}
                       ${OPENMP_LIBS})
 

@@ -1,16 +1,55 @@
 // vim:ts=2:et
 //===========================================================================//
-//                     "SpaceBallistics/Missions/Ascent2.h":                 //
-//                   Ascent-to-Orbit for a "Model" 2-Stage LV                //
+//                    "SpaceBallistics/Missions/Ascent2.h":                  //
+//                  Ascent-to-Orbit for a "Model" 2-Stage LV                 //
 //===========================================================================//
 #include "SpaceBallistics/Types.hpp"
 #include "SpaceBallistics/PhysEffects/BodyData.hpp"
 #include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.hpp"
 #include <boost/functional/hash.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include <ostream>
 #include <optional>
 #include <utility>
 #include <unordered_map>
+
+// XXX: NOMAD headers produce tons of warnings, suppress them all:
+#ifdef   __clang__     
+#pragma  clang diagnostic push
+#pragma  clang diagnostic ignored "-Wunused-parameter"
+#pragma  clang diagnostic ignored "-Wnon-virtual-dtor"
+#pragma  clang diagnostic ignored "-Wcast-qual"
+#pragma  clang diagnostic ignored "-Wcast-align"
+#pragma  clang diagnostic ignored "-Wold-style-cast"
+#pragma  clang diagnostic ignored "-Wsuggest-override"
+#pragma  clang diagnostic ignored "-Wsuggest-destructor-override"
+#pragma  clang diagnostic ignored "-Woverloaded-virtual" 
+#pragma  clang diagnostic ignored "-Wshadow"
+#pragma  clang diagnostic ignored "-Wextra-semi"
+#pragma  clang diagnostic ignored "-Wunused-member-function"
+#pragma  clang diagnostic ignored "-Winconsistent-missing-destructor-override"
+#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-dtor"
+#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-copy"
+#pragma  clang diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
+#pragma  clang diagnostic ignored "-Wreserved-identifier"
+#pragma  clang diagnostic ignored "-Wheader-hygiene"
+#pragma  clang diagnostic ignored "-Wsign-conversion"
+#pragma  GCC   diagnostic ignored "-Warray-bounds"
+#else
+#pragma  GCC   diagnostic push
+#pragma  GCC   diagnostic ignored "-Wunused-parameter"
+#pragma  GCC   diagnostic ignored "-Woverloaded-virtual="
+#pragma  GCC   diagnostic ignored "-Wnon-virtual-dtor"
+#pragma  GCC   diagnostic ignored "-Wcast-qual"
+#pragma  GCC   diagnostic ignored "-Warray-bounds"
+#endif
+#include <Nomad/nomad.hpp>
+#include <Cache/CacheBase.hpp>
+#ifdef   __clang__
+#pragma  clang diagnostic pop
+#else
+#pragma  GCC   diagnostic pop
+#endif
 
 namespace SpaceBallistics
 {
@@ -25,39 +64,8 @@ namespace SpaceBallistics
     //=======================================================================//
     // Consts:                                                               //
     //=======================================================================//
-    // TODO: Some of those Consts should be made dynamically-configurable par-
-    // ams:
-    constexpr static GMK    K                = BodyData<Body::Earth>::K;
-    constexpr static LenK   R                = 6371.0_km;   // Equi-Volume
-
-    // LV Params:
-    // Stage1 (engine performance @ SL and in Vac); its full mass is determined
-    // dynamically, but we need some initial estimates for reference:
-    constexpr static double K1               = 0.9;
-//  constexpr static Time   IspSL1           = 326.0_sec;
-    constexpr static Time   IspSL1           = 320.0_sec;
-//  constexpr static Time   IspVac1          = 353.0_sec;
-    constexpr static Time   IspVac1          = 346.6_sec;
-    constexpr static double PropRem1         = 0.01;
-
-    // Stage2 (only in Vac): Most params are dynamic. Here "PropRem2" is a frac-
-    // tion of the total Stage2 propellant load, not a fixed value:
-    constexpr static double K2               = 0.93;
-//  constexpr static Time   IspVac2          = 381.0_sec;
-    constexpr static Time   IspVac2          = 377.0_sec;
-    constexpr static double PropRem2         = 0.01;
-
-    // Total Start Mass (Constant):
-    constexpr static Mass   MaxStartMass     = 360'000.0_kg;
-
-    // Body and Fairing:
-    // XXX: It is currently assumed that Fairing separation occurs whan the
-    // dynamic pressure reaches 1 Pa or less:
-    constexpr static Mass     FairingMass    = 1000.0_kg; // Soyuz-2.1b: 1100
-    constexpr static Pressure FairingSepCond = Pressure(1.0);
-    // LV Diameter:
-    constexpr static LenK     D              = To_Len_km(4.1_m);
-    constexpr static decltype(Sqr(D)) CroS   = Pi<double> * Sqr(D) / 4.0;
+    constexpr static GMK      K              = BodyData<Body::Earth>::K;
+    constexpr static LenK     R              = 6371.0_km;   // Equi-Volume
 
     // ODE Integration Params: 1 msec step; it may only be reduced, never
     // increased beyond the original value:
@@ -70,28 +78,33 @@ namespace SpaceBallistics
     constexpr static VelK     SingVr         = VelK(1e-2); // 10   m/sec
     constexpr static VelK     SingVhor       = VelK(1e-4); //  0.1 m/sec
 
-    // Angle-of-Attack (AoA) Limits for the 1st and the 2nd stage:
-    constexpr static Angle    MaxAoA2        = To_Angle(20.0_deg);
-    constexpr static Angle    MaxAoA1        = To_Angle( 2.0_deg);
+    // For Constrained Optimisation:
+    // The max number of params used in Optimisation: 13:
+    // [thrustMult2, bHat2, muHat2, aAoARel2, bAoARel2, TGapRel,
+    //  thrustMult1, bHat1, muHat1, aAoARel1, bAoARel1, alpha1, payLoadMassRel]:
+    constexpr static int      NP             = 13;
 
-    // The Deepest Throttling Level (ie the Min BurnRate relative to the Max
-    // one) for all engines:
-    constexpr static double   DT             = 0.5;
+    // Atmospheric Pressure at which Fairing Separation occurs (XXX: should it
+    // be made configurable?):
+    constexpr static Pressure FairingSepCond = Pressure(1.0);
 
-    // For Constrained Optimisation: Constraints on Start Altitude and Start
-    // Velocity (both should be close to 0):
+    // Constraints on Start Altitude and Start Velocity (both should be close
+    // to 0):
     constexpr static Time     MaxTGap        = 300.0_sec;
     constexpr static LenK     MaxStartH      = 0.1_km;          // 100 m
     constexpr static VelK     MaxStartV      = VelK(0.03);      //  30 m/sec
-    /*
+
+    // XXX: The following limits are currently for information only:
     constexpr static Pressure MaxQLimit      = Pressure(35e3);  // 35  kPa
     constexpr static Pressure MaxSepQ        = Pressure(0.5e3); // 0.5 kPa
-    constexpr static double   MaxLongG       = 4.5;
-    */
+    constexpr static double   MaxLongG       = 5.0;
 
     //=======================================================================//
     // Types:                                                                //
     //=======================================================================//
+    using MassT2 =   decltype(MassRate(1.0) / 1.0_sec);
+    using MassT3 =   decltype(MassT2  (1.0) / 1.0_sec);
+
     //-----------------------------------------------------------------------//
     // "StateV":                                                             //
     //-----------------------------------------------------------------------//
@@ -213,116 +226,67 @@ namespace SpaceBallistics
       double    m_maxLongG; // Max Longitudinal G
     };
 
-    //-----------------------------------------------------------------------//
-    // "AscCtlsL" Struct:                                                    //
-    //-----------------------------------------------------------------------//
-    // Dimension-Less Params Controlling the Ascent Trajectory:
-    //
-    struct AscCtlsL
-    {
-      //---------------------------------------------------------------------//
-      // Data Flds:                                                          //
-      //---------------------------------------------------------------------//
-      // BurnRate Ctl Params for Stage2: The defaults corresp to const BurnRate:
-      double  m_bHat2;            // Must be in [0 .. 1], default is 0
-      double  m_muHat2;           // Must be in [0 .. 1], default is 1
-
-      // AoA Ctl Params for Stage2: The defaults corresp to AoA = 0:
-      double  m_aAoA2;            // Must be in [0 .. 1], default is 0
-      double  m_bAoA2;            // Must be in [0 .. 1], default is 0
-
-      // Ballistic Gap: XXX: Using "double" rather than "Time" here, for STL
-      // compatibility:
-      double  m_TGap;             // Default is 0
-
-      // BurnRate ctl params for Stage1: The defaults corresp to const BurnRate:
-      double  m_bHat1;            // Must be in [0 .. 1], default is 0
-      double  m_muHat1;           // Must be in [0 .. 1], default is 1
-
-      // AoA ctl param for Stage1: The defaults corresp to AoA = 0:
-      double  m_aAoA1;            // Must be in [0 .. 1], default is 0
-      double  m_bAoA1;            // Must be in [0 .. 1], default is 0
-
-      // Stage2 Thrust UpRate:
-      double  m_upRate2;          // Must be >= 1; default is 1
-
-      // Stage1 Thrust UpRate:
-      double  m_upRate1;          // Must be >= 1; default is 1
-
-      //---------------------------------------------------------------------//
-      // Ctors:                                                              //
-      //---------------------------------------------------------------------//
-      // Default / Non-Default Ctor:
-      AscCtlsL(unsigned a_n = 0, double const a_xs[] = nullptr);
-    };
-
-    //-----------------------------------------------------------------------//
-    // "AscCtlsD": Dimensioned Params Controlling the Ascent Trajectory:     //
-    //-----------------------------------------------------------------------//
-    using MassT2 = decltype(MassRate(1.0) / 1.0_sec);
-    using MassT3 = decltype(MassT2  (1.0) / 1.0_sec);
-
-    struct AscCtlsD
-    {
-      // Similar to the corresp flds in "Ascent2" class itself:
-      // BurnRate for Stage2:
-      Time                  m_T2;         // Actual Stage2 BurnTime
-      MassT3                m_aMu2;
-      MassT2                m_bMu2;
-      double                m_upRate2;
-
-      // AoA for Stage2: AoA(t) = t * (a * t + b), t <= 0:
-      AngAcc                m_aAoA2;
-      AngVel                m_bAoA2;
-
-      // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
-      // ignition):
-      Time                  m_TGap;
-
-      // BurnRate for Stage1:
-      Time                  m_T1;         // Actual Stage1 BurnTime
-      MassT3                m_aMu1;
-      MassT2                m_bMu1;
-      double                m_upRate1;
-
-      // AoA for Stage1: AoA(nt)  = nt *  (a * nt  + b),
-      // where nt = -tau =  tIgn1 - t <= 0;
-      // thus,           AOA(tau) = tau * (a * tau - b):
-      AngAcc                m_aAoA1;
-      AngVel                m_bAoA1;
-    };
-
   private:
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
     //-----------------------------------------------------------------------//
-    // LV Params                                                             //
+    // Over-All:                                                             //
     //-----------------------------------------------------------------------//
-    // XXX: In the future, these params may become "constexpr"s, or other way
-    // round,  the params which are now "constexpr"s may be moved to here for
-    // the maximum flexibility...
-    //
-    // Stage2 Params:
-    Mass     const        m_fullMass2;
-    Mass     const        m_emptyMass2;
-    Mass     const        m_propMass2;
-    ForceK   const        m_thrustVac2;  // Nominal (w/o UpRate2)
-    MassRate const        m_burnRateIN2; // Nominal BurnRate @ Stage2 IgnTime
-    MassRate              m_burnRateIA2; // Actual  BurnRate @ Stage2 IgnTime
+    // Const Over-All Params (not affected by Optimisation):
+    using    AreaK = decltype(Sqr(1.0_km));
+    Mass     const        m_maxStartMass;
+    Mass     const        m_fairingMass;
+    AreaK    const        m_crosS;
 
-    // Stage1 Params:
-    Mass     const        m_fullMass1;
-    Mass     const        m_emptyMass1;
-    Mass     const        m_propMass1;
-    ForceK   const        m_thrustVac1;  // Nominal (w/o UpRate1)
-    MassRate const        m_burnRateIN1; // Nominal BurnRate @ Stage1 IgnTime
-    MassRate              m_burnRateIA1; // Actual  BurnRate @ Stage1 IgnTime
+    // Non-Const Over-All Params (may be updated in the course of Optimisation):
+    double                m_alpha1;
+    Mass                  m_payLoadMass;
+
+    //-----------------------------------------------------------------------//
+    // Stage2:                                                               //
+    //-----------------------------------------------------------------------//
+    // Const Stage2 Params (not affected by Optimisation):
+    double   const        m_K2;
+    double   const        m_propRem2;
+    Time     const        m_IspVac2;
+    double   const        m_minThrtL2;
+    Angle    const        m_maxAoA2;
+
+    // Non-Const Stage2 Params (may be updated in the course of Optimisation):
+    Mass                  m_fullMass2;
+    Mass                  m_emptyMass2;
+    Mass                  m_propMass2;
+    Mass                  m_unSpendable2;
+    Mass                  m_spendable2;
+    ForceK                m_thrustVacI2; // Nominal (@ Max BurnRate)
+    MassRate              m_burnRateI2;  // BurnRate @ Stage2 IgnTime
+    Time                  m_T2;          // Nominal Stage2 BurnTime
+
+    //-----------------------------------------------------------------------//
+    // Stage1:                                                               //
+    //-----------------------------------------------------------------------//
+    // Const Stage1 Params (not affected by Optimisation):
+    double   const        m_K1;
+    double   const        m_propRem1;
+    Time     const        m_IspSL1;
+    Time     const        m_IspVac1;
+    double   const        m_minThrtL1;
+    Angle    const        m_maxAoA1;
+
+    // Non-Const Stage1 Params (may be updated in the course of Optimisation):
+    Mass                  m_fullMass1;
+    Mass                  m_emptyMass1;
+    Mass                  m_propMass1;
+    Mass                  m_unSpendable1;
+    Mass                  m_spendable1;
+    ForceK                m_thrustVacI1; // Nominal (@ Max BurnRate)
+    MassRate              m_burnRateI1;  // BurnRate @ Stage1 IgnTime
+    Time                  m_T1;          // Nominal Stage1 BurnTime
 
     //-----------------------------------------------------------------------//
     // Mission Params:                                                       //
     //-----------------------------------------------------------------------//
-    Mass     const        m_payLoadMass;
     LenK                  m_Rins;        // Radius-Vector @ Orbital Insertion
     VelK                  m_Vins;        // LV Velocity   @ Orbital Insertion
 
@@ -333,11 +297,11 @@ namespace SpaceBallistics
     // It is a non-increasing quadratic function of time:
     // BurnRate(tau) = BurnRateI + bMu * tau + aMu * tau^2, where "tau" is the
     // time since Stage2 ignition (0 <= tau <= T2):
-    //
-    Time                  m_T2;          // Actual Stage2 BurnTime
     MassT3                m_aMu2;
     MassT2                m_bMu2;
-    double                m_upRate2;
+    // Also, the Dim-Less params from which the above coeffs are computed:
+    double                m_bHat2;
+    double                m_muHat2;
 
     // AoA for Stage2: AoA(t) = t * (a * t - b),
     // where t <= 0 is our standard integration backward-running time    (t=0
@@ -345,17 +309,23 @@ namespace SpaceBallistics
     // NB: the (-b) coeff !!!
     AngAcc                m_aAoA2;
     AngVel                m_bAoA2;
+    // Also, the Dim-Less params from which the above coeffs are computed:
+    double                m_aAoARel2;
+    double                m_bAoARel2;
 
     // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
     // ignition):
     Time                  m_TGap;
+    // Also, the Dim-Less param from which the above value is computed:
+    double                m_TGapRel;
 
     // BurnRate for Stage1: Similar to that of Stage1, where "tau" is the time
     // since Stage1 ignition (0 <= tau <= T1):
-    Time                  m_T1;         // Actual Stage1 BurnTime
     MassT3                m_aMu1;
     MassT2                m_bMu1;
-    double                m_upRate1;
+    // Also, the Dim-Less params from which the above coeffs are computed:
+    double                m_bHat1;
+    double                m_muHat1;
 
     // AoA for Stage1: for similarity with Stage2,
     // AoA(nt)  = nt * (a * nt  - b),
@@ -364,8 +334,13 @@ namespace SpaceBallistics
     // where "tau" is again the time since Stage1 ignition (0 <= tau <= T1):
     AngAcc                m_aAoA1;
     AngVel                m_bAoA1;
+    // Also, the Dim-Less params from which the above coeffs are computed:
+    double                m_aAoARel1;
+    double                m_bAoARel1;
 
-    // Transient Data (during flight path integration): St2 Cut-Off Time is 0:
+    //-----------------------------------------------------------------------//
+    // Transient Data (during flight path integration):                      //
+    //-----------------------------------------------------------------------//
     FlightMode            m_mode;
     Time                  m_ignTime2;       // Burn2 start: St2 Ignition Time
     Time                  m_fairingSepTime; // Fairing Separation Time
@@ -390,14 +365,31 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     Ascent2
     (
-      // LV Params (XXX: they should either be all "constexpr"s or all configu-
-      // rable; but for now, some params are "fixed" and some are not):
+      // Stage2:
+      double          a_K2,             // PropMass2 / FullMass2
+      double          a_prop_rem2,
+      Time            a_Isp_vac2,
+      ForceK          a_thrust_vac2,
+      double          a_min_thrtl2,
+      Angle_deg       a_max_aoa2,
+
+      // Stage1:
+      double          a_K1,             // PropMass1 / FullMass1
+      double          a_prop_rem1,
+      Time            a_Isp_sl1,
+      Time            a_Isp_vac1,
+      ForceK          a_thrust_vac1,
+      double          a_min_thrtl1,
+      Angle_deg       a_max_aoa1,
+
+      // Over-All:
       double          a_alpha1,         // FullMass1 / FullMass2
-      ForceK          a_thrust2_vac,
-      ForceK          a_thrust1_vac,
+      Mass            a_max_start_mass,
+      Mass            a_fairing_mass,
+      Len             a_diam,
+      Mass            a_payload_mass,
 
       // Mission Params:
-      Mass            a_payload_mass,
       LenK            a_h_perigee,
       LenK            a_h_apogee,
       Angle_deg       a_incl,
@@ -413,21 +405,27 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     Ascent2(Ascent2 const&) = default;
 
+  private:
     //-----------------------------------------------------------------------//
-    // "SetCtlsParams":                                                      //
+    // Internal Ctor used in the Optimisation Process:                       //
     //-----------------------------------------------------------------------//
-    // Setting the Flight Ctl Params. Used eg in the optimisation procedures:
-    void SetCtlParams(AscCtlsL const& a_ctls);
+    Ascent2
+    (
+      Ascent2 const&          a_proto,
+      NOMAD::EvalPoint const& a_x,
+      bool const              a_act_opts[NP]
+    );
 
+  public:
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Ascent Trajectory:                               //
     //-----------------------------------------------------------------------//
     RunRes Run();
 
   private:
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // Internal Helpers:                                                     //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
     // "ODERHS":
     // For Ascent Trajectory Integration:
     //
@@ -463,8 +461,8 @@ namespace SpaceBallistics
     // "AeroDynForces":
     // Atmospheric Conditions and Aerodynamic Drag Force:
     //
-    static std::tuple<EAM::AtmConds, ForceK, ForceK>
-    AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA);
+    std::tuple<EAM::AtmConds, ForceK, ForceK>
+    AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const;
 
     // "LocateSingularPoint":
     // The final stage of integration, where we assume omega=0 (a purely vert-
@@ -491,49 +489,142 @@ namespace SpaceBallistics
     //  "OutputCtls": For Testing Only:
     void OutputCtls() const;
 
-  public:
-    //-----------------------------------------------------------------------//
-    // Optimisation Helpers:                                                 //
-    //-----------------------------------------------------------------------//
-    // They may also be called from outside, hence "public":
-    //
-    static std::optional<Ascent2::RunRes> GetRunRes
-    (
-      unsigned     a_n,
-      double const a_xs[],        // Of length "a_n"
-      void*        a_env
-    );
+    //=======================================================================//
+    // "NOMADEvaluator": Helper Class used in NOMAD Optimisation:            //
+    //=======================================================================//
+    class NOMADEvaluator final: public NOMAD::Evaluator
+    {
+    private:
+      //---------------------------------------------------------------------//
+      // Data Flds:                                                          //
+      //---------------------------------------------------------------------//
+      Ascent2 const*  m_proto;
+      bool            m_actOpts[NP];    // Flags for Active Optimisation Params
 
-    //-----------------------------------------------------------------------//
+    public:
+      //---------------------------------------------------------------------//
+      // Non-Default Ctor, Dtor:                                             //
+      //---------------------------------------------------------------------//
+      NOMADEvaluator
+      (
+        Ascent2 const*                                a_proto,
+        bool    const                                 a_actOpts[NP],
+        std::shared_ptr<NOMAD::EvalParameters> const& a_params
+      );
+
+      ~NOMADEvaluator() override {}
+
+      //---------------------------------------------------------------------//
+      // "eval_x": The actual evaluation method for NOMAD:                   //
+      //---------------------------------------------------------------------//
+      bool eval_x
+      (
+        NOMAD::EvalPoint&    a_x,  // Not "const" -- the result is also set here
+        NOMAD::Double const& UNUSED_PARAM(a_hMax),
+        bool&                a_countEval
+      )
+      const override;
+    };
+    friend class NOMADEvaluator;
+
+  public:
+    //=======================================================================//
+    // "AscCtls" Struct:                                                     //
+    //=======================================================================//
+    // The result of "FindOptimalAscentCtls" below. It just contains the rele-
+    // vant flds taken from the main "Ascent2" class:
+    //
+    struct AscCtls
+    {
+      //=====================================================================//
+      // Data Flds:                                                          //
+      //=====================================================================//
+      //---------------------------------------------------------------------//
+      // Stage2 Params:                                                      //
+      //---------------------------------------------------------------------//
+      // Stage2 Thrust Multiplier and Thrust (@ Ignition):
+      double  m_thrustMult2;
+      ForceK  m_thrustI2;
+
+      // Stage2 BurnRate: Dim-Less Params:
+      double  m_bHat2;            // Must be in [0 .. 1], default is 0
+      double  m_muHat2;           // Must be in [0 .. 1], default is 1
+
+      // Stage2 BurnRate: Dimensioned Coeffs:
+      Time    m_T2;
+      MassT3  m_aMu2;
+      MassT2  m_bMu2;
+
+      // Stage2 AoA: Dim-Less Params:
+      double  m_aAoA2Rel;         // Must be in [0 .. 1], default is 0
+      double  m_bAoA2Rel;         // Must be in [0 .. 1], default is 0
+
+      // Stage2 AoA: Dimensioned Coeffs: AoA2(t) = t * (a2 * t - b2), t <= 0,
+      // t=0 is the orbital insertion time:
+      AngAcc  m_aAoA2;
+      AngVel  m_bAoA2;
+
+      //---------------------------------------------------------------------//
+      // Ballistic Gap:                                                      //
+      //---------------------------------------------------------------------//
+      double  m_TGapRel;          // Default is 0
+      Time    m_TGap;             // Default is 0.0_sec
+
+      //---------------------------------------------------------------------//
+      // Stage1 Params:                                                      //
+      //---------------------------------------------------------------------//
+      // Stage1 Thrust Multiplier and Thrust (@ Ignition):
+      double  m_thrustMult1;
+      ForceK  m_thrustI1;
+
+      // Stage1 BurnRate: Dim-Less Params:
+      double  m_bHat1;            // Must be in [0 .. 1], default is 0
+      double  m_muHat1;           // Must be in [0 .. 1], default is 1
+
+      // Stage1 BurnRate: Dimensioned Coeffs:
+      Time    m_T1;
+      MassT3  m_aMu1;
+      MassT2  m_bMu1;
+
+      // Stage1 AoA: Dim-Less Params:
+      double  m_aAoARel1;         // Must be in [0 .. 1], default is 0
+      double  m_bAoARel1;         // Must be in [0 .. 1], default is 0
+
+      // Stage1 AoA: Dimensioned Coeffs: AoA1(t) = tau * (a1 * tau + b1),
+      // tau >= 0 is the time since Stage1 ignition:
+      AngAcc  m_aAoA1;
+      AngVel  m_bAoA1;
+
+      //---------------------------------------------------------------------//
+      // Over-All:                                                           //
+      //---------------------------------------------------------------------//
+      double  m_alpha1;           // FullMass1 / FullMass2
+      double  m_payLoadMassRel;
+      Mass    m_payLoadMass;
+
+      //=====================================================================//
+      // Output:                                                             //
+      //=====================================================================//
+      friend std::ostream& operator<<
+            (std::ostream& a_os, AscCtls const& a_ctls);
+    };
+
+    //=======================================================================//
     // "FindOptimalAscentCtls":                                              //
-    //-----------------------------------------------------------------------//
+    //=======================================================================//
+    // Top-Level Optiomisation Function.
     // Tries to find the Flight Control Params such that  the specified target
     // orbit is reached (with the orbital insertion occurring in the perigee,
-    // if the orbit is elliptical) and that requires the minimum LV start mass
-    // (whereas the payload mass is fixed).
-    // Returns  (OptAscCtlsL, OptAscCtlsD) if available, "nullopt" otherwise:
+    // if the orbit is elliptical) and that requires the min LV StartMass  (if
+    // the PayloadMass is fixed)  or otherwise, achieves the max PayLoadMass.
+    // Returns OptAscCtls if successful, "nullopt" otherwise:
     //
-    static std::optional<std::pair<AscCtlsL,AscCtlsD>> FindOptimalAscentCtls
+    static std::optional<AscCtls> FindOptimalAscentCtls
     (
-      // LV Params (those which are considered to be non-"constexpr"):
-      double          a_alpha1,      // FullMass1 / FullMass2
-      ForceK          a_thrust2_vac,
-      ForceK          a_thrust1_vac,
-
-      // Mission Params:
-      Mass            a_payload_mass,
-      LenK            a_h_perigee,
-      LenK            a_h_apogee,
-      Angle_deg       a_incl,
-      Angle_deg       a_launch_lat,
-
-      // Logging Params:
-      std::ostream*   a_os,
-      int             a_log_level,
-
-      // Optimisation Params:
-      unsigned        a_np,
-      unsigned        a_max_evals
+      // All are are given via the ConfigFile.ini, as there are quite a few of
+      // them:
+      std::string const& a_ini_file,
+      std::ostream*      a_os   // May be NULL
     );
   };
 }

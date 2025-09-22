@@ -10,6 +10,7 @@
 //===========================================================================//
 int main(int argc, char* argv[])
 {
+/*
   using namespace SpaceBallistics;
   using namespace std;
 
@@ -91,5 +92,6 @@ int main(int argc, char* argv[])
     cerr << "ERROR: " << exn.what() << endl;
     return 1;
   }
+*/
 	return  0;
 }
