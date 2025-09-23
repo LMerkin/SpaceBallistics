@@ -436,12 +436,12 @@ Ascent2::FindOptimalAscentCtls
   // [thrustMult2, bHat2, muHat2, aAoAHat2, bAoAHat2, TGapRel,
   //  thrustMult1, bHat1, muHat1, aAoAHat1, bAoAHat1, alpha1, payLoadMassRel]:
   constexpr double LoBounds[NP]
-    { 0.5,         0.0,   0.0,    0.0,      0.0,      0.0,
-      0.5,         0.0,   0.0,    0.0,      0.0,      1.0,    0.0  };
+    { 0.7,         0.0,   0.0,    0.0,      0.0,      0.0,
+      0.7,         0.0,   0.0,    0.0,      0.0,      1.0,    0.02 };
 
   constexpr double UpBounds[NP]
-    { 2.0,         1.0,   1.0,    1.0,      1.0,      1.0,
-      2.0,         1.0,   1.0,    1.0,      1.0,      7.0,    0.1  };
+    { 1.5,         1.0,   1.0,    1.0,      1.0,      1.0,
+      1.5,         1.0,   1.0,    1.0,      1.0,      7.0,    0.06 };
 
   constexpr double InitVals[NP]
     { 1.0,         0.5,   0.8,    0.5,      0.5,      0.1,
@@ -548,10 +548,18 @@ Ascent2::FindOptimalAscentCtls
   //-------------------------------------------------------------------------//
   // Finally: Technical Params:                                              //
   //-------------------------------------------------------------------------//
-  int  optMaxEvals      = pt.get<int> ("Techn.OptMaxEvals");
-  int  optLogLevel      = pt.get<int> ("Techn.OptLogLevel");
-  bool withFinalRun     = pt.get<bool>("Techn.WithFinalRun");
-  int  finalRunLogLevel = pt.get<bool>("Techn.FinalRunLogLevel", 3);
+  // Generic:
+  bool   withFinalRun     = pt.get<bool>  ("Technical.WithFinalRun");
+  int    finalRunLogLevel = pt.get<int>   ("Technical.FinalRunLogLevel", 3);
+  int    optMaxEvals      = pt.get<int>   ("Technical.OptMaxEvals");
+
+  // NOMAD-specific:
+  int    optSeed          = pt.get<int>   ("Technical.OptSeed");
+  int    optLogLevel      = pt.get<int>   ("Technical.OptLogLevel");
+  double useVNS           = pt.get<double>("Technical.OptUseVNS",      0.0);
+
+  if (useVNS < 0.0 || useVNS >= 1.0)
+    throw std::invalid_argument("OptUseVNS: The arg must be in [0..1)");
 
   //-------------------------------------------------------------------------//
   // Create the "prototype" "Ascent2" obj:                                   //
@@ -621,6 +629,13 @@ Ascent2::FindOptimalAscentCtls
     params->getRunParams()->setAttributeValue("HOT_RESTART_READ_FILES",  false);
     params->getRunParams()->setAttributeValue("HOT_RESTART_WRITE_FILES", false);
 
+    params->setAttributeValue("SEED", optSeed);
+    if (useVNS != 0.0)
+    {
+      params->setAttributeValue("VNS_MADS_SEARCH",         true);
+      params->setAttributeValue("VNS_MADS_SEARCH_TRIGGER",
+                                NOMAD::Double(useVNS));
+    }
     // Validate the "params" and install them in the "opt":
     params->checkAndComply();
     opt.setAllParameters(params);
