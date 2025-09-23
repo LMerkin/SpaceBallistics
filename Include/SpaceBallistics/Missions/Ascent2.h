@@ -80,8 +80,8 @@ namespace SpaceBallistics
 
     // For Constrained Optimisation:
     // The max number of params used in Optimisation: 13:
-    // [thrustMult2, bHat2, muHat2, aAoARel2, bAoARel2, TGapRel,
-    //  thrustMult1, bHat1, muHat1, aAoARel1, bAoARel1, alpha1, payLoadMassRel]:
+    // [thrustMult2, bHat2, muHat2, aAoAHat2, bAoAHat2, TGapRel,
+    //  thrustMult1, bHat1, muHat1, aAoAHat1, bAoAHat1, alpha1, payLoadMassRel]:
     constexpr static int      NP             = 13;
 
     // Atmospheric Pressure at which Fairing Separation occurs (XXX: should it
@@ -90,7 +90,7 @@ namespace SpaceBallistics
 
     // Constraints on Start Altitude and Start Velocity (both should be close
     // to 0):
-    constexpr static Time     MaxTGap        = 300.0_sec;
+    constexpr static Time     MaxTGap        = 1000.0_sec;      // Very Large!
     constexpr static LenK     MaxStartH      = 0.1_km;          // 100 m
     constexpr static VelK     MaxStartV      = VelK(0.03);      //  30 m/sec
 
@@ -260,6 +260,7 @@ namespace SpaceBallistics
     Mass                  m_unSpendable2;
     Mass                  m_spendable2;
     ForceK                m_thrustVacI2; // Nominal (@ Max BurnRate)
+    double                m_thrustMult2;
     MassRate              m_burnRateI2;  // BurnRate @ Stage2 IgnTime
     Time                  m_T2;          // Nominal Stage2 BurnTime
 
@@ -281,6 +282,7 @@ namespace SpaceBallistics
     Mass                  m_unSpendable1;
     Mass                  m_spendable1;
     ForceK                m_thrustVacI1; // Nominal (@ Max BurnRate)
+    double                m_thrustMult1;
     MassRate              m_burnRateI1;  // BurnRate @ Stage1 IgnTime
     Time                  m_T1;          // Nominal Stage1 BurnTime
 
@@ -310,14 +312,12 @@ namespace SpaceBallistics
     AngAcc                m_aAoA2;
     AngVel                m_bAoA2;
     // Also, the Dim-Less params from which the above coeffs are computed:
-    double                m_aAoARel2;
-    double                m_bAoARel2;
+    double                m_aAoAHat2;
+    double                m_bAoAHat2;
 
     // Ballistic Gap (a passive interval between Stage1 cut-off and Stage2
     // ignition):
     Time                  m_TGap;
-    // Also, the Dim-Less param from which the above value is computed:
-    double                m_TGapRel;
 
     // BurnRate for Stage1: Similar to that of Stage1, where "tau" is the time
     // since Stage1 ignition (0 <= tau <= T1):
@@ -328,15 +328,13 @@ namespace SpaceBallistics
     double                m_muHat1;
 
     // AoA for Stage1: for similarity with Stage2,
-    // AoA(nt)  = nt * (a * nt  - b),
-    // where nt = -tau  = tIgn1 - t <= 0,  so AoA=0 @ nt=0 (Stage1 ignition);
-    // thus,   AOA(tau) = tau * (a * tau + b),
-    // where "tau" is again the time since Stage1 ignition (0 <= tau <= T1):
+    // AoA(tau) = tau * (a * tau + b),
+    // where tau  = t - tIgn1 >= 0, so AoA=0 @ tau=0 (Stage1 ignition):
     AngAcc                m_aAoA1;
     AngVel                m_bAoA1;
     // Also, the Dim-Less params from which the above coeffs are computed:
-    double                m_aAoARel1;
-    double                m_bAoARel1;
+    double                m_aAoAHat1;
+    double                m_bAoAHat1;
 
     //-----------------------------------------------------------------------//
     // Transient Data (during flight path integration):                      //
@@ -353,8 +351,8 @@ namespace SpaceBallistics
     double                m_maxLongG;       // Max Longitudinal G
 
     // For output:
-    std::ostream* const   m_os;
-    int           const   m_logLevel;
+    std::ostream*         m_os;
+    int                   m_logLevel;
 
   public:
     //=======================================================================//
@@ -405,18 +403,21 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     Ascent2(Ascent2 const&) = default;
 
-  private:
     //-----------------------------------------------------------------------//
-    // Internal Ctor used in the Optimisation Process:                       //
+    // "SetCtlParams":                                                       //
     //-----------------------------------------------------------------------//
-    Ascent2
+    // Sets the Ctl Params which are not set by the above Ctor (to avoid over-
+    // complexity of the latter):
+    //
+    void SetCtlParams
     (
-      Ascent2 const&          a_proto,
-      NOMAD::EvalPoint const& a_x,
-      bool const              a_act_opts[NP]
+      double a_bHat2,    double a_muHat2,
+      double a_aAoAHat2, double a_bAoAHat2,
+      Time   a_TGap,
+      double a_bHat1,    double a_muHat1,
+      double a_aAoAHat1, double a_bAoAHat1
     );
 
-  public:
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Ascent Trajectory:                               //
     //-----------------------------------------------------------------------//
@@ -426,6 +427,9 @@ namespace SpaceBallistics
     //=======================================================================//
     // Internal Helpers:                                                     //
     //=======================================================================//
+    //-----------------------------------------------------------------------//
+    // For ODE Integration:                                                  //
+    //-----------------------------------------------------------------------//
     // "ODERHS":
     // For Ascent Trajectory Integration:
     //
@@ -489,6 +493,24 @@ namespace SpaceBallistics
     //  "OutputCtls": For Testing Only:
     void OutputCtls() const;
 
+    //-----------------------------------------------------------------------//
+    // For Optimisation:                                                     //
+    //-----------------------------------------------------------------------//
+    // NB: "ModifyLVParams" also includes "SetCtlParams":
+    //
+    void ModifyLVParams
+    (
+      // Thrust and Mass Params:
+      double a_thrustMult2, double a_thrustMult1,
+      double a_alpha1,      Mass   a_payLoadMass,
+      // Ctl Params:
+      double a_bHat2,       double a_muHat2,
+      double a_aAoAHat2,    double a_bAoAHat2,
+      Time   a_TGap,
+      double a_bHat1,       double a_muHat1,
+      double a_aAoAHat1,    double a_bAoAHat1
+    );
+
     //=======================================================================//
     // "NOMADEvaluator": Helper Class used in NOMAD Optimisation:            //
     //=======================================================================//
@@ -529,12 +551,12 @@ namespace SpaceBallistics
 
   public:
     //=======================================================================//
-    // "AscCtls" Struct:                                                     //
+    // "OptRes" Struct:                                                      //
     //=======================================================================//
     // The result of "FindOptimalAscentCtls" below. It just contains the rele-
     // vant flds taken from the main "Ascent2" class:
     //
-    struct AscCtls
+    struct OptRes
     {
       //=====================================================================//
       // Data Flds:                                                          //
@@ -543,71 +565,77 @@ namespace SpaceBallistics
       // Stage2 Params:                                                      //
       //---------------------------------------------------------------------//
       // Stage2 Thrust Multiplier and Thrust (@ Ignition):
-      double  m_thrustMult2;
-      ForceK  m_thrustI2;
+      double    m_thrustMult2;
+      ForceK    m_thrustVacI2;
+      MassRate  m_burnRateI2;
 
       // Stage2 BurnRate: Dim-Less Params:
-      double  m_bHat2;            // Must be in [0 .. 1], default is 0
-      double  m_muHat2;           // Must be in [0 .. 1], default is 1
+      double    m_bHat2;            // Must be in [0 .. 1], default is 0
+      double    m_muHat2;           // Must be in [0 .. 1], default is 1
 
       // Stage2 BurnRate: Dimensioned Coeffs:
-      Time    m_T2;
-      MassT3  m_aMu2;
-      MassT2  m_bMu2;
+      Time      m_T2;
+      MassT3    m_aMu2;
+      MassT2    m_bMu2;
 
       // Stage2 AoA: Dim-Less Params:
-      double  m_aAoA2Rel;         // Must be in [0 .. 1], default is 0
-      double  m_bAoA2Rel;         // Must be in [0 .. 1], default is 0
+      double    m_aAoAHat2;         // Must be in [0 .. 1], default is 0
+      double    m_bAoAHat2;         // Must be in [0 .. 1], default is 0
 
       // Stage2 AoA: Dimensioned Coeffs: AoA2(t) = t * (a2 * t - b2), t <= 0,
       // t=0 is the orbital insertion time:
-      AngAcc  m_aAoA2;
-      AngVel  m_bAoA2;
+      AngAcc    m_aAoA2;
+      AngVel    m_bAoA2;
 
       //---------------------------------------------------------------------//
       // Ballistic Gap:                                                      //
       //---------------------------------------------------------------------//
-      double  m_TGapRel;          // Default is 0
-      Time    m_TGap;             // Default is 0.0_sec
+      Time      m_TGap;             // Default is 0.0_sec
 
       //---------------------------------------------------------------------//
       // Stage1 Params:                                                      //
       //---------------------------------------------------------------------//
       // Stage1 Thrust Multiplier and Thrust (@ Ignition):
-      double  m_thrustMult1;
-      ForceK  m_thrustI1;
+      double    m_thrustMult1;
+      ForceK    m_thrustVacI1;
+      MassRate  m_burnRateI1;
 
       // Stage1 BurnRate: Dim-Less Params:
-      double  m_bHat1;            // Must be in [0 .. 1], default is 0
-      double  m_muHat1;           // Must be in [0 .. 1], default is 1
+      double    m_bHat1;            // Must be in [0 .. 1], default is 0
+      double    m_muHat1;           // Must be in [0 .. 1], default is 1
 
       // Stage1 BurnRate: Dimensioned Coeffs:
-      Time    m_T1;
-      MassT3  m_aMu1;
-      MassT2  m_bMu1;
+      Time      m_T1;
+      MassT3    m_aMu1;
+      MassT2    m_bMu1;
 
       // Stage1 AoA: Dim-Less Params:
-      double  m_aAoARel1;         // Must be in [0 .. 1], default is 0
-      double  m_bAoARel1;         // Must be in [0 .. 1], default is 0
+      double    m_aAoAHat1;         // Must be in [0 .. 1], default is 0
+      double    m_bAoAHat1;         // Must be in [0 .. 1], default is 0
 
       // Stage1 AoA: Dimensioned Coeffs: AoA1(t) = tau * (a1 * tau + b1),
       // tau >= 0 is the time since Stage1 ignition:
-      AngAcc  m_aAoA1;
-      AngVel  m_bAoA1;
+      AngAcc    m_aAoA1;
+      AngVel    m_bAoA1;
 
       //---------------------------------------------------------------------//
       // Over-All:                                                           //
       //---------------------------------------------------------------------//
-      double  m_alpha1;           // FullMass1 / FullMass2
-      double  m_payLoadMassRel;
-      Mass    m_payLoadMass;
+      double    m_alpha1;           // FullMass1 / FullMass2
+      Mass      m_payLoadMass;
+
+      //=====================================================================//
+      // Non-Default Ctor:                                                   //
+      //=====================================================================//
+      OptRes(Ascent2 const& a_asc);
 
       //=====================================================================//
       // Output:                                                             //
       //=====================================================================//
       friend std::ostream& operator<<
-            (std::ostream& a_os, AscCtls const& a_ctls);
+            (std::ostream& a_os, OptRes const& a_res);
     };
+    friend struct OptRes;
 
     //=======================================================================//
     // "FindOptimalAscentCtls":                                              //
@@ -617,13 +645,17 @@ namespace SpaceBallistics
     // orbit is reached (with the orbital insertion occurring in the perigee,
     // if the orbit is elliptical) and that requires the min LV StartMass  (if
     // the PayloadMass is fixed)  or otherwise, achieves the max PayLoadMass.
-    // Returns OptAscCtls if successful, "nullopt" otherwise:
+    // Returns "OptRes" if successful, "nullopt" otherwise.
+    // Can also perform the "final run" on the optimal params found, and return
+    // the corresp "RunRes" (if specified in the Config.ini):
     //
-    static std::optional<AscCtls> FindOptimalAscentCtls
+    static std::pair<std::optional<OptRes>,
+                     std::optional<RunRes>>
+    FindOptimalAscentCtls
     (
       // All are are given via the ConfigFile.ini, as there are quite a few of
       // them:
-      std::string const& a_ini_file,
+      std::string const& a_config_ini,
       std::ostream*      a_os   // May be NULL
     );
   };

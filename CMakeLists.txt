@@ -201,7 +201,8 @@ SET(SRCS
   Src/PhysEffects/DE440T-Data.cpp
   Src/PhysEffects/EarthRotationModel.cpp
   Src/PhysEffects/EarthAtmosphereModel.cpp
-  Src/Missions/Ascent2.cpp)
+  Src/Missions/Ascent2-Integr.cpp
+  Src/Missions/Ascent2-Optim.cpp)
 
 ADD_LIBRARY          (${PROJECT_NAME} STATIC ${SRCS})
 
