@@ -187,7 +187,7 @@ Ascent2::Ascent2
   // XXX: We assume that launch is NOT from the North or South Pole:
   if (!(a_h_perigee       >=  100.0_km && a_h_perigee <= a_h_apogee &&
         a_incl            >= 0.0_deg   && a_incl      <= 180.0_deg  &&
-        Abs(a_launch_lat) >= 90.0_deg  && !IsNeg(m_payLoadMass)))
+        Abs(a_launch_lat)  < 90.0_deg  && !IsNeg(m_payLoadMass)))
     throw std::invalid_argument("Ascent2::Ctor: Invalid Mission Param(s)");
 
   //-------------------------------------------------------------------------//

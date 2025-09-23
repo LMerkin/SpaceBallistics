@@ -386,7 +386,7 @@ std::ostream& operator<< (std::ostream& a_os, Ascent2::OptRes const& a_res)
     << "\n\tbAoAHat1       = "   << a_res.m_bAoAHat1
     << "\n\talpha1         = "   << a_res.m_alpha1
     // Dimensioned Params:
-    << "\tthrustVacI2      = "     << a_res.m_thrustVacI2
+    << "\n\tthrustVacI2    = "   << a_res.m_thrustVacI2
     << "\n\tT2             = "   << a_res.m_T2
     << "\n\taMu2           = "   << a_res.m_aMu2
     << "\n\tbMu2           = "   << a_res.m_bMu2
@@ -460,7 +460,7 @@ Ascent2::FindOptimalAscentCtls
   double    K2          =      pt.get<double>("LV.K2");
   double    PropRem2    =      pt.get<double>("LV.PropRem2");
   Time      IspVac2           (pt.get<double>("LV.IspVac2"));
-  ForceK    ThrustVac2  = Mass(pt.get<double>("LV.ThrustVac2")) * g0K;
+  ForceK    ThrustVacI2 = Mass(pt.get<double>("LV.ThrustVacI2")) * g0K;
   double    MinThrttL2  =      pt.get<double>("LV.MinThrttL2");
   Angle_deg MaxAoA2           (pt.get<double>("LV.MaxAoA2"));
   // Stage1:
@@ -468,7 +468,7 @@ Ascent2::FindOptimalAscentCtls
   double    PropRem1    =      pt.get<double>("LV.PropRem1");
   Time      IspSL1            (pt.get<double>("LV.IspSL1" ));
   Time      IspVac1           (pt.get<double>("LV.IspVac1"));
-  ForceK    ThrustVac1  = Mass(pt.get<double>("LV.ThrustVac1")) * g0K;
+  ForceK    ThrustVacI1 = Mass(pt.get<double>("LV.ThrustVacI1")) * g0K;
   double    MinThrttL1  =      pt.get<double>("LV.MinThrttL1");
   Angle_deg MaxAoA1           (pt.get<double>("LV.MaxAoA1"));
   // Over-All:
@@ -558,10 +558,10 @@ Ascent2::FindOptimalAscentCtls
   //-------------------------------------------------------------------------//
   Ascent2 proto
   (
-    K2, PropRem2,          IspVac2, ThrustVac2, MinThrttL2, MaxAoA2,
-    K1, PropRem1,  IspSL1, IspVac1, ThrustVac1, MinThrttL1, MaxAoA1,
-    alpha1,  MaxStartMass, FairingMass,   Diam, payLoadMass,
-    Perigee,       Apogee, Incl,    LaunchLat,  a_os,       optLogLevel
+    K2, PropRem2,          IspVac2, ThrustVacI2, MinThrttL2, MaxAoA2,
+    K1, PropRem1,  IspSL1, IspVac1, ThrustVacI1, MinThrttL1, MaxAoA1,
+    alpha1,  MaxStartMass, FairingMass,    Diam, payLoadMass,
+    Perigee,       Apogee, Incl,    LaunchLat,   a_os,       optLogLevel
   );
 
   proto.SetCtlParams
