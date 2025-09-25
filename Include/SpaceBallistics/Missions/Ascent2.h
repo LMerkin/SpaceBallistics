@@ -34,7 +34,8 @@
 #pragma  clang diagnostic ignored "-Wreserved-identifier"
 #pragma  clang diagnostic ignored "-Wheader-hygiene"
 #pragma  clang diagnostic ignored "-Wsign-conversion"
-#pragma  GCC   diagnostic ignored "-Warray-bounds"
+#pragma  clang diagnostic ignored "-Warray-bounds"
+#pragma  clang diagnostic ignored "-Wmissing-noreturn"
 #else
 #pragma  GCC   diagnostic push
 #pragma  GCC   diagnostic ignored "-Wunused-parameter"

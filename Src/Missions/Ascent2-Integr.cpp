@@ -1003,7 +1003,7 @@ Angle Ascent2::AoA(Time a_t, Angle a_psi) const
   }
 
   case FlightMode::Gap:
-    return 0.0_rad;
+    break;
 
   case FlightMode::Burn2:
   {
@@ -1023,9 +1023,7 @@ Angle Ascent2::AoA(Time a_t, Angle a_psi) const
     }
     break;
   }
-
-  default:
-    return 0.0_rad;
+  default: ;
   }
   // Check that (AoA + TrajIncl <= Pi/2), ie, the AoA does not point the thrust
   // backwards  (XXX: there is no similar constraint if we are descending):
