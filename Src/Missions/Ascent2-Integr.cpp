@@ -40,6 +40,11 @@ Ascent2::Ascent2
   Len             a_diam,
   Mass            a_payload_mass,
 
+  // Constraints:
+  Pressure        a_Q_limit,
+  Pressure        a_sepQ_limit,
+  double          a_longG_limit,
+
   // Mission Params:
   LenK            a_h_perigee,
   LenK            a_h_apogee,
@@ -139,6 +144,13 @@ Ascent2::Ascent2
   m_bAoAHat1      (0.0),
 
   //-------------------------------------------------------------------------//
+  // Constraints:                                                            //
+  //-------------------------------------------------------------------------//
+  m_QLimit        (a_Q_limit),
+  m_sepQLimit     (a_sepQ_limit),
+  m_longGLimit    (a_longG_limit),
+
+  //-------------------------------------------------------------------------//
   // Transient Data:                                                         //
   //-------------------------------------------------------------------------//
   m_mode          (FlightMode::UNDEFINED),
@@ -179,6 +191,9 @@ Ascent2::Ascent2
         IsPos(m_T1)           &&
         0.0 <= m_minThrtL1    && m_minThrtL1  <= 1.0   &&
         !IsNeg(m_maxAoA1)     &&
+        //
+        IsPos(m_QLimit)       && IsPos(m_sepQLimit)    &&
+        IsPos(m_longGLimit)   &&
         //
         IsPos(m_maxStartMass) && IsPos(m_fairingMass)  &&
         IsPos(m_crosS)))

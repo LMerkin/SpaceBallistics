@@ -18,21 +18,21 @@ namespace SpaceBallistics
 void Ascent2::ModifyLVParams
 (
   // Mass and Thrust Params:
-  double a_thrustMult2,
-  double a_thrustMult1,
-  double a_alpha1,
-  Mass   a_payLoadMass,
+  double    a_thrustMult2,
+  double    a_thrustMult1,
+  double    a_alpha1,
+  Mass      a_payLoadMass,
 
   // Ctl Params:
-  double a_bHat2,       double a_muHat2,
-  double a_aAoAHat2,    double a_bAoAHat2,
-  Time   a_TGap,
-  double a_bHat1,       double a_muHat1,
-  double a_aAoAHat1,    double a_bAoAHat1
+  double    a_bHat2,      double a_muHat2,
+  double    a_aAoAHat2,   double a_bAoAHat2,
+  Time      a_TGap,
+  double    a_bHat1,      double a_muHat1,
+  double    a_aAoAHat1,   double a_bAoAHat1
 )
 {
-  // Verify the Mass and Thrust Params (the Ctl Params are verified later in
-  // "SetCtlParams"):
+  // Verify the Mass and Thrust Params (the Ctl Params and Constraints are
+  // verified later in "SetCtlParams"):
   if (a_thrustMult2    <= 0.0 || a_thrustMult1    <= 0.0 ||
       a_alpha1         <  1.0 || IsNeg(a_payLoadMass))
     throw std::invalid_argument
@@ -79,25 +79,25 @@ void Ascent2::ModifyLVParams
 //===========================================================================//
 void Ascent2::SetCtlParams
 (
-  double a_bHat2,    double a_muHat2,
-  double a_aAoAHat2, double a_bAoAHat2,
-  Time   a_TGap,
-  double a_bHat1,    double a_muHat1,
-  double a_aAoAHat1, double a_bAoAHat1
+  double   a_bHat2,     double   a_muHat2,
+  double   a_aAoAHat2,  double   a_bAoAHat2,
+  Time     a_TGap,
+  double   a_bHat1,     double   a_muHat1,
+  double   a_aAoAHat1,  double   a_bAoAHat1
 )
 {
   //-------------------------------------------------------------------------//
   // Check what we got:                                                      //
   //-------------------------------------------------------------------------//
-  if (a_bHat2       < 0.0 || a_bHat2    > 1.0 ||
-      a_muHat2      < 0.0 || a_muHat2   > 1.0 ||
-      a_aAoAHat2    < 0.0 || a_aAoAHat2 > 1.0 ||
-      a_bAoAHat2    < 0.0 || a_bAoAHat2 > 1.0 ||
-      IsNeg(a_TGap)                           ||
-      a_bHat1       < 0.0 || a_bHat1    > 1.0 ||
-      a_muHat1      < 0.0 || a_muHat1   > 1.0 ||
-      a_aAoAHat1    < 0.0 || a_aAoAHat1 > 1.0 ||
-      a_bAoAHat1    < 0.0 || a_bAoAHat1 > 1.0)
+  if (!(0.0 <= a_bHat2       && a_bHat2    <= 1.0  &&
+        0.0 <= a_muHat2      && a_muHat2   <= 1.0  &&
+        0.0 <= a_aAoAHat2    && a_aAoAHat2 <= 1.0  &&
+        0.0 <= a_bAoAHat2    && a_bAoAHat2 <= 1.0  &&
+        !IsNeg(a_TGap)                             &&
+        0.0 <= a_bHat1       && a_bHat1    <= 1.0  &&
+        0.0 <= a_muHat1      && a_muHat1   <= 1.0  &&
+        0.0 <= a_aAoAHat1    && a_aAoAHat1 <= 1.0  &&
+        0.0 <= a_bAoAHat1    && a_bAoAHat1 <= 1.0))
       throw std::invalid_argument("Ascent2::SetCtlParams: Invalid Param(s)");
 
   //-------------------------------------------------------------------------//
@@ -277,9 +277,8 @@ const
     thrustMult2, thrustMult1,
     alpha1,      payLoadMass,
     // Ctl Params:
-    bHat2,       muHat2,  aAoAHat2,   bAoAHat2,
-    TGap,
-    bHat1,       muHat1,  aAoAHat1,   bAoAHat1
+    bHat2,       muHat2,  aAoAHat2,  bAoAHat2, TGap,
+    bHat1,       muHat1,  aAoAHat1,  bAoAHat1
   );
 
   // Run the Integrator!
@@ -305,13 +304,25 @@ const
   bool objIsStartMass = !m_actOpts[NP-1];
   Mass objMass        =
     objIsStartMass    ? res.m_mT : (- asc.m_payLoadMass);
-  curr += sprintf(curr, "%.16e ", objMass.Magnitude());
+  curr += sprintf(curr, "%.16e", objMass.Magnitude());
 
   // Constraint0: StartH:
-  curr += sprintf(curr, "%.16e ", (hT - Ascent2::MaxStartH).Magnitude());
+  curr += sprintf(curr, " %.16e ", (hT - Ascent2::MaxStartH).Magnitude());
 
   // Constraint1: StartV:
-  curr += sprintf(curr, "%.16e",  (VT - Ascent2::MaxStartV).Magnitude());
+  curr += sprintf(curr, " %.16e",  (VT - Ascent2::MaxStartV).Magnitude());
+
+  // Other Constraints if enabled:
+  if (IsFinite(asc.m_QLimit))
+    curr += sprintf(curr, " %.16e", (res.m_maxQ - asc.m_QLimit).Magnitude());
+
+  if (IsFinite(asc.m_sepQLimit))
+    curr += sprintf(curr, " %.16e", (res.m_sepQ - asc.m_sepQLimit).Magnitude());
+
+  if (IsFinite(asc.m_longGLimit))
+    curr += sprintf(curr, " %.16e", (res.m_maxLongG - asc.m_longGLimit));
+
+  // Output done!
   assert(size_t(curr - buff) <= sizeof(buff));
 
   if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 1)
@@ -535,7 +546,7 @@ Ascent2::FindOptimalAscentCtls
   GetOptParam( 9, double, aAoAHat1,    1.0)
   GetOptParam(10, double, bAoAHat1,    1.0)
   GetOptParam(11, double, alpha1,      1.0)
-  GetOptParam(12, Mass,   payLoadMass, MaxStartMass)
+  GetOptParam(12, Mass,   PayLoadMass, MaxStartMass)
 
   // So: How many Optimisation Args have we got?
   int np = 0;
@@ -544,6 +555,17 @@ Ascent2::FindOptimalAscentCtls
 
   assert(int(loBounds.size()) == np && int(upBounds.size()) == np &&
          int(initVals.size()) == np);
+
+  // Extra Constraints: "inf" and "nan" are also allowed, hence the use of
+  // "std::atof":
+  Pressure QLimit
+           (std::atof(pt.get<std::string>("Opt.QLimit"    ).data()));
+
+  Pressure SepQLimit
+           (std::atof(pt.get<std::string>("Opt.SepQLimit" ).data()));
+
+  double   LongGLimit =
+            std::atof(pt.get<std::string>("Opt.LongGLimit").data());
 
   //-------------------------------------------------------------------------//
   // Finally: Technical Params:                                              //
@@ -568,14 +590,14 @@ Ascent2::FindOptimalAscentCtls
   (
     K2, PropRem2,          IspVac2, ThrustVacI2, MinThrttL2, MaxAoA2,
     K1, PropRem1,  IspSL1, IspVac1, ThrustVacI1, MinThrttL1, MaxAoA1,
-    alpha1,  MaxStartMass, FairingMass,    Diam, payLoadMass,
-    Perigee,       Apogee, Incl,    LaunchLat,   a_os,       optLogLevel
+    alpha1,  MaxStartMass, FairingMass,    Diam, PayLoadMass,
+    QLimit,  SepQLimit,    LongGLimit,
+    Perigee, Apogee, Incl, LaunchLat,      a_os, optLogLevel
   );
 
   proto.SetCtlParams
   (
-    bHat2, muHat2, aAoAHat2, bAoAHat2,
-    TGap,
+    bHat2, muHat2, aAoAHat2, bAoAHat2, TGap,
     bHat1, muHat1, aAoAHat1, bAoAHat1
   );
 
@@ -608,9 +630,20 @@ Ascent2::FindOptimalAscentCtls
     NOMAD::BBOutputTypeList  bbTypes;
     bbTypes.push_back(NOMAD::BBOutputType::OBJ);
 
-    // 2 constraints, to be satisfied at the solution point only:
+    // 2 constraints on the start consitions: h(-T) and V(-T),
+    // to be satisfied at the solution point only:
     bbTypes.push_back(NOMAD::BBOutputType::PB);
     bbTypes.push_back(NOMAD::BBOutputType::PB);
+
+    // Possible extra constraints: MaxQ, MaxSepQ, MaxLongG,
+    // to be satisfied at the solution point only as well:
+    if (IsFinite(QLimit))
+      bbTypes.push_back(NOMAD::BBOutputType::PB);
+    if (IsFinite(SepQLimit))
+      bbTypes.push_back(NOMAD::BBOutputType::PB);
+    if (IsFinite(LongGLimit))
+      bbTypes.push_back(NOMAD::BBOutputType::PB);
+
     params->setAttributeValue("BB_OUTPUT_TYPE",    bbTypes );
 
     // Parallel Evaluation: The number of threads is decided automatically:
@@ -706,7 +739,7 @@ Ascent2::FindOptimalAscentCtls
     case  9: aAoAHat1    = initVals[unsigned(j)]; break;
     case 10: bAoAHat1    = initVals[unsigned(j)]; break;
     case 11: alpha1      = initVals[unsigned(j)]; break;
-    case 12: payLoadMass = initVals[unsigned(j)] * proto.m_maxStartMass; break;
+    case 12: PayLoadMass = initVals[unsigned(j)] * proto.m_maxStartMass; break;
     default: assert(false);
     }
     ++j;
@@ -715,10 +748,10 @@ Ascent2::FindOptimalAscentCtls
   proto.ModifyLVParams
   (
     // Thrust and Mass Params: 
-    thrustMult2, thrustMult1, alpha1,   payLoadMass,
+    thrustMult2, thrustMult1, alpha1,    PayLoadMass,
     // Ctl Params:      
-    bHat2,       muHat2,      aAoAHat2, bAoAHat2,  TGap,
-    bHat1,       muHat1,      aAoAHat1, bAoAHat1
+    bHat2,       muHat2,      aAoAHat2,  bAoAHat2,  TGap,
+    bHat1,       muHat1,      aAoAHat1,  bAoAHat1
   );
 
   // The Optimisation Result:

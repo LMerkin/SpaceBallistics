@@ -94,11 +94,6 @@ namespace SpaceBallistics
     constexpr static LenK     MaxStartH      = 0.1_km;          // 100 m
     constexpr static VelK     MaxStartV      = VelK(0.03);      //  30 m/sec
 
-    // XXX: The following limits are currently for information only:
-    constexpr static Pressure MaxQLimit      = Pressure(35e3);  // 35  kPa
-    constexpr static Pressure MaxSepQ        = Pressure(0.5e3); // 0.5 kPa
-    constexpr static double   MaxLongG       = 5.0;
-
     //=======================================================================//
     // Types:                                                                //
     //=======================================================================//
@@ -337,6 +332,14 @@ namespace SpaceBallistics
     double                m_bAoAHat1;
 
     //-----------------------------------------------------------------------//
+    // Constraints used in Optimisation:                                     //
+    //-----------------------------------------------------------------------//
+    // (see below for the actual encountered vals):
+    Pressure              m_QLimit;
+    Pressure              m_sepQLimit;
+    double                m_longGLimit;
+
+    //-----------------------------------------------------------------------//
     // Transient Data (during flight path integration):                      //
     //-----------------------------------------------------------------------//
     FlightMode            m_mode;
@@ -345,7 +348,7 @@ namespace SpaceBallistics
     Time                  m_cutOffTime1;    // Gap   start: St1 Cut-Off  Time
     Time                  m_ignTime1;       // Burn1 start: St1 Ignition Time
 
-    // Constraints:
+    // Vals to be Constrined:
     Pressure              m_maxQ;           // Max Dynamic Pressure (Q)
     Pressure              m_sepQ;           // Q @ Stage1 separation
     double                m_maxLongG;       // Max Longitudinal G
@@ -387,6 +390,11 @@ namespace SpaceBallistics
       Len             a_diam,
       Mass            a_payload_mass,
 
+      // Constraints (+oo if no constraint):
+      Pressure        a_Q_limit,
+      Pressure        a_sepQ_limit,
+      double          a_longG_limit,
+
       // Mission Params:
       LenK            a_h_perigee,
       LenK            a_h_apogee,
@@ -411,11 +419,11 @@ namespace SpaceBallistics
     //
     void SetCtlParams
     (
-      double a_bHat2,    double a_muHat2,
-      double a_aAoAHat2, double a_bAoAHat2,
-      Time   a_TGap,
-      double a_bHat1,    double a_muHat1,
-      double a_aAoAHat1, double a_bAoAHat1
+      double   a_bHat2,    double   a_muHat2,
+      double   a_aAoAHat2, double   a_bAoAHat2,
+      Time     a_TGap,
+      double   a_bHat1,    double   a_muHat1,
+      double   a_aAoAHat1, double   a_bAoAHat1
     );
 
     //-----------------------------------------------------------------------//
