@@ -13,45 +13,6 @@
 #include <utility>
 #include <unordered_map>
 
-// XXX: NOMAD headers produce tons of warnings, suppress them all:
-#ifdef   __clang__     
-#pragma  clang diagnostic push
-#pragma  clang diagnostic ignored "-Wunused-parameter"
-#pragma  clang diagnostic ignored "-Wnon-virtual-dtor"
-#pragma  clang diagnostic ignored "-Wcast-qual"
-#pragma  clang diagnostic ignored "-Wcast-align"
-#pragma  clang diagnostic ignored "-Wold-style-cast"
-#pragma  clang diagnostic ignored "-Wsuggest-override"
-#pragma  clang diagnostic ignored "-Wsuggest-destructor-override"
-#pragma  clang diagnostic ignored "-Woverloaded-virtual" 
-#pragma  clang diagnostic ignored "-Wshadow"
-#pragma  clang diagnostic ignored "-Wextra-semi"
-#pragma  clang diagnostic ignored "-Wunused-member-function"
-#pragma  clang diagnostic ignored "-Winconsistent-missing-destructor-override"
-#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-dtor"
-#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-copy"
-#pragma  clang diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
-#pragma  clang diagnostic ignored "-Wreserved-identifier"
-#pragma  clang diagnostic ignored "-Wheader-hygiene"
-#pragma  clang diagnostic ignored "-Wsign-conversion"
-#pragma  clang diagnostic ignored "-Warray-bounds"
-#pragma  clang diagnostic ignored "-Wmissing-noreturn"
-#else
-#pragma  GCC   diagnostic push
-#pragma  GCC   diagnostic ignored "-Wunused-parameter"
-#pragma  GCC   diagnostic ignored "-Woverloaded-virtual="
-#pragma  GCC   diagnostic ignored "-Wnon-virtual-dtor"
-#pragma  GCC   diagnostic ignored "-Wcast-qual"
-#pragma  GCC   diagnostic ignored "-Warray-bounds"
-#endif
-#include <Nomad/nomad.hpp>
-#include <Cache/CacheBase.hpp>
-#ifdef   __clang__
-#pragma  clang diagnostic pop
-#else
-#pragma  GCC   diagnostic pop
-#endif
-
 namespace SpaceBallistics
 {
   namespace EAM = EarthAtmosphereModel;
@@ -523,39 +484,7 @@ namespace SpaceBallistics
     //=======================================================================//
     // "NOMADEvaluator": Helper Class used in NOMAD Optimisation:            //
     //=======================================================================//
-    class NOMADEvaluator final: public NOMAD::Evaluator
-    {
-    private:
-      //---------------------------------------------------------------------//
-      // Data Flds:                                                          //
-      //---------------------------------------------------------------------//
-      Ascent2 const*  m_proto;
-      bool            m_actOpts[NP];    // Flags for Active Optimisation Params
-
-    public:
-      //---------------------------------------------------------------------//
-      // Non-Default Ctor, Dtor:                                             //
-      //---------------------------------------------------------------------//
-      NOMADEvaluator
-      (
-        Ascent2 const*                                a_proto,
-        bool    const                                 a_actOpts[NP],
-        std::shared_ptr<NOMAD::EvalParameters> const& a_params
-      );
-
-      ~NOMADEvaluator() override {}
-
-      //---------------------------------------------------------------------//
-      // "eval_x": The actual evaluation method for NOMAD:                   //
-      //---------------------------------------------------------------------//
-      bool eval_x
-      (
-        NOMAD::EvalPoint&    a_x,  // Not "const" -- the result is also set here
-        NOMAD::Double const& UNUSED_PARAM(a_hMax),
-        bool&                a_countEval
-      )
-      const override;
-    };
+    class        NOMADEvaluator;
     friend class NOMADEvaluator;
 
   public:
@@ -666,6 +595,27 @@ namespace SpaceBallistics
       // them:
       std::string const& a_config_ini,
       std::ostream*      a_os   // May be NULL
+    );
+
+  private:
+    //=======================================================================//
+    // "RunNOMAD":                                                           //
+    //=======================================================================//
+    // Helper invoked from "FindOptimalAscentCtls". Returns "true" on success
+    // (then "a_init_vals" contains the optimal params),   "false" otherwise:
+    //
+    static bool RunNOMAD
+    (
+      Ascent2*                            a_proto,
+      bool                const           a_act_opts[NP],
+      std::vector<double>*                a_init_vals,
+      std::vector<double> const&          a_lo_bounds,
+      std::vector<double> const&          a_up_bounds,
+      int                                 a_max_evals,
+      bool                                a_constr_q,
+      bool                                a_constr_sep_q,
+      bool                                a_constr_long_g,
+      boost::property_tree::ptree const&  a_pt
     );
   };
 }

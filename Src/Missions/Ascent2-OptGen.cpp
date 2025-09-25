@@ -186,157 +186,6 @@ void Ascent2::SetCtlParams
 }
 
 //===========================================================================//
-// "NOMADEvaluator" Ctor:                                                    //
-//===========================================================================//
-Ascent2::NOMADEvaluator::NOMADEvaluator
-(
-  Ascent2 const*                                a_proto,
-  bool    const                                 a_act_opts[NP],
-  std::shared_ptr<NOMAD::EvalParameters> const& a_params
-)
-: NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
-  m_proto         (a_proto)
-{
-  assert(m_proto != nullptr && a_act_opts != nullptr);
-  for (int i = 0; i < NP; ++i)
-    m_actOpts[i]  = a_act_opts[i];
-}
-
-//===========================================================================//
-// "NOMADEvaluator::eval_x":                                                 //
-//===========================================================================//
-bool Ascent2::NOMADEvaluator::eval_x
-(
-  NOMAD::EvalPoint&    a_x,  // Not "const" -- the result is also set here
-  NOMAD::Double const& UNUSED_PARAM(a_hMax),
-  bool&                a_countEval
-)
-const
-{
-  //-------------------------------------------------------------------------//
-  // Defaults for all Optimisation Params (unless over-written):             //
-  //-------------------------------------------------------------------------//
-  // The over-all list of params is:
-  // [thrustMult2, bHat2, muHat2, aAoAHat2, bAoAHat2, TGapRel,
-  //  thrustMult1, bHat1, muHat1, aAoAHat1, bAoAHat1, alpha1, payLoadMassRel],
-  // where all params are Dim-Less:
-  //
-  double thrustMult2  = m_proto->m_thrustMult2;
-  double bHat2        = m_proto->m_bHat2;
-  double muHat2       = m_proto->m_muHat2;
-  double aAoAHat2     = m_proto->m_aAoAHat2;
-  double bAoAHat2     = m_proto->m_bAoAHat2;
-  Time   TGap         = m_proto->m_TGap;
-  double thrustMult1  = m_proto->m_thrustMult1;
-  double bHat1        = m_proto->m_bHat1;
-  double muHat1       = m_proto->m_muHat1;
-  double aAoAHat1     = m_proto->m_aAoAHat1;
-  double bAoAHat1     = m_proto->m_bAoAHat1;
-  double alpha1       = m_proto->m_alpha1;
-  Mass   payLoadMass  = m_proto->m_payLoadMass;
-
-  //-------------------------------------------------------------------------//
-  // Extract the actual params from "a_x":                                   //
-  //-------------------------------------------------------------------------//
-  int j = 0;
-  for (int i = 0; i < NP; ++i)
-  {
-    if (!m_actOpts[i])
-      continue;
-
-    // Otherwise: the "i"th over-all idx is mapped to the "j"th idx in "a_x":
-    double xj = a_x[size_t(j)].todouble();
-
-    switch (i)
-    {
-    case  0: thrustMult2 = xj; break;
-    case  1: bHat2       = xj; break;
-    case  2: muHat2      = xj; break;
-    case  3: aAoAHat2    = xj; break;
-    case  4: bAoAHat2    = xj; break;
-    case  5: TGap        = xj * MaxTGap;                 break;
-    case  6: thrustMult1 = xj; break;
-    case  7: bHat1       = xj; break;
-    case  8: muHat1      = xj; break;
-    case  9: aAoAHat1    = xj; break;
-    case 10: bAoAHat1    = xj; break;
-    case 11: alpha1      = xj; break;
-    case 12: payLoadMass = xj * m_proto->m_maxStartMass; break;
-    default: assert(false);
-    }
-    ++j;
-  }
-
-  // For thread-safety, construct a new "Ascent2" obj from "m_proto":
-  Ascent2 asc(*m_proto);
-
-  // Install the possibly-modified params in "asc":
-  asc.ModifyLVParams
-  (
-    // Thrust and Mass Params:
-    thrustMult2, thrustMult1,
-    alpha1,      payLoadMass,
-    // Ctl Params:
-    bHat2,       muHat2,  aAoAHat2,  bAoAHat2, TGap,
-    bHat1,       muHat1,  aAoAHat1,  bAoAHat1
-  );
-
-  // Run the Integrator!
-  RunRes res = asc.Run();  // NB: Exceptions are handled inside "Run"
-
-  // Analyse the Results:
-  if (res.m_rc == RunRC::Error)
-    return false;
-
-  // StartH:
-  LenK hT = std::max(res.m_hT, 0.0_km);
-
-  // StartV:
-  VelK VT = std::max(res.m_VT, VelK(0.0));
-
-  // Push the results back to NOMAD in string form:
-  char  buff[512];
-  char* curr  = buff;
-
-  // XXX: The Objective Function Value: StartMass or (-PayLoadMass), both to be
-  // minimised. Which one is to be used, depends on whether the PayLoadMass  is
-  // is the list of Optimisation Params:
-  bool objIsStartMass = !m_actOpts[NP-1];
-  Mass objMass        =
-    objIsStartMass    ? res.m_mT : (- asc.m_payLoadMass);
-  curr += sprintf(curr, "%.16e", objMass.Magnitude());
-
-  // Constraint0: StartH:
-  curr += sprintf(curr, " %.16e ", (hT - Ascent2::MaxStartH).Magnitude());
-
-  // Constraint1: StartV:
-  curr += sprintf(curr, " %.16e",  (VT - Ascent2::MaxStartV).Magnitude());
-
-  // Other Constraints if enabled:
-  if (IsFinite(asc.m_QLimit))
-    curr += sprintf(curr, " %.16e", (res.m_maxQ - asc.m_QLimit).Magnitude());
-
-  if (IsFinite(asc.m_sepQLimit))
-    curr += sprintf(curr, " %.16e", (res.m_sepQ - asc.m_sepQLimit).Magnitude());
-
-  if (IsFinite(asc.m_longGLimit))
-    curr += sprintf(curr, " %.16e", (res.m_maxLongG - asc.m_longGLimit));
-
-  // Output done!
-  assert(size_t(curr - buff) <= sizeof(buff));
-
-  if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 1)
-  {
-#   pragma omp critical(NOMADOutput)
-    *(m_proto->m_os) << buff << std::endl;
-  }
-  // Set the results back in "a_x":
-  a_x.setBBO(buff);
-  a_countEval = true;
-  return true;
-}
-
-//===========================================================================//
 // "OptRes" Non-Default Ctor:                                                //
 //===========================================================================//
 Ascent2::OptRes::OptRes(Ascent2 const& a_asc)
@@ -504,8 +353,8 @@ Ascent2::FindOptimalAscentCtls
   //     imisation argument, so the corresp "actOpts" bit is set to "true";
   // (*) XXX: For the user convenience, in "Config.ini", the values of "TGap"
   //     and "payLoadMass" are given as actual magnitudes (in sec and kg, resp),
-  //     rather than by relative vals in [0..1]; whereas NOMAD always operates
-  //     with relative vals for the sake of uniformity:
+  //     whereas the Optimiser always uses relative vals normalised to [0..1]
+  //     for the sake of uniformity:
   bool                actOpts[NP];
   std::vector<double> loBounds;
   std::vector<double> upBounds;
@@ -574,14 +423,7 @@ Ascent2::FindOptimalAscentCtls
   bool   withFinalRun     = pt.get<bool>  ("Technical.WithFinalRun");
   int    finalRunLogLevel = pt.get<int>   ("Technical.FinalRunLogLevel", 3);
   int    optMaxEvals      = pt.get<int>   ("Technical.OptMaxEvals");
-
-  // NOMAD-specific:
-  int    optSeed          = pt.get<int>   ("Technical.OptSeed");
   int    optLogLevel      = pt.get<int>   ("Technical.OptLogLevel");
-  double useVNS           = pt.get<double>("Technical.OptUseVNS",      0.0);
-
-  if (useVNS < 0.0 || useVNS >= 1.0)
-    throw std::invalid_argument("OptUseVNS: The arg must be in [0..1)");
 
   //-------------------------------------------------------------------------//
   // Create the "prototype" "Ascent2" obj:                                   //
@@ -601,115 +443,23 @@ Ascent2::FindOptimalAscentCtls
     bHat1, muHat1, aAoAHat1, bAoAHat1
   );
 
-  // NB: Depending on the "actOpts", "optVal" is the minimised StartMass, or
-  // the maximised PayLoadMass. For now, it is undefined:
-  Mass optMass(NAN);
-
   if (np != 0)
   {
     //-----------------------------------------------------------------------//
-    // Generic Case: Perform NOMAD Optimisation:                             //
+    // Actually run the Optimiser:                                           //
     //-----------------------------------------------------------------------//
-    // Create the Main NOMAD obj:
-    NOMAD::MainStep opt;
-
-    // Create the Params:
-    // Problem Geometry:
-    auto params = std::make_shared<NOMAD::AllParameters>();
-    params->setAttributeValue("DIMENSION",         size_t(np));
-    params->setAttributeValue("X0",                NOMAD::Point(initVals));
-    params->setAttributeValue
-      ("LOWER_BOUND", NOMAD::ArrayOfDouble(loBounds));
-    params->setAttributeValue
-      ("UPPER_BOUND", NOMAD::ArrayOfDouble(upBounds));
-
-    // Stopping Criterion: XXX: Currently, only via the OptMaxEvals:
-    params->setAttributeValue("MAX_BB_EVAL",       optMaxEvals);
-
-    // XXX: The following must be compatible with "NOMADEvaluator::eval_x":
-    NOMAD::BBOutputTypeList  bbTypes;
-    bbTypes.push_back(NOMAD::BBOutputType::OBJ);
-
-    // 2 constraints on the start consitions: h(-T) and V(-T),
-    // to be satisfied at the solution point only:
-    bbTypes.push_back(NOMAD::BBOutputType::PB);
-    bbTypes.push_back(NOMAD::BBOutputType::PB);
-
-    // Possible extra constraints: MaxQ, MaxSepQ, MaxLongG,
-    // to be satisfied at the solution point only as well:
-    if (IsFinite(QLimit))
-      bbTypes.push_back(NOMAD::BBOutputType::PB);
-    if (IsFinite(SepQLimit))
-      bbTypes.push_back(NOMAD::BBOutputType::PB);
-    if (IsFinite(LongGLimit))
-      bbTypes.push_back(NOMAD::BBOutputType::PB);
-
-    params->setAttributeValue("BB_OUTPUT_TYPE",    bbTypes );
-
-    // Parallel Evaluation: The number of threads is decided automatically:
-    params->setAttributeValue("NB_THREADS_PARALLEL_EVAL", -1);
-
-    // "DIRECTION_TYPE" selects a variant of the optimisation algorithm. Other
-    // possible vals include "ORTHO_NP1_NEG", "ORTHO_NP1_QUAD", "NP1_UNI"  and
-    // many others:
-    params->setAttributeValue("DIRECTION_TYPE",
-      NOMAD::DirectionType::ORTHO_2N);
-
-    // Other params:
-    params->setAttributeValue("DISPLAY_DEGREE",          2);
-    params->setAttributeValue("DISPLAY_ALL_EVAL",        false);
-    params->setAttributeValue("DISPLAY_UNSUCCESSFUL",    false);
-    params->getRunParams()->setAttributeValue("HOT_RESTART_READ_FILES",  false);
-    params->getRunParams()->setAttributeValue("HOT_RESTART_WRITE_FILES", false);
-
-    params->setAttributeValue("SEED", optSeed);
-    if (useVNS != 0.0)
-    {
-      params->setAttributeValue("VNS_MADS_SEARCH",         true);
-      params->setAttributeValue("VNS_MADS_SEARCH_TRIGGER",
-                                NOMAD::Double(useVNS));
-    }
-    // Validate the "params" and install them in the "opt":
-    params->checkAndComply();
-    opt.setAllParameters(params);
-
-    //-----------------------------------------------------------------------//
-    // Create and Run the "NOMADEvaluator":                                  //
-    //-----------------------------------------------------------------------//
-    std::unique_ptr<NOMADEvaluator> ev
-      (new NOMADEvaluator
+    // XXX: For the moment, we only have the NOMAD Optimiser:
+    bool ok =
+      RunNOMAD
       (
-        &proto,
-        actOpts,
-        params->getEvalParams()
-      ));
-    opt.setEvaluator(std::move(ev));
-
-    // RUN!
-    opt.start();
-    opt.run();
-    opt.end();
-
-    // Extract the results:
-    std::vector<NOMAD::EvalPoint> feasPts;
-    (void) NOMAD::CacheBase::getInstance()->findBestFeas(feasPts);
-    if (feasPts.empty())
+        &proto,  actOpts, &initVals, loBounds, upBounds,   optMaxEvals,
+        IsFinite(QLimit), IsFinite(SepQLimit), IsFinite(LongGLimit), pt
+      );
+    if (!ok)
       return std::make_pair(std::nullopt, std::nullopt);
-
-    // If OK: Put the best solution back to "initVals":
-    NOMAD::EvalPoint bestF = feasPts[0];
-
-    for (int unsigned j = 0; j < unsigned(np); ++j)
-      initVals[j] = bestF[j].todouble();
-
-    // The "optMass" found (either the mininimised StartMass, or the maximised
-    // PayLoadMass):
-    double optVal = bestF.getF(NOMAD::defaultFHComputeType).todouble();
-    optMass       = Mass(optVal);
   }
   // Otherwise (if np=0), no optimisation is performed, but the post-processing
   // still is:
-
   //-------------------------------------------------------------------------//
   // Post-Processing:                                                        //
   //-------------------------------------------------------------------------//
@@ -771,6 +521,5 @@ Ascent2::FindOptimalAscentCtls
   // Otherwise, there is no "runRes":
   return std::make_pair(optRes, std::nullopt);
 }
-
 }
 // End namespace SpaceBallistics
