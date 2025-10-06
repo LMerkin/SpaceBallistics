@@ -57,7 +57,7 @@ namespace SpaceBallistics
       oxidMassDot = - OxidMR;
     }
     else
-    if (a_ft < CutOffTime)    // Running at Full Thrust, w/o Aft
+    if (a_ft < CutOffTime)   // Running at Full Thrust, w/o Aft
     {
       Time dt0    = a_ft            - IgnTime;
       Time dt1    = a_ft            - AftJetTime;

@@ -295,17 +295,20 @@ Ascent2::FindOptimalAscentCtls
   //-------------------------------------------------------------------------//
   // [thrustMult2, bHat2, muHat2, aAoAHat2, bAoAHat2, TGapRel,
   //  thrustMult1, bHat1, muHat1, aAoAHat1, bAoAHat1, alpha1, payLoadMassRel]:
-  constexpr double LoBounds[NP]
+  double LoBounds[NP]
     { 0.7,         0.0,   0.0,    0.0,      0.0,      0.0,
       0.7,         0.0,   0.0,    0.0,      0.0,      1.0,    0.02 };
 
-  constexpr double UpBounds[NP]
+  double UpBounds[NP]
     { 1.5,         1.0,   1.0,    1.0,      1.0,      1.0,
       1.5,         1.0,   1.0,    1.0,      1.0,      7.0,    0.06 };
 
-  constexpr double InitVals[NP]
+  double InitVals[NP]
     { 1.0,         0.5,   0.8,    0.5,      0.5,      0.1,
       1.0,         0.5,   0.8,    0.5,      0.5,      4.0,    0.04 };
+
+  // NB: for "alpha1", the UpBound is user-configurable, and may be overwritten
+  // below:
 
   //-------------------------------------------------------------------------//
   // Open and Parse the Config.ini File:                                     //
@@ -323,6 +326,7 @@ Ascent2::FindOptimalAscentCtls
   ForceK    ThrustVacI2 = Mass(pt.get<double>("LV.ThrustVacI2")) * g0K;
   double    MinThrttL2  =      pt.get<double>("LV.MinThrttL2");
   Angle_deg MaxAoA2           (pt.get<double>("LV.MaxAoA2"));
+
   // Stage1:
   double    K1          =      pt.get<double>("LV.K1");
   double    PropRem1    =      pt.get<double>("LV.PropRem1");
@@ -331,11 +335,23 @@ Ascent2::FindOptimalAscentCtls
   ForceK    ThrustVacI1 = Mass(pt.get<double>("LV.ThrustVacI1")) * g0K;
   double    MinThrttL1  =      pt.get<double>("LV.MinThrttL1");
   Angle_deg MaxAoA1           (pt.get<double>("LV.MaxAoA1"));
+
   // Over-All:
-  Mass   MaxStartMass         (pt.get<double>("LV.MaxStartMass"));
-  Mass   FairingMass          (pt.get<double>("LV.FairingMass" ));
-  Len    Diam                 (pt.get<double>("LV.Diameter"    ));
-  // NB: "alpha1" and "payLoadMass" belong to the "Opt" section (see below).
+  // Stage1 / Stage2 Mass Ratio:
+  LoBounds[11] =               pt.get<double>("LV.MinAlpha1",    LoBounds[11]);
+  UpBounds[11] =               pt.get<double>("LV.MaxAlpha1",    UpBounds[11]);
+  if (UpBounds[11] < 1.0 || LoBounds[11] < 1.0 || LoBounds[11] > UpBounds[11])
+    throw std::invalid_argument
+          ("Invalid MinAlpha1=" + std::to_string(LoBounds[11]) + ", " +
+           "MaxAlpha1="         + std::to_string(UpBounds[11]));
+  if (!(LoBounds[11] <= InitVals[11] && InitVals[11] <= UpBounds[11]))
+    InitVals[11] =     (LoBounds[11] +  UpBounds[11]) / 2.0;
+
+  Mass      MaxStartMass      (pt.get<double>("LV.MaxStartMass"));
+  Mass      FairingMass       (pt.get<double>("LV.FairingMass" ));
+  Len       Diam              (pt.get<double>("LV.Diameter"    ));
+  // NB: the initial "alpha1" and "payLoadMass" belong to the "Opt" section
+  // (see below)...
 
   // Mission:
   LenK      Perigee           (pt.get<double>("Mission.Perigee"));
