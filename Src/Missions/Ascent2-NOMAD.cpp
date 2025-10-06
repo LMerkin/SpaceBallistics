@@ -295,6 +295,10 @@ bool Ascent2::RunNOMAD
   int    optSeed = a_pt.get<int>   ("Technical.NOMADSeed");
   params->setAttributeValue("SEED", optSeed);
 
+  bool   stopIfFeasible =
+                   a_pt.get<bool>  ("Technical.NOMADStopIfFeasible");
+  params->setAttributeValue("STOP_IF_FEASIBLE", stopIfFeasible);
+
   double useVNS  = a_pt.get<double>("Technical.NOMADUseVNS");
   if (useVNS <  0.0 || useVNS >= 1.0)
     throw std::invalid_argument ("NOMADUseVNS: The arg must be in [0..1)");
