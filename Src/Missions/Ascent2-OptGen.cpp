@@ -5,6 +5,7 @@
 //===========================================================================//
 #include "SpaceBallistics/Missions/Ascent2.h"
 #include <boost/property_tree/ini_parser.hpp>
+#include <boost/algorithm/string.hpp>
 #include <cstdlib>
 
 namespace SpaceBallistics
@@ -337,16 +338,6 @@ Ascent2::FindOptimalAscentCtls
   Angle_deg MaxAoA1           (pt.get<double>("LV.MaxAoA1"));
 
   // Over-All:
-  // Stage1 / Stage2 Mass Ratio:
-  LoBounds[11] =               pt.get<double>("LV.MinAlpha1",    LoBounds[11]);
-  UpBounds[11] =               pt.get<double>("LV.MaxAlpha1",    UpBounds[11]);
-  if (UpBounds[11] < 1.0 || LoBounds[11] < 1.0 || LoBounds[11] > UpBounds[11])
-    throw std::invalid_argument
-          ("Invalid MinAlpha1=" + std::to_string(LoBounds[11]) + ", " +
-           "MaxAlpha1="         + std::to_string(UpBounds[11]));
-  if (!(LoBounds[11] <= InitVals[11] && InitVals[11] <= UpBounds[11]))
-    InitVals[11] =     (LoBounds[11] +  UpBounds[11]) / 2.0;
-
   Mass      MaxStartMass      (pt.get<double>("LV.MaxStartMass"));
   Mass      FairingMass       (pt.get<double>("LV.FairingMass" ));
   Len       Diam              (pt.get<double>("LV.Diameter"    ));
@@ -367,6 +358,9 @@ Ascent2::FindOptimalAscentCtls
   //     in "actOpts" is set to "false";
   // (*) if a param has the special value "OPTIMISE", is will serve as an opt-
   //     imisation argument, so the corresp "actOpts" bit is set to "true";
+  // (*) "OPTIMISE" may be followed by 3 (or none) numerical vals which are
+  //     [LoBound InitVal UpBound] of the corresp param; in that case, they
+  //     will be used instead of built-in defaults.
   // (*) XXX: For the user convenience, in "Config.ini", the values of "TGap"
   //     and "payLoadMass" are given as actual magnitudes (in sec and kg, resp),
   //     whereas the Optimiser always uses relative vals normalised to [0..1]
@@ -379,23 +373,43 @@ Ascent2::FindOptimalAscentCtls
 # ifdef  GetOptParam
 # undef  GetOptParam
 # endif
-# define GetOptParam(I, Type, Name, Scale)  \
-  std::string Name##Str = pt.get<std::string>("Opt." #Name); \
-  Type        Name(NAN);       \
-  if (Name##Str == "OPTIMISE") \
+# define GetOptParam(I, Type, Name, Scale) \
+  Type   Name(NAN);       \
   { \
-    /* XXX: "InitVals" are Dim-Less, so need to apply the Scale: */ \
-    Name       = InitVals[I] * Scale; \
-    actOpts[I] = true;         \
-    loBounds.push_back(LoBounds[I]); \
-    upBounds.push_back(UpBounds[I]); \
-    initVals.push_back(InitVals[I]); \
-  }    \
-  else \
-  { \
-    /* NB: The value for "Name" already has the right magnitude: */ \
-    Name       = Type(std::atof(Name##Str.data())); \
-    actOpts[I] = false; \
+    std::string paramStr = pt.get<std::string>("Opt." #Name); \
+    if (paramStr.substr(0,8) == "OPTIMISE") \
+    { \
+      /* Parse the params: */ \
+      std::vector<std::string> tokens;  \
+      boost::split(tokens, paramStr, boost::is_any_of(" \t")); \
+      int nTokens = int(tokens.size()); \
+      assert(nTokens >= 1); \
+      if (nTokens == 2 || nTokens == 3 || nTokens > 4 || \
+          tokens[0] != "OPTIMISE")  \
+        throw std::invalid_argument \
+          ("Ascent2::FindOptimalAscentCtls: Invalid Params: " + paramStr); \
+      /* So yes, the "I"s variable is an optimisation arg: */ \
+      actOpts [I] =  true;   \
+      if (nTokens == 4)      \
+      { \
+        /* Set the Range and the InitVal: */ \
+        LoBounds[I] = std::atof(tokens[1].data()); \
+        InitVals[I] = std::atof(tokens[2].data()); \
+        UpBounds[I] = std::atof(tokens[3].data()); \
+      } \
+      /* For the Dimensioned variable, need to apply the Scale: */ \
+      Name  =  InitVals[I] * Scale;    \
+      /* The following vectors will be passed to the optimiser: */ \
+      loBounds.push_back(LoBounds[I]); \
+      upBounds.push_back(UpBounds[I]); \
+      initVals.push_back(InitVals[I]); \
+    }    \
+    else \
+    { \
+      /* NB: The value for "Name" already has the right magnitude: */ \
+      Name       = Type(std::atof(paramStr.data())); \
+      actOpts[I] = false; \
+    } \
   } \
   assert(IsFinite(Name));
 
