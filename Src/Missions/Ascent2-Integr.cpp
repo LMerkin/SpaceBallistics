@@ -51,7 +51,8 @@ Ascent2::Ascent2
   Angle_deg       a_incl,
   Angle_deg       a_launch_lat,
 
-  // Logging Params:
+  // Integration/Output Params:
+  Time            a_ode_integr_step,
   std::ostream*   a_os,
   int             a_log_level
 )
@@ -163,8 +164,9 @@ Ascent2::Ascent2
   m_maxLongG      (0.0),
 
   //-------------------------------------------------------------------------//
-  // Logging Params:                                                         //
+  // Integration/Output Params:                                              //
   //-------------------------------------------------------------------------//
+  m_odeIntegrStep (a_ode_integr_step),
   m_os            (a_os),        // May be NULL
   m_logLevel      (a_log_level)
 {
@@ -196,8 +198,8 @@ Ascent2::Ascent2
         IsPos(m_longGLimit)   &&
         //
         IsPos(m_maxStartMass) && IsPos(m_fairingMass)  &&
-        IsPos(m_crosS)))
-    throw std::invalid_argument("Ascent2::Ctor: Invalid LV Param(s)");
+        IsPos(m_crosS)        && IsPos(m_odeIntegrStep)))
+    throw std::invalid_argument("Ascent2::Ctor: Invalid LV/ODE Param(s)");
 
   // XXX: We assume that launch is NOT from the North or South Pole:
   if (!(a_h_perigee       >=  100.0_km && a_h_perigee <= a_h_apogee &&
@@ -291,8 +293,8 @@ Ascent2::RunRes Ascent2::Run()
     // Actually Run the Integrator!                                          //
     //-----------------------------------------------------------------------//
     tEnd =
-      RKF5(&s0, t0, tMin, rhs,
-           -ODEInitStep, -ODEMaxStep, ODERelPrec, &cb, m_os);
+      RKF5(&s0,    t0, tMin, rhs, -m_odeIntegrStep, -m_odeIntegrStep,
+           ODERelPrec, &cb,  m_os);
     assert(tEnd >=  tMin);
   }
   catch (NearSingularityExn const& ns)

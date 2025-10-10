@@ -27,12 +27,10 @@ namespace SpaceBallistics
     // Consts:                                                               //
     //=======================================================================//
     constexpr static GMK      K              = BodyData<Body::Earth>::K;
-    constexpr static LenK     R              = 6371.0_km;   // Equi-Volume
+    constexpr static LenK     R /* Mean */   = BodyData<Body::Earth>::Rm;
 
     // ODE Integration Params: 1 msec step; it may only be reduced, never
     // increased beyond the original value:
-    constexpr static Time     ODEInitStep    = 0.001_sec;
-    constexpr static Time     ODEMaxStep     = ODEInitStep;
     constexpr static double   ODERelPrec     = 1e-6;
 
     // Singular point detection criteria: NB: "Vhor" approaches 0 much faster
@@ -315,7 +313,10 @@ namespace SpaceBallistics
     Pressure              m_sepQ;           // Q @ Stage1 separation
     double                m_maxLongG;       // Max Longitudinal G
 
-    // For output:
+    //-----------------------------------------------------------------------//
+    // Integrations / Output Params:                                         //
+    //-----------------------------------------------------------------------//
+    Time                  m_odeIntegrStep;  // Typically 1..10 msec
     std::ostream*         m_os;
     int                   m_logLevel;
 
@@ -363,7 +364,8 @@ namespace SpaceBallistics
       Angle_deg       a_incl,
       Angle_deg       a_launch_lat,
 
-      // Logging Params:
+      // Integration / Output Params:
+      Time            a_ode_integr_step,
       std::ostream*   a_os,
       int             a_log_level
     );

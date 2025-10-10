@@ -321,34 +321,34 @@ Ascent2::FindOptimalAscentCtls
   // Get the LV and Mission params for the "prototype" "Ascent2" obj:        //
   //-------------------------------------------------------------------------//
   // Stage2:
-  double    K2          =      pt.get<double>("LV.K2");
-  double    PropRem2    =      pt.get<double>("LV.PropRem2");
+  double    k2          =      pt.get<double>("LV.K2");
+  double    propRem2    =      pt.get<double>("LV.PropRem2");
   Time      IspVac2           (pt.get<double>("LV.IspVac2"));
-  ForceK    ThrustVacI2 = Mass(pt.get<double>("LV.ThrustVacI2")) * g0K;
-  double    MinThrttL2  =      pt.get<double>("LV.MinThrttL2");
-  Angle_deg MaxAoA2           (pt.get<double>("LV.MaxAoA2"));
+  ForceK    thrustVacI2 = Mass(pt.get<double>("LV.ThrustVacI2")) * g0K;
+  double    minThrttL2  =      pt.get<double>("LV.MinThrttL2");
+  Angle_deg maxAoA2           (pt.get<double>("LV.MaxAoA2"));
 
   // Stage1:
-  double    K1          =      pt.get<double>("LV.K1");
-  double    PropRem1    =      pt.get<double>("LV.PropRem1");
+  double    k1          =      pt.get<double>("LV.K1");
+  double    propRem1    =      pt.get<double>("LV.PropRem1");
   Time      IspSL1            (pt.get<double>("LV.IspSL1" ));
   Time      IspVac1           (pt.get<double>("LV.IspVac1"));
-  ForceK    ThrustVacI1 = Mass(pt.get<double>("LV.ThrustVacI1")) * g0K;
-  double    MinThrttL1  =      pt.get<double>("LV.MinThrttL1");
-  Angle_deg MaxAoA1           (pt.get<double>("LV.MaxAoA1"));
+  ForceK    thrustVacI1 = Mass(pt.get<double>("LV.ThrustVacI1")) * g0K;
+  double    minThrttL1  =      pt.get<double>("LV.MinThrttL1");
+  Angle_deg maxAoA1           (pt.get<double>("LV.MaxAoA1"));
 
   // Over-All:
-  Mass      MaxStartMass      (pt.get<double>("LV.MaxStartMass"));
-  Mass      FairingMass       (pt.get<double>("LV.FairingMass" ));
-  Len       Diam              (pt.get<double>("LV.Diameter"    ));
+  Mass      maxStartMass      (pt.get<double>("LV.MaxStartMass"));
+  Mass      fairingMass       (pt.get<double>("LV.FairingMass" ));
+  Len       diam              (pt.get<double>("LV.Diameter"    ));
   // NB: the initial "alpha1" and "payLoadMass" belong to the "Opt" section
   // (see below)...
 
   // Mission:
-  LenK      Perigee           (pt.get<double>("Mission.Perigee"));
-  LenK      Apogee            (pt.get<double>("Mission.Apogee" ));
-  Angle_deg Incl              (pt.get<double>("Mission.Inclination"));
-  Angle_deg LaunchLat         (pt.get<double>("Mission.LaunchLat"));
+  LenK      perigee           (pt.get<double>("Mission.Perigee"));
+  LenK      apogee            (pt.get<double>("Mission.Apogee" ));
+  Angle_deg incl              (pt.get<double>("Mission.Inclination"));
+  Angle_deg launchLat         (pt.get<double>("Mission.LaunchLat"));
 
   //-------------------------------------------------------------------------//
   // Now  get the "Opt" params:                                              //
@@ -425,7 +425,7 @@ Ascent2::FindOptimalAscentCtls
   GetOptParam( 9, double, aAoAHat1,    1.0)
   GetOptParam(10, double, bAoAHat1,    1.0)
   GetOptParam(11, double, alpha1,      1.0)
-  GetOptParam(12, Mass,   PayLoadMass, MaxStartMass)
+  GetOptParam(12, Mass,   payLoadMass, maxStartMass)
 
   // So: How many Optimisation Args have we got?
   int np = 0;
@@ -440,16 +440,17 @@ Ascent2::FindOptimalAscentCtls
   Pressure QLimit
            (std::atof(pt.get<std::string>("Opt.QLimit"    ).data()));
 
-  Pressure SepQLimit
+  Pressure sepQLimit
            (std::atof(pt.get<std::string>("Opt.SepQLimit" ).data()));
 
-  double   LongGLimit =
+  double   longGLimit =
             std::atof(pt.get<std::string>("Opt.LongGLimit").data());
 
   //-------------------------------------------------------------------------//
   // Finally: Technical Params:                                              //
   //-------------------------------------------------------------------------//
   // Generic:
+  Time   odeIntegrStep     (pt.get<double>("Technical.ODEIntegrStep"));
   bool   withFinalRun     = pt.get<bool>  ("Technical.WithFinalRun");
   int    finalRunLogLevel = pt.get<int>   ("Technical.FinalRunLogLevel", 3);
   int    optMaxEvals      = pt.get<int>   ("Technical.OptMaxEvals");
@@ -460,11 +461,12 @@ Ascent2::FindOptimalAscentCtls
   //-------------------------------------------------------------------------//
   Ascent2 proto
   (
-    K2, PropRem2,          IspVac2, ThrustVacI2, MinThrttL2, MaxAoA2,
-    K1, PropRem1,  IspSL1, IspVac1, ThrustVacI1, MinThrttL1, MaxAoA1,
-    alpha1,  MaxStartMass, FairingMass,    Diam, PayLoadMass,
-    QLimit,  SepQLimit,    LongGLimit,
-    Perigee, Apogee, Incl, LaunchLat,      a_os, optLogLevel
+    k2,      propRem2,          IspVac2, thrustVacI2, minThrttL2, maxAoA2,
+    k1,      propRem1,  IspSL1, IspVac1, thrustVacI1, minThrttL1, maxAoA1,
+    alpha1,  maxStartMass,      fairingMass,    diam, payLoadMass,
+    QLimit,  sepQLimit,         longGLimit,
+    perigee, apogee,    incl,   launchLat,      odeIntegrStep,    a_os,
+    optLogLevel
   );
 
   proto.SetCtlParams
@@ -483,7 +485,7 @@ Ascent2::FindOptimalAscentCtls
       RunNOMAD
       (
         &proto,  actOpts, &initVals, loBounds, upBounds,   optMaxEvals,
-        IsFinite(QLimit), IsFinite(SepQLimit), IsFinite(LongGLimit), pt
+        IsFinite(QLimit), IsFinite(sepQLimit), IsFinite(longGLimit), pt
       );
     if (!ok)
       return std::make_pair(std::nullopt, std::nullopt);
@@ -519,7 +521,7 @@ Ascent2::FindOptimalAscentCtls
     case  9: aAoAHat1    = initVals[unsigned(j)]; break;
     case 10: bAoAHat1    = initVals[unsigned(j)]; break;
     case 11: alpha1      = initVals[unsigned(j)]; break;
-    case 12: PayLoadMass = initVals[unsigned(j)] * proto.m_maxStartMass; break;
+    case 12: payLoadMass = initVals[unsigned(j)] * proto.m_maxStartMass; break;
     default: assert(false);
     }
     ++j;
@@ -528,7 +530,7 @@ Ascent2::FindOptimalAscentCtls
   proto.ModifyLVParams
   (
     // Thrust and Mass Params: 
-    thrustMult2, thrustMult1, alpha1,    PayLoadMass,
+    thrustMult2, thrustMult1, alpha1,    payLoadMass,
     // Ctl Params:      
     bHat2,       muHat2,      aAoAHat2,  bAoAHat2,  TGap,
     bHat1,       muHat1,      aAoAHat1,  bAoAHat1

@@ -91,6 +91,10 @@ namespace SpaceBallistics
     constexpr static LenK Rp = 6'356.752314245_km;
     static_assert(Rp < Re);
 
+    // Mean (Equi-Volume) Radius:
+    constexpr static LenK Rm = 6'371.0_km;
+    static_assert(Rp < Rm && Rm < Re);
+
     // The Gravitational Field Constant (from EMG2008; DE440T uses a somewhat
     // different value); NOT including the Moon, but including the atmosphere:
     constexpr static GMK  K  = GMK(398600.4415);
