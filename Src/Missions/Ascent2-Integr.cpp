@@ -933,8 +933,8 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
   {
   case FlightMode::Burn1:
   {
-    // Arg: "tau" is the time since Stage1 ignition  (so 0 <= t <= T1); but the
-    // latter is not yet reached, so calculate it using "T1";
+    // Arg: "tau" is the time since Stage1 ignition  (so 0 <= tau <= T1); but
+    // the latter is not yet reached, so calculate it using "T1":
     Time     tIgn1 = m_cutOffTime1  - m_T1;
     Time     tau   = std::min(std::max(a_t  - tIgn1,    0.0_sec), m_T1);
     MassRate res   = std::max(m_burnRateI1  + (m_bMu1 + m_aMu1 * tau) * tau,
@@ -947,13 +947,14 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
 
   case FlightMode::Burn2:
   {
-    // Arg: "tau" is the time since Stage2 ignition  (so 0 <= t <= T2); but the
-    // latter is not yet reached, so calculate it using "T2":
+    // Arg: "tau" is the time since Stage2 ignition  (so 0 <= tau <= T2); but
+    // the latter is not yet reached, so calculate it using "T2":
     Time     tIgn2 = - m_T2;
     Time     tau   = std::min(std::max(a_t  - tIgn2,    0.0_sec), m_T2);
 
     MassRate res   = std::max(m_burnRateI2  + (m_bMu2 + m_aMu2 * tau) * tau,
                               MassRate(0.0));
+
     if (tau < m_tIFT2)
       // The Stage2 Engine is not at full thrust yet, so the above "res" may
       // not be achieved yet:
