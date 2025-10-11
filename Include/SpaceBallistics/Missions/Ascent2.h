@@ -206,7 +206,6 @@ namespace SpaceBallistics
     double   const        m_propRem2;
     Time     const        m_IspVac2;
     double   const        m_minThrtL2;
-    Time     const        m_tIFT2;       // Time from Ignition to Full Thrust
     Angle    const        m_maxAoA2;
 
     // Non-Const Stage2 Params (may be updated in the course of Optimisation):
@@ -336,7 +335,6 @@ namespace SpaceBallistics
       Time            a_Isp_vac2,
       ForceK          a_thrust_vac2,
       double          a_min_thrtl2,
-      Time            a_tift2,          // Time from Ignition to Full Thrust
       Angle_deg       a_max_aoa2,
 
       // Stage1:

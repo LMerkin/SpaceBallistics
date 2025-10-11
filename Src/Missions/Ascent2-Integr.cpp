@@ -22,7 +22,6 @@ Ascent2::Ascent2
   Time            a_Isp_vac2,
   ForceK          a_thrust_vac2,
   double          a_min_thrtl2,
-  Time            a_tift2,
   Angle_deg       a_max_aoa2,
 
   // Stage1:
@@ -77,7 +76,6 @@ Ascent2::Ascent2
   m_propRem2      (a_prop_rem2),
   m_IspVac2       (a_Isp_vac2),
   m_minThrtL2     (a_min_thrtl2),
-  m_tIFT2         (a_tift2),
   m_maxAoA2       (To_Angle(a_max_aoa2)),
 
   // Non-Const Stage2 Params (may be updated in the course of Optimisation):
@@ -181,7 +179,7 @@ Ascent2::Ascent2
         IsPos(m_spendable2)   &&
         IsPos(m_IspVac2)      && IsPos(m_burnRateI2)   &&
         IsPos(m_thrustVacI2)  && m_thrustMult2 > 0.0   &&
-        IsPos(m_T2)           && !IsNeg(m_tIFT2)       &&
+        IsPos(m_T2)           &&
         0.0 <= m_minThrtL2    && m_minThrtL2  <= 1.0   &&
         !IsNeg(m_maxAoA2)     &&
         //
@@ -954,11 +952,6 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
 
     MassRate res   = std::max(m_burnRateI2  + (m_bMu2 + m_aMu2 * tau) * tau,
                               MassRate(0.0));
-
-    if (tau < m_tIFT2)
-      // The Stage2 Engine is not at full thrust yet, so the above "res" may
-      // not be achieved yet:
-      res = std::min(res, double(tau / m_tIFT2) * m_burnRateI2);
 
     assert(IsFinite(res) && !IsNeg(res));
     return res;

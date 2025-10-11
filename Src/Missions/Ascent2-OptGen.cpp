@@ -326,7 +326,6 @@ Ascent2::FindOptimalAscentCtls
   Time      IspVac2           (pt.get<double>("LV.IspVac2"));
   ForceK    thrustVacI2 = Mass(pt.get<double>("LV.ThrustVacI2")) * g0K;
   double    minThrttL2  =      pt.get<double>("LV.MinThrttL2");
-  Time      tIFT2             (pt.get<double>("LV.TIFT2"));
   Angle_deg maxAoA2           (pt.get<double>("LV.MaxAoA2"));
 
   // Stage1:
@@ -462,10 +461,8 @@ Ascent2::FindOptimalAscentCtls
   //-------------------------------------------------------------------------//
   Ascent2 proto
   (
-    k2,      propRem2,          IspVac2, thrustVacI2, minThrttL2, tIFT2,
-    maxAoA2,
-    k1,      propRem1,  IspSL1, IspVac1, thrustVacI1, minThrttL1,
-    maxAoA1,
+    k2,      propRem2,          IspVac2, thrustVacI2, minThrttL2, maxAoA2,
+    k1,      propRem1,  IspSL1, IspVac1, thrustVacI1, minThrttL1, maxAoA1,
     alpha1,  maxStartMass,      fairingMass,    diam, payLoadMass,
     QLimit,  sepQLimit,         longGLimit,
     perigee, apogee,    incl,   launchLat,      odeIntegrStep,    a_os,
