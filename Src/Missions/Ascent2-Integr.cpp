@@ -22,6 +22,7 @@ Ascent2::Ascent2
   Time            a_Isp_vac2,
   ForceK          a_thrust_vac2,
   double          a_min_thrtl2,
+  Time            a_tift2,
   Angle_deg       a_max_aoa2,
 
   // Stage1:
@@ -76,6 +77,7 @@ Ascent2::Ascent2
   m_propRem2      (a_prop_rem2),
   m_IspVac2       (a_Isp_vac2),
   m_minThrtL2     (a_min_thrtl2),
+  m_tIFT2         (a_tift2),
   m_maxAoA2       (To_Angle(a_max_aoa2)),
 
   // Non-Const Stage2 Params (may be updated in the course of Optimisation):
@@ -179,7 +181,7 @@ Ascent2::Ascent2
         IsPos(m_spendable2)   &&
         IsPos(m_IspVac2)      && IsPos(m_burnRateI2)   &&
         IsPos(m_thrustVacI2)  && m_thrustMult2 > 0.0   &&
-        IsPos(m_T2)           &&
+        IsPos(m_T2)           && !IsNeg(m_tIFT2)       &&
         0.0 <= m_minThrtL2    && m_minThrtL2  <= 1.0   &&
         !IsNeg(m_maxAoA2)     &&
         //
@@ -271,19 +273,19 @@ Ascent2::RunRes Ascent2::Run()
     { return this->ODERHS(a_s, a_t); };
 
   auto cb  =
-    [this](StateV* a_s,   Time a_t) -> bool
-    { return this->ODECB (a_s, a_t); };
+    [this](StateV* a_s,   Time a_t, Time a_tau) -> bool
+    { return this->ODECB (a_s, a_t, a_tau); };
 
   // FlightMode ctl (modes are switched based on the SpentPropMass):
-  m_mode           = FlightMode::Burn2;
-  m_ignTime2       = Time(NAN);  // Not known yet
-  m_cutOffTime1    = Time(NAN);  // ditto
-  m_fairingSepTime = Time(NAN);  // ditto
-  m_ignTime1       = Time(NAN);  // ditto
+  m_mode              = FlightMode::Burn2;
+  m_ignTime2          = Time(NAN);  // Not known yet
+  m_cutOffTime1       = Time(NAN);  // ditto
+  m_fairingSepTime    = Time(NAN);  // ditto
+  m_ignTime1          = Time(NAN);  // ditto
 
   // The ascent maximum duration (which is certainly enough) is 1 hour:
-  constexpr Time t0    = 0.0_sec;
-  constexpr Time tMin  = -3600.0_sec;
+  constexpr Time t0   = 0.0_sec;
+  constexpr Time tMin = -3600.0_sec;
 
   // NB: All necessary exception handling is provided inside "RKF5":
   Time tEnd;
@@ -295,7 +297,7 @@ Ascent2::RunRes Ascent2::Run()
     tEnd =
       RKF5(&s0,    t0, tMin, rhs, -m_odeIntegrStep, -m_odeIntegrStep,
            ODERelPrec, &cb,  m_os);
-    assert(tEnd >=  tMin);
+    assert(tEnd >= tMin);
   }
   catch (NearSingularityExn const& ns)
   {
@@ -325,26 +327,8 @@ Ascent2::RunRes Ascent2::Run()
       return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
                     m_maxQ, m_sepQ, m_maxLongG};
   }
-  catch (std::exception const& exn)
-  {
-    //-----------------------------------------------------------------------//
-    // Any other "standard" (or other) exceptions: Ascent unsuccessful:      //
-    //-----------------------------------------------------------------------//
-    if (m_os != nullptr)
-      *m_os  << "# Ascent2::Run: Exception: " << exn.what() << std::endl;
-
-    return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
-                  m_maxQ, m_sepQ, m_maxLongG};
-  }
-  catch (...)
-  {
-    // Any other exception:
-    if (m_os != nullptr)
-      *m_os  << "# Ascent2::Run: UnKnown Exception" << std::endl;
-
-    return RunRes{RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
-                  m_maxQ, m_sepQ, m_maxLongG};
-  }
+  // XXX: Any other exceptions are propagated to the top level, it's better
+  // not to mask them...
 
   //-------------------------------------------------------------------------//
   // Integration has run to completion, but not to the singular point:       //
@@ -581,7 +565,7 @@ Ascent2::DStateV Ascent2::ODERHS(StateV const& a_s, Time a_t)
 //===========================================================================//
 // Here FlightMode switching occurs, so this method is non-"const":
 //
-bool Ascent2::ODECB(StateV* a_s, Time a_t)
+bool Ascent2::ODECB(StateV* a_s, Time a_t, Time a_tau)
 {
   assert(a_s != nullptr && !IsPos(a_t));
   LenK   r             = std::get<0>(*a_s);
@@ -799,7 +783,7 @@ bool Ascent2::ODECB(StateV* a_s, Time a_t)
           << m.Magnitude()       << '\t' << ToString(m_mode)     << '\t'
           << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
           << Q.Magnitude()       << '\t' << M                    << '\t'
-          << longG               << std::endl;
+          << longG               << '\t' << a_tau.Magnitude()    << std::endl;
   }
   return cont;
 }
@@ -967,8 +951,14 @@ MassRate Ascent2::PropBurnRate(Time a_t) const
     // latter is not yet reached, so calculate it using "T2":
     Time     tIgn2 = - m_T2;
     Time     tau   = std::min(std::max(a_t  - tIgn2,    0.0_sec), m_T2);
+
     MassRate res   = std::max(m_burnRateI2  + (m_bMu2 + m_aMu2 * tau) * tau,
                               MassRate(0.0));
+    if (tau < m_tIFT2)
+      // The Stage2 Engine is not at full thrust yet, so the above "res" may
+      // not be achieved yet:
+      res = std::min(res, double(tau / m_tIFT2) * m_burnRateI2);
+
     assert(IsFinite(res) && !IsNeg(res));
     return res;
   }

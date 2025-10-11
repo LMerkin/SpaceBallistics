@@ -14,8 +14,9 @@ namespace SpaceBallistics
   // "RKF5":                                                                 //
   //=========================================================================//
   // ODE solution using the Runge-Kutta-Fehlberg method,  with automatic step
-  // control.  Returns the last "time" instant to which the "a_x" corresponds;
-  // if the return value equals "a_tf", integration is successfully completed:
+  // control.
+  // Returns the last "time" instant which the output "a_x" corresponds to; if
+  // it equals "a_tf", integration is successfully completed:
   //
   template<typename X, typename T, typename RHS, typename CB>
   T RKF5
@@ -27,7 +28,7 @@ namespace SpaceBallistics
     T             a_tau0,    // Initial "time" step
     T             a_max_tau, // Max     "time" step
     double        a_eps,     // Max allowed absolute error
-    CB*           a_cb,      // User Call-Back: (&x,t)->cont_flag (may be NULL)
+    CB*           a_cb,      // User Call-Back: (&x,t,tau)->ContFlag (NULL OK)
     std::ostream* a_log      // Stream for logging (may be NULL)
   )
   {
@@ -40,7 +41,7 @@ namespace SpaceBallistics
       throw std::invalid_argument("RKF5: Invalid param(s)");
 
     if (a_tf == a_t0)
-      return a_t0;  // Nothing to do
+      return a_t0;     // Nothing to do
 
     DEBUG_ONLY(bool isFwd = a_tf > a_t0;)
 
@@ -56,11 +57,12 @@ namespace SpaceBallistics
       // Invoke the Call-Back if present, stop immediately if it returns
       // "false". If there is no Call-Back, just continue.
       // NB: The Call-Back MAY (in some cases) modify "a_x":
-      if (a_cb != nullptr && !(*a_cb)(a_x, t))
-        return t;         // We may or may not have reached the end
+      //
+      if (a_cb != nullptr && !(*a_cb)(a_x, t, tau))
+        return t;     // We may or may not have reached the end
 
       if (t == a_tf)
-        return t;         // All Done!
+        return t;     // All Done!
 
       // The next "t" to be reached in one RKF5 step:
       T tn = t + tau;

@@ -141,7 +141,7 @@ int main()
   Time nextOutput = t0;
 
   auto ODECB =
-    [&nextOutput](StateV* a_s, Time a_t) -> bool
+    [&nextOutput](StateV* a_s, Time a_t, Time UNUSED_PARAM(a_tau)) -> bool
     {
       assert(a_s != nullptr);
 

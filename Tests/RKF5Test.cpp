@@ -20,7 +20,7 @@ namespace
   // Phase Space: s = [x, y, u, v]:
   using S = tuple<double, double, double, double>;
 
-  S RHS(S const& a_s, double /*a_t*/)
+  S RHS(S const& a_s, double UNUSED_PARAM(a_t))
   {
     return make_tuple
           (get<1>(a_s),  get<0>(a_s),
@@ -28,7 +28,7 @@ namespace
   }
 
   // User Call-Back:
-  bool CB(S* a_x, double a_t)
+  bool CB(S* a_x, double a_t, double UNUSED_PARAM(a_tau))
   {
     assert(a_x != nullptr);
     // Expected solution:

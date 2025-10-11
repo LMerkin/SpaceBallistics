@@ -57,7 +57,7 @@ int main()
   // Header for the following table:
   cout << '#' << endl;
   cout << "# (1)Time\t(2)TotalMass\t(3)FuelMass\t(4)OxidMass\t(5)CoM_x\t"
-          "(6)J_x\t(7)J_y\t(8)JDot_x\t(9)JDot_y\t"
+          "(6)J_x\t(7)J_{y,z}\t(8)JDot_x\t(9)JDot_{y,z}\t"
        << endl;
   cout << '#' << endl;
 
