@@ -58,17 +58,18 @@ void Ascent2::ModifyLVParams
   m_burnRateI2   = m_thrustVacI2 / (m_IspVac2 * g0K);
   m_T2           = m_spendable2  / m_burnRateI2;
 
-  // Stage1:
-  m_fullMass1    = (m_maxStartMass   - m_fairingMass - m_payLoadMass) /
-                    (1.0 + m_alpha1) * m_alpha1;
-  m_emptyMass1   = m_fullMass1   * (1.0 - m_K1);
-  m_propMass1    = m_fullMass1   * m_K1;
-  m_unSpendable1 = m_propMass1   * m_propRem1;
-  m_spendable1   = m_propMass1   - m_unSpendable1;    
-  m_thrustVacI1 *= a_thrustMult1 / m_thrustMult1;
-  m_thrustMult1  = a_thrustMult1;
-  m_burnRateI1   = m_thrustVacI1 / (m_IspVac1 * g0K);
-  m_T1           = m_spendable1  / m_burnRateI1;
+  // Stage1: XXX: Here we directly modify the "Base" flds which is undesirable:
+  Base::m_fullMass1    =
+    (m_maxStartMass   - m_fairingMass - m_payLoadMass) / (1.0 + m_alpha1) *
+     m_alpha1;
+  Base::m_emptyMass1   = Base::m_fullMass1   * (1.0 - Base::m_K1);
+  Base::m_propMass1    = Base::m_fullMass1   * Base::m_K1;
+  Base::m_unSpendable1 = Base::m_propMass1   * Base::m_propRem1;
+  Base::m_spendable1   = Base::m_propMass1   - Base::m_unSpendable1;    
+  Base::m_thrustVacI1 *= a_thrustMult1       / m_thrustMult1;
+  m_thrustMult1        = a_thrustMult1;
+  Base::m_burnRateI1   = Base::m_thrustVacI1 / (Base::m_IspVac1 * g0K);
+  Base::m_T1           = Base::m_spendable1  /  Base::m_burnRateI1;
 
   // The above settings also invalidate the curr Ctls, so we need to modify
   // them anyway:
@@ -112,8 +113,8 @@ void Ascent2::SetCtlParams
   // Must have (2*MinThrtL+1)/3 <= muHat <= 1. XXX: We currently only allow
   // "down-throttling", not "up-rating" of the Engines:
   //
-  double           muHatLo2 = (2.0 * m_minThrtL2 + 1.0) / 3.0;
-  double           muHatLo1 = (2.0 * m_minThrtL1 + 1.0) / 3.0;
+  double           muHatLo2 = (2.0 * m_minThrtL2       + 1.0) / 3.0;
+  double           muHatLo1 = (2.0 * Base::m_minThrtL1 + 1.0) / 3.0;
   constexpr double muHatUp  =  1.0;
 
   // Stage2:
@@ -145,7 +146,7 @@ void Ascent2::SetCtlParams
 
   double bHatLo1 =  3.0 * muHat1 * (muHat1 - 1.0);
   assert(bHatLo1 <= 0.0);
-  double bHatUp1 =  2.0 * muHat1 * (3.0 * muHat1 - (2.0 + m_minThrtL1));
+  double bHatUp1 =  2.0 * muHat1 * (3.0 * muHat1 - (2.0 + Base::m_minThrtL1));
   bHatUp1  = std::min(bHatUp1, 0.0);
 
   // NB: We must have bHatLo1 <= bHatUp1, up to rounding errors:
@@ -155,10 +156,11 @@ void Ascent2::SetCtlParams
 
   // Then set the actual (dimensioned) coeffs for Stage1 (using the Spendable
   // PropMass1, ie one w/o the Remnants):
-  m_T1     = m_spendable1      / (m_burnRateI1 * muHat1);
-  m_bMu1   = Sqr(m_burnRateI1) /  m_spendable1 * bHat1;
-  m_aMu1   = 3.0 / Cube(m_T1)  *
-             (m_spendable1 - m_burnRateI1 * m_T1 - 0.5 * m_bMu1 * Sqr(m_T1));
+  Base::m_T1 = Base::m_spendable1 / (Base::m_burnRateI1 * muHat1);
+  m_bMu1     = Sqr(m_burnRateI1)  /  Base::m_spendable1 * bHat1;
+  m_aMu1     = 3.0 / Cube(m_T1)   *
+               (Base::m_spendable1 - Base::m_burnRateI1 * Base::m_T1 -
+                0.5 * m_bMu1 * Sqr(Base::m_T1));
 
   //-------------------------------------------------------------------------//
   // AoA Coeffs:                                                             //
@@ -177,11 +179,11 @@ void Ascent2::SetCtlParams
   // Stage1:
   m_aAoAHat1     = a_aAoAHat1;
   m_bAoAHat1     = a_bAoAHat1;
-  m_bAoA1        = 4.0 * m_maxAoA1 / m_T1 * a_bAoAHat1;
-  AngAcc aAoALo1 = - m_bAoA1       / m_T1;
+  m_bAoA1        = 4.0 * m_maxAoA1 / Base::m_T1 * a_bAoAHat1;
+  AngAcc aAoALo1 = - m_bAoA1       / Base::m_T1;
   AngAcc aAoAUp1 =
     (a_bAoAHat1  < 0.5)
-    ? (m_maxAoA1     / m_T1 - m_bAoA1) / m_T1
+    ? (m_maxAoA1     / Base::m_T1  - m_bAoA1) / Base::m_T1
     : - Sqr(m_bAoA1) / (4.0 * m_maxAoA1);
   m_aAoA1        =     (1.0 - a_aAoAHat1) * aAoALo1 + a_aAoAHat1 * aAoAUp1;
 }

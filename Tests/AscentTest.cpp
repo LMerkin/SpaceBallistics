@@ -42,14 +42,14 @@ int main(int argc, char* argv[])
       auto const& frr = finalRunRes.value();
       cout
         << "FINAL RUN:"                     << endl
-        << "RESULT    = " << Ascent2::ToString(frr.m_rc) << endl
+        << "RESULT    = " << Ascent2::Base::ToString(frr.m_rc) << endl
         << "startTime = " << frr.m_T        << endl
         << "startH    = " << frr.m_hT       << endl
         << "startV    = " << frr.m_VT       << endl
         << "startMass = " << frr.m_mT       << endl
         << "maxQ      = " << frr.m_maxQ     << endl
         << "sepQ      = " << frr.m_sepQ     << endl
-        << "maxLongG  = " << frr.m_maxLongG << endl      << endl;
+        << "maxLongG  = " << frr.m_maxLongG << endl << endl;
     }
   }
   catch (exception const& exn)

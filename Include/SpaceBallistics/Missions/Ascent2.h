@@ -3,41 +3,22 @@
 //                    "SpaceBallistics/Missions/Ascent2.h":                  //
 //                  Ascent-to-Orbit for a "Model" 2-Stage LV                 //
 //===========================================================================//
-#include "SpaceBallistics/Types.hpp"
-#include "SpaceBallistics/PhysEffects/BodyData.hpp"
-#include "SpaceBallistics/PhysEffects/EarthAtmosphereModel.hpp"
-#include <boost/functional/hash.hpp>
+#include "SpaceBallistics/Missions/LVBase.h"
 #include <boost/property_tree/ptree.hpp>
-#include <ostream>
-#include <optional>
-#include <utility>
-#include <unordered_map>
 
 namespace SpaceBallistics
 {
   namespace EAM = EarthAtmosphereModel;
 
   //=========================================================================//
-  // The "Ascent2" Class:                                                    //
+  // "Ascent2" Class:                                                        //
   //=========================================================================//
-  class Ascent2
+  class Ascent2: public LVBase<Ascent2>
   {
   public:
     //=======================================================================//
     // Consts:                                                               //
     //=======================================================================//
-    constexpr static GMK      K              = BodyData<Body::Earth>::K;
-    constexpr static LenK     R /* Mean */   = BodyData<Body::Earth>::Rm;
-
-    // ODE Integration Params: 1 msec step; it may only be reduced, never
-    // increased beyond the original value:
-    constexpr static double   ODERelPrec     = 1e-6;
-
-    // Singular point detection criteria: NB: "Vhor" approaches 0 much faster
-    // than "Vr":
-    constexpr static VelK     SingVr         = VelK(1e-2); // 10   m/sec
-    constexpr static VelK     SingVhor       = VelK(1e-4); //  0.1 m/sec
-
     // For Constrained Optimisation:
     // The max number of params used in Optimisation: 13:
     // [thrustMult2, bHat2, muHat2, aAoAHat2, bAoAHat2, TGapRel,
@@ -47,41 +28,21 @@ namespace SpaceBallistics
     // Atmospheric Pressure at which Fairing Separation occurs (XXX: should it
     // be made configurable?):
     constexpr static Pressure FairingSepCond = Pressure(1.0);
+    constexpr static Time     MaxTGap        = 1000.0_sec;      // Very Large!
 
     // Constraints on Start Altitude and Start Velocity (both should be close
     // to 0):
-    constexpr static Time     MaxTGap        = 1000.0_sec;      // Very Large!
     constexpr static LenK     MaxStartH      = 0.1_km;          // 100 m
     constexpr static VelK     MaxStartV      = VelK(0.03);      //  30 m/sec
 
     //=======================================================================//
     // Types:                                                                //
     //=======================================================================//
-    using MassT2 =   decltype(MassRate(1.0) / 1.0_sec);
-    using MassT3 =   decltype(MassT2  (1.0) / 1.0_sec);
-
     //-----------------------------------------------------------------------//
-    // "StateV":                                                             //
+    // The Base Class:                                                       //
     //-----------------------------------------------------------------------//
-    // State Vector (for some time t <= 0, where t=t0=0 corresponds to the Orbi-
-    // tal Insertion):
-    // Computations are performed in TopoCentric (Start) Planar Polar CoOrds, so
-    // the first 3 components are r, rDot, omega = phiDot. The 4th  component is
-    // the Total Spent Propellant Mass between the curr "t" and "t0" (which is a
-    // continuous and DECREASING function of "t",  as opposed to the Total Mass
-    // which is discontinuous when the Stage1 or Fairing are jettisones), and
-    // the 5th component is the polar angle "phi" (integrated omega):
-    //
-    using StateV  = std::tuple<LenK, VelK, AngVel, Mass, Angle>;
-    //                         r   rDot=Vr omega   spent phi
-
-    //-----------------------------------------------------------------------//
-    // "DStateV":                                                            //
-    //-----------------------------------------------------------------------//
-    // The Time Derivative of the "StateV". The "MassRate" components is the
-    // negated (<= 0) BurnRate:
-    //
-    using DStateV = std::tuple<VelK, AccK, AngAcc, MassRate, AngVel>;
+    using  Base = LVBase<Ascent2>;
+    friend class  LVBase<Ascent2>;
 
     //-----------------------------------------------------------------------//
     // "FlightMode":                                                         //
@@ -106,82 +67,6 @@ namespace SpaceBallistics
     }
 
   private:
-    //-----------------------------------------------------------------------//
-    // "NearSingularityException" Class:                                     //
-    //-----------------------------------------------------------------------//
-    // Exception thrown when the flight path is approaching the singular point:
-    //
-    class NearSingularityExn
-    {
-    public:
-      // Data Flds:
-      LenK  const m_r;
-      VelK  const m_Vr;
-      Mass  const m_spentPropMass;
-      Angle const m_phi;
-      Time  const m_t;
-
-      // Non-Default Ctor:
-      NearSingularityExn(LenK  a_r,   VelK a_vr, Mass a_spent_prop_mass,
-                         Angle a_phi, Time a_t)
-      : m_r             (a_r),
-        m_Vr            (a_vr),
-        m_spentPropMass (a_spent_prop_mass),
-        m_phi           (a_phi),
-        m_t             (a_t)
-      {}
-    };
-
-  public:
-    //-----------------------------------------------------------------------//
-    // "RunRC":                                                              //
-    //-----------------------------------------------------------------------//
-    // Possible results of "Run":
-    //
-    enum class RunRC: int
-    {
-      // The "desirable" result: Singular Point reached: V = 0 at some h >= 0:
-      Singularity = 0,
-
-      // Reached h = 0 at V > 0, still with unspent propellant (beyond the
-      // minimum remnant):
-      ZeroH       = 1,
-
-      // Ran out of all available propellant (up to the minimum remnant), but
-      // still h > 0 and V > 0:
-      FlameOut    = 2,
-
-      // If any exception occurred:
-      Error       = 3
-    };
-
-    static char const* ToString(RunRC a_rc)
-    {
-      switch (a_rc)
-      {
-        case RunRC::Singularity: return "Singularity";
-        case RunRC::ZeroH      : return "ZeroH";
-        case RunRC::FlameOut   : return "FlameOut";
-        default                : return "Error";
-      }
-    }
-
-    //-----------------------------------------------------------------------//
-    // "RunRes" Struct:                                                      //
-    //-----------------------------------------------------------------------//
-    struct RunRes
-    {
-      RunRC     m_rc;       // Return Code
-      Time      m_T;        // Final (actually start) Time, < 0
-      LenK      m_hT;       // Final (actually start) Altitude
-      VelK      m_VT;       // Final (sctually start) Velocity
-      Mass      m_mT;       // Final (actually start) Mass
-      Pressure  m_maxQ;     // Max Dynamic Pressure (Q)
-      Pressure  m_sepQ;     // Q @ Stage1 Separation
-      double    m_maxLongG; // Max Longitudinal G
-    };
-
-  private:
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
@@ -189,10 +74,8 @@ namespace SpaceBallistics
     // Over-All:                                                             //
     //-----------------------------------------------------------------------//
     // Const Over-All Params (not affected by Optimisation):
-    using    AreaK = decltype(Sqr(1.0_km));
     Mass     const        m_maxStartMass;
     Mass     const        m_fairingMass;
-    AreaK    const        m_crosS;
 
     // Non-Const Over-All Params (may be updated in the course of Optimisation):
     double                m_alpha1;
@@ -206,7 +89,6 @@ namespace SpaceBallistics
     double   const        m_propRem2;
     Time     const        m_IspVac2;
     double   const        m_minThrtL2;
-    Angle    const        m_maxAoA2;
 
     // Non-Const Stage2 Params (may be updated in the course of Optimisation):
     Mass                  m_fullMass2;
@@ -215,31 +97,8 @@ namespace SpaceBallistics
     Mass                  m_unSpendable2;
     Mass                  m_spendable2;
     ForceK                m_thrustVacI2; // Nominal (@ Max BurnRate)
-    double                m_thrustMult2;
     MassRate              m_burnRateI2;  // BurnRate @ Stage2 IgnTime
     Time                  m_T2;          // Nominal Stage2 BurnTime
-
-    //-----------------------------------------------------------------------//
-    // Stage1:                                                               //
-    //-----------------------------------------------------------------------//
-    // Const Stage1 Params (not affected by Optimisation):
-    double   const        m_K1;
-    double   const        m_propRem1;
-    Time     const        m_IspSL1;
-    Time     const        m_IspVac1;
-    double   const        m_minThrtL1;
-    Angle    const        m_maxAoA1;
-
-    // Non-Const Stage1 Params (may be updated in the course of Optimisation):
-    Mass                  m_fullMass1;
-    Mass                  m_emptyMass1;
-    Mass                  m_propMass1;
-    Mass                  m_unSpendable1;
-    Mass                  m_spendable1;
-    ForceK                m_thrustVacI1; // Nominal (@ Max BurnRate)
-    double                m_thrustMult1;
-    MassRate              m_burnRateI1;  // BurnRate @ Stage1 IgnTime
-    Time                  m_T1;          // Nominal Stage1 BurnTime
 
     //-----------------------------------------------------------------------//
     // Mission Params:                                                       //
@@ -254,6 +113,7 @@ namespace SpaceBallistics
     // It is a non-increasing quadratic function of time:
     // BurnRate(tau) = BurnRateI + bMu * tau + aMu * tau^2, where "tau" is the
     // time since Stage2 ignition (0 <= tau <= T2):
+    double                m_thrustMult2;
     MassT3                m_aMu2;
     MassT2                m_bMu2;
     // Also, the Dim-Less params from which the above coeffs are computed:
@@ -264,6 +124,7 @@ namespace SpaceBallistics
     // where t <= 0 is our standard integration backward-running time    (t=0
     // corresponds  to the orbital insertion instant, and AoA=0 at that point);
     // NB: the (-b) coeff !!!
+    Angle    const        m_maxAoA2;
     AngAcc                m_aAoA2;
     AngVel                m_bAoA2;
     // Also, the Dim-Less params from which the above coeffs are computed:
@@ -276,6 +137,7 @@ namespace SpaceBallistics
 
     // BurnRate for Stage1: Similar to that of Stage1, where "tau" is the time
     // since Stage1 ignition (0 <= tau <= T1):
+    double                m_thrustMult1;
     MassT3                m_aMu1;
     MassT2                m_bMu1;
     // Also, the Dim-Less params from which the above coeffs are computed:
@@ -285,6 +147,7 @@ namespace SpaceBallistics
     // AoA for Stage1: for similarity with Stage2,
     // AoA(tau) = tau * (a * tau + b),
     // where tau  = t - tIgn1 >= 0, so AoA=0 @ tau=0 (Stage1 ignition):
+    Angle    const        m_maxAoA1;
     AngAcc                m_aAoA1;
     AngVel                m_bAoA1;
     // Also, the Dim-Less params from which the above coeffs are computed:
@@ -312,13 +175,6 @@ namespace SpaceBallistics
     Pressure              m_maxQ;           // Max Dynamic Pressure (Q)
     Pressure              m_sepQ;           // Q @ Stage1 separation
     double                m_maxLongG;       // Max Longitudinal G
-
-    //-----------------------------------------------------------------------//
-    // Integrations / Output Params:                                         //
-    //-----------------------------------------------------------------------//
-    Time                  m_odeIntegrStep;  // Typically 1..10 msec
-    std::ostream*         m_os;
-    int                   m_logLevel;
 
   public:
     //=======================================================================//
@@ -412,27 +268,6 @@ namespace SpaceBallistics
     // Here FlightMode switching occurs, so this method is non-"const":
     //
     bool ODECB(StateV* a_s, Time a_t, Time a_tau);
-
-    // Common part of "ODERHS" and "ODECB":
-    void NonGravForces
-    ( 
-      // Inputs:
-      Time           a_t,
-      LenK           a_r,
-      VelK           a_Vr,
-      VelK           a_Vhor,
-      Mass           a_m,
-      // Outputs:
-      VelK*          a_V,
-      Angle*         a_psi,
-      Angle*         a_aoa,
-      EAM::AtmConds* a_atm, 
-      MassRate*      a_burn_rate,
-      ForceK*        a_thrust,
-      double         a_lv_axis[2],  // In the (r, normal-to-r) frame
-      AccK           a_ng_acc [2]   // ditto
-    ) 
-    const;
 
     // "AeroDynForces":
     // Atmospheric Conditions and Aerodynamic Drag Force:
