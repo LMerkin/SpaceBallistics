@@ -55,8 +55,14 @@ private:
   //-------------------------------------------------------------------------//
   // Data Flds:                                                              //
   //-------------------------------------------------------------------------//
-  Ascent2 const*  m_proto;
-  bool            m_actOpts[NP];    // Flags for Active Optimisation Params
+  Ascent2 const*      const m_proto;
+  std::array<bool,NP> const m_actOpts;     // Flags for Active Opt Params
+  // Optimisation Constraints:
+  LenK                const  m_maxStartH;
+  VelK                const  m_maxStartV;
+  Pressure            const  m_QLimit;     // NAN -> disabled
+  Pressure            const  m_sepQLimit;  // ditto
+  double              const  m_longGLimit; // ditto
 
 public:
   //=========================================================================//
@@ -64,16 +70,34 @@ public:
   //=========================================================================//
   NOMADEvaluator
   (
-    Ascent2 const*                                a_proto,
-    bool    const                                 a_act_opts[NP],
-    std::shared_ptr<NOMAD::EvalParameters> const& a_params
+    std::shared_ptr<NOMAD::EvalParameters> const& a_params,
+    Ascent2             const*                    a_proto,
+    // Flags indicating which variables are optimisation args:
+    std::array<bool,NP> const&                    a_act_opts,
+    // Optimisation Constraints:
+    LenK                                          a_max_startH,
+    VelK                                          a_max_startV,
+    Pressure                                      a_Q_limit,
+    Pressure                                      a_sepQ_limit,
+    double                                        a_longG_limit
   )
   : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
-    m_proto         (a_proto)
+    m_proto         (a_proto),
+    m_actOpts       (a_act_opts),
+    m_maxStartH     (a_max_startH),
+    m_maxStartV     (a_max_startV),
+    m_QLimit        (a_Q_limit),
+    m_sepQLimit     (a_sepQ_limit),
+    m_longGLimit    (a_longG_limit)
   {
-    assert(m_proto != nullptr && a_act_opts != nullptr);
-    for (int i = 0; i < NP; ++i)
-      m_actOpts[i]  = a_act_opts[i];
+    if (!IsPos(m_maxStartH)     || !IsPos(m_maxStartV)  ||
+        (IsFinite(m_QLimit)     && !IsPos(m_QLimit))    ||
+        (IsFinite(m_sepQLimit)  && !IsPos(m_sepQLimit)) ||
+        (IsFinite(m_longGLimit) && !IsPos(m_longGLimit)) )
+      throw std::invalid_argument
+            ("Ascent2::NOMADEvaluator::Ctor: Invalid Constraint(s)");
+
+    assert(m_proto != nullptr);
   }
 
   ~NOMADEvaluator() override {}
@@ -117,7 +141,7 @@ public:
     int j = 0;
     for (int i = 0; i < NP; ++i)
     {
-      if (!m_actOpts[i])
+      if (!m_actOpts[size_t(i)])
         continue;
   
       // Otherwise: the "i"th over-all idx is mapped to the "j"th idx in "a_x":
@@ -182,23 +206,23 @@ public:
     curr += sprintf(curr, "%.16e", objMass.Magnitude());
   
     // Constraint0: StartH:
-    curr += sprintf(curr, " %.16e ", (hT - Ascent2::MaxStartH).Magnitude());
+    curr += sprintf(curr, " %.16e ", (hT - m_maxStartH).Magnitude());
   
     // Constraint1: StartV:
-    curr += sprintf(curr, " %.16e",  (VT - Ascent2::MaxStartV).Magnitude());
+    curr += sprintf(curr, " %.16e",  (VT - m_maxStartV).Magnitude());
   
     // Other Constraints if enabled:
-    if (IsFinite(asc.m_QLimit))
+    if (IsFinite(m_QLimit))
       curr +=
-        sprintf(curr, " %.16e", (res.m_maxQ - asc.m_QLimit).Magnitude());
+        sprintf(curr, " %.16e", (res.m_maxQ     - m_QLimit).Magnitude());
   
-    if (IsFinite(asc.m_sepQLimit))
+    if (IsFinite(m_sepQLimit))
       curr +=
-        sprintf(curr, " %.16e", (res.m_sepQ - asc.m_sepQLimit).Magnitude());
+        sprintf(curr, " %.16e", (res.m_sepQ     - m_sepQLimit).Magnitude());
   
-    if (IsFinite(asc.m_longGLimit))
+    if (IsFinite(m_longGLimit))
       curr +=
-      sprintf(curr, " %.16e",   (res.m_maxLongG - asc.m_longGLimit));
+      sprintf(curr, " %.16e",   (res.m_maxLongG - m_longGLimit));
   
     // Output done!
     assert(size_t(curr - buff) <= sizeof(buff));
@@ -220,16 +244,23 @@ public:
 //===========================================================================//
 bool Ascent2::RunNOMAD
 (
-  Ascent2*                            a_proto,
-  bool                const           a_act_opts[NP],
-  std::vector<double>*                a_init_vals,
-  std::vector<double> const&          a_lo_bounds,
-  std::vector<double> const&          a_up_bounds,
-  int                                 a_max_evals,
-  bool                                a_constr_q,
-  bool                                a_constr_sep_q,
-  bool                                a_constr_long_g,
-  boost::property_tree::ptree const&  a_pt
+  // Main Optimisation Problem Setup:
+  Ascent2 const*              a_proto,
+  std::array<bool,NP> const&  a_act_opts,
+  std::vector<double>*        a_init_vals,
+  std::vector<double> const&  a_lo_bounds,
+  std::vector<double> const&  a_up_bounds,
+  // Optimisation Constraints:
+  LenK                        a_max_startH,
+  VelK                        a_max_startV,
+  Pressure                    a_Q_limit,
+  Pressure                    a_sepQ_limit,
+  double                      a_longG_limit,
+  // NOMAD Params:
+  int                         a_max_evals,
+  int                         a_opt_seed,
+  bool                        a_stop_if_feasible,
+  double                      a_use_vns
 )
 {
   assert(a_proto != nullptr && a_init_vals != nullptr);
@@ -265,13 +296,13 @@ bool Ascent2::RunNOMAD
   bbTypes.push_back(NOMAD::BBOutputType::PB);
   bbTypes.push_back(NOMAD::BBOutputType::PB);
 
-  // Possible extra constraints: MaxQ, MaxSepQ, MaxLongG,
+  // Possible extra constraints: QLimit, SepQLimit, LongGLimit,
   // to be satisfied at the solution point only as well:
-  if (a_constr_q)
+  if (IsFinite(a_Q_limit))
     bbTypes.push_back(NOMAD::BBOutputType::PB);
-  if (a_constr_sep_q)
+  if (IsFinite(a_sepQ_limit))
     bbTypes.push_back(NOMAD::BBOutputType::PB);
-  if (a_constr_long_g)
+  if (IsFinite(a_longG_limit))
     bbTypes.push_back(NOMAD::BBOutputType::PB);
 
   params->setAttributeValue("BB_OUTPUT_TYPE", bbTypes );
@@ -292,22 +323,18 @@ bool Ascent2::RunNOMAD
   params->getRunParams()->setAttributeValue("HOT_RESTART_READ_FILES",  false);
   params->getRunParams()->setAttributeValue("HOT_RESTART_WRITE_FILES", false);
 
-  int    optSeed = a_pt.get<int>   ("Technical.NOMADSeed");
-  params->setAttributeValue("SEED", optSeed);
+  params->setAttributeValue("SEED",             a_opt_seed);
+  params->setAttributeValue("STOP_IF_FEASIBLE", a_stop_if_feasible);
 
-  bool   stopIfFeasible =
-                   a_pt.get<bool>  ("Technical.NOMADStopIfFeasible");
-  params->setAttributeValue("STOP_IF_FEASIBLE", stopIfFeasible);
-
-  double useVNS  = a_pt.get<double>("Technical.NOMADUseVNS");
-  if (useVNS <  0.0 || useVNS >= 1.0)
+  if (a_use_vns <  0.0 || a_use_vns >= 1.0)
     throw std::invalid_argument ("NOMADUseVNS: The arg must be in [0..1)");
 
-  if (useVNS != 0.0)
+  if (a_use_vns != 0.0)
   {
+    assert(0.0 < a_use_vns && a_use_vns < 1.0);
     params->setAttributeValue("VNS_MADS_SEARCH",         true);
     params->setAttributeValue("VNS_MADS_SEARCH_TRIGGER",
-                              NOMAD::Double(useVNS));
+                              NOMAD::Double(a_use_vns));
   }
 
   // Validate the "params" and install them in the "opt":
@@ -320,9 +347,9 @@ bool Ascent2::RunNOMAD
   std::unique_ptr<NOMADEvaluator> ev
     (new NOMADEvaluator
     (
-      a_proto,
-      a_act_opts,
-      params->getEvalParams()
+      params->getEvalParams(),
+      a_proto,      a_act_opts,
+      a_max_startH, a_max_startV, a_Q_limit, a_sepQ_limit, a_longG_limit
     ));
   opt.setEvaluator(std::move(ev));
 

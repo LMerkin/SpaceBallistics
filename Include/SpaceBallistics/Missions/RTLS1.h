@@ -5,6 +5,7 @@
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Missions/LVBase.h"
+#include <array>
 
 namespace SpaceBallistics
 {
@@ -137,6 +138,107 @@ namespace SpaceBallistics
     // Internal Helpers:                                                     //
     //=======================================================================//
     //-----------------------------------------------------------------------//
+    // For ODE Integration:                                                  //
+    //-----------------------------------------------------------------------//
+    // "ODECB":
+    // CallBack (invoked after the completion of each integration step):
+    // Here FlightMode switching occurs, so this method is non-"const":
+    //
+    bool ODECB(StateV* a_s, Time a_t, Time a_tau);
+
+    // "AeroDynForces":
+    // Atmospheric Conditions and Aerodynamic Drag Force:
+    //
+    std::tuple<EAM::AtmConds, ForceK, ForceK>
+    AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const;
+
+    // "PropBurnRate": (may be variable over time, >= 0):
+    MassRate PropBurnRate(Time a_t) const;
+
+    // "AoA": Angle-of-Attack (variable over time, also constrained with the
+    // curr pitch "psi"):
+    Angle AoA(Time a_t, Angle a_psi) const;
+
+    // "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
+    ForceK Thrust(MassRate a_burn_rate, Pressure a_p) const;
+
+    // "LVMass": Current Mass:
+    Mass LVMass(StateV const& a_s, Time a_t) const;
+
+    //-----------------------------------------------------------------------//
+    // "NOMADEvaluator": Helper Class used in NOMAD Optimisation:            //
+    //-----------------------------------------------------------------------//
+    class        NOMADEvaluator;
+    friend class NOMADEvaluator;
+
+    //-----------------------------------------------------------------------//
+    // "OPtRes" Struct: The result of "FindOptimalReturnCtls" below:         //
+    //-----------------------------------------------------------------------//
+    // It just contains the relevant flds taken from the main "RTLS1" class:
+    //
+    struct OptRes
+    {
+      // Data Flds:
+      Mass       m_propMassS;
+      Time       m_coastTime;
+      Time       m_bbBurnDur;
+      double     m_bbBurnSinTheta[NS];
+      Pressure   m_entryBurnQ;
+      Time       m_entryBurnDur;
+      LenK       m_finalBurnH;
+      double     m_finalBurnThrtL;
+
+      // Non-Default Ctor:
+      OptRes(RTLS1 const& a_rtls);
+
+      // Output:
+      friend std::ostream& operator<<
+            (std::ostream& a_os, OptRes const& a_res);
+    };
+    friend struct OptRes;
+
+    //-----------------------------------------------------------------------//
+    // "FindOptimalReturnCtls":                                              //
+    //-----------------------------------------------------------------------//
+    // Top-Level Optimisation Function. Tries to find the ctls which minimise
+    // the Propellant Mass and ensures all Return and Landing constraints are
+    // satisfied. Can also perform the "final run" on the optimal params found,
+    // and return the corresp "RunRes" (if specified in the Config.ini):
+    //
+    static std::pair<std::optional<OptRes>,
+                     std::optional<RunRes>>
+    FindOptimalAscentCtls
+    (
+      // All are are given via the ConfigFile.ini, as there are quite a few of
+      // them:
+      std::string const& a_config_ini,
+      std::ostream*      a_os   // May be NULL
+    );
+
+  private:
+    /*
+    //=======================================================================//
+    // "RunNOMAD":                                                           //
+    //=======================================================================//
+    // Helper invoked from "FindOptimalAscentCtls". Returns "true" on success
+    // (then "a_init_vals" contains the optimal params),   "false" otherwise:
+    //
+    static bool RunNOMAD
+    (
+      // Main Optimisation Problem Setup:
+      Ascent2 const*                      a_proto,
+      std::array<bool,NP> const&          a_act_opts,
+      std::vector<double>*                a_init_vals,
+      std::vector<double> const&          a_lo_bounds,
+      std::vector<double> const&          a_up_bounds,
+      // Optimisation Constraints:
+      int                                 a_max_evals,
+      bool                                a_constr_q,
+      bool                                a_constr_sep_q,
+      bool                                a_constr_long_g,
+      boost::property_tree::ptree const&  a_pt
+    );
+    */
   };
 }
 // End namespace SpaceBallistics

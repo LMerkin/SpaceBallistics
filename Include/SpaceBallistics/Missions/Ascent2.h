@@ -5,6 +5,7 @@
 //===========================================================================//
 #include "SpaceBallistics/Missions/LVBase.h"
 #include <boost/property_tree/ptree.hpp>
+#include <array>
 
 namespace SpaceBallistics
 {
@@ -27,11 +28,6 @@ namespace SpaceBallistics
     // be made configurable?):
     constexpr static Pressure FairingSepCond = Pressure(1.0);
     constexpr static Time     MaxTGap        = 1000.0_sec;      // Very Large!
-
-    // Constraints on Start Altitude and Start Velocity (both should be close
-    // to 0):
-    constexpr static LenK     MaxStartH      = 0.1_km;          // 100 m
-    constexpr static VelK     MaxStartV      = VelK(0.03);      //  30 m/sec
 
     //=======================================================================//
     // Types:                                                                //
@@ -153,14 +149,6 @@ namespace SpaceBallistics
     double                m_bAoAHat1;
 
     //-----------------------------------------------------------------------//
-    // Constraints used in Optimisation:                                     //
-    //-----------------------------------------------------------------------//
-    // (see below for the actual encountered vals):
-    Pressure              m_QLimit;
-    Pressure              m_sepQLimit;
-    double                m_longGLimit;
-
-    //-----------------------------------------------------------------------//
     // Transient Data (during flight path integration):                      //
     //-----------------------------------------------------------------------//
     FlightMode            m_mode;
@@ -169,7 +157,7 @@ namespace SpaceBallistics
     Time                  m_cutOffTime1;    // Gap   start: St1 Cut-Off  Time
     Time                  m_ignTime1;       // Burn1 start: St1 Ignition Time
 
-    // Vals to be Constrined:
+    // Vals which may be Constrined:
     Pressure              m_maxQ;           // Max Dynamic Pressure (Q)
     Pressure              m_sepQ;           // Q @ Stage1 separation
     double                m_maxLongG;       // Max Longitudinal G
@@ -206,11 +194,6 @@ namespace SpaceBallistics
       Mass            a_fairing_mass,
       Len             a_diam,
       Mass            a_payload_mass,
-
-      // Constraints (+oo if no constraint):
-      Pressure        a_Q_limit,
-      Pressure        a_sepQ_limit,
-      double          a_longG_limit,
 
       // Mission Params:
       LenK            a_h_perigee,
@@ -256,11 +239,6 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // For ODE Integration:                                                  //
     //-----------------------------------------------------------------------//
-    // "ODERHS":
-    // For Ascent Trajectory Integration:
-    //
-    DStateV ODERHS(StateV const& a_s, Time a_t);
-
     // "ODECB":
     // CallBack (invoked after the completion of each integration step):
     // Here FlightMode switching occurs, so this method is non-"const":
@@ -273,35 +251,25 @@ namespace SpaceBallistics
     std::tuple<EAM::AtmConds, ForceK, ForceK>
     AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const;
 
-    // "LocateSingularPoint":
-    // The final stage of integration, where we assume omega=0 (a purely vert-
-    // ical motion)   and integrate the simplified ODEs ANALYTICALLY to avoid
-    // numerical instabilities in the viciniy of the singular point.
-    // Returns (singH, singT)  if the singular point has been found, otherwise
-    // "nullopt":
-    std::optional<std::pair<StateV, Time>>
-    LocateSingularPoint(NearSingularityExn const& a_nse);
-
-    //      "PropBurnRate": (may be variable over time, >= 0):
+    // "PropBurnRate": (may be variable over time, >= 0):
     MassRate PropBurnRate(Time a_t) const;
 
-    //   "AoA": Angle-of-Attack (variable over time, also constrained with the
-    //   curr pitch "psi"):
+    // "AoA": Angle-of-Attack (variable over time, also constrained with the
+    // curr pitch "psi"):
     Angle AoA(Time a_t, Angle a_psi) const;
 
-    //    "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
+    // "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
     ForceK Thrust(MassRate a_burn_rate, Pressure a_p) const;
 
-    //  "LVMass": Current Mass (LV + PayLoad):
+    // "LVMass": Current Mass (LV + PayLoad):
     Mass LVMass(StateV const& a_s, Time a_t) const;
-
-    //  "OutputCtls": For Testing Only:
-    void OutputCtls() const;
-
+ 
     //-----------------------------------------------------------------------//
     // For Optimisation:                                                     //
     //-----------------------------------------------------------------------//
-    // NB: "ModifyLVParams" also includes "SetCtlParams":
+    // NB:   "ModifyLVParams" also calls "SetCtlParams", but is not limited  to
+    // that: it also applies ThrustMult{1,2} and Alpha1, ie affects the main LV
+    // params:
     //
     void ModifyLVParams
     (
@@ -316,6 +284,9 @@ namespace SpaceBallistics
       double a_aAoAHat1,    double a_bAoAHat1
     );
 
+    //  "OutputCtls": For Testing Only:
+    void OutputCtls() const;
+
     //=======================================================================//
     // "NOMADEvaluator": Helper Class used in NOMAD Optimisation:            //
     //=======================================================================//
@@ -324,10 +295,9 @@ namespace SpaceBallistics
 
   public:
     //=======================================================================//
-    // "OptRes" Struct:                                                      //
+    // "OptRes" Struct: The result of "FindOptimalAscentCtls" below:         //
     //=======================================================================//
-    // The result of "FindOptimalAscentCtls" below. It just contains the rele-
-    // vant flds taken from the main "Ascent2" class:
+    // It just contains the relevant flds taken from the main "Ascent2" class:
     //
     struct OptRes
     {
@@ -413,7 +383,7 @@ namespace SpaceBallistics
     //=======================================================================//
     // "FindOptimalAscentCtls":                                              //
     //=======================================================================//
-    // Top-Level Optiomisation Function.
+    // Top-Level Optimisation Function.
     // Tries to find the Flight Control Params such that  the specified target
     // orbit is reached (with the orbital insertion occurring in the perigee,
     // if the orbit is elliptical) and that requires the min LV StartMass  (if
@@ -441,16 +411,23 @@ namespace SpaceBallistics
     //
     static bool RunNOMAD
     (
-      Ascent2*                            a_proto,
-      bool                const           a_act_opts[NP],
-      std::vector<double>*                a_init_vals,
-      std::vector<double> const&          a_lo_bounds,
-      std::vector<double> const&          a_up_bounds,
-      int                                 a_max_evals,
-      bool                                a_constr_q,
-      bool                                a_constr_sep_q,
-      bool                                a_constr_long_g,
-      boost::property_tree::ptree const&  a_pt
+      // Main Optimisation Problem Setup:
+      Ascent2 const*                a_proto,
+      std::array<bool,NP> const&    a_act_opts,
+      std::vector<double>*          a_init_vals,  // Non-NULL, size <= NP
+      std::vector<double> const&    a_lo_bounds,  //           size <= NP
+      std::vector<double> const&    a_up_bounds,  //           size <= NP
+      // Optimisation Constraints:
+      LenK                          a_max_startH,
+      VelK                          a_max_startV,
+      Pressure                      a_Q_limit,
+      Pressure                      a_sepQ_limit,
+      double                        a_longG_limit,
+      // NOMAD Params:
+      int                           a_max_evals,
+      int                           a_opt_seed,
+      bool                          a_stop_if_feasible,
+      double                        a_use_vns     // In [0..1), 0: no VNS
     );
   };
 }

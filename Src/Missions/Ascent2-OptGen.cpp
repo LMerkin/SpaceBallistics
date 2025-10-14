@@ -367,7 +367,7 @@ Ascent2::FindOptimalAscentCtls
   //     and "payLoadMass" are given as actual magnitudes (in sec and kg, resp),
   //     whereas the Optimiser always uses relative vals normalised to [0..1]
   //     for the sake of uniformity:
-  bool                actOpts[NP];
+  std::array<bool,NP> actOpts;
   std::vector<double> loBounds;
   std::vector<double> upBounds;
   std::vector<double> initVals;
@@ -432,31 +432,42 @@ Ascent2::FindOptimalAscentCtls
   // So: How many Optimisation Args have we got?
   int np = 0;
   for (int i = 0; i < NP; ++i)
-    np += int(actOpts[i]);
+    np += int(actOpts[size_t(i)]);
 
   assert(int(loBounds.size()) == np && int(upBounds.size()) == np &&
          int(initVals.size()) == np);
 
+  // Main Constraints:
+  LenK     maxStartH(pt.get<double>("Opt.MaxStartH"));
+  VelK     maxStartV(pt.get<double>("Opt.MaxStartV"));
+
   // Extra Constraints: "inf" and "nan" are also allowed, hence the use of
   // "std::atof":
   Pressure QLimit
-           (std::atof(pt.get<std::string>("Opt.QLimit"    ).data()));
+    (std::atof(pt.get<std::string> ("Opt.QLimit"    ).data()));
 
   Pressure sepQLimit
-           (std::atof(pt.get<std::string>("Opt.SepQLimit" ).data()));
+    (std::atof(pt.get<std::string> ("Opt.SepQLimit" ).data()));
 
   double   longGLimit =
-            std::atof(pt.get<std::string>("Opt.LongGLimit").data());
+    std::atof (pt.get<std::string> ("Opt.LongGLimit").data());
 
   //-------------------------------------------------------------------------//
   // Finally: Technical Params:                                              //
   //-------------------------------------------------------------------------//
-  // Generic:
+  // Generic Params:
   Time   odeIntegrStep     (pt.get<double>("Technical.ODEIntegrStep"));
   bool   withFinalRun     = pt.get<bool>  ("Technical.WithFinalRun");
   int    finalRunLogLevel = pt.get<int>   ("Technical.FinalRunLogLevel");
   int    optMaxEvals      = pt.get<int>   ("Technical.OptMaxEvals");
   int    optLogLevel      = pt.get<int>   ("Technical.OptLogLevel");
+
+  // NOMAD-Specific Params:
+  int    optSeed          = pt.get<int>   ("Technical.NOMADSeed");
+  bool   stopIfFeasible   = pt.get<bool>  ("Technical.NOMADStopIfFeasible");
+  double useVNS           = pt.get<double>("Technical.NOMADUseVNS");
+  if (useVNS < 0.0 || useVNS >= 1.0)      // 0: VNS not used
+    throw std::invalid_argument ("NOMADUseVNS: The arg must be in [0..1)");
 
   //-------------------------------------------------------------------------//
   // Create the "prototype" "Ascent2" obj:                                   //
@@ -465,8 +476,7 @@ Ascent2::FindOptimalAscentCtls
   (
     k2,      propRem2,          IspVac2, thrustVacI2, minThrttL2, maxAoA2,
     k1,      propRem1,  IspSL1, IspVac1, thrustVacI1, minThrttL1, maxAoA1,
-    alpha1,  maxStartMass,      fairingMass,    diam, payLoadMass,
-    QLimit,  sepQLimit,         longGLimit,
+    alpha1,  maxStartMass,      fairingMass,    diam,             payLoadMass,
     perigee, apogee,    incl,   launchLat,      odeIntegrStep,    a_os,
     optLogLevel
   );
@@ -486,8 +496,9 @@ Ascent2::FindOptimalAscentCtls
     bool ok =
       RunNOMAD
       (
-        &proto,  actOpts, &initVals, loBounds, upBounds,   optMaxEvals,
-        IsFinite(QLimit), IsFinite(sepQLimit), IsFinite(longGLimit), pt
+        &proto,      actOpts,   &initVals,      loBounds,  upBounds,
+        maxStartH,   maxStartV, QLimit,         sepQLimit, longGLimit,
+        optMaxEvals, optSeed,   stopIfFeasible, useVNS
       );
     if (!ok)
       return std::make_pair(std::nullopt, std::nullopt);
@@ -503,7 +514,7 @@ Ascent2::FindOptimalAscentCtls
   //
   for (int i = 0, j = 0; i < NP; ++i)
   {
-    if (!actOpts[i])
+    if (!actOpts[size_t(i)])
       continue;
     assert(j < np);
 
