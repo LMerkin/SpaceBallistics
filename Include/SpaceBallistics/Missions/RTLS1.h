@@ -6,6 +6,7 @@
 #pragma  once
 #include "SpaceBallistics/Missions/LVBase.h"
 #include <array>
+#include <vector>
 
 namespace SpaceBallistics
 {
@@ -18,8 +19,8 @@ namespace SpaceBallistics
     //=======================================================================//
     // Types:                                                                //
     //=======================================================================//
-    using  Base = LVBase<Ascent2>;
-    friend class  LVBase<Ascent2>;
+    using  Base = LVBase<RTLS1>;
+    friend class  LVBase<RTLS1>;
 
     //-----------------------------------------------------------------------//
     // "FlightMode":                                                         //
@@ -39,9 +40,6 @@ namespace SpaceBallistics
     // Data Flds:                                                            //
     //=======================================================================//
     // Stage1 params are contained in the Base:
-    using  Base = LVBase<RTLS1>;
-    friend class  LVBase<RTLS1>;
-
     //-----------------------------------------------------------------------//
     // Const Mission Params:                                                 //
     //-----------------------------------------------------------------------//
@@ -49,7 +47,7 @@ namespace SpaceBallistics
     // "t" runs FORWARD.
     // We assume that the landing site is (h=0, l=0). The co-ords at Separation
     // are (hS > 0, lS > 0), and they are considered to be const params:
-    LenL const            m_hS;
+    LenK const            m_hS;
     LenK const            m_lS;
 
     // And the corresp velocity components at Separation: Velocity  projections
@@ -112,9 +110,9 @@ namespace SpaceBallistics
     RTLS1
     (
       // Stage Params:
-      Mass           a_full_mass1,
-      double         a_K1,                  // PropMass1 / FullMass1
-      double         a_prop_rem1,
+      Mass           a_max_full_mass1,
+      Mass           a_empty_mass1,
+      double         a_prop_rem1,           // Based on "a_max_full_mass1"
       Time           a_Isp_sl1,
       Time           a_Isp_vac1,
       ForceK         a_thrust_vac1,
@@ -122,6 +120,7 @@ namespace SpaceBallistics
       Len            a_diam,
 
       // Mission (Return-to-Launch-Site) Params:
+      Mass           a_prop_massS,          // INCL the unspendable remnant
       LenK           a_hS,
       LenK           a_lS,
       VelK           a_VrS,
@@ -207,7 +206,7 @@ namespace SpaceBallistics
     //
     static std::pair<std::optional<OptRes>,
                      std::optional<RunRes>>
-    FindOptimalAscentCtls
+    FindOptimalReturnCtls
     (
       // All are are given via the ConfigFile.ini, as there are quite a few of
       // them:
@@ -216,29 +215,30 @@ namespace SpaceBallistics
     );
 
   private:
-    /*
     //=======================================================================//
     // "RunNOMAD":                                                           //
     //=======================================================================//
-    // Helper invoked from "FindOptimalAscentCtls". Returns "true" on success
+    // Helper invoked from "FindOptimalReturnCtls". Returns "true" on success
     // (then "a_init_vals" contains the optimal params),   "false" otherwise:
     //
     static bool RunNOMAD
     (
       // Main Optimisation Problem Setup:
-      Ascent2 const*                      a_proto,
-      std::array<bool,NP> const&          a_act_opts,
-      std::vector<double>*                a_init_vals,
-      std::vector<double> const&          a_lo_bounds,
-      std::vector<double> const&          a_up_bounds,
+      RTLS1               const*    a_proto,
+      std::array<bool,NP> const&    a_act_opts,
+      std::vector<double>*          a_init_vals,
+      std::vector<double> const&    a_lo_bounds,
+      std::vector<double> const&    a_up_bounds,
       // Optimisation Constraints:
-      int                                 a_max_evals,
-      bool                                a_constr_q,
-      bool                                a_constr_sep_q,
-      bool                                a_constr_long_g,
-      boost::property_tree::ptree const&  a_pt
+      LenK                          a_max_dL0,
+      LenK                          a_max_V0,
+      Pressure                      a_max_Q,
+      // NOMAD Params:
+      int                           a_max_evals,
+      int                           a_opt_seed,
+      bool                          a_stop_if_feasible,
+      double                        a_use_vns     // In [0..1), 0: no VNS
     );
-    */
   };
 }
 // End namespace SpaceBallistics

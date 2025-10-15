@@ -6,6 +6,7 @@
 #include "SpaceBallistics/Missions/LVBase.h"
 #include <boost/property_tree/ptree.hpp>
 #include <array>
+#include <vector>
 
 namespace SpaceBallistics
 {
@@ -411,7 +412,7 @@ namespace SpaceBallistics
     static bool RunNOMAD
     (
       // Main Optimisation Problem Setup:
-      Ascent2 const*                a_proto,
+      Ascent2             const*    a_proto,
       std::array<bool,NP> const&    a_act_opts,
       std::vector<double>*          a_init_vals,  // Non-NULL, size <= NP
       std::vector<double> const&    a_lo_bounds,  //           size <= NP

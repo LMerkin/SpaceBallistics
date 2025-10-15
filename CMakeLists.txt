@@ -203,7 +203,8 @@ SET(SRCS
   Src/PhysEffects/EarthAtmosphereModel.cpp
   Src/Missions/Ascent2-Integr.cpp
   Src/Missions/Ascent2-OptGen.cpp
-  Src/Missions/Ascent2-NOMAD.cpp)
+  Src/Missions/Ascent2-NOMAD.cpp
+  Src/Missions/RTLS1-Integr.cpp)
 
 ADD_LIBRARY          (${PROJECT_NAME} STATIC ${SRCS})
 

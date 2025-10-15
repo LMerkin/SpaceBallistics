@@ -236,7 +236,7 @@ public:
 bool Ascent2::RunNOMAD
 (
   // Main Optimisation Problem Setup:
-  Ascent2 const*              a_proto,
+  Ascent2             const*  a_proto,
   std::array<bool,NP> const&  a_act_opts,
   std::vector<double>*        a_init_vals,
   std::vector<double> const&  a_lo_bounds,
