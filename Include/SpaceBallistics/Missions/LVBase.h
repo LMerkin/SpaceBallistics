@@ -144,8 +144,7 @@ namespace SpaceBallistics
     {
       RunRC     m_rc;       // Return Code
       Time      m_T;        // Final (actually start) Time, < 0
-      LenK      m_hT;       // Final (actually start) Altitude
-      VelK      m_VT;       // Final (sctually start) Velocity
+      VelK      m_VT;       // Final (actually start) Velocity
       Mass      m_mT;       // Final (actually start) Mass
       Pressure  m_maxQ;     // Max Dynamic Pressure (Q)
       Pressure  m_sepQ;     // Q @ Stage1 Separation

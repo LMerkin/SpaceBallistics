@@ -58,7 +58,6 @@ private:
   Ascent2 const*      const m_proto;
   std::array<bool,NP> const m_actOpts;     // Flags for Active Opt Params
   // Optimisation Constraints:
-  LenK                const  m_maxStartH;
   VelK                const  m_maxStartV;
   Pressure            const  m_QLimit;     // NAN -> disabled
   Pressure            const  m_sepQLimit;  // ditto
@@ -75,7 +74,6 @@ public:
     // Flags indicating which variables are optimisation args:
     std::array<bool,NP> const&                    a_act_opts,
     // Optimisation Constraints:
-    LenK                                          a_max_startH,
     VelK                                          a_max_startV,
     Pressure                                      a_Q_limit,
     Pressure                                      a_sepQ_limit,
@@ -84,13 +82,12 @@ public:
   : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
     m_proto         (a_proto),
     m_actOpts       (a_act_opts),
-    m_maxStartH     (a_max_startH),
     m_maxStartV     (a_max_startV),
     m_QLimit        (a_Q_limit),
     m_sepQLimit     (a_sepQ_limit),
     m_longGLimit    (a_longG_limit)
   {
-    if (!IsPos(m_maxStartH)     || !IsPos(m_maxStartV)  ||
+    if (!IsPos(m_maxStartV)                             ||
         (IsFinite(m_QLimit)     && !IsPos(m_QLimit))    ||
         (IsFinite(m_sepQLimit)  && !IsPos(m_sepQLimit)) ||
         (IsFinite(m_longGLimit) && !IsPos(m_longGLimit)) )
@@ -187,10 +184,7 @@ public:
     if (res.m_rc == RunRC::Error)
       return false;
   
-    // StartH:
-    LenK hT = std::max(res.m_hT, 0.0_km);
-  
-    // StartV:
+    // StartV (or a StartV equivalent taking StartH into account):
     VelK VT = std::max(res.m_VT, VelK(0.0));
   
     // Push the results back to NOMAD in string form:
@@ -205,10 +199,7 @@ public:
       objIsStartMass    ? res.m_mT : (- asc.m_payLoadMass);
     curr += sprintf(curr, "%.16e", objMass.Magnitude());
   
-    // Constraint0: StartH:
-    curr += sprintf(curr, " %.16e ", (hT - m_maxStartH).Magnitude());
-  
-    // Constraint1: StartV:
+    // Constraint0: StartV:
     curr += sprintf(curr, " %.16e",  (VT - m_maxStartV).Magnitude());
   
     // Other Constraints if enabled:
@@ -251,7 +242,6 @@ bool Ascent2::RunNOMAD
   std::vector<double> const&  a_lo_bounds,
   std::vector<double> const&  a_up_bounds,
   // Optimisation Constraints:
-  LenK                        a_max_startH,
   VelK                        a_max_startV,
   Pressure                    a_Q_limit,
   Pressure                    a_sepQ_limit,
@@ -291,9 +281,8 @@ bool Ascent2::RunNOMAD
   NOMAD::BBOutputTypeList  bbTypes;
   bbTypes.push_back(NOMAD::BBOutputType::OBJ);
 
-  // 2 constraints on the start consitions: h(-T) and V(-T),
+  // 1 constraint on the start consitions: V(-T),
   // to be satisfied at the solution point only:
-  bbTypes.push_back(NOMAD::BBOutputType::PB);
   bbTypes.push_back(NOMAD::BBOutputType::PB);
 
   // Possible extra constraints: QLimit, SepQLimit, LongGLimit,
@@ -349,7 +338,7 @@ bool Ascent2::RunNOMAD
     (
       params->getEvalParams(),
       a_proto,      a_act_opts,
-      a_max_startH, a_max_startV, a_Q_limit, a_sepQ_limit, a_longG_limit
+      a_max_startV, a_Q_limit, a_sepQ_limit, a_longG_limit
     ));
   opt.setEvaluator(std::move(ev));
 

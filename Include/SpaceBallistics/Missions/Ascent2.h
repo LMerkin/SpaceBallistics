@@ -156,8 +156,7 @@ namespace SpaceBallistics
     Time                  m_fairingSepTime; // Fairing Separation Time
     Time                  m_cutOffTime1;    // Gap   start: St1 Cut-Off  Time
     Time                  m_ignTime1;       // Burn1 start: St1 Ignition Time
-
-    // Vals which may be Constrined:
+    // Vals which may be Constrained:
     Pressure              m_maxQ;           // Max Dynamic Pressure (Q)
     Pressure              m_sepQ;           // Q @ Stage1 separation
     double                m_maxLongG;       // Max Longitudinal G
@@ -172,7 +171,7 @@ namespace SpaceBallistics
     Ascent2
     (
       // Stage2:
-      double          a_K2,             // PropMass2 / FullMass2
+      double          a_K2,                 // PropMass2 / FullMass2
       double          a_prop_rem2,
       Time            a_Isp_vac2,
       ForceK          a_thrust_vac2,
@@ -180,7 +179,7 @@ namespace SpaceBallistics
       Angle_deg       a_max_aoa2,
 
       // Stage1:
-      double          a_K1,             // PropMass1 / FullMass1
+      double          a_K1,                 // PropMass1 / FullMass1
       double          a_prop_rem1,
       Time            a_Isp_sl1,
       Time            a_Isp_vac1,
@@ -189,7 +188,7 @@ namespace SpaceBallistics
       Angle_deg       a_max_aoa1,
 
       // Over-All:
-      double          a_alpha1,         // FullMass1 / FullMass2
+      double          a_alpha1,             // FullMass1 / FullMass2
       Mass            a_max_start_mass,
       Mass            a_fairing_mass,
       Len             a_diam,
@@ -230,7 +229,7 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Ascent Trajectory:                               //
     //-----------------------------------------------------------------------//
-    RunRes Run();
+    Base::RunRes Run();
 
   private:
     //=======================================================================//
@@ -418,7 +417,6 @@ namespace SpaceBallistics
       std::vector<double> const&    a_lo_bounds,  //           size <= NP
       std::vector<double> const&    a_up_bounds,  //           size <= NP
       // Optimisation Constraints:
-      LenK                          a_max_startH,
       VelK                          a_max_startV,
       Pressure                      a_Q_limit,
       Pressure                      a_sepQ_limit,

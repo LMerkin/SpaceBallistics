@@ -218,7 +218,7 @@ Ascent2::Ascent2
 //===========================================================================//
 // Returns (RunRC, FinalH, FlightTime, ActStartMass):
 //
-Ascent2::RunRes Ascent2::Run()
+Ascent2::Base::RunRes Ascent2::Run()
 {
   //-------------------------------------------------------------------------//
   // Run the integration BACKWARDS from the orbital insertion point          //
@@ -278,23 +278,28 @@ Ascent2::RunRes Ascent2::Run()
     {
       Base::StateV const& singS = sing.value().first;
       Time                singT = sing.value().second;
-      LenK                singH = std::get<0>(singS) - R;
-      assert(!IsNeg(singH));
+      LenK                singR = std::get<0>(singS);
+      assert(singR >= R);
       Mass                singM = LVMass(singS, singT);
+
+      // Convert "singR" into the velocity @ H=0 (to allow for uniform treatment
+      // of constraints) using the Energy Integral:
+      VelK V0 = SqRt(2.0 * K * (1.0 / R - 1.0 / singR));
+
       return Base::RunRes
-            {Base::RunRC::Singularity, singT, singH, VelK(0.0), singM,
+            {Base::RunRC::Singularity, singT, V0, singM,
              m_maxQ, m_sepQ, m_maxLongG};
     }
     else
       // Although we got a "NearSingularityExn", we could not determine the
-      // precise location of the singular point. Yet the constraints are
+      // precise location of the singular point. Yet some constraints are
       // returned:
       return Base::RunRes
-            {Base::RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
+            {Base::RunRC::Error, Time(NAN), VelK(NAN), Mass(NAN),
              m_maxQ, m_sepQ, m_maxLongG};
   }
-  // XXX: Any other exceptions are propagated to the top level, it's better
-  // not to mask them...
+  // XXX: Any other exceptions are propagated to the top level, it's better not
+  // to hide them...
 
   //-------------------------------------------------------------------------//
   // Integration has run to completion, but not to the singular point:       //
@@ -302,39 +307,45 @@ Ascent2::RunRes Ascent2::Run()
   // Check the final state and mode:
   //
   LenK   rEnd     = std::get<0>(s0);
-  LenK   hEnd     = rEnd - R;
   VelK   VrEnd    = std::get<1>(s0);
   AngVel omegaEnd = std::get<2>(s0);
-  VelK   VEnd     = SqRt(Sqr(VrEnd) + Sqr(rEnd * omegaEnd / 1.0_rad));
+  auto   VEnd2    = Sqr(VrEnd) + Sqr(rEnd * omegaEnd / 1.0_rad);
   Mass   mEnd     = LVMass(s0, tEnd);
 
   if (m_mode == FlightMode::UNDEFINED)
   {
-    // We have run out of propellant while, presumably, still @ hEnd > 0;
-    // if we got h <= 0, the neg value should be very small:
-    if (!IsPos(hEnd))
+    // We have run out of propellant while, presumably, still @ rEnd > R;
+    // if we got rEnd < R, the diff should be very small:
+    if (rEnd < R)
     {
       if (Base::m_os != nullptr && m_logLevel >= 1)
         *Base::m_os  << "# Ascent2::Run: Got mode=UNDEFINED but h="
-                     << hEnd.Magnitude() << " km" << std::endl;
-      hEnd = 0.0_km;
+                     << (rEnd - R).Magnitude() << " km" << std::endl;
+      rEnd = R;
     }
+    assert(rEnd >= R);
+
+    // Convert the (rEnd, VEnd) into the velocity:
+    VelK V0 = SqRt(VEnd2 + 2.0 * K * (1.0 / R - 1.0 / rEnd));
+
     return Base::RunRes
-          {Base::RunRC::FlameOut, tEnd, hEnd, VEnd, mEnd,
+          {Base::RunRC::FlameOut, tEnd, V0, mEnd,
            m_maxQ,  m_sepQ, m_maxLongG};
   }
   else
   {
     // Then we should get hEnd==0 (because the only other possibility is
     // that the integration ran until tMin, which is extremely unlikely):
-    if (hEnd > 0.5_km)
+    LenK hEnd = rEnd - R;
+    if  (hEnd > 0.5_km)
     {
-      if (Base::m_os != nullptr && m_logLevel >= 1)
+      if (Base::m_os != nullptr)   // Log this warning with any LogLevel!
         *Base::m_os  << "# Ascent2::Run: Expected h=0 but got h="
                      << hEnd.Magnitude() << " km" << std::endl;
+      hEnd = 0.0_km; // Just reset it formally
     }
     return Base::RunRes
-          {Base::RunRC::ZeroH, tEnd, 0.0_km, VEnd, mEnd,
+          {Base::RunRC::ZeroH, tEnd, SqRt(VEnd2), mEnd,
            m_maxQ, m_sepQ, m_maxLongG};
   }
 }

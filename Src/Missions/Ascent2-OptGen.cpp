@@ -437,8 +437,7 @@ Ascent2::FindOptimalAscentCtls
   assert(int(loBounds.size()) == np && int(upBounds.size()) == np &&
          int(initVals.size()) == np);
 
-  // Main Constraints:
-  LenK     maxStartH(pt.get<double>("Opt.MaxStartH"));
+  // Main Constraint:
   VelK     maxStartV(pt.get<double>("Opt.MaxStartV"));
 
   // Extra Constraints: "inf" and "nan" are also allowed, hence the use of
@@ -496,8 +495,8 @@ Ascent2::FindOptimalAscentCtls
     bool ok =
       RunNOMAD
       (
-        &proto,      actOpts,   &initVals,      loBounds,  upBounds,
-        maxStartH,   maxStartV, QLimit,         sepQLimit, longGLimit,
+        &proto,      actOpts,   &initVals,      loBounds,   upBounds,
+        maxStartV,   QLimit,    sepQLimit,      longGLimit,
         optMaxEvals, optSeed,   stopIfFeasible, useVNS
       );
     if (!ok)
