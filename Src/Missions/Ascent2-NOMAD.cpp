@@ -182,6 +182,7 @@ public:
   
     // Analyse the Results:
     if (res.m_rc == RunRC::Error)
+      // IMPORTANT: NOMAD allows us to indicate that evaluation has failed:
       return false;
   
     // StartV (or a StartV equivalent taking StartH into account):
@@ -218,7 +219,7 @@ public:
     // Output done!
     assert(size_t(curr - buff) <= sizeof(buff));
   
-    if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 1)
+    if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 4)
     {
   #   pragma omp critical(NOMADOutput)
       *(m_proto->m_os) << buff << std::endl;

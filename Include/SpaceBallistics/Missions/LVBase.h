@@ -39,7 +39,7 @@ namespace SpaceBallistics
     // increased beyond the original value:
     constexpr static double   ODERelPrec     = 1e-6;
 
-    // Singular point detection criteria: NB: "Vhor" approaches 0 much faster
+    // Singular Point detection criteria: NB: "Vhor" approaches 0 much faster
     // than "Vr":
     constexpr static VelK     SingVr         = VelK(1e-2); // 10   m/sec
     constexpr static VelK     SingVhor       = VelK(1e-4); //  0.1 m/sec
@@ -76,25 +76,27 @@ namespace SpaceBallistics
     using DStateV = std::tuple<VelK, AccK, AngAcc, MassRate, AngVel>;
 
     //-----------------------------------------------------------------------//
-    // "NearSingularityException" Class:                                     //
+    // "NearSingularityExn" Class:                                           //
     //-----------------------------------------------------------------------//
     // Exception thrown when the flight path is approaching the singular point:
+    // the horizontal velocity is assumed to be 0 at that point,  so only "Vr"
+    // matters (which is small as well):
     //
-    class NearSingularityExn
+    struct NearSingularityExn
     {
     public:
       // Data Flds:
       LenK  const m_r;
-      VelK  const m_Vr;
+      VelK  const m_Vr; // Because "Vhor" is assumed to be 0 near Singularity
       Mass  const m_spentPropMass;
       Angle const m_phi;
       Time  const m_t;
 
       // Non-Default Ctor:
-      NearSingularityExn(LenK  a_r,   VelK a_vr, Mass a_spent_prop_mass,
+      NearSingularityExn(LenK  a_r,   VelK a_Vr, Mass a_spent_prop_mass,
                          Angle a_phi, Time a_t)
       : m_r             (a_r),
-        m_Vr            (a_vr),
+        m_Vr            (a_Vr),
         m_spentPropMass (a_spent_prop_mass),
         m_phi           (a_phi),
         m_t             (a_t)
@@ -143,12 +145,12 @@ namespace SpaceBallistics
     struct RunRes
     {
       RunRC     m_rc;       // Return Code
-      Time      m_T;        // Final (actually start) Time, < 0
-      VelK      m_VT;       // Final (actually start) Velocity
-      Mass      m_mT;       // Final (actually start) Mass
-      Pressure  m_maxQ;     // Max Dynamic Pressure (Q)
-      Pressure  m_sepQ;     // Q @ Stage1 Separation
-      double    m_maxLongG; // Max Longitudinal G
+      Time      m_T;        // Final integration Time, < 0
+      VelK      m_VT;       // Final Velocity
+      Mass      m_mT;       // Final LV Mass
+      Pressure  m_maxQ;     // Max Dynamic Pressure (Q) encountered so far
+      Pressure  m_sepQ;     // Q @ Stage1 Separation   (if encountered)
+      double    m_maxLongG; // Max Longitudinal G       encountered so far
     };
 
   protected:
@@ -182,6 +184,13 @@ namespace SpaceBallistics
     Time             m_odeIntegrStep;  // Typically ~10 msec
     std::ostream*    m_os;
     int              m_logLevel;
+    //
+    // LogLevel:
+    // 0: No output (even if "m_os" is non-NULL)
+    // 1: Errors and warnings
+    // 2: Important  events
+    // 3: Full trajectory
+    // 4: Debugging info
 
     //=======================================================================//
     // Methods:                                                              //
@@ -241,15 +250,20 @@ namespace SpaceBallistics
     // NB: It is generic (can be put in the parent class) since it is implemen-
     // ted in terms of other methods:
     //
-    DStateV ODERHS(StateV const& a_s, Time a_t);
+    DStateV ODERHS(StateV const& a_s, Time a_t) const;
 
     //-----------------------------------------------------------------------//
-    // "LocateSingularPoint":                                                //
+    // Integration Post-Processing:                                          //
     //-----------------------------------------------------------------------//
-    // Used in the Ascent Backward Integration and in the RTLS Forward one:
+    // "LocateSingularPoint":
+    // If we have arrived in a vicinity of the Singular Point:
     //
-    std::optional<std::pair<StateV, Time>>
-    LocateSingularPoint(NearSingularityExn const& a_nse);
+    RunRes LocateSingularPoint(NearSingularityExn const& a_nse) const;
+
+    // "PostProcessRun":
+    // If integration has come to completion but NOT to the Singular Point:
+    //
+    RunRes PostProcessRun(StateV const& a_sT, Time a_T) const;
 
   private:
     //-----------------------------------------------------------------------//

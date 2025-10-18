@@ -7,6 +7,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <array>
 #include <vector>
+#include <utility>
 
 namespace SpaceBallistics
 {
@@ -208,7 +209,7 @@ namespace SpaceBallistics
     );
 
     //-----------------------------------------------------------------------//
-    // Copy Ctor: Required for optimisation:                                 //
+    // Copy Ctor: Required for Optimisation:                                 //
     //-----------------------------------------------------------------------//
     Ascent2(Ascent2 const&) = default;
 
@@ -254,16 +255,24 @@ namespace SpaceBallistics
     // "PropBurnRate": (may be variable over time, >= 0):
     MassRate PropBurnRate(Time a_t) const;
 
-    // "AoA": Angle-of-Attack (variable over time, also constrained with the
-    // curr pitch "psi"):
-    Angle AoA(Time a_t, Angle a_psi) const;
+    // "AoA": returns [Angle-of-Attack, ThrustVectorElevation]:
+    std::pair<Angle,Angle> AoA(Time a_t, Angle a_psi) const;
 
     // "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
     ForceK Thrust(MassRate a_burn_rate, Pressure a_p) const;
 
     // "LVMass": Current Mass (LV + PayLoad):
     Mass LVMass(StateV const& a_s, Time a_t) const;
- 
+
+    //-----------------------------------------------------------------------//
+    // "FallingBackExn" Class:                                               //
+    //-----------------------------------------------------------------------//
+    // To be thrown if  the "ODECB"  has detected  that we are falling back to
+    // Earth rather than ascending to orbit, so the integration process cannot
+    // continue. It is an error cond, so it does not carry any info:
+    //
+    struct FallingBackExn {};
+
     //-----------------------------------------------------------------------//
     // For Optimisation:                                                     //
     //-----------------------------------------------------------------------//
@@ -392,8 +401,7 @@ namespace SpaceBallistics
     // Can also perform the "final run" on the optimal params found, and return
     // the corresp "RunRes" (if specified in the Config.ini):
     //
-    static std::pair<std::optional<OptRes>,
-                     std::optional<RunRes>>
+    static std::pair<std::optional<OptRes>, std::optional<RunRes>>
     FindOptimalAscentCtls
     (
       // All are are given via the ConfigFile.ini, as there are quite a few of

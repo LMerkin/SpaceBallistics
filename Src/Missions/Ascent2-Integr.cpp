@@ -142,7 +142,7 @@ Ascent2::Ascent2
   //-------------------------------------------------------------------------//
   // Transient Data:                                                         //
   //-------------------------------------------------------------------------//
-  m_mode          (FlightMode::UNDEFINED),
+  m_mode          (FlightMode::Burn2),
   m_ignTime2      (NAN),
   m_fairingSepTime(NAN),
   m_cutOffTime1   (NAN),
@@ -216,12 +216,10 @@ Ascent2::Ascent2
 //===========================================================================//
 // "Run": Integrate the Ascent Trajectory:                                   //
 //===========================================================================//
-// Returns (RunRC, FinalH, FlightTime, ActStartMass):
-//
 Ascent2::Base::RunRes Ascent2::Run()
 {
   //-------------------------------------------------------------------------//
-  // Run the integration BACKWARDS from the orbital insertion point          //
+  // Run the integration BACKWARDS from the Orbital Insertion point          //
   //-------------------------------------------------------------------------//
   // (@ t=0):
   // Angular LV velocity at the orbital insertion point:
@@ -240,19 +238,16 @@ Ascent2::Base::RunRes Ascent2::Run()
     [this](Base::StateV*  a_s,  Time a_t, Time a_tau) -> bool
     { return this->ODECB (a_s,  a_t, a_tau); };
 
-  // FlightMode ctl (modes are switched based on the SpentPropMass):
-  m_mode              = FlightMode::Burn2;
-  m_ignTime2          = Time(NAN);  // Not known yet
-  m_cutOffTime1       = Time(NAN);  // ditto
-  m_fairingSepTime    = Time(NAN);  // ditto
-  m_ignTime1          = Time(NAN);  // ditto
+  // NB: Transient fields have been initialised in the Ctor. XXX: IMPORTANT:
+  // It is currently assumed that "Run" is invoked only once per the object
+  // lifetime!
+  if (m_mode != FlightMode::Burn2)
+    throw std::runtime_error("Ascent2::Run Repeated invocations not allowed");
 
   // The ascent maximum duration (which is certainly enough) is 1 hour:
   constexpr Time t0   = 0.0_sec;
   constexpr Time tMin = -3600.0_sec;
-
-  // NB: All necessary exception handling is provided inside "RKF5":
-  Time tEnd;
+  Time           tEnd;  // Will be > tMin;
   try
   {
     //-----------------------------------------------------------------------//
@@ -261,99 +256,36 @@ Ascent2::Base::RunRes Ascent2::Run()
     tEnd =
       RKF5(&s0,    t0, tMin, rhs,
            -Base::m_odeIntegrStep, -Base::m_odeIntegrStep,
-           ODERelPrec, &cb,  Base::m_os);
+            Base::ODERelPrec, &cb,  Base::m_os);
     assert(tEnd >= tMin);
   }
   catch (Base::NearSingularityExn const& ns)
   {
-    //-----------------------------------------------------------------------//
-    // We have reached a vicinity of the singular point:                     //
-    //-----------------------------------------------------------------------//
+    // We have reached a vicinity of the Singular Point:
     // This is a NORMAL (and moreover, a desirable) outcome. Compute a more
     // precise singular point position:
     //
-    auto sing = Base::LocateSingularPoint(ns);
-
-    if (bool(sing))
-    {
-      Base::StateV const& singS = sing.value().first;
-      Time                singT = sing.value().second;
-      LenK                singR = std::get<0>(singS);
-      assert(singR >= R);
-      Mass                singM = LVMass(singS, singT);
-
-      // Convert "singR" into the velocity @ H=0 (to allow for uniform treatment
-      // of constraints) using the Energy Integral:
-      VelK V0 = SqRt(2.0 * K * (1.0 / R - 1.0 / singR));
-
-      return Base::RunRes
-            {Base::RunRC::Singularity, singT, V0, singM,
-             m_maxQ, m_sepQ, m_maxLongG};
-    }
-    else
-      // Although we got a "NearSingularityExn", we could not determine the
-      // precise location of the singular point. Yet some constraints are
-      // returned:
-      return Base::RunRes
-            {Base::RunRC::Error, Time(NAN), VelK(NAN), Mass(NAN),
-             m_maxQ, m_sepQ, m_maxLongG};
+    return Base::LocateSingularPoint(ns);
   }
-  // XXX: Any other exceptions are propagated to the top level, it's better not
-  // to hide them...
-
-  //-------------------------------------------------------------------------//
-  // Integration has run to completion, but not to the singular point:       //
-  //-------------------------------------------------------------------------//
-  // Check the final state and mode:
-  //
-  LenK   rEnd     = std::get<0>(s0);
-  VelK   VrEnd    = std::get<1>(s0);
-  AngVel omegaEnd = std::get<2>(s0);
-  auto   VEnd2    = Sqr(VrEnd) + Sqr(rEnd * omegaEnd / 1.0_rad);
-  Mass   mEnd     = LVMass(s0, tEnd);
-
-  if (m_mode == FlightMode::UNDEFINED)
+  catch (FallingBackExn const&)
   {
-    // We have run out of propellant while, presumably, still @ rEnd > R;
-    // if we got rEnd < R, the diff should be very small:
-    if (rEnd < R)
-    {
-      if (Base::m_os != nullptr && m_logLevel >= 1)
-        *Base::m_os  << "# Ascent2::Run: Got mode=UNDEFINED but h="
-                     << (rEnd - R).Magnitude() << " km" << std::endl;
-      rEnd = R;
-    }
-    assert(rEnd >= R);
-
-    // Convert the (rEnd, VEnd) into the velocity:
-    VelK V0 = SqRt(VEnd2 + 2.0 * K * (1.0 / R - 1.0 / rEnd));
-
+    // No point in continuing: we are falling back to Earth instead of ascend-
+    // ing to orbit. Since this is an error cond, it does not carry any info:
     return Base::RunRes
-          {Base::RunRC::FlameOut, tEnd, V0, mEnd,
-           m_maxQ,  m_sepQ, m_maxLongG};
+          {Base::RunRC::Error, Time(NAN), VelK(NAN), Mass(NAN),
+           Pressure(NAN),  Pressure(NAN),      NAN};
   }
-  else
-  {
-    // Then we should get hEnd==0 (because the only other possibility is
-    // that the integration ran until tMin, which is extremely unlikely):
-    LenK hEnd = rEnd - R;
-    if  (hEnd > 0.5_km)
-    {
-      if (Base::m_os != nullptr)   // Log this warning with any LogLevel!
-        *Base::m_os  << "# Ascent2::Run: Expected h=0 but got h="
-                     << hEnd.Magnitude() << " km" << std::endl;
-      hEnd = 0.0_km; // Just reset it formally
-    }
-    return Base::RunRes
-          {Base::RunRC::ZeroH, tEnd, SqRt(VEnd2), mEnd,
-           m_maxQ, m_sepQ, m_maxLongG};
-  }
+  // XXX: Any other exceptions are propagated to the top level, it's better
+  // not to hide them...
+
+  // Integration has run to completion, but NOT to the Singular Point:
+  return Base::PostProcessRun(s0, tEnd);
 }
 
 //===========================================================================//
 // ODE CallBack (invoked after the completion of each RKF5 step):            //
 //===========================================================================//
-// Here FlightMode switching occurs, so this method is non-"const":
+// HERE FlightMode switching occurs, so this method is non-"const":
 //
 bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
 {
@@ -364,24 +296,36 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   AngVel omega         = std::get<2>(*a_s);
   Mass   spentPropMass = std::get<3>(*a_s);
   Angle  phi           = std::get<4>(*a_s);
+  VelK   Vhor          = r * omega / 1.0_rad;
 
   // NB: "spentPropMass" decreases over time, so increases in Bwd time.
   // It is 0 at Orbit Insertion Time (t=0):
   assert(IsPos(r) && !IsNeg(spentPropMass));
 
   //-------------------------------------------------------------------------//
-  // Similar to "Base::ODERHS", check if we are approaching the singularity: //
+  // Check if we are approaching the Singularity:                            //
   //-------------------------------------------------------------------------//
-  VelK   Vhor          = r * omega / 1.0_rad;
-
-  if (Vhor < SingVhor)
+  // XXX: Unlike Base::ODERHS, here we set angular velocity to 0 if "Vhor" (not
+  // |Vhor|!) is below the threshold, because we KNOW that this may only happen
+  // near the Singular Point:
+  //
+  if (Vhor < Base::SingVhor)
   {
-    omega              = AngVel(0.0);
-    std::get<2>(*a_s)  = AngVel(0.0);
-    Vhor               = VelK(0.0);
+    omega              = AngVel();
+    std::get<2>(*a_s)  = AngVel();
+    Vhor               = VelK  ();
   }
-  if (IsZero(omega) && Vr < SingVr)
+  if (IsZero(omega) && Vr < Base::SingVr)
+    // This is not an error -- just stop integration now:
     throw Base::NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
+
+  // Furthermore, we allow Vr < 0 ONLY during "Burn2" and if the ascent trajec-
+  // tory is above the orbital insertion point: such ascent profiles can indeed
+  // be valid. In all other cases, it means that we are falling back to Earth,
+  // so stop integration immediately:
+  //
+  if (IsNeg(Vr) && !(m_mode == FlightMode::Burn2 && r > m_Rins))
+    throw FallingBackExn(); // It does not carry any info
 
   //-------------------------------------------------------------------------//
   // Generic Case:                                                           //
@@ -410,7 +354,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   Pressure Q           = 0.5 * rho * V2;
 
   // Output at the beginning:
-  if (IsZero(a_t) && Base::m_os != nullptr && m_logLevel >= 1)
+  if (IsZero(a_t) && Base::m_os != nullptr && Base::m_logLevel >= 2)
   {
     assert(m_mode == FlightMode::Burn2);
     *Base::m_os << "# t=0 sec, h=" << h.Magnitude()
@@ -436,7 +380,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
     m_cutOffTime1 = a_t - m_TGap;
     assert(m_cutOffTime1 <= m_ignTime2);
 
-    if (Base::m_os != nullptr && m_logLevel >= 1)
+    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
       *Base::m_os
         << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
         << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
@@ -461,7 +405,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
       // so record the corresp Mach number:
       m_sepQ   = Q;
 
-      if (Base::m_os != nullptr && m_logLevel >= 1)
+      if (Base::m_os != nullptr && Base::m_logLevel >= 2)
       {
         // Re-calculate the Mass in Burn1 for the output (now with Stage1):
         m      = LVMass(*a_s, a_t);
@@ -490,7 +434,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
     assert(m_ignTime1 < m_cutOffTime1 && m_cutOffTime1 <= m_ignTime2 &&
            IsNeg(m_ignTime2));
 
-    if (Base::m_os != nullptr && m_logLevel >= 1)
+    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
       *Base::m_os
         << "# t="     << a_t.Magnitude() << " sec, h=" << h.Magnitude()
         << " km, L="  << L.Magnitude()   << " km, V="  << V.Magnitude()
@@ -503,7 +447,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   // Monitor the Constraints:                                                //
   //-------------------------------------------------------------------------//
   // Dynamic Pressure:
-  m_maxQ            = std::max(Q, m_maxQ);
+  m_maxQ         = std::max(Q, m_maxQ);
 
   // LongG:
   // This is a projection of "ngAcc" to the main LV axis (XXX: verify whether
@@ -523,7 +467,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   {
     m_fairingSepTime = a_t;
 
-    if (Base::m_os != nullptr && m_logLevel >= 1)
+    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
       *Base::m_os
         << "# t="     << a_t.Magnitude() << " sec, h=" << h.Magnitude()
         << " km, L="  << L.Magnitude()   << " km, V="  << V.Magnitude()
@@ -540,11 +484,13 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   // Do not continue if:
   // (*) we are on the surface (stopping by "h");
   // (*) we are in the UNDEFINED mode (stopping by Ignition Time);
+  // NB: both are NORMAL termination conds (as opposed to throwing
+  //     the "StopNowExn"):
   if (!IsPos(h))
   {
     cont = false;
 
-    if (Base::m_os != nullptr && m_logLevel >= 1)
+    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
       *Base::m_os
         << "# STOP: t="   << a_t.Magnitude()  << " sec: H=0, Vr="
         << Vr.Magnitude() << " km/sec, Vhor=" << Vhor.Magnitude()
@@ -556,7 +502,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   {
     cont = false;
 
-    if (Base::m_os != nullptr && m_logLevel >= 1)
+    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
       *Base::m_os
         << "# STOP: t="   << a_t.Magnitude()  << " sec: UNDEF, Vr="
         << Vr.Magnitude() << " km/sec, Vhor=" << Vhor.Magnitude()
@@ -566,7 +512,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   }
 
   // XXX: OUTPUT (with a 100 msec step, or if we are going to stop now):
-  if (Base::m_os  != nullptr && m_logLevel >= 3 &&
+  if (Base::m_os  != nullptr && Base::m_logLevel >= 3 &&
      (!cont || int(Round(double(a_t / 0.001_sec))) % 100 == 0))
   {
     // Thrust is more conveniently reported in kgf:
@@ -588,8 +534,23 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
 //===========================================================================//
 // Angle-of-Attack:                                                          //
 //===========================================================================//
-Angle Ascent2::AoA(Time a_t, Angle a_psi) const
+//        AoA   theta
+std::pair<Angle,Angle> Ascent2::AoA(Time a_t, Angle a_psi) const
 {
+  // Once again: a_psi < 0 is allowed, but only for Stage2 near orbital insert-
+  // ion when the trajectory is ABOVE the target orbit (though the latter cond
+  // cannot be checked here):
+  if (IsNeg(a_psi) && m_mode != FlightMode::Burn2)
+    throw FallingBackExn();  // It does not carry any info
+
+  // Also, the "retrograde" movement (|psi| > Pi/2, and thus omega < 0,  since
+  // omega ~ Vhor ~ cos(psi)) may in general occur due to rounding errors or
+  // integration instabilities. It is difficult to say precisely which values
+  // of "psi" are accepatble and which are not, so we just log such events:
+  if (Abs(a_psi) > PI_2 && Base::m_os != nullptr && Base::m_logLevel >= 1)
+    *Base::m_os << "Ascent2::AoA: psi=" << To_Angle_deg(a_psi).Magnitude()
+                << " deg" << std::endl;
+
   Angle  aoa = 0.0_rad;
 
   switch (m_mode)
@@ -620,7 +581,7 @@ Angle Ascent2::AoA(Time a_t, Angle a_psi) const
     // Arg: "t" is time from Stage2 cut-off (same as orbital insertion time),
     // so it is just the main time "a_t": -T2 <= t <= 0; enforce those constr-
     // aints. NB: Formulas similar to those for Stage2, but with the INVERTED
-    // sign of "b"; AoA2(t=0)=0, ie @ orbital insetrion:
+    // sign of "b"; AoA2(t=0)=0, ie @ orbital insertion:
     assert(!IsPos(a_t));
     Time t = std::max(a_t, -m_T2);
     aoa    = std::max(t *  (m_aAoA2 * t - m_bAoA2), 0.0_rad);
@@ -635,11 +596,25 @@ Angle Ascent2::AoA(Time a_t, Angle a_psi) const
   }
   default: ;
   }
-  // Check that (AoA + TrajIncl <= Pi/2), ie, the AoA does not point the thrust
-  // backwards  (XXX: there is no similar constraint if we are descending):
-  if (aoa + a_psi > PI_2)
-    aoa = PI_2 - a_psi;
-  return aoa;
+
+  // XXX: In this case, we assume there is no chamber/nozzle gimbaling,  and
+  // therefore, theta = psi + AoA; but "theta" is limited by Pi/2, otherwise
+  // the Thrust vector will point towards negative polar angles. Yet theta < 0
+  // is allowed under some circumstances (because Vr < 0 may be allowed):
+  Angle theta = a_psi + aoa;
+
+  if (theta > PI_2)
+  {
+    aoa   =  PI_2 - a_psi;
+    theta =  PI_2;
+  }
+  else
+  if (theta < -PI_2)
+  {
+    aoa   = -PI_2 - a_psi;
+    theta = -PI_2;
+  }
+  return std::make_pair(aoa, theta);
 }
 
 //===========================================================================//
@@ -776,7 +751,7 @@ Mass Ascent2::LVMass(Base::StateV const& a_s, Time a_t) const
 //===========================================================================//
 void Ascent2::OutputCtls() const
 {
-  if (Base::m_os == nullptr)
+  if (Base::m_os == nullptr || Base::m_logLevel < 1)
     return;
 
   // Here "t" is the time from Stage2 cut-off (so t=-T2..0):

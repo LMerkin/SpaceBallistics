@@ -7,6 +7,7 @@
 #include "SpaceBallistics/Missions/LVBase.h"
 #include <array>
 #include <vector>
+#include <utility>
 
 namespace SpaceBallistics
 {
@@ -36,6 +37,20 @@ namespace SpaceBallistics
       FinalBurn = 6   // 
     };
 
+    static char const* ToString(FlightMode a_mode)
+    {
+      switch (a_mode)
+      {
+        case FlightMode::Coast    : return "Coast";
+        case FlightMode::BBBurn   : return "BBBurn";
+        case FlightMode::ExAtmDesc: return "ExAtmDesc";
+        case FlightMode::EntryBurn: return "EntryBurn";
+        case FlightMode::EnAtmDesc: return "EnAtmDesc";
+        case FlightMode::FinalBurn: return "FinalBurn";
+        default:                    return "UNDEFINED";
+      }
+    }
+
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
@@ -63,8 +78,8 @@ namespace SpaceBallistics
     // the soft RTLS and landing. Is to be MINIMISED subject to all constraints:
     Mass                  m_propMassS;
 
-    // Coast Time (before BBBurn):
-    Time                  m_coastTime;
+    // Coast Dur (before BBBurn): Same as BBIgnTime:
+    Time                  m_coastDur;
 
     // AoA ctl during BBBurn  (more precisely, we control "theta" -- the Thrust
     // vector inclination angle).   Generally, the Thrust vector points towards
@@ -100,6 +115,18 @@ namespace SpaceBallistics
     constexpr static int  NP = 11;
     // [PropMassS,  CoastTime,    BBBurnDur,  BBBurnSinTheta[1..4],
     //  EntryBurnQ, EntryBurnDur, FinalBurnH, FinalBurnThrtL]
+ 
+    //-----------------------------------------------------------------------//
+    // Transient Data (during flight path integration):                      //
+    //-----------------------------------------------------------------------//
+    FlightMode            m_mode;
+    Time                  m_entryIgnTime;   // Triggered by Q
+    Time                  m_finalIgnTime;   // Triggered by H
+    // Vals which may be Constrained:
+    Pressure              m_maxQ;
+    // The following is primarily for compatibility with the "LVBase":
+    Pressure              m_sepQ;
+    double                m_maxLongG;
 
     //=======================================================================//
     // Methods:                                                              //
@@ -132,6 +159,20 @@ namespace SpaceBallistics
       int            a_log_level
     );
 
+    //-----------------------------------------------------------------------//
+    // Copy Ctor: Required for Optimisation:                                 //
+    //-----------------------------------------------------------------------//
+    RTLS1(RTLS1 const&) = default;
+
+    //-----------------------------------------------------------------------//
+    // "SetCtlParams":                                                       //
+    //-----------------------------------------------------------------------//
+
+    //-----------------------------------------------------------------------//
+    // "Run": Integrate the Return Trajectory:                               //
+    //-----------------------------------------------------------------------//
+    Base::RunRes Run();
+
   private:
     //=======================================================================//
     // Internal Helpers:                                                     //
@@ -156,7 +197,7 @@ namespace SpaceBallistics
 
     // "AoA": Angle-of-Attack (variable over time, also constrained with the
     // curr pitch "psi"):
-    Angle AoA(Time a_t, Angle a_psi) const;
+    std::pair<Angle,Angle> AoA(Time a_t, Angle a_psi) const;
 
     // "Thrust": Depends on the Mode, BurnRate and the Counter-Pressure:
     ForceK Thrust(MassRate a_burn_rate, Pressure a_p) const;
@@ -171,7 +212,7 @@ namespace SpaceBallistics
     friend class NOMADEvaluator;
 
     //-----------------------------------------------------------------------//
-    // "OPtRes" Struct: The result of "FindOptimalReturnCtls" below:         //
+    // "OptRes" Struct: The result of "FindOptimalReturnCtls" below:         //
     //-----------------------------------------------------------------------//
     // It just contains the relevant flds taken from the main "RTLS1" class:
     //
@@ -196,6 +237,7 @@ namespace SpaceBallistics
     };
     friend struct OptRes;
 
+  public:
     //-----------------------------------------------------------------------//
     // "FindOptimalReturnCtls":                                              //
     //-----------------------------------------------------------------------//
