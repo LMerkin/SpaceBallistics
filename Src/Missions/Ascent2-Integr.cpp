@@ -343,24 +343,19 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
     (a_t, r, Vr, Vhor, m, &V, &psi, &aoa, &atm, &burnRate, &thrust,
      lvAxis, ngAcc);
 
-  LenK      L          = R * phi / 1.0_rad; // Down-Range Earth Distance, <= 0
-  Angle_deg psi_deg    = To_Angle_deg(psi);
-  Angle_deg aoa_deg    = To_Angle_deg(aoa);
-
+  LenK     L   = R * phi / 1.0_rad; // Down-Range Earth Distance, <= 0
   // AeroDynamic Conditions:
-  double   M           = Base::Mach(atm, V);
-  Density  rho         = std::get<1>(atm);
-  auto     V2          = To_Len_m(Sqr(V));
-  Pressure Q           = 0.5 * rho * V2;
+  double   M   = Base::Mach(atm, V);
+  Density  rho = std::get<1>(atm);
+  auto     V2  = To_Len_m(Sqr(V));
+  Pressure Q   = 0.5 * rho * V2;
 
-  // Output at the beginning:
-  if (IsZero(a_t) && Base::m_os != nullptr && Base::m_logLevel >= 2)
-  {
-    assert(m_mode == FlightMode::Burn2);
-    *Base::m_os << "# t=0 sec, h=" << h.Magnitude()
-                << " km, V="       << V.Magnitude() << " km/sec, Mass="
-                << m.Magnitude()   << " kg"         << std::endl;
-  }
+  // Curr event for logging (if any):
+  char const* eventStr = nullptr;
+
+  if (IsZero(a_t))
+    eventStr = "Stage2 Cut-Off, Orbital Insertion";
+
   //-------------------------------------------------------------------------//
   // Switching Burn2 -> Gap:                                                 //
   //-------------------------------------------------------------------------//
@@ -370,24 +365,19 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   if (m_mode == FlightMode::Burn2 && spentPropMass >= m_spendable2)
   {
     assert(!IsFinite(m_ignTime2));
+    m_mode        = FlightMode::Gap;
+    eventStr      = "Ballistic Gap Ends, Stage2 Ignition";
     m_ignTime2    = a_t;
     assert(IsNeg(m_ignTime2));
-    m_mode        = FlightMode::Gap;
+
     // Furthermore, since the duration of the Ballistic Gap is known, at
     // this point we already know the Stage1 Cut-Off time:
     // NB:  HERE "m_TGap" is used:
     assert(!IsNeg(m_TGap) && !IsFinite(m_cutOffTime1));
     m_cutOffTime1 = a_t - m_TGap;
     assert(m_cutOffTime1 <= m_ignTime2);
-
-    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
-      *Base::m_os
-        << "# t="    << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-        << " km, L=" << L.Magnitude()   << " km, V="  << V.Magnitude()
-        << " km/sec, psi="              << psi_deg.Magnitude()
-        << " deg, m=" << m.Magnitude()  << " kg: "
-           "Stage2 Ignition, Ballistic Gap Ends"      << std::endl;
   }
+
   //-------------------------------------------------------------------------//
   // Switching Gap -> Burn1:                                                 //
   //-------------------------------------------------------------------------//
@@ -400,26 +390,14 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
     if (a_t  <=  m_cutOffTime1)
     {
       m_mode   = FlightMode::Burn1;
+      eventStr = "Stage1 Cut-Off and Separation, Ballistic Gap Starts";
 
       // XXX: We assume that Stage1 separation occures at the cut-off moment,
-      // so record the corresp Mach number:
+      // so record the corresp Q:
       m_sepQ   = Q;
-
-      if (Base::m_os != nullptr && Base::m_logLevel >= 2)
-      {
-        // Re-calculate the Mass in Burn1 for the output (now with Stage1):
-        m      = LVMass(*a_s, a_t);
-        *Base::m_os
-          << "# t="     << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-          << " km, L="  << L.Magnitude()   << " km, V="  << V.Magnitude()
-          << " km/sec, psi="               << psi_deg.Magnitude()
-          << " deg, m=" << m.Magnitude()   << " kg, M= " << M
-          << ", Q="     << Q.Magnitude()
-          << ": Stage1 Cut-Off and Separation,  Ballistic Gap Starts"
-          << std::endl;
-      }
     }
   }
+
   //-------------------------------------------------------------------------//
   // Switching Burn1 -> UNDEFINED:                                           //
   //-------------------------------------------------------------------------//
@@ -428,26 +406,42 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   if (m_mode == FlightMode::Burn1  &&
       spentPropMass >= m_spendable2 + Base::m_spendable1)
   {
+    m_mode     = FlightMode::UNDEFINED;
+    eventStr   = "Stage1 Ignition, Lift-Off";
     assert(!IsFinite(m_ignTime1));
     m_ignTime1 = a_t;
-    m_mode     = FlightMode::UNDEFINED;
     assert(m_ignTime1 < m_cutOffTime1 && m_cutOffTime1 <= m_ignTime2 &&
            IsNeg(m_ignTime2));
+  }
 
-    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
-      *Base::m_os
-        << "# t="     << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-        << " km, L="  << L.Magnitude()   << " km, V="  << V.Magnitude()
-        << " km/sec, psi="               << psi_deg.Magnitude()
-        << " deg, m=" << m.Magnitude()   << " kg: "
-           "Stage1 Ignition"             << std::endl;
+  //-------------------------------------------------------------------------//
+  // In any mode, detect the Fairing Separation Condition:                   //
+  //-------------------------------------------------------------------------//
+  // In the reverse time, it's when the Dynamic Pressure becomes HIGHER
+  // that the threshold:
+  if (!IsFinite(m_fairingSepTime) && Q >= FairingSepCond)
+  {
+    m_fairingSepTime = a_t;
+    eventStr         = "Fairing Separation";
   }
 
   //-------------------------------------------------------------------------//
   // Monitor the Constraints:                                                //
   //-------------------------------------------------------------------------//
+  // If there was any event, re-compute the LV Mass and Forces:
+  if (eventStr != nullptr)
+  {
+    m    = LVMass(*a_s, a_t);
+    NonGravForces
+      (a_t, r, Vr, Vhor, m, &V, &psi, &aoa, &atm, &burnRate, &thrust,
+      lvAxis, ngAcc);
+  }
+  // Angles in Degrees:
+  Angle_deg psi_deg = To_Angle_deg(psi);
+  Angle_deg aoa_deg = To_Angle_deg(aoa);
+
   // Dynamic Pressure:
-  m_maxQ         = std::max(Q, m_maxQ);
+  m_maxQ = std::max(Q, m_maxQ);
 
   // LongG:
   // This is a projection of "ngAcc" to the main LV axis (XXX: verify whether
@@ -458,24 +452,6 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   double longG   = double  (longAcc / g0K);
   m_maxLongG     = std::max(longG,  m_maxLongG);
 
-  //-------------------------------------------------------------------------//
-  // In any mode, detect the Fairing Separation Condition:                   //
-  //-------------------------------------------------------------------------//
-  // In the reverse time, it's when the Dynamic Pressure becomes HIGHER
-  // that the threshold:
-  if (!IsFinite(m_fairingSepTime) && Q >= FairingSepCond)
-  {
-    m_fairingSepTime = a_t;
-
-    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
-      *Base::m_os
-        << "# t="     << a_t.Magnitude() << " sec, h=" << h.Magnitude()
-        << " km, L="  << L.Magnitude()   << " km, V="  << V.Magnitude()
-        << " km/sec, psi="               << psi_deg.Magnitude()
-        << " deg, m=" << m.Magnitude()   << " kg, M="  << M
-        << ", Q="     << Q.Magnitude()   << ": Fairing Separation"
-        << std::endl;
-  }
   //---------------------------------------------------------------------//
   // Stopping Conds:                                                     //
   //---------------------------------------------------------------------//
@@ -488,30 +464,40 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   //     the "StopNowExn"):
   if (!IsPos(h))
   {
-    cont = false;
-
-    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
-      *Base::m_os
-        << "# STOP: t="   << a_t.Magnitude()  << " sec: H=0, Vr="
-        << Vr.Magnitude() << " km/sec, Vhor=" << Vhor.Magnitude()
-        << " km/sec, m="  << m.Magnitude()    << " kg, L="
-        << L.Magnitude()  << " km, psi="      << psi_deg.Magnitude()
-        << " deg, "       << ToString(m_mode) << std::endl;
+    cont     = false;
+    eventStr = "Integration Stopped @ H=0";
   }
   if (m_mode == FlightMode::UNDEFINED)
   {
-    cont = false;
-
-    if (Base::m_os != nullptr && Base::m_logLevel >= 2)
-      *Base::m_os
-        << "# STOP: t="   << a_t.Magnitude()  << " sec: UNDEF, Vr="
-        << Vr.Magnitude() << " km/sec, Vhor=" << Vhor.Magnitude()
-        << " km/sec, m="  << m.Magnitude()    << " kg, L="
-        << L.Magnitude()  << " km, psi="      << psi_deg.Magnitude()
-        << " deg, "       << ToString(m_mode) << std::endl;
+    cont     = false;
+    eventStr = "Integration Stopped @ MaxStartMass";
   }
 
-  // XXX: OUTPUT (with a 100 msec step, or if we are going to stop now):
+  //-------------------------------------------------------------------------//
+  // Log the Curr Event (if any):                                            //
+  //-------------------------------------------------------------------------//
+  if (eventStr != nullptr && Base::m_os != nullptr && Base::m_logLevel >= 2)
+  {
+    *Base::m_os
+      << "# t="           << a_t.Magnitude()
+      << " sec: "         << eventStr
+      << ": h="           << h.Magnitude()
+      << " km, L="        << L.Magnitude()
+      << " km, V="        << V.Magnitude()
+      << " km/sec, Vr="   << Vr.Magnitude()
+      << " km/sec, Vhor=" << Vhor.Magnitude()
+      << " km/sec, psi="  << psi_deg.Magnitude()
+      << " deg, AoA="     << aoa_deg.Magnitude()
+      << " deg, LVMass="  << m.Magnitude()
+      << " kg, Q="        << Q.Magnitude()
+      << " Pa, M="        << M
+      << ", LongG="       << longG
+      << std::endl;
+  }
+  //-------------------------------------------------------------------------//
+  // Main Output:                                                            //
+  //-------------------------------------------------------------------------//
+  // Occurs with a 100 msec step, or if we are going to stop now:
   if (Base::m_os  != nullptr && Base::m_logLevel >= 3 &&
      (!cont || int(Round(double(a_t / 0.001_sec))) % 100 == 0))
   {
