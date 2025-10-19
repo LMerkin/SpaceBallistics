@@ -79,62 +79,74 @@ IF("${TOOL_CHAIN}" STREQUAL "GCC")
     # "-ffast-math" option -- it will result in incorrect treatment of "NaN"s!
     # -flto"               -- it intereacts in a strange way with header-only
     #                         code!
-    SET(CXXFLAGS "-O3 -mavx2 -funroll-loops -fomit-frame-pointer")
+    SET(CXXFLAGS "-O3 -mavx2 -fno-semantic-interposition -fomit-frame-pointer")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-    SET(CXXFLAGS "-O2 -g -funroll-loops")
+    SET(CXXFLAGS "-O2 -g")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-    SET(CXXFLAGS "-O0 -g")
+    SET(CXXFLAGS "-O0 -g -fstack-protector-strong")
   ELSE()
     MESSAGE(FATAL_ERROR "UnSupported BuildType: ${CMAKE_BUILD_TYPE}")
   ENDIF()
 
+  # OpenMP flags:
   SET(OPENMP_FLAGS "-fopenmp")
   SET(OPENMP_LIBS  "gomp")
 
-  SET(CXXFLAGS "${CXXFLAGS} -march=native -mtune=native -std=gnu++23 \
-                -Wall                     -Wextra            \
-                -Wctor-dtor-privacy       -Wnon-virtual-dtor \
-                -Woverloaded-virtual      -Wcast-qual        \
-                -Winit-self               -Wwrite-strings    \
-                -Wmissing-braces          -Wdisabled-optimization  \
-                -Wconversion              -Wno-stringop-truncation \
-                -Wno-class-memaccess      -Wno-double-promotion    \
-                -Wno-c++20-compat         -Wno-ctor-dtor-privacy   \
-                ${OPENMP_FLAGS}")
+  # All other flags.  NB: "NULL dereference" warnings are turned off because
+  # they may conflict with Boost, and such errors would be easily detectable
+  # anyway:
+  SET(CXXFLAGS "${CXXFLAGS} \
+    -march=native        -mtune=native        -std=gnu++23 \
+    -Wall                -Wextra -Wshadow     -Wconversion \
+    -Wold-style-cast     -Wcast-qual          -Wnon-virtual-dtor \
+    -Woverloaded-virtual -Wctor-dtor-privacy  -Wnull-dereference \
+    -Wlogical-op         -Wduplicated-cond    -Wduplicated-branches \
+    -Wformat=2           -Wcast-align=strict  -Wno-null-dereference \
+    ${OPENMP_FLAGS}")
 
 #-----------------------------------------------------------------------------#
 ELSEIF("${TOOL_CHAIN}" STREQUAL "CLang")
 #-----------------------------------------------------------------------------#
   # Optimisation and debugging flags:
   IF ("${CMAKE_BUILD_TYPE}"     STREQUAL "Release")
-    SET(CXXFLAGS "-O3 -mavx2 -funroll-loops -fomit-frame-pointer")
+    SET(CXXFLAGS "-O3 -mavx2 -fno-semantic-interposition -fomit-frame-pointer")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-    SET(CXXFLAGS "-O2 -g -funroll-loops")
+    SET(CXXFLAGS "-O2 -g")
   ELSEIF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug"  )
-    SET(CXXFLAGS "-O0 -g")
+    SET(CXXFLAGS
+        "-O0 -g -fstack-protector-strong -fsanitize=undefined,address \
+         -fno-omit-frame-pointer -DDEBUG")
   ELSE()
     MESSAGE(FATAL_ERROR "UnSupported BuildType: ${CMAKE_BUILD_TYPE}")
   ENDIF()
 
+  # OpenMP flags:
   SET(OPENMP_FLAGS "-fopenmp=libomp")
   SET(OPENMP_LIBS  "omp")
 
-  SET(CXXFLAGS "${CXXFLAGS}  -march=native    -mtune=native   -std=gnu++23  \
-                -Weverything                  -Wno-unsafe-buffer-usage      \
-                -Wno-c++98-compat             -Wno-c++98-compat-pedantic    \
-                -Wno-weak-vtables             -Wno-double-promotion         \
-                -Wno-weak-template-vtables    -Wno-covered-switch-default   \
-                -Wno-switch-enum              -Wno-exit-time-destructors    \
-                -Wno-global-constructors      -Wno-reserved-id-macro        \
-                -Wno-padded                   -Wno-unused-macros            \
-                -Wno-gnu-zero-variadic-macro-arguments                      \
-                -Wno-disabled-macro-expansion                               \
-                -Wno-float-equal              -Wno-missing-prototypes       \
-                -Wno-vla                      -Wno-vla-extension            \
-                -Wno-c99-extensions           -Wno-zero-length-array        \
-                -Wno-packed                   -Wno-undefined-func-template  \
-                -Wno-gnu-statement-expression -Wctor-dtor-privacy           \
-                -Wno-c++20-compat             ${OPENMP_FLAGS}")
+  # All other flags:
+  # XXX:
+  # (*) We currently do not activate "unsafe buffer access" warnings because
+  #     they appear to be misleading in almost all cases;
+  # (*) also, "undefined func template" warning is off, because we often use
+  #     explicit template instantiations in separate compilation units:
+  #
+  SET(CXXFLAGS "${CXXFLAGS} \
+    -march=native        -mtune=native        -std=gnu++23 \
+    -Weverything         -Wno-c++98-compat    -Wno-c++98-compat-pedantic \
+    -Wno-padded          -Wno-weak-vtables    -Wextra      \
+    -Wshadow-all         -Wconversion         -Wold-style-cast \
+    -Wcast-qual          -Wnull-dereference   -Wlogical-op-parentheses   \
+    -Wnon-virtual-dtor   -Woverloaded-virtual -Wdelete-non-virtual-dtor  \
+    -Wformat=2           -Wcast-align         -Wextra-semi \
+    -Wunreachable-code-aggressive             -Wrange-loop-analysis \
+    -Wpessimizing-move   -Wredundant-move     -Wno-double-promotion \
+    -Wno-float-equal     -Wno-switch-enum     -Wno-covered-switch-default \
+    -Wno-vla-cxx-extension   \
+    -Wno-unsafe-buffer-usage \
+    -Wno-unsafe-buffer-usage-in-libc-call \
+    -Wno-undefined-func-template \
+    ${OPENMP_FLAGS}")
 
 #-----------------------------------------------------------------------------#
 ELSE()

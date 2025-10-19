@@ -28,6 +28,9 @@
 #pragma  clang diagnostic ignored "-Wsign-conversion"
 #pragma  clang diagnostic ignored "-Warray-bounds"
 #pragma  clang diagnostic ignored "-Wmissing-noreturn"
+#pragma  clang diagnostic ignored "-Wexit-time-destructors"
+#pragma  clang diagnostic ignored "-Wglobal-constructors"
+#pragma  clang diagnostic ignored "-Wundefined-func-template"
 #else
 #pragma  GCC   diagnostic push
 #pragma  GCC   diagnostic ignored "-Wunused-parameter"
@@ -35,6 +38,8 @@
 #pragma  GCC   diagnostic ignored "-Wnon-virtual-dtor"
 #pragma  GCC   diagnostic ignored "-Wcast-qual"
 #pragma  GCC   diagnostic ignored "-Warray-bounds"
+#pragma  GCC   diagnostic ignored "-Wold-style-cast"
+#pragma  GCC   diagnostic ignored "-Wcast-align"
 #endif
 #include <Nomad/nomad.hpp>
 #include <Cache/CacheBase.hpp>

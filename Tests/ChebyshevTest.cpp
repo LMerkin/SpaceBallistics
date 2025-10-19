@@ -265,4 +265,4 @@ int main(int argc, char const* argv[])
     res += a[j] * Chebyshev::DDT(j, x);
 
   cout << "MaxErr = " << Abs(res) << endl;
-};
+}

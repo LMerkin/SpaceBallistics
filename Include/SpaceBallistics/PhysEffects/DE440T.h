@@ -48,7 +48,16 @@ namespace SpaceBallistics::DE440T
   );
 
   // XXX: In case of run-time Body selection, the output vectors have the gene-
-  // tic (UNDEFINED) Body param:
+  // tic (UNDEFINED) Body param. Again, providing "BRCS" and "BarEcl" versions:
+  //
+  void GetPlanetBarEqPV
+  (
+    Body            a_body, // Same constraints for "a_obj" as above
+    TDB             a_tdb,
+    PosKV_BCRS<>*   a_pos,  // Output (Position)
+    VelKV_BCRS<>*   a_vel   // Output (Velocity); may be NULL
+  );
+
   void GetPlanetBarEclPV
   (
     Body            a_body, // Same constraints for "a_obj" as above

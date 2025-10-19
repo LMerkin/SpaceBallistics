@@ -141,6 +141,7 @@ namespace SpaceBallistics
   {
     // A Leap Second can only occur at Hour=23, Min=59:
     std::tuple<int,int,int> date    { m_year, m_month, m_day };
+
     return m_hour == 23 && m_min == 59 &&
            (std::find
             (TBits::LeapSecondDates,
@@ -410,6 +411,7 @@ namespace SpaceBallistics
         if (m_MJS < TBits::ODATNodesMJS[i])
         {
           TBits::ODATNode const& node = TBits::ODATNodes[i];
+
           // Again, check the monotonicity:
           assert(i == TBits::NODATN-1 ||
                  node.m_until < TBits::ODATNodes[i+1].m_until);
@@ -539,5 +541,5 @@ namespace SpaceBallistics
     // We can now compose the UTC obj:
     return UTC(year, month, day, hour, min, sec);
   }
-};
+}
 // End namespace SpaceBallistics

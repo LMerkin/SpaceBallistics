@@ -519,5 +519,5 @@ namespace SpaceBallistics
       ? a_left
       : throw "UnifyTSs failed";
   }
-};
+}
 // End namespace SpaceBallistics

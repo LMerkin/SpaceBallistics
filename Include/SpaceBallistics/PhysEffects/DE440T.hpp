@@ -496,7 +496,7 @@ namespace SpaceBallistics::DE440T
   //-------------------------------------------------------------------------//
   // With Run-Time Body Selection:                                           //
   //-------------------------------------------------------------------------//
-  // This is just a mutiplexor of the above version, The output verctors have
+  // This is just a mutiplexor of the above version, The output vectors have
   // the generic Body::UNDEFINED param:
   //
   void GetPlanetBarEqPV

@@ -9,6 +9,10 @@ namespace SpaceBallistics::EarthAtmosphereModel
   //=========================================================================//
   // "LowLayers" (z = 0 .. 93 km, but the arg is h < z):                     //
   //=========================================================================//
+# ifdef   __clang__
+# pragma  clang diagnostic push
+# pragma  clang diagnostic ignored "-Wglobal-constructors"
+# endif
   LowLayerInfo const LowLayers[NLowLayers]
   {
     LowLayerInfo
@@ -21,6 +25,9 @@ namespace SpaceBallistics::EarthAtmosphereModel
     LowLayers[5].MkNextLayer(TempGrad(-2.0), 85.0_km), // 6: UpperMesoSphere
     LowLayers[6].MkNextLayer(TempGrad( 0.0), 93.0_km), // 7: MesoPause
   };
+# ifdef   __clang__
+# pragma  clang diagnostic pop
+# endif
 
   //=========================================================================//
   // "UpperLayers1" (z = 93+ .. 300 km, step = 1 km):                        //
