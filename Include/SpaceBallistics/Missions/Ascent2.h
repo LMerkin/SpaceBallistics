@@ -158,6 +158,8 @@ namespace SpaceBallistics
     Time                  m_fairingSepTime; // Fairing Separation Time
     Time                  m_cutOffTime1;    // Gap   start: St1 Cut-Off  Time
     Time                  m_ignTime1;       // Burn1 start: St1 Ignition Time
+    std::string           m_eventStr;
+
     // Vals which may be Constrained:
     Pressure              m_maxQ;           // Max Dynamic Pressure (Q)
     Pressure              m_sepQ;           // Q @ Stage1 separation

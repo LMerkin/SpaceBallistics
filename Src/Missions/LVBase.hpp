@@ -101,14 +101,15 @@ void LVBase<Derived>::NonGravForces
   MassRate*      a_burn_rate,
   ForceK*        a_thrust,
   double         a_lv_axis[2],  // In the (r, normal-to-r) frame
-  AccK           a_ng_acc [2]   // ditto
+  AccK           a_ng_acc [2],  // ditto
+  double*        a_long_g       // Longitudinal G
 )
 const
 {
   assert(IsPos(a_r)          && IsPos(a_m));
   assert(a_V      != nullptr && a_psi       != nullptr && a_aoa    != nullptr &&
          a_atm    != nullptr && a_burn_rate != nullptr && a_thrust != nullptr &&
-         a_ng_acc != nullptr && a_lv_axis   != nullptr);
+         a_ng_acc != nullptr && a_lv_axis   != nullptr && a_long_g != nullptr);
 
   // The Absolute Velocity, should be bounded away from 0:
   VelK   V  = SqRt(Sqr(a_Vr) + Sqr(a_Vhor));
@@ -195,6 +196,13 @@ const
     a_lv_axis[0] = Sin(psi + aoa);
     a_lv_axis[1] = Cos(psi + aoa);
   }
+  // The Longitudinal G:
+  // It is a projection of "ngAcc" to the main LV axis (XXX: verify whether
+  // this expr is also correct in case of Falling Back to Earth --  but we
+  // only need the abs val). In the (r, normal_to_r) frame, the longitudinal
+  // LV axis is given by the (psi + aoa) angle as above:
+  *a_long_g    =
+    double(Abs(a_lv_axis[0] * a_ng_acc[0] + a_lv_axis[1] * a_ng_acc[1]) / g0K);
 
   // Return other "physical" variables as well:
   *a_V         = V;
@@ -245,9 +253,11 @@ LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t) const
   ForceK        thrust;
   double        lvAxis[2];
   AccK          ngAcc [2];
+  double        longG;
+
   NonGravForces
     (a_t, r, Vr, Vhor, m, &V, &psi, &aoa, &atm, &burnRate, &thrust,
-     lvAxis, ngAcc);
+     lvAxis, ngAcc, &longG);
 
   // The RHS components:
   AccK r2Dot =

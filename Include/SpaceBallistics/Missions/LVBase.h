@@ -240,7 +240,8 @@ namespace SpaceBallistics
       MassRate*      a_burn_rate,
       ForceK*        a_thrust,
       double         a_lv_axis[2],  // In the (r, normal-to-r) frame
-      AccK           a_ng_acc [2]   // ditto
+      AccK           a_ng_acc [2],  // ditto
+      double*        a_long_g
     )
     const;
 

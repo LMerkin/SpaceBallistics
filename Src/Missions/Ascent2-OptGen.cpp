@@ -65,7 +65,7 @@ void Ascent2::ModifyLVParams
   Base::m_emptyMass1   = Base::m_fullMass1   * (1.0 - Base::m_K1);
   Base::m_propMass1    = Base::m_fullMass1   * Base::m_K1;
   Base::m_unSpendable1 = Base::m_propMass1   * Base::m_propRem1;
-  Base::m_spendable1   = Base::m_propMass1   - Base::m_unSpendable1;    
+  Base::m_spendable1   = Base::m_propMass1   - Base::m_unSpendable1;
   Base::m_thrustVacI1 *= a_thrustMult1       / m_thrustMult1;
   m_thrustMult1        = a_thrustMult1;
   Base::m_burnRateI1   = Base::m_thrustVacI1 / (Base::m_IspVac1 * g0K);
@@ -310,24 +310,19 @@ Ascent2::FindOptimalAscentCtls
     { 1.0,         0.5,   0.8,    0.5,      0.5,      0.1,
       1.0,         0.5,   0.8,    0.5,      0.5,      4.0,    0.04 };
 
-  // NB: for "alpha1", the UpBound is user-configurable, and may be overwritten
-  // below:
-
   //-------------------------------------------------------------------------//
   // Open and Parse the Config.ini File:                                     //
   //-------------------------------------------------------------------------//
   boost::property_tree::ptree  pt;
   boost::property_tree::ini_parser::read_ini(a_config_ini, pt);
 
-  //-------------------------------------------------------------------------//
-  // Get the LV and Mission params for the "prototype" "Ascent2" obj:        //
-  //-------------------------------------------------------------------------//
+  // Get the LV and Mission params for the "prototype" "Ascent2" obj:
   // Stage2:
   double    k2          =      pt.get<double>("LV.K2");
   double    propRem2    =      pt.get<double>("LV.PropRem2");
   Time      IspVac2           (pt.get<double>("LV.IspVac2"));
   ForceK    thrustVacI2 = Mass(pt.get<double>("LV.ThrustVacI2")) * g0K;
-  double    minThrttL2  =      pt.get<double>("LV.MinThrttL2");
+  double    minThrtL2   =      pt.get<double>("LV.MinThrtL2");
   Angle_deg maxAoA2           (pt.get<double>("LV.MaxAoA2"));
 
   // Stage1:
@@ -336,7 +331,7 @@ Ascent2::FindOptimalAscentCtls
   Time      IspSL1            (pt.get<double>("LV.IspSL1" ));
   Time      IspVac1           (pt.get<double>("LV.IspVac1"));
   ForceK    thrustVacI1 = Mass(pt.get<double>("LV.ThrustVacI1")) * g0K;
-  double    minThrttL1  =      pt.get<double>("LV.MinThrttL1");
+  double    minThrtL1   =      pt.get<double>("LV.MinThrtL1");
   Angle_deg maxAoA1           (pt.get<double>("LV.MaxAoA1"));
 
   // Over-All:
@@ -437,19 +432,11 @@ Ascent2::FindOptimalAscentCtls
   assert(int(loBounds.size()) == np && int(upBounds.size()) == np &&
          int(initVals.size()) == np);
 
-  // Main Constraint:
-  VelK     maxStartV(pt.get<double>("Opt.MaxStartV"));
-
-  // Extra Constraints: "inf" and "nan" are also allowed, hence the use of
-  // "std::atof":
-  Pressure QLimit
-    (std::atof(pt.get<std::string> ("Opt.QLimit"    ).data()));
-
-  Pressure sepQLimit
-    (std::atof(pt.get<std::string> ("Opt.SepQLimit" ).data()));
-
-  double   longGLimit =
-    std::atof (pt.get<std::string> ("Opt.LongGLimit").data());
+  // Limits for the Constained Variables:
+  VelK     maxStartV (pt.get<double>("Opt.MaxStartV" ));
+  Pressure QLimit    (pt.get<double>("Opt.QLimit"    ));
+  Pressure sepQLimit (pt.get<double>("Opt.SepQLimit" ));
+  double   longGLimit(pt.get<double>("Opt.LongGLimit"));
 
   //-------------------------------------------------------------------------//
   // Finally: Technical Params:                                              //
@@ -473,10 +460,10 @@ Ascent2::FindOptimalAscentCtls
   //-------------------------------------------------------------------------//
   Ascent2 proto
   (
-    k2,      propRem2,          IspVac2, thrustVacI2, minThrttL2, maxAoA2,
-    k1,      propRem1,  IspSL1, IspVac1, thrustVacI1, minThrttL1, maxAoA1,
-    alpha1,  maxStartMass,      fairingMass,    diam,             payLoadMass,
-    perigee, apogee,    incl,   launchLat,      odeIntegrStep,    a_os,
+    k2,      propRem2,          IspVac2, thrustVacI2, minThrtL2, maxAoA2,
+    k1,      propRem1,  IspSL1, IspVac1, thrustVacI1, minThrtL1, maxAoA1,
+    alpha1,  maxStartMass,      fairingMass,    diam,            payLoadMass,
+    perigee, apogee,    incl,   launchLat,      odeIntegrStep,   a_os,
     optLogLevel
   );
 
@@ -491,7 +478,8 @@ Ascent2::FindOptimalAscentCtls
     //-----------------------------------------------------------------------//
     // Actually run the Optimiser:                                           //
     //-----------------------------------------------------------------------//
-    // XXX: For the moment, we only have the NOMAD Optimiser:
+    // XXX: For the moment, only the NOMAD Optimiser is available.
+    // The results are returned via the "initVals":
     bool ok =
       RunNOMAD
       (
@@ -541,9 +529,9 @@ Ascent2::FindOptimalAscentCtls
 
   proto.ModifyLVParams
   (
-    // Thrust and Mass Params: 
+    // Thrust and Mass Params:
     thrustMult2, thrustMult1, alpha1,    payLoadMass,
-    // Ctl Params:      
+    // Ctl Params:
     bHat2,       muHat2,      aAoAHat2,  bAoAHat2,  TGap,
     bHat1,       muHat1,      aAoAHat1,  bAoAHat1
   );

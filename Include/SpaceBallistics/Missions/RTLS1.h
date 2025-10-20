@@ -1,7 +1,7 @@
 // vim:ts=2:et
 //===========================================================================//
 //                   "SpaceBallistics/Missions/RTLS1.h":                     //
-//                Return-To-Launch-Site for Stage1 of an LV									 //
+//           Return-To-(Launch/Landing)-Site for Stage1 of an LV						 //
 //===========================================================================//
 #pragma  once
 #include "SpaceBallistics/Missions/LVBase.h"
@@ -28,26 +28,26 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     enum class FlightMode: int
     {
-      UNDEFINED = 0,
-      Coast     = 1,  // From separation to BoostBackBurn (BBBurn): passive
-      BBBurn    = 2,  //
-      ExAtmDesc = 3,  // Exo-Atmospheric  Descent:                  passive
-      EntryBurn = 4,  // Slowing-Down before Re-Entering the Atmosphere
-      EnAtmDesc = 5,  // Endo-Atmospheric Descent:                  passive
-      FinalBurn = 6   // 
+      UNDEFINED   = 0,
+      Coast       = 1, // From separation to BoostBackBurn (BBBurn): passive
+      BBBurn      = 2, //
+      ExoAtmDesc  = 3, // Exo-Atmospheric  Descent:                  passive
+      EntryBurn   = 4, // Slowing-Down before Re-Entering the Atmosphere
+      EndoAtmDesc = 5, // Endo-Atmospheric Descent:                  passive
+      LandBurn    = 6  //
     };
 
     static char const* ToString(FlightMode a_mode)
     {
       switch (a_mode)
       {
-        case FlightMode::Coast    : return "Coast";
-        case FlightMode::BBBurn   : return "BBBurn";
-        case FlightMode::ExAtmDesc: return "ExAtmDesc";
-        case FlightMode::EntryBurn: return "EntryBurn";
-        case FlightMode::EnAtmDesc: return "EnAtmDesc";
-        case FlightMode::FinalBurn: return "FinalBurn";
-        default:                    return "UNDEFINED";
+        case FlightMode::Coast      : return "Coast";
+        case FlightMode::BBBurn     : return "BBBurn";
+        case FlightMode::ExoAtmDesc : return "ExoAtmDesc";
+        case FlightMode::EntryBurn  : return "EntryBurn";
+        case FlightMode::EndoAtmDesc: return "EndoAtmDesc";
+        case FlightMode::LandBurn   : return "LandBurn";
+        default:                      return "UNDEFINED";
       }
     }
 
@@ -99,29 +99,31 @@ namespace SpaceBallistics
     Pressure              m_entryBurnQ;
     Time                  m_entryBurnDur;
 
-    // XXX: For the Final Descnet and Landing, we currently do NOT perform any
+    // XXX: For the Final Decsent and Landing, we currently do NOT perform any
     // special maneuvers  to avoid the "ballistic target" point and fly to the
     // actual landing site. We just perform a continuous burn in order to land
     // with near-zero velocity. So we currently assume AoA=0 and a const  (but
     // subject to optimisation) "mu", given by the corresp ThrottlingLevel.  A
-    // reasonable trigger is the FinalBurn altitude; the burn lasts until land-
+    // reasonable trigger is the LandBurn altitude; the burn lasts until land-
     // ing (h=0), until v=0 (which means unsuccessful langing if "h" is above
     // the threshold), or until the propellant is exhausted:
-    LenK                  m_finalBurnH;
-    double                m_finalBurnThrtL;
+    LenK                  m_landBurnH;
+    double                m_landBurnThrtL;
 
-    // So altogether: 8 to 11 params, depending on the number of BBBurnSinTheta
-    // coeffs (from 1 to 4):
+    // So altogether: 11 params:
+    // [PropMassS,  CoastTime,    BBBurnDur, BBBurnSinTheta[4],
+    //  EntryBurnQ, EntryBurnDur, LandBurnH, LandBurnThrtL]
     constexpr static int  NP = 11;
-    // [PropMassS,  CoastTime,    BBBurnDur,  BBBurnSinTheta[1..4],
-    //  EntryBurnQ, EntryBurnDur, FinalBurnH, FinalBurnThrtL]
- 
+
     //-----------------------------------------------------------------------//
     // Transient Data (during flight path integration):                      //
     //-----------------------------------------------------------------------//
     FlightMode            m_mode;
     Time                  m_entryIgnTime;   // Triggered by Q
-    Time                  m_finalIgnTime;   // Triggered by H
+    Time                  m_landIgnTime;    // Triggered by H
+    Time                  m_finalTime;
+    std::string           m_eventStr;
+
     // Vals which may be Constrained:
     Pressure              m_maxQ;
     // The following is primarily for compatibility with the "LVBase":
@@ -138,15 +140,15 @@ namespace SpaceBallistics
     (
       // Stage Params:
       Mass           a_max_full_mass1,
-      Mass           a_empty_mass1,
-      double         a_prop_rem1,           // Based on "a_max_full_mass1"
+      double         a_full_K1,              // Based on "a_max_full_mass1"
+      double         a_full_prop_rem1,       // ditto
       Time           a_Isp_sl1,
       Time           a_Isp_vac1,
       ForceK         a_thrust_vac1,
       double         a_min_thrtl1,
       Len            a_diam,
 
-      // Mission (Return-to-Launch-Site) Params:
+      // Mission (Return-To-Launch/Landing-Site) Params:
       Mass           a_prop_massS,          // INCL the unspendable remnant
       LenK           a_hS,
       LenK           a_lS,
@@ -167,6 +169,8 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "SetCtlParams":                                                       //
     //-----------------------------------------------------------------------//
+    // See the implementation for details:
+    void SetCtlParams(std::vector<double> const& a_opt_params_n);
 
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Return Trajectory:                               //
@@ -225,8 +229,8 @@ namespace SpaceBallistics
       double     m_bbBurnSinTheta[NS];
       Pressure   m_entryBurnQ;
       Time       m_entryBurnDur;
-      LenK       m_finalBurnH;
-      double     m_finalBurnThrtL;
+      LenK       m_landBurnH;
+      double     m_landBurnThrtL;
 
       // Non-Default Ctor:
       OptRes(RTLS1 const& a_rtls);
@@ -267,13 +271,10 @@ namespace SpaceBallistics
     (
       // Main Optimisation Problem Setup:
       RTLS1               const*    a_proto,
-      std::array<bool,NP> const&    a_act_opts,
       std::vector<double>*          a_init_vals,
-      std::vector<double> const&    a_lo_bounds,
-      std::vector<double> const&    a_up_bounds,
-      // Optimisation Constraints:
-      LenK                          a_max_dL0,
-      LenK                          a_max_V0,
+      // Optimisation Constraints (Limits):
+      LenK                          a_max_land_missL,
+      VelK                          a_max_land_V,
       Pressure                      a_max_Q,
       // NOMAD Params:
       int                           a_max_evals,

@@ -147,6 +147,7 @@ Ascent2::Ascent2
   m_fairingSepTime(NAN),
   m_cutOffTime1   (NAN),
   m_ignTime1      (NAN),
+  m_eventStr      (),
   m_maxQ          (0.0),
   m_sepQ          (0.0),
   m_maxLongG      (0.0)
@@ -339,9 +340,11 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   ForceK        thrust;
   double        lvAxis[2];
   AccK          ngAcc [2];
-  NonGravForces
+  double        longG;
+
+  Base::NonGravForces
     (a_t, r, Vr, Vhor, m, &V, &psi, &aoa, &atm, &burnRate, &thrust,
-     lvAxis, ngAcc);
+     lvAxis, ngAcc, &longG);
 
   LenK     L   = R * phi / 1.0_rad; // Down-Range Earth Distance, <= 0
   // AeroDynamic Conditions:
@@ -351,10 +354,10 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   Pressure Q   = 0.5 * rho * V2;
 
   // Curr event for logging (if any):
-  char const* eventStr = nullptr;
+  m_eventStr.clear();
 
   if (IsZero(a_t))
-    eventStr = "Stage2 Cut-Off, Orbital Insertion";
+    m_eventStr = "Stage2 Cut-Off, Orbital Insertion";
 
   //-------------------------------------------------------------------------//
   // Switching Burn2 -> Gap:                                                 //
@@ -366,7 +369,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   {
     assert(!IsFinite(m_ignTime2));
     m_mode        = FlightMode::Gap;
-    eventStr      = "Ballistic Gap Ends, Stage2 Ignition";
+    m_eventStr    = "Ballistic Gap Ends, Stage2 Ignition";
     m_ignTime2    = a_t;
     assert(IsNeg(m_ignTime2));
 
@@ -389,8 +392,8 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
     assert(IsNeg(m_cutOffTime1));
     if (a_t  <=  m_cutOffTime1)
     {
-      m_mode   = FlightMode::Burn1;
-      eventStr = "Stage1 Cut-Off and Separation, Ballistic Gap Starts";
+      m_mode     = FlightMode::Burn1;
+      m_eventStr = "Stage1 Cut-Off and Separation, Ballistic Gap Starts";
 
       // XXX: We assume that Stage1 separation occures at the cut-off moment,
       // so record the corresp Q:
@@ -407,7 +410,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
       spentPropMass >= m_spendable2 + Base::m_spendable1)
   {
     m_mode     = FlightMode::UNDEFINED;
-    eventStr   = "Stage1 Ignition, Lift-Off";
+    m_eventStr = "Stage1 Ignition, Lift-Off";
     assert(!IsFinite(m_ignTime1));
     m_ignTime1 = a_t;
     assert(m_ignTime1 < m_cutOffTime1 && m_cutOffTime1 <= m_ignTime2 &&
@@ -422,66 +425,62 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   if (!IsFinite(m_fairingSepTime) && Q >= FairingSepCond)
   {
     m_fairingSepTime = a_t;
-    eventStr         = "Fairing Separation";
+    m_eventStr       = "Fairing Separation";
   }
 
   //-------------------------------------------------------------------------//
   // Monitor the Constraints:                                                //
   //-------------------------------------------------------------------------//
-  // If there was any event, re-compute the LV Mass and Forces:
-  if (eventStr != nullptr)
+  // If there was any event, re-compute the LV Mass, Forces and Accelerations:
+  if (!m_eventStr.empty())
   {
     m    = LVMass(*a_s, a_t);
-    NonGravForces
+    Base::NonGravForces
       (a_t, r, Vr, Vhor, m, &V, &psi, &aoa, &atm, &burnRate, &thrust,
-      lvAxis, ngAcc);
+      lvAxis, ngAcc, &longG);
   }
-  // Angles in Degrees:
-  Angle_deg psi_deg = To_Angle_deg(psi);
-  Angle_deg aoa_deg = To_Angle_deg(aoa);
-
   // Dynamic Pressure:
-  m_maxQ = std::max(Q, m_maxQ);
+  m_maxQ     = std::max(Q, m_maxQ);
 
   // LongG:
-  // This is a projection of "ngAcc" to the main LV axis (XXX: verify whether
-  // this expr is also correct in case of Falling Back to Earth).
-  // In the (r, normal_to_r) frame, the longitudinal LV axis is given by the
-  // (psi + aoa) angle:
-  AccK   longAcc = lvAxis[0] * ngAcc[0] + lvAxis[1] * ngAcc[1];
-  double longG   = double  (longAcc / g0K);
-  m_maxLongG     = std::max(longG,  m_maxLongG);
+  assert(!IsNeg(longG));
+  m_maxLongG = std::max(longG,  m_maxLongG);
 
-  //---------------------------------------------------------------------//
-  // Stopping Conds:                                                     //
-  //---------------------------------------------------------------------//
+  //-------------------------------------------------------------------------//
+  // Integration Stopping Conds:                                             //
+  //-------------------------------------------------------------------------//
   bool cont = true;
 
-  // Do not continue if:
+  // Do NOT continue if:
   // (*) we are on the surface (stopping by "h");
   // (*) we are in the UNDEFINED mode (stopping by Ignition Time);
   // NB: both are NORMAL termination conds (as opposed to throwing
   //     the "StopNowExn"):
   if (!IsPos(h))
   {
-    cont     = false;
-    eventStr = "Integration Stopped @ H=0";
+    cont        = false;
+    m_eventStr += ": Integration Stopped @ H <= 0";
   }
   if (m_mode == FlightMode::UNDEFINED)
   {
-    cont     = false;
-    eventStr = "Integration Stopped @ MaxStartMass";
+    cont        = false;
+    m_eventStr += ": Integration Stopped @ MaxStartMass";
   }
 
   //-------------------------------------------------------------------------//
   // Log the Curr Event (if any):                                            //
   //-------------------------------------------------------------------------//
-  if (eventStr != nullptr && Base::m_os != nullptr && Base::m_logLevel >= 2)
+  // Angles in Degrees:
+  Angle_deg psi_deg = To_Angle_deg(psi);
+  Angle_deg aoa_deg = To_Angle_deg(aoa);
+
+  if (!m_eventStr.empty() && Base::m_os != nullptr && Base::m_logLevel >= 2)
   {
     *Base::m_os
       << "# t="           << a_t.Magnitude()
-      << " sec: "         << eventStr
-      << ": h="           << h.Magnitude()
+      << " sec: "         << m_eventStr
+      << ": Mode="        << ToString(m_mode)
+      << ", h="           << h.Magnitude()
       << " km, L="        << L.Magnitude()
       << " km, V="        << V.Magnitude()
       << " km/sec, Vr="   << Vr.Magnitude()
@@ -518,7 +517,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
 }
 
 //===========================================================================//
-// Angle-of-Attack:                                                          //
+// Angle-of-Attack and Thrust Vector Elevation:                              //
 //===========================================================================//
 //        AoA   theta
 std::pair<Angle,Angle> Ascent2::AoA(Time a_t, Angle a_psi) const
@@ -701,12 +700,12 @@ ForceK Ascent2::Thrust(MassRate a_burn_rate, Pressure a_p) const
 }
 
 //===========================================================================//
-// Current LV Mass (incl the PayLoad):                                       //
+// Current LV Mass (incl the PayLoad and Fairing if attached):               //
 //===========================================================================//
 Mass Ascent2::LVMass(Base::StateV const& a_s, Time a_t) const
 {
-  // The mass of Propellants spent between "a_t" < 0 and the Orbital Inser-
-  // tion instant (t=0):
+  // The mass of Propellants spent between "a_t" < 0 and the Orbital Insertion
+  // instant (t=0):
   Mass spentPropMass = std::get<3>(a_s);
   assert(!IsNeg(spentPropMass));
 
