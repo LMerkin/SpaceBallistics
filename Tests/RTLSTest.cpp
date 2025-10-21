@@ -1,9 +1,8 @@
 // vim:ts=2:et
 //===========================================================================//
-//                          "Tests/AscentTest.cpp":                          //
-//         Ascent to Low Earth Orbit Integration in Various Modes            //
+//                          "Tests/RTLSTest.cpp":                            //
 //===========================================================================//
-#include "SpaceBallistics/Missions/Ascent2.h"
+#include "SpaceBallistics/Missions/RTLS1.h"
 #include <iostream>
 
 //===========================================================================//
@@ -24,7 +23,7 @@ int main(int argc, char* argv[])
   try
   {
     auto [optRes, finalRunRes] =
-      Ascent2::FindOptimalAscentCtls(configIni, &cout);
+      RTLS1::FindOptimalReturnCtls(configIni, &cout);
 
     if (!bool(optRes))
     {
@@ -42,11 +41,11 @@ int main(int argc, char* argv[])
       auto const& frr = finalRunRes.value();
       cout
         << "FINAL RUN:"                     << endl
-        << "RESULT    = " << Ascent2::Base::ToString(frr.m_rc) << endl
-        << "startTime = " << frr.m_T        << endl
-        << "startL    = " << frr.m_LT       << endl
-        << "startV    = " << frr.m_VT       << endl
-        << "startMass = " << frr.m_mT       << endl
+        << "RESULT    = " << RTLS1::Base::ToString(frr.m_rc) << endl
+        << "finalTime = " << frr.m_T        << endl
+        << "finalL    = " << frr.m_LT       << endl
+        << "finalV    = " << frr.m_VT       << endl
+        << "finalMass = " << frr.m_mT       << endl
         << "maxQ      = " << frr.m_maxQ     << endl
         << "sepQ      = " << frr.m_sepQ     << endl
         << "maxLongG  = " << frr.m_maxLongG << endl << endl;

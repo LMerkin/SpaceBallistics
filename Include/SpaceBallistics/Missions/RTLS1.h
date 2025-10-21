@@ -16,13 +16,17 @@ namespace SpaceBallistics
   //=========================================================================//
   class RTLS1: public LVBase<RTLS1>
   {
-  private:
+  public:
     //=======================================================================//
     // Types:                                                                //
     //=======================================================================//
     using  Base = LVBase<RTLS1>;
     friend class  LVBase<RTLS1>;
 
+    // Number of Coeffs in sin(theta) expansion (so the degree is NS-1):
+    constexpr static int  NS = 4;
+
+  private:
     //-----------------------------------------------------------------------//
     // "FlightMode":                                                         //
     //-----------------------------------------------------------------------//
@@ -88,7 +92,6 @@ namespace SpaceBallistics
     // sign, whereas we keep cos(theta) < 0. There are no other restrictions on
     // "theta" / AoA in this case, because the BoostBackBurn is Exo-Atmospheric:    // XXX: Do we always need FullThrust here?
     Time                  m_bbBurnDur;
-    constexpr static int  NS = 4;
     double                m_bbBurnSinTheta[NS];
 
     // The trigger for the Entry (Slowing-Down) Burn is based on the Q, not the
@@ -122,7 +125,7 @@ namespace SpaceBallistics
     constexpr static Mass     MaxPropMassS     = 30000.0_kg;
     constexpr static Time     MaxCoastDur      =   300.0_sec;
     constexpr static Time     MaxBBBurnDur     =    20.0_sec;  // Too large?
-    constexpr static Pressure MaxEntryBurnQ     (30000.0);
+    constexpr static Pressure MaxEntryBurnQ    = Pressure(30000.0);
     constexpr static Time     MaxEntryBurnDur  =    10.0_sec;  // Too large?
     constexpr static LenK     MaxLandBurnH     =     5.0_km;   // Too low?
 
@@ -150,9 +153,9 @@ namespace SpaceBallistics
     RTLS1
     (
       // Stage Params:
-      Mass           a_max_full_mass1,
-      double         a_full_K1,              // Based on "a_max_full_mass1"
-      double         a_full_prop_rem1,       // ditto
+      Mass           a_full_mass1,          // Assuming full prop load
+      double         a_full_K1,             // Based on "a_full_mass1"
+      double         a_full_prop_rem1,      // ditto
       Time           a_Isp_sl1,
       Time           a_Isp_vac1,
       ForceK         a_thrust_vac1,
@@ -181,17 +184,19 @@ namespace SpaceBallistics
     // "SetCtlParams":                                                       //
     //-----------------------------------------------------------------------//
     // See the implementation for details. There are 2 overloaded forms of this
-    // methods:
+    // methods.
+    // IMPORTANT: "PropMassS" is NOT set by these methods; it is NOT a Ctl Par-
+    // am; it can only be set when a new "RTLS1" obj is constructed!
+    //
     // Vector Form:
     void SetCtlParams(std::vector<double> const& a_opt_params_n);
 
     // Individual Args Form:
     void SetCtlParams
     (
-      double a_propMassSN,    double a_coastDurN,
-      double a_bbBurnDurN,    double a_entryBurnQN,
-      double a_entryBurnDurN, double a_landBurnHN,
-      double a_landBurnThrtN,
+      double a_coastDurN,     double a_bbBurnDurN,
+      double a_entryBurnQN,   double a_entryBurnDurN,
+      double a_landBurnHN,    double a_landBurnThrtN,
       double a_sinTheta0,     double a_sinTheta1,
       double a_sinTheta2,     double a_sinTheta3
     );
@@ -239,6 +244,7 @@ namespace SpaceBallistics
     class        NOMADEvaluator;
     friend class NOMADEvaluator;
 
+  public:
     //-----------------------------------------------------------------------//
     // "OptRes" Struct: The result of "FindOptimalReturnCtls" below:         //
     //-----------------------------------------------------------------------//
@@ -247,14 +253,14 @@ namespace SpaceBallistics
     struct OptRes
     {
       // Data Flds:
-      Mass       m_propMassS;
-      Time       m_coastTime;
-      Time       m_bbBurnDur;
-      double     m_bbBurnSinTheta[NS];
-      Pressure   m_entryBurnQ;
-      Time       m_entryBurnDur;
-      LenK       m_landBurnH;
-      double     m_landBurnThrtL;
+      Mass      const m_propMassS;
+      Time      const m_coastDur;
+      Time      const m_bbBurnDur;
+      double    const m_bbBurnSinTheta[NS];
+      Pressure  const m_entryBurnQ;
+      Time      const m_entryBurnDur;
+      LenK      const m_landBurnH;
+      double    const m_landBurnThrtL;
 
       // Non-Default Ctor:
       OptRes(RTLS1 const& a_rtls);
@@ -265,7 +271,6 @@ namespace SpaceBallistics
     };
     friend struct OptRes;
 
-  public:
     //-----------------------------------------------------------------------//
     // "FindOptimalReturnCtls":                                              //
     //-----------------------------------------------------------------------//
@@ -293,8 +298,13 @@ namespace SpaceBallistics
     //
     static bool RunNOMAD
     (
-      // Main Optimisation Problem Setup:
+      // LV Params:
       RTLS1 const*                a_proto,
+      Mass                        a_full_mass1,
+      double                      a_full_k1,
+      double                      a_full_prop_rem1,
+      Len                         a_diam,
+      // InitVals for the Ctl Params:
       std::vector<double>*        a_init_vals,
       // Optimisation Constraints (Limits):
       LenK                        a_land_dL_limit,

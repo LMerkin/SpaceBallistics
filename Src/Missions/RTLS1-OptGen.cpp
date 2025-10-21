@@ -21,19 +21,18 @@ namespace SpaceBallistics
 //---------------------------------------------------------------------------//
 // Individual Args Form:                                                     //
 //---------------------------------------------------------------------------//
+// NB: "PropMassS" cannot be set here; it can  only be set when the "RTLS1" obj
+// is constructed!
+//
 void RTLS1::SetCtlParams
 (
-  double a_propMassSN,    double a_coastDurN,
-  double a_bbBurnDurN,    double a_entryBurnQN,
-  double a_entryBurnDurN, double a_landBurnHN,
-  double a_landBurnThrtN,
+  double a_coastDurN,     double a_bbBurnDurN,
+  double a_entryBurnQN,   double a_entryBurnDurN,
+  double a_landBurnHN,    double a_landBurnThrtN,
   double a_sinTheta0,     double a_sinTheta1,
   double a_sinTheta2,     double a_sinTheta3
 )
 {
-  assert(0.0     <= a_propMassSN    && a_propMassSN    <= 1.0);
-  m_propMassS     = a_propMassSN    *  MaxPropMassS;
-
   assert(0.0     <= a_coastDurN     && a_coastDurN     <= 1.0);
   m_coastDur      = a_coastDurN     *  MaxCoastDur;
 
@@ -44,7 +43,7 @@ void RTLS1::SetCtlParams
   m_entryBurnQ    = a_entryBurnQN   *  MaxEntryBurnQ;
 
   assert(0.0     <= a_entryBurnDurN && a_entryBurnDurN <= 1.0);
-  m_entryBurnDur  = entryBurnDurN *  MaxEntryBurnDur;
+  m_entryBurnDur  = a_entryBurnDurN *  MaxEntryBurnDur;
 
   assert(0.0     <= a_landBurnHN    && a_landBurnHN    <= 1.0);
   m_landBurnH     = a_landBurnHN    *  MaxLandBurnH;
@@ -77,9 +76,10 @@ void RTLS1::SetCtlParams(std::vector<double> const& a_opt_params_n)
   int    np = int(a_opt_params_n.size());
   assert(NP - 3 <= np && np <= NP);
 
+  // NB: As above: Skipping  a_opt_params[0]  here, since "PropMassS" is not a
+  // Ctl Param -- it can only be set when the "RTLS1" obj is constructed:
   SetCtlParams
   (
-    a_opt_params_n[0],                      // propMassSN
     a_opt_params_n[1],                      // coastDurN
     a_opt_params_n[2],                      // bbBurnDurN
     a_opt_params_n[3],                      // entryBurnQN
@@ -96,6 +96,47 @@ void RTLS1::SetCtlParams(std::vector<double> const& a_opt_params_n)
   );
 }
 
+//===========================================================================//
+// "OptRes" Non-Default Ctor:                                                //
+//===========================================================================//
+RTLS1::OptRes::OptRes(RTLS1 const& a_rtls)
+: m_propMassS     (a_rtls.Base::m_propMass1),
+  m_coastDur      (a_rtls.m_coastDur),
+  m_bbBurnDur     (a_rtls.m_bbBurnDur),
+  m_bbBurnSinTheta{a_rtls.m_bbBurnSinTheta[0],
+                   a_rtls.m_bbBurnSinTheta[1],
+                   a_rtls.m_bbBurnSinTheta[2],
+                   a_rtls.m_bbBurnSinTheta[3]},
+  m_entryBurnQ    (a_rtls.m_entryBurnQ),
+  m_entryBurnDur  (a_rtls.m_entryBurnDur),
+  m_landBurnH     (a_rtls.m_landBurnH),
+  m_landBurnThrtL (a_rtls.m_landBurnThrtL)
+{
+  static_assert(RTLS1::NS == 4);
+}
+
+//===========================================================================//
+// "OptRes" Output:                                                          //
+//===========================================================================//
+std::ostream& operator<< (std::ostream& a_os, RTLS1::OptRes const& a_res)
+{
+  a_os
+    << "\tpropMassS     = "   << a_res.m_propMassS
+    << "\n\tcoastDur      = " << a_res.m_coastDur
+    << "\n\tbbBurnDur     = " << a_res.m_bbBurnDur;
+
+  for (int i = 0; i < RTLS1::NS; ++i)
+    a_os << "\n\tsinTheta["   << i << "]   = " << a_res.m_bbBurnSinTheta[i];
+
+  a_os
+    << "\n\tentryBurnQ    = " << a_res.m_entryBurnQ
+    << "\n\tentryBurnDur  = " << a_res.m_entryBurnDur
+    << "\n\tlandBurnH     = " << a_res.m_landBurnH
+    << "\n\tlandBurnThrtL = " << a_res.m_landBurnThrtL
+    << std::endl;
+
+  return a_os;
+}
 
 //===========================================================================//
 // "FindOptimalAscentCtls"                                                   //
@@ -115,7 +156,7 @@ RTLS1::FindOptimalReturnCtls
   boost::property_tree::ini_parser::read_ini(a_config_ini, pt);
 
   // "Fixed" params for the "prototype" "RTLS1" obj:
-  Mass   fullMass1              (pt.get<double>("LV.StartMass1"));
+  Mass   maxFullMass1           (pt.get<double>("LV.MaxStartMass1"));
   double fullK1           =      pt.get<double>("LV.K1");
   double fullPropRem1     =      pt.get<double>("LV.PropRem1");
   Time   IspSL1                 (pt.get<double>("LV.IspSL1" ));
@@ -161,19 +202,19 @@ RTLS1::FindOptimalReturnCtls
 
   // The Limits:
   // TODO: Possibly add the Acceleration Limit at Landing as well:
-  LenK     maxLandMissL(pt.get<double>("Opt.MaxLandMissL"));
-  VelK     maxLandV    (pt.get<double>("Opt.MaxLandV")) ;
-  Pressure QLimit      (pt.get<double>("Opt.QLimit"  ));
+  LenK     landDLLimit(pt.get<double>("Opt.LandDLLimit"));
+  VelK     landVLimit (pt.get<double>("Opt.LandVLimit")) ;
+  Pressure QLimit     (pt.get<double>("Opt.QLimit"  ));
 
   //-------------------------------------------------------------------------//
   // Create the "prototype" "RTLS1" obj:                                     //
   //-------------------------------------------------------------------------//
   RTLS1 proto
   (
-    fullMass1, fullK1, fullPropRem1, IspSL1, IspVac1, thrustVacI1,
+    maxFullMass1,  fullK1,  fullPropRem1, IspSL1, IspVac1, thrustVacI1,
     minThrtL1, diam,
-    propMassS, hS,     lS,      VrS, VhorS,
-    odeIntegrStep,     a_os,    optLogLevel
+    propMassS, hS,     lS,    VrS, VhorS,
+    odeIntegrStep,     a_os,  optLogLevel
   );
 
   proto.SetCtlParams(initParamsN);
@@ -186,7 +227,9 @@ RTLS1::FindOptimalReturnCtls
   bool ok =
     RunNOMAD
     (
-      &proto,      &initParamsN, maxLandMissL,   maxLandV,  QLimit,
+      &proto,      maxFullMass1, fullK1,   fullPropRem1,  diam,
+      &initParamsN,
+      landDLLimit, landVLimit,   QLimit,
       optMaxEvals, optSeed,      stopIfFeasible, useVNS
     );
   if (!ok)

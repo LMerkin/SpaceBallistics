@@ -18,8 +18,8 @@ namespace SpaceBallistics
 RTLS1::RTLS1
 (
   // Stage Params:
-  Mass           a_max_full_mass1,
-  double         a_full_k1,          // Based on "a_max_full_mass1"
+  Mass           a_full_mass1,       // Assuming full prop load
+  double         a_full_k1,          // Based on "a_full_mass1"
   double         a_full_prop_rem1,   // ditto
   Time           a_Isp_sl1,
   Time           a_Isp_vac1,
@@ -42,15 +42,14 @@ RTLS1::RTLS1
 : Base
   (
     // FullMassS (at Separation time):     EmptyMass1 + PropMassS:
-    a_max_full_mass1 * (1.0 - a_full_k1) + a_prop_massS,
+    a_full_mass1 * (1.0 - a_full_k1) + a_prop_massS,
 
     // The new effective "K1":
-    double(a_prop_massS /
-          (a_max_full_mass1 * (1.0 - a_full_k1) + a_prop_massS)),
+    double(a_prop_massS / (a_full_mass1 * (1.0 - a_full_k1) + a_prop_massS)),
 
     // Re-calculate "PropRem":  Indeed, "a_prop_rem1" is based on the
     // FullPropMass, whereas we need one based on "a_prop_massS":
-    double(a_full_prop_rem1 * a_max_full_mass1  * a_full_k1 / a_prop_massS),
+    double(a_full_prop_rem1 * a_full_mass1 * a_full_k1 / a_prop_massS),
 
     a_Isp_sl1,
     a_Isp_vac1,
@@ -68,9 +67,7 @@ RTLS1::RTLS1
   m_lS            (a_lS),
   m_VrS           (a_VrS),
   m_VhorS         (a_VhorS),
-  // Ctl Params   (subject to Optimisation):
-  m_propMassS     (a_prop_massS),
-  // Other Ctl Params are set to their default vals as yet:
+  // Ctl Params are set to their default vals as yet:
   m_coastDur      (),
   m_bbBurnDur     (),
   m_bbBurnSinTheta{ 0.0, 0.0, 0.0, 0.0 },
@@ -95,7 +92,12 @@ RTLS1::RTLS1
 
   // "m_propMass1" (in the Base) should be equal to "a_prop_massS" up to
   // rounding errors:
-  assert (Base::m_propMass1.ApproxEquals(a_propMassS));
+  assert (Base::m_propMass1.ApproxEquals(a_prop_massS));
+
+  // Obviously, "a_propMassS" must be within the following limits:
+  if (!(IsPos(a_prop_massS) && a_prop_massS <= MaxPropMassS &&
+        a_prop_massS < a_full_mass1 * a_full_k1))
+    throw std::invalid_argument("RTLS1::Ctor: Invalid PropMassS");
 }
 
 //===========================================================================//

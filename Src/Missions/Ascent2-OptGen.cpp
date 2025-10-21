@@ -192,42 +192,42 @@ void Ascent2::SetCtlParams
 // "OptRes" Non-Default Ctor:                                                //
 //===========================================================================//
 Ascent2::OptRes::OptRes(Ascent2 const& a_asc)
-{
+:
   // For Stage2:
-  m_thrustMult2 = a_asc.m_thrustMult2;
-  m_thrustVacI2 = a_asc.m_thrustVacI2;
-  m_burnRateI2  = a_asc.m_burnRateI2;
-  m_bHat2       = a_asc.m_bHat2;
-  m_muHat2      = a_asc.m_muHat2;
-  m_T2          = a_asc.m_T2;
-  m_aMu2        = a_asc.m_aMu2;
-  m_bMu2        = a_asc.m_bMu2;
-  m_aAoAHat2    = a_asc.m_aAoAHat2;
-  m_bAoAHat2    = a_asc.m_bAoAHat2;
-  m_aAoA2       = a_asc.m_aAoA2;
-  m_bAoA2       = a_asc.m_bAoA2;
+  m_thrustMult2(a_asc.m_thrustMult2),
+  m_thrustVacI2(a_asc.m_thrustVacI2),
+  m_burnRateI2 (a_asc.m_burnRateI2),
+  m_bHat2      (a_asc.m_bHat2),
+  m_muHat2     (a_asc.m_muHat2),
+  m_T2         (a_asc.m_T2),
+  m_aMu2       (a_asc.m_aMu2),
+  m_bMu2       (a_asc.m_bMu2),
+  m_aAoAHat2   (a_asc.m_aAoAHat2),
+  m_bAoAHat2   (a_asc.m_bAoAHat2),
+  m_aAoA2      (a_asc.m_aAoA2),
+  m_bAoA2      (a_asc.m_bAoA2),
 
   // Ballistic Gap:
-  m_TGap        = a_asc.m_TGap;
+  m_TGap       (a_asc.m_TGap),
 
   // For Stage1:
-  m_thrustMult1 = a_asc.m_thrustMult1;
-  m_thrustVacI1 = a_asc.m_thrustVacI1;
-  m_burnRateI1  = a_asc.m_burnRateI1;
-  m_bHat1       = a_asc.m_bHat1;
-  m_muHat1      = a_asc.m_muHat1;
-  m_T1          = a_asc.m_T1;
-  m_aMu1        = a_asc.m_aMu1;
-  m_bMu1        = a_asc.m_bMu1;
-  m_aAoAHat1    = a_asc.m_aAoAHat1;
-  m_bAoAHat1    = a_asc.m_bAoAHat1;
-  m_aAoA1       = a_asc.m_aAoA1;
-  m_bAoA1       = a_asc.m_bAoA1;
+  m_thrustMult1(a_asc.m_thrustMult1),
+  m_thrustVacI1(a_asc.m_thrustVacI1),
+  m_burnRateI1 (a_asc.m_burnRateI1),
+  m_bHat1      (a_asc.m_bHat1),
+  m_muHat1     (a_asc.m_muHat1),
+  m_T1         (a_asc.m_T1),
+  m_aMu1       (a_asc.m_aMu1),
+  m_bMu1       (a_asc.m_bMu1),
+  m_aAoAHat1   (a_asc.m_aAoAHat1),
+  m_bAoAHat1   (a_asc.m_bAoAHat1),
+  m_aAoA1      (a_asc.m_aAoA1),
+  m_bAoA1      (a_asc.m_bAoA1),
 
   // Over-All:
-  m_alpha1      = a_asc.m_alpha1;
-  m_payLoadMass = a_asc.m_payLoadMass;
-}
+  m_alpha1     (a_asc.m_alpha1),
+  m_payLoadMass(a_asc.m_payLoadMass)
+{}
 
 //===========================================================================//
 // "OptRes" Output:                                                          //

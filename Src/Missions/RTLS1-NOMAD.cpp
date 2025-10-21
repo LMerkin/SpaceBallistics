@@ -62,7 +62,12 @@ private:
 	//=========================================================================//
 	// Data Flds:																															 //
 	//=========================================================================//
+  // LV Params:
 	RTLS1 const*      const m_proto;
+  Mass              const m_fullMass1;
+  double            const m_fullK1;
+  double            const m_fullPropRem1;
+  Len               const m_diam;
 	// Optimisation Limits (Constraints):
 	LenK              const m_landDLLimit;
   VelK              const m_landVLimit;
@@ -75,7 +80,12 @@ public:
   NOMADEvaluator
   (
     std::shared_ptr<NOMAD::EvalParameters> const& a_params,
+    // LV Params:
     RTLS1 const*                                  a_proto,
+    Mass                                          a_full_mass1,
+    double                                        a_full_k1,
+    double                                        a_full_prop_rem1,
+    Len                                           a_diam,
     // Optimisation Limits (Constraints):
     LenK                                          a_land_dL_limit,
     VelK                                          a_land_V_limit,
@@ -83,11 +93,18 @@ public:
   )
   : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
     m_proto         (a_proto),
+    m_fullMass1     (a_full_mass1),
+    m_fullK1        (a_full_k1),
+    m_fullPropRem1  (a_full_prop_rem1),
+    m_diam          (a_diam),
     m_landDLLimit   (a_land_dL_limit),
     m_landVLimit    (a_land_V_limit),
     m_QLimit        (a_Q_limit)
   {
-    assert(m_proto != nullptr);
+    assert(m_proto != nullptr   && IsPos(m_fullMass1)   &&
+           0.0 < m_fullK1       && m_fullK1       < 1.0 &&
+           0.0 < m_fullPropRem1 && m_fullPropRem1 < 1.0 && IsPos(m_diam));
+
     if (!(IsPos(m_landDLLimit) && IsPos(m_landVLimit) && IsPos(m_QLimit)))
       throw std::invalid_argument
             ("RTLS1::NOMADEvaluator::Ctor: Invalid Limit(s)");
@@ -109,14 +126,41 @@ public:
     assert(8 <= a_x.size() && a_x.size() <= NP);
 
     //-----------------------------------------------------------------------//
-    // For Thread-Safety, construct a new "RTLS1" obj from "m_proto":        //
+    // For Thread-Safety, construct a new "RTLS1" obj:                       //
     //-----------------------------------------------------------------------//
-    Ascent2 rtls(*m_proto);
+    // (In contrast to "Ascent2", here we do not clone "m_proto" and modify the
+    // clone's params; rather, we construct a new obj using the params memoised
+    // in this class and in "m_proto");
+    //
+    // IMPORTANT: HERE "PropMassS" is set!
+    Mass propMassS = a_x[0].todouble() * MaxPropMassS;
+
+    RTLS1 rtls
+    (
+      // Stage Params:
+      m_fullMass1,
+      m_fullK1,
+      m_fullPropRem1,
+      m_proto->Base::m_IspSL1,
+      m_proto->Base::m_IspVac1,
+      m_proto->Base::m_thrustVacI1,
+      m_proto->Base::m_minThrtL1,
+      m_diam,
+      propMassS,          // NB: Variable!
+      // Mission Params:
+      m_proto->m_hS,
+      m_proto->m_lS,
+      m_proto->m_VrS,
+      m_proto->m_VhorS,
+      // Integration and Output Params:
+      m_proto->Base::m_odeIntegrStep,
+      m_proto->Base::m_os,
+      m_proto->Base::m_logLevel
+    );
 
     // Install the curr Ctl params in "rtls":
     rtls.SetCtlParams
     (
-      a_x[0].todouble(),                              // propMassSN
       a_x[1].todouble(),                              // coastDurN
       a_x[2].todouble(),                              // bbBurnDurN
       a_x[3].todouble(),                              // entryBurnQN
@@ -145,13 +189,37 @@ public:
     char  buff[512];
     char* curr = buff;
 
-    // The Objective Function Value (to me minimised): PropMassS which was pre-
-    // viously put into "rtls":
-    curr += sprintf(curr, "%.16e", res.m_propMassS);
+    // The Objective Function Value (to me minimised): It is "propMassS" itself
+    // (provided that all constraints are satisfied):
+    curr += sprintf(curr, "%.16e",  propMassS.Magnitude());
 
     // Constraints:
+    // Down-Range Miss (the aiming point is 0):
+    LenK dL = Abs(res.m_LT);
+    curr += sprintf(curr, " %.16e", (dL         - m_landDLLimit).Magnitude());
 
-    return true;
+    // The Landing Velocity (the target is 0):
+    assert(!IsNeg(res.m_VT));
+    curr += sprintf(curr, " %.16e", (res.m_VT   - m_landVLimit).Magnitude());
+
+    // XXX: Possibly TODO: Landing Acceleration as well
+
+    // The MaxQ encountered:
+    assert(!IsNeg(res.m_maxQ));
+    curr += sprintf(curr, " %.16e", (res.m_maxQ - m_QLimit).Magnitude());
+
+    // Output done!
+    assert(size_t(curr - buff) <= sizeof(buff));
+
+    if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 4)
+    {
+#     pragma omp critical(NOMADOutput)
+      *(m_proto->m_os) << buff << std::endl;
+    }
+    // Set the results back in "a_x":
+    a_x.setBBO(buff);
+    a_countEval = true;
+    return        true;
   }
 
 public:
@@ -162,8 +230,13 @@ public:
 //===========================================================================//
 bool RTLS1::RunNOMAD
 (
-  // Main Optimisation Problem Setup:
+  // LV Params:
   RTLS1 const*            a_proto,
+  Mass                    a_full_mass1,
+  double                  a_full_k1,
+  double                  a_full_prop_rem1,
+  Len                     a_diam,
+  // InitVals for the Ctl Params:
   std::vector<double>*    a_init_vals,
   // Optimisation Constraints (Limits):
   LenK                    a_land_dL_limit,
@@ -203,8 +276,9 @@ bool RTLS1::RunNOMAD
   std::unique_ptr<NOMADEvaluator> ev
     (new NOMADEvaluator
     (
-      params->getEvalParams(), a_proto,
-      a_land_dL_limit,         a_land_V_limit,  a_Q_limit
+      params->getEvalParams(),
+      a_proto,         a_full_mass1,   a_full_k1, a_full_prop_rem1, a_diam,
+      a_land_dL_limit, a_land_V_limit, a_Q_limit
     ));
   opt.setEvaluator(std::move(ev));
 

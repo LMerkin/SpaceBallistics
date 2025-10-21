@@ -210,6 +210,8 @@ public:
     // Constraints:
     // StartV (or a StartV equivalent taking StartH into account):
     VelK VT = std::max(res.m_VT, VelK(0.0));
+    assert(!(IsNeg(res.m_maxQ) || IsNeg(res.m_sepQ) || IsNeg(res.m_maxLongG)));
+
     curr += sprintf(curr, " %.16e", (VT - m_startVLimit).Magnitude());
     curr += sprintf(curr, " %.16e", (res.m_maxQ     - m_QLimit).Magnitude());
     curr += sprintf(curr, " %.16e", (res.m_sepQ     - m_sepQLimit).Magnitude());
@@ -220,7 +222,7 @@ public:
 
     if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 4)
     {
-  #   pragma omp critical(NOMADOutput)
+#     pragma omp critical(NOMADOutput)
       *(m_proto->m_os) << buff << std::endl;
     }
     // Set the results back in "a_x":

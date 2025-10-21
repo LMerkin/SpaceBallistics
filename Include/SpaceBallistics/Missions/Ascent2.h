@@ -319,64 +319,64 @@ namespace SpaceBallistics
       // Stage2 Params:                                                      //
       //---------------------------------------------------------------------//
       // Stage2 Thrust Multiplier and Thrust (@ Ignition):
-      double    m_thrustMult2;
-      ForceK    m_thrustVacI2;
-      MassRate  m_burnRateI2;
+      double    const m_thrustMult2;
+      ForceK    const m_thrustVacI2;
+      MassRate  const m_burnRateI2;
 
       // Stage2 BurnRate: Dim-Less Params:
-      double    m_bHat2;            // Must be in [0 .. 1], default is 0
-      double    m_muHat2;           // Must be in [0 .. 1], default is 1
+      double    const m_bHat2;            // Must be in [0 .. 1], default is 0
+      double    const m_muHat2;           // Must be in [0 .. 1], default is 1
 
       // Stage2 BurnRate: Dimensioned Coeffs:
-      Time      m_T2;
-      MassT3    m_aMu2;
-      MassT2    m_bMu2;
+      Time      const m_T2;
+      MassT3    const m_aMu2;
+      MassT2    const m_bMu2;
 
       // Stage2 AoA: Dim-Less Params:
-      double    m_aAoAHat2;         // Must be in [0 .. 1], default is 0
-      double    m_bAoAHat2;         // Must be in [0 .. 1], default is 0
+      double    const m_aAoAHat2;         // Must be in [0 .. 1], default is 0
+      double    const m_bAoAHat2;         // Must be in [0 .. 1], default is 0
 
       // Stage2 AoA: Dimensioned Coeffs: AoA2(t) = t * (a2 * t - b2), t <= 0,
       // t=0 is the orbital insertion time:
-      AngAcc    m_aAoA2;
-      AngVel    m_bAoA2;
+      AngAcc    const m_aAoA2;
+      AngVel    const m_bAoA2;
 
       //---------------------------------------------------------------------//
       // Ballistic Gap:                                                      //
       //---------------------------------------------------------------------//
-      Time      m_TGap;             // Default is 0.0_sec
+      Time      const m_TGap;             // Default is 0.0_sec
 
       //---------------------------------------------------------------------//
       // Stage1 Params:                                                      //
       //---------------------------------------------------------------------//
       // Stage1 Thrust Multiplier and Thrust (@ Ignition):
-      double    m_thrustMult1;
-      ForceK    m_thrustVacI1;
-      MassRate  m_burnRateI1;
+      double    const m_thrustMult1;
+      ForceK    const m_thrustVacI1;
+      MassRate  const m_burnRateI1;
 
       // Stage1 BurnRate: Dim-Less Params:
-      double    m_bHat1;            // Must be in [0 .. 1], default is 0
-      double    m_muHat1;           // Must be in [0 .. 1], default is 1
+      double    const m_bHat1;            // Must be in [0 .. 1], default is 0
+      double    const m_muHat1;           // Must be in [0 .. 1], default is 1
 
       // Stage1 BurnRate: Dimensioned Coeffs:
-      Time      m_T1;
-      MassT3    m_aMu1;
-      MassT2    m_bMu1;
+      Time      const m_T1;
+      MassT3    const m_aMu1;
+      MassT2    const m_bMu1;
 
       // Stage1 AoA: Dim-Less Params:
-      double    m_aAoAHat1;         // Must be in [0 .. 1], default is 0
-      double    m_bAoAHat1;         // Must be in [0 .. 1], default is 0
+      double    const m_aAoAHat1;         // Must be in [0 .. 1], default is 0
+      double    const m_bAoAHat1;         // Must be in [0 .. 1], default is 0
 
       // Stage1 AoA: Dimensioned Coeffs: AoA1(t) = tau * (a1 * tau + b1),
       // tau >= 0 is the time since Stage1 ignition:
-      AngAcc    m_aAoA1;
-      AngVel    m_bAoA1;
+      AngAcc    const m_aAoA1;
+      AngVel    const m_bAoA1;
 
       //---------------------------------------------------------------------//
       // Over-All:                                                           //
       //---------------------------------------------------------------------//
-      double    m_alpha1;           // FullMass1 / FullMass2
-      Mass      m_payLoadMass;
+      double    const m_alpha1;           // FullMass1 / FullMass2
+      Mass      const m_payLoadMass;
 
       //=====================================================================//
       // Non-Default Ctor:                                                   //

@@ -419,7 +419,7 @@ LVBase<Derived>::PostProcessRun(StateV const& a_sT, Time a_T) const
   LenK     rEnd      = std::get<0>(a_sT);
   VelK     VrEnd     = std::get<1>(a_sT);
   AngVel   omegaEnd  = std::get<2>(a_sT);
-  Angle    phiEnd    = std::get<4>(a_s);
+  Angle    phiEnd    = std::get<4>(a_sT);
   auto     VEnd2     = Sqr(VrEnd) + Sqr(rEnd * omegaEnd / 1.0_rad);
   Mass     mEnd      = ToDer()->LVMass(a_sT, a_T);
   LenK     lEnd      = R * double(phiEnd);

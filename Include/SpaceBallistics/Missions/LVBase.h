@@ -146,14 +146,14 @@ namespace SpaceBallistics
     //
     struct RunRes
     {
-      RunRC     m_rc;       // Return Code
-      Time      m_T;        // Final Flight Time (< 0 if Bwd integration)
-      LenL      m_LT;       // Final Down-Range distance
-      VelK      m_VT;       // Final Velocity
-      Mass      m_mT;       // Final LV Mass
-      Pressure  m_maxQ;     // Max Dynamic Pressure (Q) encountered so far
-      Pressure  m_sepQ;     // Q @ Stage1 Separation   (if encountered)
-      double    m_maxLongG; // Max Longitudinal G       encountered so far
+      RunRC    const m_rc;       // Return Code
+      Time     const m_T;        // Final Flight Time (< 0 if Bwd integration)
+      LenK     const m_LT;       // Final Down-Range distance
+      VelK     const m_VT;       // Final Velocity
+      Mass     const m_mT;       // Final LV Mass
+      Pressure const m_maxQ;     // Max Dynamic Pressure (Q) encountered so far
+      Pressure const m_sepQ;     // Q @ Stage1 Separation   (if encountered)
+      double   const m_maxLongG; // Max Longitudinal G       encountered so far
     };
 
   protected:
