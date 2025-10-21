@@ -273,7 +273,7 @@ Ascent2::Base::RunRes Ascent2::Run()
     // No point in continuing: we are falling back to Earth instead of ascend-
     // ing to orbit. Since this is an error cond, it does not carry any info:
     return Base::RunRes
-          {Base::RunRC::Error, Time(NAN), VelK(NAN), Mass(NAN),
+          {Base::RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
            Pressure(NAN),  Pressure(NAN),      NAN};
   }
   // XXX: Any other exceptions are propagated to the top level, it's better

@@ -140,12 +140,15 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "RunRes" Struct:                                                      //
     //-----------------------------------------------------------------------//
-    // "RunRC" plus extra info:
+    // "RunRC" plus extra info. XXX: It does not contain the Final Altitude, as
+    // it is always converted into the equivalent Velocity. However, the final
+    // Down-Range distance is returned:
     //
     struct RunRes
     {
       RunRC     m_rc;       // Return Code
-      Time      m_T;        // Final integration Time, < 0
+      Time      m_T;        // Final Flight Time (< 0 if Bwd integration)
+      LenL      m_LT;       // Final Down-Range distance
       VelK      m_VT;       // Final Velocity
       Mass      m_mT;       // Final LV Mass
       Pressure  m_maxQ;     // Max Dynamic Pressure (Q) encountered so far

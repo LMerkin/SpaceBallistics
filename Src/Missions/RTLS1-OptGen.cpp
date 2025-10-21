@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                       "Src/Missions/RTLS1-Optim.cpp":                     //
+//                       "Src/Missions/RTLS1-OptGen.cpp":                    //
 //           Return-to-(Launch/Landing)-Site: Parametric Optimisation        //
 //===========================================================================//
 #include "SpaceBallistics/Missions/RTLS1.h"
@@ -18,65 +18,90 @@ namespace SpaceBallistics
 //  LandBurnH, LandBurnThrtL, BBBurnSinTheta[1..4]]
 //
 // However, "a_opt_params_n" are all normalised to 0..1:
-//
+//---------------------------------------------------------------------------//
+// Individual Args Form:                                                     //
+//---------------------------------------------------------------------------//
+void RTLS1::SetCtlParams
+(
+  double a_propMassSN,    double a_coastDurN,
+  double a_bbBurnDurN,    double a_entryBurnQN,
+  double a_entryBurnDurN, double a_landBurnHN,
+  double a_landBurnThrtN,
+  double a_sinTheta0,     double a_sinTheta1,
+  double a_sinTheta2,     double a_sinTheta3
+)
+{
+  assert(0.0     <= a_propMassSN    && a_propMassSN    <= 1.0);
+  m_propMassS     = a_propMassSN    *  MaxPropMassS;
+
+  assert(0.0     <= a_coastDurN     && a_coastDurN     <= 1.0);
+  m_coastDur      = a_coastDurN     *  MaxCoastDur;
+
+  assert(0.0     <= a_bbBurnDurN    && a_bbBurnDurN    <= 1.0);
+  m_bbBurnDur     = a_bbBurnDurN    *  MaxBBBurnDur;
+
+  assert(0.0     <= a_entryBurnQN   && a_entryBurnQN   <= 1.0);
+  m_entryBurnQ    = a_entryBurnQN   *  MaxEntryBurnQ;
+
+  assert(0.0     <= a_entryBurnDurN && a_entryBurnDurN <= 1.0);
+  m_entryBurnDur  = entryBurnDurN *  MaxEntryBurnDur;
+
+  assert(0.0     <= a_landBurnHN    && a_landBurnHN    <= 1.0);
+  m_landBurnH     = a_landBurnHN    *  MaxLandBurnH;
+
+  assert(0.0     <= a_landBurnThrtN && a_landBurnThrtN <= 1.0);
+  // NB: Take the actual Stage1 throttling range into account:
+  m_landBurnThrtL =
+    Base::m_minThrtL1 * (1.0 - a_landBurnThrtN) + a_landBurnThrtN;
+
+  // sin(theta) coeffs:
+  assert(0.0     <= a_sinTheta0     && a_sinTheta0    <= 1.0);
+  m_bbBurnSinTheta[0] = 2.0 * a_sinTheta0 - 1.0;
+
+  assert(0.0     <= a_sinTheta1     && a_sinTheta1    <= 1.0);
+  m_bbBurnSinTheta[1] = 2.0 * a_sinTheta1 - 1.0;
+
+  assert(0.0     <= a_sinTheta2     && a_sinTheta2    <= 1.0);
+  m_bbBurnSinTheta[2] = 2.0 * a_sinTheta2 - 1.0;
+
+  assert(0.0     <= a_sinTheta3     && a_sinTheta3    <= 1.0);
+  m_bbBurnSinTheta[3] = 2.0 * a_sinTheta3 - 1.0;
+  // All Done!
+}
+
+//---------------------------------------------------------------------------//
+// Vector Form:                                                              //
+//---------------------------------------------------------------------------//
 void RTLS1::SetCtlParams(std::vector<double> const& a_opt_params_n)
 {
   int    np = int(a_opt_params_n.size());
   assert(NP - 3 <= np && np <= NP);
 
-  // XXX: Scaling vals are currently consts, and are set here.
-  constexpr Mass     MaxPropMassS     = 30000.0_kg;
-  constexpr Time     MaxCoastDur      =   300.0_sec;
-  constexpr Time     MaxBBBurnDur     =    20.0_sec;  // Actually too much!
-  constexpr Pressure MaxEntryBurnQ     (30000.0);
-  constexpr Time     MaxEntryBurnDur  =    10.0_sec;  // Actually too much!
-  constexpr LenK     MaxLandBurnH     =     5.0_km;   // OK or too low?
+  SetCtlParams
+  (
+    a_opt_params_n[0],                      // propMassSN
+    a_opt_params_n[1],                      // coastDurN
+    a_opt_params_n[2],                      // bbBurnDurN
+    a_opt_params_n[3],                      // entryBurnQN
+    a_opt_params_n[4],                      // entryBurnDurN
+    a_opt_params_n[5],                      // landBurnHN
+    a_opt_params_n[6],                      // landBurnThrtN
 
-  double propMassSN     = a_opt_params_n[0];
-  assert(0.0     <= propMassSN    && propMassSN    <= 1.0);
-  m_propMassS     = propMassSN    *  MaxPropMassS;
-
-  double coastDurN      = a_opt_params_n[1];
-  assert(0.0     <= coastDurN     && coastDurN     <= 1.0);
-  m_coastDur      = coastDurN     *  MaxCoastDur;
-
-  double bbBurnDurN     = a_opt_params_n[2];
-  assert(0.0     <= bbBurnDurN    && bbBurnDurN    <= 1.0);
-  m_bbBurnDur     = bbBurnDurN    *  MaxBBBurnDur;
-
-  double entryBurnQN    = a_opt_params_n[3];
-  assert(0.0     <= entryBurnQN   && entryBurnQN   <= 1.0);
-  m_entryBurnQ    = entryBurnQN   *  MaxEntryBurnQ;
-
-  double entryBurnDurN  = a_opt_params_n[4];
-  assert(0.0     <= entryBurnDurN && entryBurnDurN <= 1.0);
-  m_entryBurnDur  = entryBurnDurN *  MaxEntryBurnDur;
-
-  double landBurnHN     = a_opt_params_n[5];
-  assert(0.0     <= landBurnHN    && landBurnHN    <= 1.0);
-  m_landBurnH     = landBurnHN    *  MaxLandBurnH;
-
-  double landBurnThrtN = a_opt_params_n[6];
-  assert(0.0     <= landBurnThrtN && landBurnThrtN <= 1.0);
-  // NB: Take the actual Stage1 throttling range into account:
-  m_landBurnThrtL = Base::m_minThrtL1 * (1.0 - landBurnThrtN) + landBurnThrtN;
-
-  for (int i = 0; i < NS; ++i)
-  {
-    double si   = (7 + i < np) ? a_opt_params_n[size_t(7 + i)] : 0.5;
-    assert(0.0 <= si && si <= 1.0);
-    // XXX: However, we assume that the actual coeffs in the "sin(theta)"
-    // expansion are in the range  [-1..1]:
-    m_bbBurnSinTheta[i] = 2.0 * si - 1.0;
-  }
-  // All Done!
+    // sin(theta) coeffs: NB: the default normalised coeffs are equal to 0.5,
+    // which will translate into 0 (see the avove function):
+    a_opt_params_n[7],                      // sinTheta0
+    (np >=  9) ? a_opt_params_n[ 8] : 0.5,  // sinTheta1
+    (np >= 10) ? a_opt_params_n[ 9] : 0.5,  // sinTheta2
+    (np == 11) ? a_opt_params_n[10] : 0.5   // sinTheta3
+  );
 }
+
 
 //===========================================================================//
 // "FindOptimalAscentCtls"                                                   //
 //===========================================================================//
 std::pair<std::optional<RTLS1::OptRes>,
-          std::optional<RTLS1::RunRes>> // If the FinalRun is performed
+          std::optional<RTLS1::Base::RunRes>>  // If the FinalRun is performed
 RTLS1::FindOptimalReturnCtls
 (
   std::string const& a_config_ini,
@@ -186,8 +211,8 @@ RTLS1::FindOptimalReturnCtls
     //-----------------------------------------------------------------------//
     // "proto" is already set up with those params, except for the LogLevel:
     //
-    proto.m_logLevel = finalRunLogLevel;
-    RunRes runRes    = proto.Run();
+    proto.m_logLevel    = finalRunLogLevel;
+    Base::RunRes runRes = proto.Run();
     return std::make_pair(optRes, runRes);
   }
   // Otherwise, there is no "runRes":

@@ -75,10 +75,10 @@ namespace SpaceBallistics
     // Optimisation Params:                                                  //
     //-----------------------------------------------------------------------//
     // "PropMassS" is the propellant mass at Stage1 Separation, used to achieve
-    // the soft RTLS and landing. Is to be MINIMISED subject to all constraints:
-    Mass                  m_propMassS;
+    // the soft RTLS and landing. Is to be MINIMISED subject to all constraints.
+    // No need for a separate fld for it -- it will become Base::m_propMass1 !
 
-    // Coast Dur (before BBBurn): Same as BBIgnTime:
+    // Coast Dur (before BBBurn): Equals to BBIgnTime:
     Time                  m_coastDur;
 
     // AoA ctl during BBBurn  (more precisely, we control "theta" -- the Thrust
@@ -114,6 +114,17 @@ namespace SpaceBallistics
     // [PropMassS,  CoastTime,    BBBurnDur, BBBurnSinTheta[4],
     //  EntryBurnQ, EntryBurnDur, LandBurnH, LandBurnThrtL]
     constexpr static int  NP = 11;
+
+    //-----------------------------------------------------------------------//
+    // Translation of Relative Opt Params in the Absolute Ones:              //
+    //-----------------------------------------------------------------------//
+    // Scaling Factor:
+    constexpr static Mass     MaxPropMassS     = 30000.0_kg;
+    constexpr static Time     MaxCoastDur      =   300.0_sec;
+    constexpr static Time     MaxBBBurnDur     =    20.0_sec;  // Too large?
+    constexpr static Pressure MaxEntryBurnQ     (30000.0);
+    constexpr static Time     MaxEntryBurnDur  =    10.0_sec;  // Too large?
+    constexpr static LenK     MaxLandBurnH     =     5.0_km;   // Too low?
 
     //-----------------------------------------------------------------------//
     // Transient Data (during flight path integration):                      //
@@ -169,8 +180,21 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "SetCtlParams":                                                       //
     //-----------------------------------------------------------------------//
-    // See the implementation for details:
+    // See the implementation for details. There are 2 overloaded forms of this
+    // methods:
+    // Vector Form:
     void SetCtlParams(std::vector<double> const& a_opt_params_n);
+
+    // Individual Args Form:
+    void SetCtlParams
+    (
+      double a_propMassSN,    double a_coastDurN,
+      double a_bbBurnDurN,    double a_entryBurnQN,
+      double a_entryBurnDurN, double a_landBurnHN,
+      double a_landBurnThrtN,
+      double a_sinTheta0,     double a_sinTheta1,
+      double a_sinTheta2,     double a_sinTheta3
+    );
 
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Return Trajectory:                               //
@@ -270,17 +294,17 @@ namespace SpaceBallistics
     static bool RunNOMAD
     (
       // Main Optimisation Problem Setup:
-      RTLS1               const*    a_proto,
-      std::vector<double>*          a_init_vals,
+      RTLS1 const*                a_proto,
+      std::vector<double>*        a_init_vals,
       // Optimisation Constraints (Limits):
-      LenK                          a_max_land_missL,
-      VelK                          a_max_land_V,
-      Pressure                      a_max_Q,
+      LenK                        a_land_dL_limit,
+      VelK                        a_land_V_limit,
+      Pressure                    a_Q_limit,
       // NOMAD Params:
-      int                           a_max_evals,
-      int                           a_opt_seed,
-      bool                          a_stop_if_feasible,
-      double                        a_use_vns     // In [0..1), 0: no VNS
+      int                         a_max_evals,
+      int                         a_opt_seed,
+      bool                        a_stop_if_feasible,
+      double                      a_use_vns     // In [0..1), 0: no VNS
     );
   };
 }

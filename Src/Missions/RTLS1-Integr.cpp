@@ -92,6 +92,10 @@ RTLS1::RTLS1
   // Checks:
   if (!(IsPos(m_hS) && IsPos(m_lS) && IsPos(m_VrS) && IsPos(m_VhorS)))
     throw std::invalid_argument("RTLS1::Ctor: Invalid Mission Param(s)");
+
+  // "m_propMass1" (in the Base) should be equal to "a_prop_massS" up to
+  // rounding errors:
+  assert (Base::m_propMass1.ApproxEquals(a_propMassS));
 }
 
 //===========================================================================//

@@ -349,8 +349,8 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
       *m_os << "# Ascent2::LocateSingularPoint: UnReachable: Acc="
             << double(acc1 / g1) << " g" << std::endl;
     return RunRes
-          {RunRC::Error, Time(NAN), VelK(NAN), Mass(NAN), Pressure(NAN),
-           Pressure(NAN),     NAN};
+          {RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
+           Pressure(NAN), Pressure(NAN), NAN};
   }
 
   // Otherwise: Remaining Bwd Time and Distance to the singular point:
@@ -370,8 +370,8 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
       *m_os << "# Ascent2::LocateSingularPoint: Got hS=" << hS.Magnitude()
             << " km" << std::endl;
     return RunRes
-          {RunRC::Error,  Time(NAN), VelK(NAN), Mass(NAN), Pressure(NAN),
-           Pressure(NAN),      NAN};
+          {RunRC::Error,  Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
+           Pressure(NAN), Pressure(NAN),  NAN};
   }
   else
   if (IsNeg(hS))
@@ -385,10 +385,10 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
   StateV singS {rS, VelK(0.0), AngVel(0.0), propS, a_nse.m_phi};
   Time tS    = t1 - tau;
   Mass mS    = ToDer()->LVMass(singS, tS);
+  LenK LS    = R * double(a_nse.m_phi);
 
   if (m_os != nullptr && m_logLevel >= 2)
   {
-    LenK LS  = R * double(a_nse.m_phi);
     *m_os << "# SingularPoint Located: t1="     <<     t1.Magnitude()
           << " sec, tau="   << tau.Magnitude()  << " sec, tS="
           << tS.Magnitude() << " sec, m1="      <<     m1.Magnitude()
@@ -404,7 +404,7 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
   VelK V0 = SqRt(2.0 * K * (1.0 / R - 1.0 / rS));
 
   // The final result:
-  return RunRes{RunRC::Singularity, tS, V0, mS, maxQ, sepQ, maxLongG};
+  return RunRes{RunRC::Singularity, tS, LS, V0, mS, maxQ, sepQ, maxLongG};
 }
 
 //===========================================================================//
@@ -419,8 +419,10 @@ LVBase<Derived>::PostProcessRun(StateV const& a_sT, Time a_T) const
   LenK     rEnd      = std::get<0>(a_sT);
   VelK     VrEnd     = std::get<1>(a_sT);
   AngVel   omegaEnd  = std::get<2>(a_sT);
+  Angle    phiEnd    = std::get<4>(a_s);
   auto     VEnd2     = Sqr(VrEnd) + Sqr(rEnd * omegaEnd / 1.0_rad);
   Mass     mEnd      = ToDer()->LVMass(a_sT, a_T);
+  LenK     lEnd      = R * double(phiEnd);
 
   Pressure maxQ      = ToDer()->m_maxQ; 
   Pressure sepQ      = ToDer()->m_sepQ;
@@ -442,7 +444,7 @@ LVBase<Derived>::PostProcessRun(StateV const& a_sT, Time a_T) const
     // Convert the (rEnd, VEnd) into the velocity:
     VelK V0 = SqRt(VEnd2 + 2.0 * K * (1.0 / R - 1.0 / rEnd));
 
-    return RunRes{RunRC::FlameOut, a_T, V0, mEnd, maxQ,  sepQ, maxLongG};
+    return RunRes{RunRC::FlameOut, a_T, lEnd, V0, mEnd, maxQ, sepQ, maxLongG};
   }
   else
   {
@@ -456,7 +458,8 @@ LVBase<Derived>::PostProcessRun(StateV const& a_sT, Time a_T) const
                << hEnd.Magnitude() << " km" << std::endl;
       hEnd = 0.0_km; // Just reset it formally
     }
-    return RunRes{RunRC::ZeroH, a_T, SqRt(VEnd2), mEnd, maxQ, sepQ, maxLongG};
+    return RunRes
+          {RunRC::ZeroH, a_T, lEnd, SqRt(VEnd2), mEnd, maxQ, sepQ, maxLongG};
   }
 }
 }

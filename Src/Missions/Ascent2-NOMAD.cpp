@@ -1,12 +1,12 @@
 // vim:ts=2:et
 //===========================================================================//
-//                     "Src/Missions/Ascent2-Optim.cpp":                     //
-//     Ascent-to-Orbit for a "Model" 2-Stage LV: Parametric Optimisation     //
+//                     "Src/Missions/Ascent2-NOMAD.cpp":                     //
+//         Ascent-to-Orbit for a "Model" 2-Stage LV: NOMAD Interface         //
 //===========================================================================//
 #include "SpaceBallistics/Missions/Ascent2.h"
 
 // XXX: NOMAD headers produce tons of warnings, suppress them all:
-#ifdef   __clang__     
+#ifdef   __clang__
 #pragma  clang diagnostic push
 #pragma  clang diagnostic ignored "-Wunused-parameter"
 #pragma  clang diagnostic ignored "-Wnon-virtual-dtor"
@@ -15,7 +15,7 @@
 #pragma  clang diagnostic ignored "-Wold-style-cast"
 #pragma  clang diagnostic ignored "-Wsuggest-override"
 #pragma  clang diagnostic ignored "-Wsuggest-destructor-override"
-#pragma  clang diagnostic ignored "-Woverloaded-virtual" 
+#pragma  clang diagnostic ignored "-Woverloaded-virtual"
 #pragma  clang diagnostic ignored "-Wshadow"
 #pragma  clang diagnostic ignored "-Wextra-semi"
 #pragma  clang diagnostic ignored "-Wunused-member-function"
@@ -49,6 +49,8 @@
 #pragma  GCC   diagnostic pop
 #endif
 
+#include "SpaceBallistics/Missions/MkNOMADParams.hpp"
+
 namespace SpaceBallistics
 {
 //===========================================================================//
@@ -57,13 +59,13 @@ namespace SpaceBallistics
 class Ascent2::NOMADEvaluator final: public NOMAD::Evaluator
 {
 private:
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   // Data Flds:                                                              //
-  //-------------------------------------------------------------------------//
+  //=========================================================================//
   Ascent2 const*      const m_proto;
   std::array<bool,NP> const m_actOpts;     // Flags for Active Opt Params
-  // Optimisation Constraints:
-  VelK                const  m_maxStartV;
+  // Optimisation Limits (Constraints):
+  VelK                const  m_startVLimit;
   Pressure            const  m_QLimit;     // NAN -> disabled
   Pressure            const  m_sepQLimit;  // ditto
   double              const  m_longGLimit; // ditto
@@ -78,8 +80,8 @@ public:
     Ascent2             const*                    a_proto,
     // Flags indicating which variables are optimisation args:
     std::array<bool,NP> const&                    a_act_opts,
-    // Optimisation Constraints:
-    VelK                                          a_max_startV,
+    // Optimisation Limits (Constraints):
+    VelK                                          a_startV_limit,
     Pressure                                      a_Q_limit,
     Pressure                                      a_sepQ_limit,
     double                                        a_longG_limit
@@ -87,25 +89,23 @@ public:
   : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
     m_proto         (a_proto),
     m_actOpts       (a_act_opts),
-    m_maxStartV     (a_max_startV),
+    m_startVLimit   (a_startV_limit),
     m_QLimit        (a_Q_limit),
     m_sepQLimit     (a_sepQ_limit),
     m_longGLimit    (a_longG_limit)
   {
-    if (!IsPos(m_maxStartV)                             ||
-        (IsFinite(m_QLimit)     && !IsPos(m_QLimit))    ||
-        (IsFinite(m_sepQLimit)  && !IsPos(m_sepQLimit)) ||
-        (IsFinite(m_longGLimit) && !IsPos(m_longGLimit)) )
-      throw std::invalid_argument
-            ("Ascent2::NOMADEvaluator::Ctor: Invalid Constraint(s)");
-
     assert(m_proto != nullptr);
+
+    if (!(IsPos(m_startVLimit) && IsPos(m_QLimit)   &&
+          IsPos(m_sepQLimit))  && IsPos(m_longGLimit))
+      throw std::invalid_argument
+            ("Ascent2::NOMADEvaluator::Ctor: Invalid Limit(s)");
   }
 
   ~NOMADEvaluator() override {}
 
   //=========================================================================//
-  // "eval_x": The actual evaluation method for NOMAD:                       //
+  // "eval_x": The Actual Evaluation Method for NOMAD:                       //
   //=========================================================================//
   bool eval_x
   (
@@ -136,7 +136,7 @@ public:
     double bAoAHat1     = m_proto->m_bAoAHat1;
     double alpha1       = m_proto->m_alpha1;
     Mass   payLoadMass  = m_proto->m_payLoadMass;
-  
+
     //-----------------------------------------------------------------------//
     // Extract the actual params from "a_x":                                 //
     //-----------------------------------------------------------------------//
@@ -145,10 +145,10 @@ public:
     {
       if (!m_actOpts[size_t(i)])
         continue;
-  
+
       // Otherwise: the "i"th over-all idx is mapped to the "j"th idx in "a_x":
       double xj = a_x[size_t(j)].todouble();
-  
+
       switch (i)
       {
       case  0: thrustMult2 = xj; break;
@@ -168,9 +168,11 @@ public:
       }
       ++j;
     }
-    // For thread-safety, construct a new "Ascent2" obj from "m_proto":
+    //-----------------------------------------------------------------------//
+    // For thread-safety, construct a new "Ascent2" obj from "m_proto":      //
+    //-----------------------------------------------------------------------//
     Ascent2 asc(*m_proto);
-  
+
     // Install the possibly-modified params in "asc":
     asc.ModifyLVParams
     (
@@ -181,22 +183,22 @@ public:
       bHat2,       muHat2,  aAoAHat2,  bAoAHat2, TGap,
       bHat1,       muHat1,  aAoAHat1,  bAoAHat1
     );
-  
-    // Run the Integrator!
-    RunRes res = asc.Run();  // NB: Exceptions are handled inside "Run"
-  
-    // Analyse the Results:
+
+    //-----------------------------------------------------------------------//
+    // Run the Integrator!                                                   //
+    //-----------------------------------------------------------------------//
+    RunRes res = asc.Run(); // NB: Exceptions are handled inside "Run"
+
+    // IMPORTANT: NOMAD allows us to indicate that evaluation has failed:
     if (res.m_rc == RunRC::Error)
-      // IMPORTANT: NOMAD allows us to indicate that evaluation has failed:
       return false;
-  
-    // StartV (or a StartV equivalent taking StartH into account):
-    VelK VT = std::max(res.m_VT, VelK(0.0));
-  
-    // Push the results back to NOMAD in string form:
+
+    //-----------------------------------------------------------------------//
+    // Push the results back to NOMAD in string form:                        //
+    //-----------------------------------------------------------------------//
     char  buff[512];
-    char* curr  = buff;
-  
+    char* curr = buff;
+
     // XXX: The Objective Function Value: StartMass or (-PayLoadMass), both to
     // be minimised. Which one is to be used, depends on whether the PayLoadMass
     // is the list of Optimisation Params:
@@ -204,26 +206,18 @@ public:
     Mass objMass        =
       objIsStartMass    ? res.m_mT : (- asc.m_payLoadMass);
     curr += sprintf(curr, "%.16e", objMass.Magnitude());
-  
-    // Constraint0: StartV:
-    curr += sprintf(curr, " %.16e",  (VT - m_maxStartV).Magnitude());
-  
-    // Other Constraints if enabled:
-    if (IsFinite(m_QLimit))
-      curr +=
-        sprintf(curr, " %.16e", (res.m_maxQ     - m_QLimit).Magnitude());
-  
-    if (IsFinite(m_sepQLimit))
-      curr +=
-        sprintf(curr, " %.16e", (res.m_sepQ     - m_sepQLimit).Magnitude());
-  
-    if (IsFinite(m_longGLimit))
-      curr +=
-      sprintf(curr, " %.16e",   (res.m_maxLongG - m_longGLimit));
-  
+
+    // Constraints:
+    // StartV (or a StartV equivalent taking StartH into account):
+    VelK VT = std::max(res.m_VT, VelK(0.0));
+    curr += sprintf(curr, " %.16e", (VT - m_startVLimit).Magnitude());
+    curr += sprintf(curr, " %.16e", (res.m_maxQ     - m_QLimit).Magnitude());
+    curr += sprintf(curr, " %.16e", (res.m_sepQ     - m_sepQLimit).Magnitude());
+    curr += sprintf(curr, " %.16e", (res.m_maxLongG - m_longGLimit));
+
     // Output done!
     assert(size_t(curr - buff) <= sizeof(buff));
-  
+
     if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 4)
     {
   #   pragma omp critical(NOMADOutput)
@@ -248,7 +242,7 @@ bool Ascent2::RunNOMAD
   std::vector<double> const&  a_lo_bounds,
   std::vector<double> const&  a_up_bounds,
   // Optimisation Constraints:
-  VelK                        a_max_startV,
+  VelK                        a_startV_limit,
   Pressure                    a_Q_limit,
   Pressure                    a_sepQ_limit,
   double                      a_longG_limit,
@@ -270,81 +264,24 @@ bool Ascent2::RunNOMAD
   // Create the Main NOMAD obj:
   NOMAD::MainStep opt;
 
-  // Create the Params:
-  // Problem Geometry:
-  auto params = std::make_shared<NOMAD::AllParameters>();
-  params->setAttributeValue("DIMENSION",         np);
-  params->setAttributeValue("X0",                NOMAD::Point(*a_init_vals));
-  params->setAttributeValue
-    ("LOWER_BOUND", NOMAD::ArrayOfDouble(a_lo_bounds));
-  params->setAttributeValue
-    ("UPPER_BOUND", NOMAD::ArrayOfDouble(a_up_bounds));
+  // Create and set the NOMAD params:
+  // There are 4 Constraints: (StartV, MaxQ, SepQ, MaxLongG), but their actual
+  // vals are not required yet:
+  std::shared_ptr<NOMAD::AllParameters> params =
+    MkNOMADParams(*a_init_vals, a_lo_bounds, a_up_bounds,     4,
+                  a_max_evals,  a_opt_seed,  a_stop_if_feasible, a_use_vns);
 
-  // Stopping Criterion: XXX: Currently, only via the MaxEvals param:
-  params->setAttributeValue("MAX_BB_EVAL", a_max_evals);
-
-  // XXX: The following must be compatible with "NOMADEvaluator::eval_x":
-  NOMAD::BBOutputTypeList  bbTypes;
-  bbTypes.push_back(NOMAD::BBOutputType::OBJ);
-
-  // 1 constraint on the start consitions: V(-T),
-  // to be satisfied at the solution point only:
-  bbTypes.push_back(NOMAD::BBOutputType::PB);
-
-  // Possible extra constraints: QLimit, SepQLimit, LongGLimit,
-  // to be satisfied at the solution point only as well:
-  if (IsFinite(a_Q_limit))
-    bbTypes.push_back(NOMAD::BBOutputType::PB);
-  if (IsFinite(a_sepQ_limit))
-    bbTypes.push_back(NOMAD::BBOutputType::PB);
-  if (IsFinite(a_longG_limit))
-    bbTypes.push_back(NOMAD::BBOutputType::PB);
-
-  params->setAttributeValue("BB_OUTPUT_TYPE", bbTypes );
-
-  // Parallel Evaluation: The number of threads is decided automatically:
-  params->setAttributeValue("NB_THREADS_PARALLEL_EVAL", -1);
-
-  // "DIRECTION_TYPE" selects a variant of the optimisation algorithm. Other
-  // possible vals include "ORTHO_NP1_NEG", "ORTHO_NP1_QUAD", "NP1_UNI"  and
-  // many others:
-  params->setAttributeValue("DIRECTION_TYPE",
-    NOMAD::DirectionType::ORTHO_2N);
-
-  // Other params:
-  params->setAttributeValue("DISPLAY_DEGREE",          2);
-  params->setAttributeValue("DISPLAY_ALL_EVAL",        false);
-  params->setAttributeValue("DISPLAY_UNSUCCESSFUL",    false);
-  params->getRunParams()->setAttributeValue("HOT_RESTART_READ_FILES",  false);
-  params->getRunParams()->setAttributeValue("HOT_RESTART_WRITE_FILES", false);
-
-  params->setAttributeValue("SEED",             a_opt_seed);
-  params->setAttributeValue("STOP_IF_FEASIBLE", a_stop_if_feasible);
-
-  if (a_use_vns <  0.0 || a_use_vns >= 1.0)
-    throw std::invalid_argument ("NOMADUseVNS: The arg must be in [0..1)");
-
-  if (a_use_vns != 0.0)
-  {
-    assert(0.0 < a_use_vns && a_use_vns < 1.0);
-    params->setAttributeValue("VNS_MADS_SEARCH",         true);
-    params->setAttributeValue("VNS_MADS_SEARCH_TRIGGER",
-                              NOMAD::Double(a_use_vns));
-  }
-
-  // Validate the "params" and install them in the "opt":
-  params->checkAndComply();
   opt.setAllParameters(params);
 
-  //-----------------------------------------------------------------------//
-  // Create and Run the "NOMADEvaluator":                                  //
-  //-----------------------------------------------------------------------//
+  //-------------------------------------------------------------------------//
+  // Create and Run the "NOMADEvaluator":                                    //
+  //-------------------------------------------------------------------------//
   std::unique_ptr<NOMADEvaluator> ev
     (new NOMADEvaluator
     (
       params->getEvalParams(),
-      a_proto,      a_act_opts,
-      a_max_startV, a_Q_limit, a_sepQ_limit, a_longG_limit
+      a_proto,        a_act_opts,
+      a_startV_limit, a_Q_limit, a_sepQ_limit, a_longG_limit
     ));
   opt.setEvaluator(std::move(ev));
 

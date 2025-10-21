@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//                     "Src/Missions/Ascent2-Optim.cpp":                     //
+//                     "Src/Missions/Ascent2-OptGen.cpp":                    //
 //     Ascent-to-Orbit for a "Model" 2-Stage LV: Parametric Optimisation     //
 //===========================================================================//
 #include "SpaceBallistics/Missions/Ascent2.h"
@@ -286,7 +286,7 @@ std::ostream& operator<< (std::ostream& a_os, Ascent2::OptRes const& a_res)
 // "FindOptimalAscentCtls"                                                   //
 //===========================================================================//
 std::pair<std::optional<Ascent2::OptRes>,
-          std::optional<Ascent2::RunRes>> // If the FinalRun is performed
+          std::optional<Ascent2::Base::RunRes>> // If the FinalRun is performed
 Ascent2::FindOptimalAscentCtls
 (
   std::string const& a_config_ini,
@@ -546,8 +546,8 @@ Ascent2::FindOptimalAscentCtls
     //-----------------------------------------------------------------------//
     // "proto" is already set up with those params, except for the LogLevel:
     //
-    proto.m_logLevel = finalRunLogLevel;
-    RunRes runRes    = proto.Run();
+    proto.m_logLevel    = finalRunLogLevel;
+    Base::RunRes runRes = proto.Run();
     return std::make_pair(optRes, runRes);
   }
   // Otherwise, there is no "runRes":

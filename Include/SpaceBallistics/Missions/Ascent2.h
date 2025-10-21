@@ -428,7 +428,7 @@ namespace SpaceBallistics
       std::vector<double> const&    a_lo_bounds,  //           size <= NP
       std::vector<double> const&    a_up_bounds,  //           size <= NP
       // Optimisation Constraints:
-      VelK                          a_max_startV,
+      VelK                          a_startV_limit,
       Pressure                      a_Q_limit,
       Pressure                      a_sepQ_limit,
       double                        a_longG_limit,
