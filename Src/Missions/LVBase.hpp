@@ -346,7 +346,7 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
     // reachable; this is because we have arrived at the mass "m1"  which is
     // too large:
     if (m_os != nullptr && m_logLevel >= 1)
-      *m_os << "# Ascent2::LocateSingularPoint: UnReachable: Acc="
+      *m_os << "# Ascent2::LocateSingularPoint: WARNING: UnReachable: Acc="
             << double(acc1 / g1) << " g" << std::endl;
     return RunRes
           {RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
@@ -367,8 +367,8 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
   if (hS < -0.5_km)
   {
     if (m_os != nullptr && m_logLevel >= 1)
-      *m_os << "# Ascent2::LocateSingularPoint: Got hS=" << hS.Magnitude()
-            << " km" << std::endl;
+      *m_os << "# Ascent2::LocateSingularPoint: WARNING: Got hS="
+            << hS.Magnitude() << " km" << std::endl;
     return RunRes
           {RunRC::Error,  Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
            Pressure(NAN), Pressure(NAN),  NAN};
@@ -387,7 +387,7 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
   Mass mS    = ToDer()->LVMass(singS, tS);
   LenK LS    = R * double(a_nse.m_phi);
 
-  if (m_os != nullptr && m_logLevel >= 2)
+  if (m_os != nullptr && m_logLevel >= 3)
   {
     *m_os << "# SingularPoint Located: t1="     <<     t1.Magnitude()
           << " sec, tau="   << tau.Magnitude()  << " sec, tS="
@@ -435,7 +435,7 @@ LVBase<Derived>::PostProcessRun(StateV const& a_sT, Time a_T) const
     if (rEnd < R)
     {
       if (m_os != nullptr && m_logLevel >= 1)
-        *m_os  << "# Ascent2::Run: Got mode=UNDEFINED but h="
+        *m_os  << "# Ascent2::Run: WARNING: Got mode=UNDEFINED but h="
                << (rEnd - R).Magnitude() << " km" << std::endl;
       rEnd = R;
     }
@@ -454,7 +454,7 @@ LVBase<Derived>::PostProcessRun(StateV const& a_sT, Time a_T) const
     if  (hEnd > 0.5_km)
     {
       if (m_os != nullptr && m_logLevel >= 1)
-        *m_os  << "# Ascent2::Run: Expected h=0 but got h="
+        *m_os  << "# Ascent2::Run: WARNING: Expected h=0 but got h="
                << hEnd.Magnitude() << " km" << std::endl;
       hEnd = 0.0_km; // Just reset it formally
     }

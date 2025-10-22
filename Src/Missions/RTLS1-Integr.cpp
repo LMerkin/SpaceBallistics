@@ -31,8 +31,8 @@ RTLS1::RTLS1
   Mass           a_prop_massS,
   LenK           a_hS,
   LenK           a_lS,
-  VelK           a_VrS,
-  VelK           a_VhorS,
+  VelK           a_VS,
+  Angle          a_phiS,
 
   // Integration and Output Params:
   Time           a_ode_integr_step,
@@ -65,8 +65,8 @@ RTLS1::RTLS1
   // Mission Params (constant):
   m_hS            (a_hS),
   m_lS            (a_lS),
-  m_VrS           (a_VrS),
-  m_VhorS         (a_VhorS),
+  m_VS            (a_VS),
+  m_phiS          (a_phiS),
   // Ctl Params are set to their default vals as yet:
   m_coastDur      (),
   m_bbBurnDur     (),
@@ -87,7 +87,8 @@ RTLS1::RTLS1
   m_maxLongG      (0.0)
 {
   // Checks:
-  if (!(IsPos(m_hS) && IsPos(m_lS) && IsPos(m_VrS) && IsPos(m_VhorS)))
+  if (!(IsPos(m_hS) && IsPos(m_lS) && IsPos(m_VS) && IsPos(m_phiS) &&
+        m_phiS < PI_2))
     throw std::invalid_argument("RTLS1::Ctor: Invalid Mission Param(s)");
 
   // "m_propMass1" (in the Base) should be equal to "a_prop_massS" up to
@@ -110,11 +111,12 @@ RTLS1::Base::RunRes RTLS1::Run()
   //-------------------------------------------------------------------------//
   // (t=0 corresponds to Separation):
   LenK   rS     = R + m_hS;
-  AngVel omegaS = 1.0_rad * m_VhorS / rS;
-  assert(IsPos(omegaS));
+  VelK   VrS    = m_VS * Sin(m_phiS);
+  AngVel omegaS = m_VS * Cos(m_phiS) / rS * 1.0_rad;
+  assert(IsPos(VrS) && IsPos(omegaS));
 
   // The initial State Vector:
-  Base::StateV s0 = std::make_tuple(rS, m_VrS, omegaS, 0.0_kg, 0.0_rad);
+  Base::StateV s0 = std::make_tuple(rS, VrS, omegaS, 0.0_kg, 0.0_rad);
 
   // The RHS and the Call-Back Lambdas:
   auto rhs =
@@ -307,7 +309,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_tau)
   Angle_deg psi_deg = To_Angle_deg(psi);
   Angle_deg aoa_deg = To_Angle_deg(aoa);
 
-  if (!m_eventStr.empty() && Base::m_os != nullptr && Base::m_logLevel >= 2)
+  if (!m_eventStr.empty() && Base::m_os != nullptr && Base::m_logLevel >= 3)
   {
     *Base::m_os
       << "# t="           << a_t.Magnitude()
@@ -330,7 +332,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_tau)
   // Main Output:                                                            //
   //-------------------------------------------------------------------------//
   // Occurs with a 100 msec step, or if we are going to stop now:
-  if (Base::m_os  != nullptr && Base::m_logLevel >= 3 &&
+  if (Base::m_os  != nullptr && Base::m_logLevel >= 4 &&
      (!cont || int(Round(double(a_t / 0.001_sec))) % 100 == 0))
   {
     // Thrust is more conveniently reported in kgf:

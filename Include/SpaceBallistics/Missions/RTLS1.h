@@ -66,14 +66,12 @@ namespace SpaceBallistics
     // "t" runs FORWARD.
     // We assume that the landing site is (h=0, l=0). The co-ords at Separation
     // are (hS > 0, lS > 0), and they are considered to be const params:
-    LenK const            m_hS;
-    LenK const            m_lS;
+    LenK  const           m_hS;
+    LenK  const           m_lS;
 
-    // And the corresp velocity components at Separation: Velocity  projections
-    // on the radius-vector and on the positive normal to the radius-vector (ie
-    // towards the increasing polar angle) are "Vr" and "Vhor", resp:
-    VelK const            m_VrS;
-    VelK const            m_VhorS;
+    // And the corresp Velocity and Trajectory Inclidation at Separation:
+    VelK  const           m_VS;
+    Angle const           m_phiS;
 
     //-----------------------------------------------------------------------//
     // Optimisation Params:                                                  //
@@ -166,8 +164,8 @@ namespace SpaceBallistics
       Mass           a_prop_massS,          // INCL the unspendable remnant
       LenK           a_hS,
       LenK           a_lS,
-      VelK           a_VrS,
-      VelK           a_VhorS,
+      VelK           a_VS,
+      Angle          a_phiS,
 
       // Integration and Output Params:
       Time           a_ode_integr_step,

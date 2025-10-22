@@ -171,11 +171,11 @@ RTLS1::FindOptimalReturnCtls
   // NB: (HS, LS) are the Altitude and Down-Range Distance (of Stage1 @ Separ-
   // ation Time) from the Landing Site, NOT from the Launch Site (though they
   // are assumed to be close from to each other):
-  Mass   propMassS              (pt.get<double>("RTLS.PropMassS"));
-  LenK   hS                     (pt.get<double>("RTLS.HS"));
-  LenK   lS                     (pt.get<double>("RTLS.LS"));
-  VelK   VrS                    (pt.get<double>("RTLS.VrS"));
-  VelK   VhorS                  (pt.get<double>("RTLS.VhorS"));
+  Mass   propMassS              (pt.get<double>("RTLS.propMassS"));
+  LenK   hS                     (pt.get<double>("RTLS.hS"));
+  LenK   lS                     (pt.get<double>("RTLS.lS"));
+  VelK   VS                     (pt.get<double>("RTLS.VS"));
+  Angle  phiS                   (pt.get<double>("RTLS.phiS"));
 
   // "Technical" Params:
   Time   odeIntegrStep          (pt.get<double>("Technical.ODEIntegrStep"));
@@ -213,7 +213,7 @@ RTLS1::FindOptimalReturnCtls
   (
     maxFullMass1,  fullK1,  fullPropRem1, IspSL1, IspVac1, thrustVacI1,
     minThrtL1, diam,
-    propMassS, hS,     lS,    VrS, VhorS,
+    propMassS, hS,     lS,    VS,   phiS,
     odeIntegrStep,     a_os,  optLogLevel
   );
 

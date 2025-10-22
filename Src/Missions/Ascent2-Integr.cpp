@@ -474,7 +474,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   Angle_deg psi_deg = To_Angle_deg(psi);
   Angle_deg aoa_deg = To_Angle_deg(aoa);
 
-  if (!m_eventStr.empty() && Base::m_os != nullptr && Base::m_logLevel >= 2)
+  if (!m_eventStr.empty() && Base::m_os != nullptr && Base::m_logLevel >= 3)
   {
     *Base::m_os
       << "# t="           << a_t.Magnitude()
@@ -497,7 +497,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   // Main Output:                                                            //
   //-------------------------------------------------------------------------//
   // Occurs with a 100 msec step, or if we are going to stop now:
-  if (Base::m_os  != nullptr && Base::m_logLevel >= 3 &&
+  if (Base::m_os  != nullptr && Base::m_logLevel >= 4 &&
      (!cont || int(Round(double(a_t / 0.001_sec))) % 100 == 0))
   {
     // Thrust is more conveniently reported in kgf:
@@ -532,9 +532,10 @@ std::pair<Angle,Angle> Ascent2::AoA(Time a_t, Angle a_psi) const
   // omega ~ Vhor ~ cos(psi)) may in general occur due to rounding errors or
   // integration instabilities. It is difficult to say precisely which values
   // of "psi" are accepatble and which are not, so we just log such events:
+  //
   if (Abs(a_psi) > PI_2 && Base::m_os != nullptr && Base::m_logLevel >= 1)
-    *Base::m_os << "Ascent2::AoA: psi=" << To_Angle_deg(a_psi).Magnitude()
-                << " deg" << std::endl;
+    *Base::m_os << "Ascent2::AoA: WARNING: psi="
+                << To_Angle_deg(a_psi).Magnitude() << " deg" << std::endl;
 
   Angle  aoa = 0.0_rad;
 

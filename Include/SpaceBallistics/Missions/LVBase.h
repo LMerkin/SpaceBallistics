@@ -191,9 +191,10 @@ namespace SpaceBallistics
     // LogLevel:
     // 0: No output (even if "m_os" is non-NULL)
     // 1: Errors and warnings
-    // 2: Important  events
-    // 3: Full trajectory
-    // 4: Debugging info
+    // 2: Results of each run (within the optimisation process)
+    // 3: Important  events
+    // 4: Full trajectory
+    // 5: Debugging info
 
     //=======================================================================//
     // Methods:                                                              //

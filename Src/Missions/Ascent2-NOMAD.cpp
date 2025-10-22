@@ -220,7 +220,7 @@ public:
     // Output done!
     assert(size_t(curr - buff) <= sizeof(buff));
 
-    if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 4)
+    if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 2)
     {
 #     pragma omp critical(NOMADOutput)
       *(m_proto->m_os) << buff << std::endl;
