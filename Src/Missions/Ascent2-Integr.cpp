@@ -367,6 +367,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
   LenK     L   = R * phi / 1.0_rad; // Down-Range Earth Distance, <= 0
   // AeroDynamic Conditions:
   double   M   = Base::Mach(atm, V);
+  Pressure pe  = std::get<0>(atm);
   Density  rho = std::get<1>(atm);
   auto     V2  = To_Len_m(Sqr(V));
   Pressure Q   = 0.5 * rho * V2;
@@ -529,7 +530,8 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
       << m.Magnitude()       << '\t' << ToString(m_mode)     << '\t'
       << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
       << Q.Magnitude()       << '\t' << M                    << '\t'
-      << longG               << '\t' << a_dt.Magnitude()     << std::endl;
+      << longG               << '\t' << pe.Magnitude()       << '\t'
+      << a_dt.Magnitude()    << std::endl;
   }
   return cont;
 }
