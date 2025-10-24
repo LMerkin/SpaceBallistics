@@ -246,7 +246,7 @@ namespace SpaceBallistics
     // CallBack (invoked after the completion of each integration step):
     // Here FlightMode switching occurs, so this method is non-"const":
     //
-    bool ODECB(StateV* a_s, Time a_t, Time a_tau);
+    bool ODECB(StateV* a_s, Time a_t, Time a_dt);
 
     // "AeroDynForces":
     // Atmospheric Conditions and Aerodynamic Drag Force:
@@ -273,7 +273,31 @@ namespace SpaceBallistics
     // Earth rather than ascending to orbit, so the integration process cannot
     // continue. It is an error cond, so it does not carry any info:
     //
-    struct FallingBackExn {};
+    struct FallingBackExn
+    {
+    public:
+      // Data Flds:
+      LenK  const m_r;
+      VelK  const m_Vr;
+      VelK  const m_Vhor;
+      Mass  const m_spentPropMass;
+      Angle const m_phi;
+      Time  const m_t;
+
+      // Non-Default Ctor:
+      FallingBackExn
+      (
+        LenK  a_r,   VelK a_Vr, VelK a_Vhor, Mass a_spent_prop_mass,
+        Angle a_phi, Time a_t
+      )
+      : m_r             (a_r),
+        m_Vr            (a_Vr),
+        m_Vhor          (a_Vhor),
+        m_spentPropMass (a_spent_prop_mass),
+        m_phi           (a_phi),
+        m_t             (a_t)
+      {}
+    };
 
     //-----------------------------------------------------------------------//
     // For Optimisation:                                                     //
@@ -436,7 +460,8 @@ namespace SpaceBallistics
       int                           a_max_evals,
       int                           a_opt_seed,
       bool                          a_stop_if_feasible,
-      double                        a_use_vns     // In [0..1), 0: no VNS
+      double                        a_use_vns,    // In [0..1), 0: no VNS
+      bool                          a_use_mt      // true unless debugging
     );
   };
 }

@@ -48,8 +48,7 @@
 #else
 #pragma  GCC   diagnostic pop
 #endif
-
-#include "SpaceBallistics/Missions/MkNOMADParams.hpp"
+#include "MkNOMADParams.hpp"
 
 namespace SpaceBallistics
 {
@@ -252,7 +251,8 @@ bool Ascent2::RunNOMAD
   int                         a_max_evals,
   int                         a_opt_seed,
   bool                        a_stop_if_feasible,
-  double                      a_use_vns
+  double                      a_use_vns,
+  bool                        a_use_mt
 )
 {
   assert(a_proto != nullptr && a_init_vals != nullptr);
@@ -271,7 +271,8 @@ bool Ascent2::RunNOMAD
   // vals are not required yet:
   std::shared_ptr<NOMAD::AllParameters> params =
     MkNOMADParams(*a_init_vals, a_lo_bounds, a_up_bounds,     4,
-                  a_max_evals,  a_opt_seed,  a_stop_if_feasible, a_use_vns);
+                  a_max_evals,  a_opt_seed,  a_stop_if_feasible, a_use_vns,
+                  a_use_mt);
 
   opt.setAllParameters(params);
 

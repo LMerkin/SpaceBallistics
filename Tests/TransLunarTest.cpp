@@ -337,7 +337,8 @@ namespace
 
     // The RHS capturing the Context:
     auto rhs =
-      [a_ctx](StateV const& a_s,  Time a_mjs_tdb) -> RHSV
+      [a_ctx](StateV const& a_s, Time a_mjs_tdb, Time UNUSED_PARAM(a_dt))
+      -> RHSV
       { return ODERHS(a_s, TDB{a_mjs_tdb}, a_ctx); };
 
     // The Call-Back:

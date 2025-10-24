@@ -1,6 +1,6 @@
 // vim:ts=2:et
 //===========================================================================//
-//               "SpaceBallistics/Missions/MkNOMADParams.hpp":               //
+//                        "Missions/MkNOMADParams.hpp":                      //
 //               Common Part of NOMAD Interface Initialisation               //
 //===========================================================================//
 // XXX: This header can only be included in the context of <Nomad/nomad.hpp>;
@@ -23,7 +23,8 @@ inline std::shared_ptr<NOMAD::AllParameters> MkNOMADParams
   int                        a_max_evals,
   int                        a_opt_seed,
   bool                       a_stop_if_feasible,
-  double                     a_use_vns
+  double                     a_use_vns,
+  bool                       a_use_mt
 )
 {
   assert(a_init_vals.size() == a_lo_bounds.size() &&
@@ -53,8 +54,9 @@ inline std::shared_ptr<NOMAD::AllParameters> MkNOMADParams
 
   params->setAttributeValue("BB_OUTPUT_TYPE", bbTypes );
 
-  // Parallel Evaluation: The number of threads is decided automatically:
-  params->setAttributeValue("NB_THREADS_PARALLEL_EVAL", -1);
+  // Parallel Evaluation: If enabled, the number of threads is decided
+  // automatically:
+  params->setAttributeValue("NB_THREADS_PARALLEL_EVAL", a_use_mt ? -1 : 1);
 
   // "DIRECTION_TYPE" selects a variant of the optimisation algorithm. Other
   // possible vals include "ORTHO_NP1_NEG", "ORTHO_NP1_QUAD", "NP1_UNI"  and

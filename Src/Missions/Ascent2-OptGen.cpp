@@ -454,6 +454,7 @@ Ascent2::FindOptimalAscentCtls
   double useVNS           = pt.get<double>("Technical.NOMADUseVNS");
   if (useVNS < 0.0 || useVNS >= 1.0)      // 0: VNS not used
     throw std::invalid_argument ("NOMADUseVNS: The arg must be in [0..1)");
+  bool   useMT            = pt.get<bool>  ("Technical.NOMADUseMT");
 
   //-------------------------------------------------------------------------//
   // Create the "prototype" "Ascent2" obj:                                   //
@@ -485,7 +486,7 @@ Ascent2::FindOptimalAscentCtls
       (
         &proto,      actOpts,   &initVals,      loBounds,   upBounds,
         maxStartV,   QLimit,    sepQLimit,      longGLimit,
-        optMaxEvals, optSeed,   stopIfFeasible, useVNS
+        optMaxEvals, optSeed,   stopIfFeasible, useVNS,     useMT
       );
     if (!ok)
       return std::make_pair(std::nullopt, std::nullopt);

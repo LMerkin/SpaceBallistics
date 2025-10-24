@@ -113,19 +113,20 @@ RTLS1::Base::RunRes RTLS1::Run()
   LenK   rS     = R + m_hS;
   VelK   VrS    = m_VS * Sin(m_phiS);
   AngVel omegaS = m_VS * Cos(m_phiS) / rS * 1.0_rad;
-  assert(IsPos(VrS) && IsPos(omegaS));
+  Angle  phiS   = m_lS / R * 1.0_rad;
+  assert(IsPos(VrS) && IsPos(omegaS) && IsPos(phiS));
 
   // The initial State Vector:
-  Base::StateV s0 = std::make_tuple(rS, VrS, omegaS, 0.0_kg, 0.0_rad);
+  Base::StateV s0 = std::make_tuple(rS, VrS, omegaS, 0.0_kg, phiS);
 
   // The RHS and the Call-Back Lambdas:
   auto rhs =
-    [this](Base::StateV const&  a_s, Time a_t) -> Base::DStateV
-    { return this->Base::ODERHS(a_s, a_t); };
+    [this](Base::StateV const&  a_s, Time a_t, Time a_dt) -> Base::DStateV
+    { return this->Base::ODERHS(a_s, a_t, a_dt); };
 
   auto cb  =
-    [this](Base::StateV*  a_s,  Time a_t, Time a_tau) -> bool
-    { return this->ODECB (a_s,  a_t, a_tau); };
+    [this](Base::StateV*  a_s,  Time a_t, Time a_dt) -> bool
+    { return this->ODECB (a_s,  a_t, a_dt); };
 
   // NB: Transient fields have been initialised in the Ctor. XXX: IMPORTANT:
   // It is currently assumed that "Run" is invoked only once per the object
@@ -151,8 +152,8 @@ RTLS1::Base::RunRes RTLS1::Run()
   {
     // We have reached a vicinity of the Singular Point:
     // This is a NORMAL (and moreover, a desirable) outcome. Compute a more
-    // precise singular point position:
-    return Base::LocateSingularPoint(ns);
+    // precise singular point position;  IsAscent=false:
+    return Base::LocateSingularPoint(ns, false);
   }
   // XXX: Any other exceptions are propagated to the top level, it's better
   // not to hide them...
@@ -166,9 +167,9 @@ RTLS1::Base::RunRes RTLS1::Run()
 //===========================================================================//
 // HERE FlightMode switching occurs, so this method is non-"const":
 //
-bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_tau)
+bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
 {
-  assert(a_s != nullptr && !IsPos(a_t));
+  assert(a_s != nullptr && !IsNeg(a_t));
   LenK   r             = std::get<0>(*a_s);
   LenK   h             = r - R;          // Altitude
   VelK   Vr            = std::get<1>(*a_s);
@@ -188,7 +189,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_tau)
     std::get<2>(*a_s)  = AngVel(0.0);
     Vhor               = VelK(0.0);
   }
-  if (IsZero(omega) && Vr < Base::SingVr)
+  if (IsZero(omega) && Vr < Base::SingV)
     // This is not an error -- just a stop integration now:
     throw Base::NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
@@ -294,12 +295,12 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_tau)
   if (!IsPos(h))
   {
     cont        = false;
-    m_eventStr += "Integration Stopped @ H=0";
+    m_eventStr += ": Integration Stopped @ H=0";
   }
   if (m_mode == FlightMode::UNDEFINED)
   {
     cont        = false;
-    m_eventStr += "Integration Stopped @ MaxStartMass";
+    m_eventStr += ": Integration Stopped @ MaxStartMass";
   }
 
   //-------------------------------------------------------------------------//
@@ -346,7 +347,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_tau)
       << m.Magnitude()       << '\t' << ToString(m_mode)     << '\t'
       << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
       << Q.Magnitude()       << '\t' << M                    << '\t'
-      << longG               << '\t' << a_tau.Magnitude()    << std::endl;
+      << longG               << '\t' << a_dt.Magnitude()     << std::endl;
   }
   return cont;
 }
@@ -439,8 +440,8 @@ RTLS1::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const
   // FIXME: There is no precise model for "tail-first" movement yet; we assume
   // that "cL" is the same as for the "head-first" movement,  whereas the "cD"
   // is just multiplied by 10 (???):
-  double cD = LVAeroDyn::cD(M, a_AoA);
-  double cL = LVAeroDyn::cL(M, a_AoA) * 10.0;
+  double cD = LVAeroDyn::cD(M, a_AoA) * 10.0;
+  double cL = LVAeroDyn::cL(M, a_AoA);
 
   return std::make_tuple(atm, cD * F, cL * F);
 }

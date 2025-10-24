@@ -32,7 +32,7 @@ namespace SpaceBallistics::LVAeroDyn
     // large AoAs can only occur for upper stages, and for them the aerodynamic
     // effects are very small, anyway:
     //
-    if (a_M < 0.0 || std::fabs(double(a_AoA)) > 0.4)
+    if (a_M < 0.0 || std::fabs(Sin(a_AoA)) > 0.4)
       throw std::invalid_argument
             ("cD: Invalid M=" + std::to_string(a_M) + " or AoA=" +
              std::to_string(double(a_AoA)));
@@ -93,7 +93,7 @@ namespace SpaceBallistics::LVAeroDyn
   inline double cL(double a_M, Angle a_AoA, Model a_model = Model::M0)
   {
     // FIXME: Similar to "cD", we currently use an abnormally-large AoA limit:
-    if (a_M < 0.0 || std::fabs(double(a_AoA)) > 0.4)
+    if (a_M < 0.0 || std::fabs(Sin(a_AoA)) > 0.4)
       throw std::invalid_argument
             ("cD: Invalid M=" + std::to_string(a_M) + " or AoA=" +
              std::to_string(double(a_AoA)));

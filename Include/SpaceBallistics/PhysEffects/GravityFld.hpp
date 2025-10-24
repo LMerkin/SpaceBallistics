@@ -35,7 +35,7 @@ namespace SpaceBallistics
     constexpr static GMK  K  = BodyData<EGB>::K;
 
     // The Max Degree and Order of Spherical Harmonics available:
-    constexpr static int  N = BodyData<EGB>::MaxSpherHDegreeAndOrder;
+    constexpr static int  N  = BodyData<EGB>::MaxSpherHDegreeAndOrder;
     static_assert(N == 0  ||  N >= 2);
 
     //-----------------------------------------------------------------------//

@@ -35,7 +35,7 @@ namespace
   // The ODE RHS is the Time derivative of "StateV":
   using RHSV   = tuple<VelK, VelK, VelK, AccK, AccK, AccK>;
 
-  RHSV ODERHS(StateV const& a_s, Time a_t)
+  RHSV ODERHS(StateV const& a_s, Time a_t, Time UNUSED_PARAM(a_dt))
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
     // Equatorial Fixed-Axes COS ("EqFixCOS"):
@@ -141,7 +141,7 @@ int main()
   Time nextOutput = t0;
 
   auto ODECB =
-    [&nextOutput](StateV* a_s, Time a_t, Time UNUSED_PARAM(a_tau)) -> bool
+    [&nextOutput](StateV* a_s, Time a_t, Time UNUSED_PARAM(a_dt)) -> bool
     {
       assert(a_s != nullptr);
 

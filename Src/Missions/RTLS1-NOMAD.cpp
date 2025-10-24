@@ -48,8 +48,7 @@
 #else
 #pragma  GCC   diagnostic pop
 #endif
-
-#include "SpaceBallistics/Missions/MkNOMADParams.hpp"
+#include "MkNOMADParams.hpp"
 
 namespace SpaceBallistics
 {
@@ -246,7 +245,8 @@ bool RTLS1::RunNOMAD
   int                     a_max_evals,
   int                     a_opt_seed,
   bool                    a_stop_if_feasible,
-  double                  a_use_vns
+  double                  a_use_vns,
+  bool                    a_use_mt
 )
 {
   assert(a_proto != nullptr && a_init_vals != nullptr);
@@ -260,13 +260,18 @@ bool RTLS1::RunNOMAD
   // Create and set the NOMAD params:
   // There are 3 Constraints: (LandMissL, LandV, MaxQ), but their actual vals
   // are not required yet;
-  // LoBounds and UpBounds are all-0s and all-1s,  resp:
+  // LoBounds and UpBounds are all-0s and all-1s,  resp, EXCEPT PropMassS
+  // (idx=0) which must be bounded aways from 0 (and which should provide the
+  // PropMassS not below the unspendable limit):
   std::vector<double> loBounds(a_init_vals->size(), 0.0);
+  loBounds[0] =
+    double(1.01 * a_full_mass1 * a_full_k1 * a_full_prop_rem1 / MaxPropMassS);
   std::vector<double> upBounds(a_init_vals->size(), 1.0);
 
   std::shared_ptr<NOMAD::AllParameters> params =
     MkNOMADParams(*a_init_vals, loBounds,   upBounds,        3,
-                  a_max_evals,  a_opt_seed, a_stop_if_feasible, a_use_vns);
+                  a_max_evals,  a_opt_seed, a_stop_if_feasible, a_use_vns,
+                  a_use_mt);
 
   opt.setAllParameters(params);
 

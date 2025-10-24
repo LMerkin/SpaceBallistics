@@ -82,27 +82,27 @@ namespace SpaceBallistics
       // cannot meet the accuracy requirements, something is deeply wrong!
       // NB: the step can only be reduced, never enlarged:
       //
-      auto f0 = a_rhs(*a_x, t);
+      auto f0 = a_rhs(*a_x, t, tau);
       bool ok = false;
 
       for (int nsr = 0; nsr < 10; ++nsr)
       {
         X    x1   = Add (*a_x, 0.25 * tau, f0);
         T    t1   = t + 0.25 * tau;
-        auto f1   = a_rhs(x1, t1);
+        auto f1   = a_rhs(x1, t1, tau);
 
         auto b2   = Mult(     0.09375, f0);
         b2        = Add (b2,  0.28125, f1);
         X    x2   = Add (*a_x,  tau,   b2);
         T    t2   = t + 0.375 * tau;
-        auto f2   = a_rhs(x2, t2);
+        auto f2   = a_rhs(x2, t2, tau);
 
         auto b3   = Mult(      1932.0 / 2197.0, f0);
         b3        = Add (b3,  -7200.0 / 2197.0, f1);
         b3        = Add (b3,  7296.0  / 2197.0, f2);
         X    x3   = Add (*a_x, tau, b3);
         T    t3   = t + (12.0 / 13.0) * tau;
-        auto f3   = a_rhs(x3,  t3);
+        auto f3   = a_rhs(x3, t3, tau);
 
         auto b4   = Mult(      439.0  /  216.0, f0);
         b4        = Add (b4,  -8.0,             f1);
@@ -110,7 +110,7 @@ namespace SpaceBallistics
         b4        = Add (b4,  -845.0  / 4104.0, f3);
         X    x4   = Add (*a_x, tau, b4);
         // NB: t4=tn:
-        auto f4   = a_rhs(x4,  tn);
+        auto f4   = a_rhs(x4, tn, tau);
 
         auto b5   = Mult(     -8.0    /   27.0, f0);
         b5        = Add (b5,   2.0,             f1);
@@ -119,7 +119,7 @@ namespace SpaceBallistics
         b5        = Add (b5,  -0.275,           f4);
         X    x5   = Add (*a_x, tau, b5);
         T    t5   = t + 0.5  * tau;
-        auto f5   = a_rhs(x5,  t5);
+        auto f5   = a_rhs(x5, t5, tau);
 
         // Error estimate (NB: "f1" is not used here, this is correct):
         auto ef   = Mult(        1.0 / 360.0,   f0);

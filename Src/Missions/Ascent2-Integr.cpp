@@ -232,12 +232,12 @@ Ascent2::Base::RunRes Ascent2::Run()
 
   // The RHS and the Call-Back Lambdas:
   auto rhs =
-    [this](Base::StateV const&  a_s, Time a_t) -> Base::DStateV
-    { return this->Base::ODERHS(a_s, a_t); };
+    [this](Base::StateV const&  a_s, Time a_t, Time a_dt) -> Base::DStateV
+    { return this->Base::ODERHS(a_s, a_t, a_dt); };
 
   auto cb  =
-    [this](Base::StateV*  a_s,  Time a_t, Time a_tau) -> bool
-    { return this->ODECB (a_s,  a_t, a_tau); };
+    [this](Base::StateV*  a_s,  Time a_t, Time a_dt) -> bool
+    { return this->ODECB (a_s,  a_t, a_dt); };
 
   // NB: Transient fields have been initialised in the Ctor. XXX: IMPORTANT:
   // It is currently assumed that "Run" is invoked only once per the object
@@ -264,17 +264,27 @@ Ascent2::Base::RunRes Ascent2::Run()
   {
     // We have reached a vicinity of the Singular Point:
     // This is a NORMAL (and moreover, a desirable) outcome. Compute a more
-    // precise singular point position:
-    //
-    return Base::LocateSingularPoint(ns);
+    // precise singular point position;  IsAscent=true:
+    return Base::LocateSingularPoint(ns, true);
   }
-  catch (FallingBackExn const&)
+  catch (FallingBackExn const& fb)
   {
     // No point in continuing: we are falling back to Earth instead of ascend-
-    // ing to orbit. Since this is an error cond, it does not carry any info:
+    // ing to orbit:
+    VelK V = SqRt(Sqr(fb.m_Vr) + Sqr(fb.m_Vhor));
+
+    if (Base::m_os != nullptr && Base::m_logLevel >= 1)
+      (*m_os)
+        << "# WARNING: Falling Back to Earth: t="          << fb.m_t
+        << " sec,  h="         << (fb.m_r - R).Magnitude() << " km, l="
+        << (R * fb.m_phi / 1.0_rad).Magnitude()            << " km, Vr="
+        << fb.m_Vr.Magnitude() << " m/sec, V="             << V.Magnitude()
+        << " km/sec"           << std::endl;
+
+    // XXX: We do not propagate vals carried by "fb" to "RunRes":
     return Base::RunRes
-          {Base::RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
-           Pressure(NAN),  Pressure(NAN),      NAN};
+          {Base::RunRC::Error, Time(NAN),    LenK(NAN), VelK(NAN), Mass(NAN),
+           Pressure(NAN),      Pressure(NAN),     NAN};
   }
   // XXX: Any other exceptions are propagated to the top level, it's better
   // not to hide them...
@@ -288,7 +298,7 @@ Ascent2::Base::RunRes Ascent2::Run()
 //===========================================================================//
 // HERE FlightMode switching occurs, so this method is non-"const":
 //
-bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
+bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
 {
   assert(a_s != nullptr && !IsPos(a_t));
   LenK   r             = std::get<0>(*a_s);
@@ -306,9 +316,9 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
   //-------------------------------------------------------------------------//
   // Check if we are approaching the Singularity:                            //
   //-------------------------------------------------------------------------//
-  // XXX: Unlike Base::ODERHS, here we set angular velocity to 0 if "Vhor" (not
-  // |Vhor|!) is below the threshold, because we KNOW that this may only happen
-  // near the Singular Point:
+  // XXX: Unlike Base::ODERHS, here we set the angular velocity to 0 if "Vhor"
+  // (not |Vhor|!) is below the threshold, because we KNOW that this may only
+  // happen near the Singular Point:
   //
   if (Vhor < Base::SingVhor)
   {
@@ -316,17 +326,25 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
     std::get<2>(*a_s)  = AngVel();
     Vhor               = VelK  ();
   }
-  if (IsZero(omega) && Vr < Base::SingVr)
-    // This is not an error -- just stop integration now:
+  if (IsZero(omega) && Abs(Vr) < Base::SingV)
+    // This is not an error -- just stop integration now. XXX: Small negative
+    // vals of "Vr" are handled in this case as well:
     throw Base::NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
-  // Furthermore, we allow Vr < 0 ONLY during "Burn2" and if the ascent trajec-
-  // tory is above the orbital insertion point: such ascent profiles can indeed
-  // be valid. In all other cases, it means that we are falling back to Earth,
-  // so stop integration immediately:
-  //
+  // Otherwise, we allow Vr < 0 ONLY during "Burn2" and if the Ascent trajectory
+  // is above the orbital insertion point:  such Ascent profiles can indeed be
+  // In all other cases, it means that we are falling back to Earth, so stop in-
+  // tegration immediately:
   if (IsNeg(Vr) && !(m_mode == FlightMode::Burn2 && r > m_Rins))
-    throw FallingBackExn(); // It does not carry any info
+  {
+    // If it is small (< 10 m/sec), just correct it:
+    if (Abs(Vr) < VelK(0.01))
+      Vr = VelK(0.0);
+    else
+      // Otherwise, throw an exception; when handled it will invalidate this
+      // solution:
+      throw FallingBackExn(r, Vr, Vhor, spentPropMass, phi, a_t);
+  }
 
   //-------------------------------------------------------------------------//
   // Generic Case:                                                           //
@@ -511,7 +529,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
       << m.Magnitude()       << '\t' << ToString(m_mode)     << '\t'
       << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
       << Q.Magnitude()       << '\t' << M                    << '\t'
-      << longG               << '\t' << a_tau.Magnitude()    << std::endl;
+      << longG               << '\t' << a_dt.Magnitude()     << std::endl;
   }
   return cont;
 }
@@ -522,12 +540,10 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_tau)
 //        AoA   theta
 std::pair<Angle,Angle> Ascent2::AoA(Time a_t, Angle a_psi) const
 {
-  // Once again: a_psi < 0 is allowed, but only for Stage2 near orbital insert-
-  // ion when the trajectory is ABOVE the target orbit (though the latter cond
-  // cannot be checked here):
-  if (IsNeg(a_psi) && m_mode != FlightMode::Burn2)
-    throw FallingBackExn();  // It does not carry any info
-
+  // XXX: We do not check for sin(a_psi) < 0 here (ie switching from Ascent to
+  // Descent motion),  as this would require a wider context than available in
+  // this method. Such checks are performed in "ODECB".
+  //
   // Also, the "retrograde" movement (|psi| > Pi/2, and thus omega < 0,  since
   // omega ~ Vhor ~ cos(psi)) may in general occur due to rounding errors or
   // integration instabilities. It is difficult to say precisely which values

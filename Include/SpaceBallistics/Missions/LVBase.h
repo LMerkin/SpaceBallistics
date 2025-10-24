@@ -39,9 +39,10 @@ namespace SpaceBallistics
     // increased beyond the original value:
     constexpr static double   ODERelPrec     = 1e-6;
 
-    // Singular Point detection criteria: NB: "Vhor" approaches 0 much faster
-    // than "Vr":
-    constexpr static VelK     SingVr         = VelK(1e-2); // 10   m/sec
+    // Singular Point detection criteria: NB:  We ASSUME that "Vhor" approaches
+    // 0 much faster than "V", so  apply the following thesholds to the over-all
+    // "V" and to "Vhor":
+    constexpr static VelK     SingV          = VelK(1e-2); // 10   m/sec
     constexpr static VelK     SingVhor       = VelK(1e-4); //  0.1 m/sec
 
   protected:
@@ -57,12 +58,21 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // State Vector (for some time t <= 0, where t=t0=0 corresponds to the Orbi-
     // tal Insertion):
-    // Computations are performed in TopoCentric (Start) Planar Polar CoOrds, so
-    // the first 3 components are r, rDot, omega = phiDot. The 4th  component is
-    // the Total Spent Propellant Mass between the curr "t" and "t0" (which is a
-    // continuous and DECREASING function of "t",  as opposed to the Total Mass
-    // which is discontinuous when the Stage1 or Fairing are jettisones), and
-    // the 5th component is the polar angle "phi" (integrated omega):
+    // Computations are performed in TopoCentric (Start) Planar Polar CoOrds;
+    //
+    // the first 3 components are "r", "rDot" and omega = phiDot;
+    // the 4th  component is the Total Spent Propellant Mass, but its meaning is
+    //   different for Fwd and Bwd integration mode:
+    //   (*) in the Fwd mode (integration step > 0), SpentPropMass is the mass
+    //       spent between t=0 and the curr  t > 0,
+    //       so it is an increasing function of "t";
+    //   (*) in the Bwd mode (integration step < 0), SpentPropMass is the mass
+    //       spent between the curr t < 0 and  t=0,
+    //       so it is a  decreasing function of "t";
+    //   but in both cases, SpentPropMass >= 0, and is is a continuous function
+    //   of "t", as opposed to the TotalMass  which is discontinuous   when the
+    //   Stage1 or Fairing are jettisoned;
+    // the 5th component is the polar angle "phi" (integrated "omega"):
     //
     using StateV  = std::tuple<LenK, VelK, AngVel, Mass, Angle>;
     //                         r   rDot=Vr omega   spent phi
@@ -70,8 +80,9 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "DStateV":                                                            //
     //-----------------------------------------------------------------------//
-    // The Time Derivative of the "StateV". The "MassRate" components is the
-    // negated (<= 0) BurnRate:
+    // The Time Derivative of the "StateV". The "MassRate" component is the de-
+    // rivative of the SpentPropMass (= +BurnRate in the Fwd mode, -BurnRate in
+    // the Bwd mode, according to the above):
     //
     using DStateV = std::tuple<VelK, AccK, AngAcc, MassRate, AngVel>;
 
@@ -255,15 +266,22 @@ namespace SpaceBallistics
     // NB: It is generic (can be put in the parent class) since it is implemen-
     // ted in terms of other methods:
     //
-    DStateV ODERHS(StateV const& a_s, Time a_t) const;
+    DStateV ODERHS(StateV const& a_s, Time a_t, Time a_dt) const;
 
     //-----------------------------------------------------------------------//
     // Integration Post-Processing:                                          //
     //-----------------------------------------------------------------------//
     // "LocateSingularPoint":
     // If we have arrived in a vicinity of the Singular Point:
+    // for correct handling of this condition, we need to know the integration
+    // mode (Ascent = Bwd Integration, Descent = Fwd Integration!):
     //
-    RunRes LocateSingularPoint(NearSingularityExn const& a_nse) const;
+    RunRes LocateSingularPoint
+    (
+      NearSingularityExn const& a_nse,
+      bool                      a_is_ascent
+    )
+    const;
 
     // "PostProcessRun":
     // If integration has come to completion but NOT to the Singular Point:

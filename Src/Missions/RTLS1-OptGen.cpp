@@ -190,6 +190,7 @@ RTLS1::FindOptimalReturnCtls
   double useVNS           =      pt.get<double>("Technical.NOMADUseVNS");
   if (useVNS < 0.0 || useVNS >= 1.0)      // 0: VNS not used
     throw std::invalid_argument("NOMADUseVNS: Must be in [0..1)");
+  bool   useMT            =      pt.get<bool>  ("Technical.NOMADUseMT");
 
   // XXX: The optimisation params are currently NOT configurable, with the
   // exception of the degree of "sin(theta)" expansion (0..3):
@@ -227,10 +228,10 @@ RTLS1::FindOptimalReturnCtls
   bool ok =
     RunNOMAD
     (
-      &proto,      maxFullMass1, fullK1,   fullPropRem1,  diam,
+      &proto,      maxFullMass1, fullK1,   fullPropRem1, diam,
       &initParamsN,
       landDLLimit, landVLimit,   QLimit,
-      optMaxEvals, optSeed,      stopIfFeasible, useVNS
+      optMaxEvals, optSeed,      stopIfFeasible, useVNS, useMT
     );
   if (!ok)
       return std::make_pair(std::nullopt, std::nullopt);

@@ -215,7 +215,7 @@ namespace SpaceBallistics
     // CallBack (invoked after the completion of each integration step):
     // Here FlightMode switching occurs, so this method is non-"const":
     //
-    bool ODECB(StateV* a_s, Time a_t, Time a_tau);
+    bool ODECB(StateV* a_s, Time a_t, Time a_dt);
 
     // "AeroDynForces":
     // Atmospheric Conditions and Aerodynamic Drag Force:
@@ -312,7 +312,8 @@ namespace SpaceBallistics
       int                         a_max_evals,
       int                         a_opt_seed,
       bool                        a_stop_if_feasible,
-      double                      a_use_vns     // In [0..1), 0: no VNS
+      double                      a_use_vns,    // In [0..1), 0: no VNS
+      bool                        a_use_mt      // true unless debugging
     );
   };
 }

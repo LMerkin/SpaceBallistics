@@ -17,7 +17,7 @@ LVBase<Derived>::LVBase
   double          a_K1,               // PropMass1 / FullMass1
   double          a_prop_rem1,
   Time            a_Isp_sl1,
-  Time            a_Isp_vac1, 
+  Time            a_Isp_vac1,
   ForceK          a_thrust_vac1,
   double          a_min_thrtl1,
   Len             a_diam,
@@ -124,18 +124,17 @@ const
   // XXX: Yet, depending on the mission profile, Vr < 0 (or equiv. sinPsi < 0)
   // may or may not be allowed; but this is decided in the Derived::ODERHS, not
   // here:
-  Angle  psi     = Angle(ATan2(a_Vr, a_Vhor));
-  double cosPsi  = double(a_Vhor / V);
-  double sinPsi  = double(a_Vr   / V);
+  Angle  psi    = Angle(ATan2(a_Vr, a_Vhor));
+  double cosPsi = double(a_Vhor / V);
+  double sinPsi = double(a_Vr   / V);
 
   // "AoA"  : the Angle-of-Attack;
   // "theta": elevation angle of the Thrust vector
   // ("psi" induces constraints on both).
-  // If there is no gimbaling of thrust chambers / nozzles, then the Thrust vec-
-  // tor ctl  is only achieved via the AoA, and thus theta = psi + AoA:
+  // If there is no gimbaling of thrust chambers / nozzles, then the Thrust
+  // vector ctl  is only achieved via the AoA, and thus  theta = psi + AoA:
   //
   auto [aoa, theta] = ToDer()->AoA(a_t, psi);
-  assert(!IsNeg(aoa) && aoa < PI_2 && !IsNeg(theta) && theta <= PI_2);
 
   // AeroDynamic Drag and Lift:
   auto [atm, drag, lift]  = ToDer()->AeroDynForces(a_r, V, aoa);
@@ -218,7 +217,7 @@ const
 //===========================================================================//
 template<typename Derived>
 typename LVBase<Derived>::DStateV
-LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t) const
+LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t, Time a_dt) const
 {
   // NB: In the RHS evaluation, r <= R is allowed, as it does not cause any
   // singularities by itself; but we detect this condition in the Call-Back,
@@ -228,7 +227,7 @@ LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t) const
   AngVel omega            = std::get<2>(a_s);
   Mass   spentPropMass    = std::get<3>(a_s);
   Angle  phi              = std::get<4>(a_s);
-  assert(!IsPos(a_t) && IsPos(r));
+  assert(IsPos(r));
   // The "horizontal" velocity (orthogonal to the radius-vector):
   VelK   Vhor             = r * omega / 1.0_rad;
 
@@ -237,7 +236,7 @@ LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t) const
   // their resp thresholds, we assume that we are near the Singular Point.
   // In that case, we disregard "Vhor" and use "Vr" only:
   //
-  if (Abs(Vhor) < SingVhor && Abs(Vr) < SingVr)
+  if (Abs(Vhor) < SingVhor && Abs(Vr) < SingV)
     throw NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
   // Generic Case:
@@ -272,10 +271,22 @@ LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t) const
     )
     / r;
 
-  // The result: NB: the last derivative is <= 0, since the corresp "StateV"
-  // components is int_t^0 burnRate(t') dt', ie "t" is the LOWER integration
-  // limit:
-  return std::make_tuple(Vr, r2Dot, omegaDot, -burnRate, omega);
+  // NB: the "spentPropMass" derivative depends on the integration
+  // mode (Fwd or Bwd):
+  assert(!IsZero(a_dt));
+  bool isFwd = IsPos(a_dt);
+
+  // In the Fwd mode, spentPropMass = int_0^t burnRate(t') dt', therefore
+  // dot(spentPropMass)  =  burnRate  >= 0;
+  // in the Bwd mode, spentPropMass = int_t^0 birnRate(t') dt' (where t <= 0),
+  // and thus
+  // dot(spentPropMass)  = -burnRate  <= 0,
+  // but in both cases, spentPropMass >= 0:
+  //
+  MassRate spmDot = isFwd ? burnRate : -burnRate;
+
+  // The result:
+  return std::make_tuple(Vr, r2Dot, omegaDot, spmDot, omega);
 }
 
 //===========================================================================//
@@ -289,36 +300,73 @@ LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t) const
 //
 template<typename Derived>
 LVBase<Derived>::RunRes
-LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
+LVBase<Derived>::LocateSingularPoint
+(
+  NearSingularityExn const& a_nse,
+  bool                      a_is_ascent
+)
+const
 {
+  //-------------------------------------------------------------------------//
+  // Checks:                                                                 //
+  //-------------------------------------------------------------------------//
   // If we got here, the horizontal velocity is considered to be negligible;
   // only use the radial one which is equal to the total velocity:
   LenK  r1  = a_nse.m_r;
   LenK  h1  = r1 - R;
   VelK  Vr1 = a_nse.m_Vr;
   Time  t1  = a_nse.m_t;
+  LenK  LS  = R * double(a_nse.m_phi);
 
-  // Check for the following degenerate conditions: They should not happen,
-  // but may:
-  if (!(IsPos(h1) && IsPos(Vr1)) && m_os != nullptr && m_logLevel >= 1)
-    *m_os << "Ascent2::LocateSingularPoint: WARNING: h="
-          << h1.Magnitude() << " km, Vr=" << Vr1.Magnitude() << " km/sec"
-          << std::endl;
-  // Assuming that the negative vals of "h1" or "Vr1", if occur, are anyway
-  // small, round them up:
-  if (IsNeg(h1))
+  // The Curr LV Mass (via a synthetic "s1"):
+  StateV s1    { r1, Vr1, AngVel(0.0), a_nse.m_spentPropMass, a_nse.m_phi };
+  Mass   m1  = ToDer()->LVMass(s1, t1);
+  assert(IsPos(m1));
+
+  // Constraints:
+  Pressure maxQ     = ToDer()->m_maxQ;
+  Pressure sepQ     = ToDer()->m_sepQ;
+  double   maxLongG = ToDer()->m_maxLongG;
+
+  // NB: "Vr1"  is assumed to be small; typically:
+  // (*) for the Ascent-To-Orbit (Bwd integration), Vr1 > 0;
+  // (*) for the Descent (RTLS)  (Fwd integration), Vr1 < 0:
+  // We enforce Vr1 >= 0 in case of Ascent:
+  //
+  if (a_is_ascent && IsNeg(Vr1))
   {
+    if (m_os != nullptr && m_logLevel >= 1)
+      *m_os << "# LVBase::LocateSingularPoint: WARNING: Ascent, but Vr1="
+            << Vr1.Magnitude() << " km/sec; reset to 0" << std::endl;
+    Vr1 = VelK(0.0);
+  }
+ 
+  // Check for a degenerate "h1": it should not happen, but may:
+  if (!IsPos(h1))
+  {
+    if (m_os != nullptr && m_logLevel >= 1)
+      *m_os << "# LVBase::LocateSingularPoint: WARNING: h1=" << h1.Magnitude()
+            << " km; reset to 0" << std::endl;
+
+    // Assuming that the negative vals of "h1" if occur, are anyway small, so
+    // reset them to 0:
     r1  = R;
     h1  = 0.0_km;
   }
-  if (IsNeg(Vr1))
-    Vr1 = VelK(0.0);
+  // The "equivalent" velocity @ h=0:
+  assert(r1 >= R);
+  VelK   V0  = SqRt(Sqr(Vr1) + 2.0 * K * (1.0 / R - 1.0 / r1));
 
+  //-------------------------------------------------------------------------//
+  // Forces and Acceleration:                                                //
+  //-------------------------------------------------------------------------//
   // Assume that only the Gravitational Force and the Thrust are applicable
   // (the AeroDynamic Force can be neglected because the velocity is near-0,
-  // yet we still need the air pressure to adjust the Thrust), and the LV
-  // Mass is CONSTANT at this final short interval; yet we need the "atm" for
-  // Thrust conputation:
+  // yet we still need the "atm" to adjust the Thrust),  and the LV Mass is
+  // CONSTANT during this final short interval. The assumption LVMass=const
+  // is valid up to O(Vr1), as can be seen from the exact solution (using the
+  // LambertW function):
+  //
   AccK  g1 = K / Sqr(r1);
   auto atm = EAM::GetAtmConds(h1);
 
@@ -326,66 +374,96 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
   MassRate burnRate1 = ToDer()->PropBurnRate(t1);
   assert(!IsNeg(burnRate1));
 
+  // We will assume that the Thrust vector is pointing strictly UpWards
+  // (psi = theta = Pi/2, alpha = 0):
   ForceK   thrust1   = ToDer()->Thrust(burnRate1, std::get<0>(atm));
   assert(!IsNeg(thrust1) && IsZero(thrust1) == IsZero(burnRate1));
 
-  // The Curr LV Mass (via a synthetic "s1"):
-  StateV s1    { r1, Vr1, AngVel(0.0), a_nse.m_spentPropMass, a_nse.m_phi };
-  Mass   m1  = ToDer()->LVMass(s1, t1);
-  assert(IsPos(m1));
-
-  Pressure maxQ     = ToDer()->m_maxQ;
-  Pressure sepQ     = ToDer()->m_sepQ;
-  double   maxLongG = ToDer()->m_maxLongG;
-
-  // The (constant) acceleration we will use:
+  // The effective radial acceleration: It should normally be positive in any
+  // case:
   AccK   acc1 = thrust1 / m1 - g1;
   if (!IsPos(acc1))
   {
-    // Then the LV is Falling Back to the pad, and the singular point is not
-    // reachable; this is because we have arrived at the mass "m1"  which is
-    // too large:
-    if (m_os != nullptr && m_logLevel >= 1)
-      *m_os << "# Ascent2::LocateSingularPoint: WARNING: UnReachable: Acc="
-            << double(acc1 / g1) << " g" << std::endl;
-    return RunRes
-          {RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
-           Pressure(NAN), Pressure(NAN), NAN};
+    // Then the LV is Falling Back to Earth, and the Singular Point (where V=0)
+    // is not reachable:
+    if (a_is_ascent)
+    {
+      // During the Ascent, this is an error cond, which is very unlikely to
+      // occur:
+      if (m_os != nullptr && m_logLevel >= 1)
+        *m_os << "# LVBase::LocateSingularPoint: WARNING: UnReachable: Acc="
+              << double(acc1 / g1) << " g" << std::endl;
+      return RunRes
+            {RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
+             Pressure(NAN), Pressure(NAN), NAN};
+    }
+    else
+    {
+      // During the Descent, this may happen if we got a too small thrust; this
+      // simply means that there will be hard landing, so  return a "synthetic"
+      // "ZeroH" condition:
+      if (m_os != nullptr && m_logLevel >= 1)
+        *m_os << "# LVBase::LocateSingularPoint: WARNING: Descending, and Acc="
+              << double(acc1 / g1) << " g" << std::endl;
+      // XXX:
+      // (*) "V0" is approximated by the Energy Integral (see above);
+      // (*) the final LVMass is taken to be the curr one -- this is OK in the
+      //     Descent mode;
+      // (*) Fall Time is totally undefined, so use NAN:
+      //
+      return RunRes{RunRC::ZeroH, Time(NAN), LS, V0, m1, maxQ, sepQ, maxLongG};
+    }
   }
+  // Otherwise: Remaining Time and Distance to the singular point:
+  Time tau = -Vr1            / acc1;    // Of any sign!
+  LenK dr  = -0.5 * Sqr(Vr1) / acc1;    // Consistent with the exact solution!
+  assert(!IsPos(dr));
 
-  // Otherwise: Remaining Bwd Time and Distance to the singular point:
-  Time tau = Vr1            / acc1;
-  LenK dr  = 0.5 * Sqr(Vr1) / acc1;
-  assert(!(IsNeg(tau) || IsNeg(dr)));
+  // If follows from the above that for Ascent, we always have Vr1 >= 0 and
+  // acc1 >= 0, so tau <= 0, which is perfectly correct in the Bwd Integration
+  // mode:   IsAscent  => tau <= 0:
+  assert(!(a_is_ascent && IsPos(tau)));
 
-  // Finally: State and Time of the singular point:
-  LenK rS    = r1 - dr;
-  LenK hS    = rS - R;
-
-  // We should have hS >= 0; slightly negative vals will be rounded up to 0,
-  // but larger negative vals are treated as errors:
-  if (hS < -0.5_km)
+  // In the Descent mode, we may have Vr1 > 0 (with acc1 > 0), and then tau < 0,
+  // which is wrong in Fwd Integration. This means we are moving UpWards with
+  // acceleration! This is definitely wrong, and XXX we will not even analyse
+  // this motion in detail -- produce the approximate results on the eventual
+  // Fall Back to Earth, similar to above:
+  //
+  if (!a_is_ascent && IsNeg(tau))
   {
+    assert(IsPos(Vr1) && IsPos(acc1));
+
     if (m_os != nullptr && m_logLevel >= 1)
-      *m_os << "# Ascent2::LocateSingularPoint: WARNING: Got hS="
-            << hS.Magnitude() << " km" << std::endl;
-    return RunRes
-          {RunRC::Error,  Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
-           Pressure(NAN), Pressure(NAN),  NAN};
+      *m_os << "# LVBase::LocateSingularPoint: WARNING: Descening, but Vr1="
+            << Vr1.Magnitude() << std::endl;
+    return RunRes{RunRC::ZeroH, Time(NAN), LS, V0, m1, maxQ, sepQ, maxLongG};
   }
-  else
+  assert(IsZero(tau) || a_is_ascent == IsNeg(tau));
+
+  //-------------------------------------------------------------------------//
+  // Finally: State and Time of the Singular Point:                          //
+  //-------------------------------------------------------------------------//
+  Time tS  = t1 + tau;
+  LenK rS  = r1 + dr;
+  LenK hS  = rS - R;
+
+  // We should have hS >= 0; negative vals will be converted to 0:
   if (IsNeg(hS))
   {
+    if (m_os != nullptr && m_logLevel >= 1)
+      *m_os << "# LVBase::LocateSingularPoint: WARNING: Got hS="
+            << hS.Magnitude() << " km; reset to 0" << std::endl;
     rS = R;
     hS = 0.0_km;
   }
-
   // If we got here: Singular Point has been located successfully:
+  // NB: "propS" is the total SpentPropMass at the Singular Point;
+  // the following formula is valid for both Bwd and Bwd modes, since tau >= 0:
   Mass propS = a_nse.m_spentPropMass + burnRate1 * tau;
+
   StateV singS {rS, VelK(0.0), AngVel(0.0), propS, a_nse.m_phi};
-  Time tS    = t1 - tau;
   Mass mS    = ToDer()->LVMass(singS, tS);
-  LenK LS    = R * double(a_nse.m_phi);
 
   if (m_os != nullptr && m_logLevel >= 3)
   {
@@ -399,9 +477,9 @@ LVBase<Derived>::LocateSingularPoint(NearSingularityExn const& a_nse) const
           << ToDer()->ToString(ToDer()->m_mode) << std::endl;
   }
   // Convert "rS" into the velocity @ H=0 (to allow for uniform treatment of
-  // constraints) using the Energy Integral:
+  // constraints) using the Energy Integral:  Adjust "V0" using "rS":
   assert(rS >= R);
-  VelK V0 = SqRt(2.0 * K * (1.0 / R - 1.0 / rS));
+  V0 = SqRt(2.0 * K * (1.0 / R - 1.0 / rS));
 
   // The final result:
   return RunRes{RunRC::Singularity, tS, LS, V0, mS, maxQ, sepQ, maxLongG};
@@ -417,6 +495,7 @@ LVBase<Derived>::PostProcessRun(StateV const& a_sT, Time a_T) const
   // Check the final state and mode:
   //
   LenK     rEnd      = std::get<0>(a_sT);
+  LenK     hEnd      = rEnd - R;
   VelK     VrEnd     = std::get<1>(a_sT);
   AngVel   omegaEnd  = std::get<2>(a_sT);
   Angle    phiEnd    = std::get<4>(a_sT);
@@ -424,43 +503,44 @@ LVBase<Derived>::PostProcessRun(StateV const& a_sT, Time a_T) const
   Mass     mEnd      = ToDer()->LVMass(a_sT, a_T);
   LenK     lEnd      = R * double(phiEnd);
 
-  Pressure maxQ      = ToDer()->m_maxQ; 
+  Pressure maxQ      = ToDer()->m_maxQ;
   Pressure sepQ      = ToDer()->m_sepQ;
   double   maxLongG  = ToDer()->m_maxLongG;
 
-  if (ToDer()->m_mode == Derived::FlightMode::UNDEFINED)
+  // Ensure we are above the Earth surface:
+  if (rEnd < R)
   {
-    // We have run out of propellant while, presumably, still @ rEnd > R;
-    // if we got rEnd < R, the diff should be very small:
-    if (rEnd < R)
-    {
-      if (m_os != nullptr && m_logLevel >= 1)
-        *m_os  << "# Ascent2::Run: WARNING: Got mode=UNDEFINED but h="
-               << (rEnd - R).Magnitude() << " km" << std::endl;
-      rEnd = R;
-    }
-    assert(rEnd >= R);
-
-    // Convert the (rEnd, VEnd) into the velocity:
-    VelK V0 = SqRt(VEnd2 + 2.0 * K * (1.0 / R - 1.0 / rEnd));
-
-    return RunRes{RunRC::FlameOut, a_T, lEnd, V0, mEnd, maxQ, sepQ, maxLongG};
+    if (hEnd < -0.5_km && m_os != nullptr && m_logLevel >= 1)
+      *m_os  << "# LVBase::PostProcessRun: WARNING: Arrived at h="
+             << hEnd.Magnitude() << " km" << std::endl;
+    rEnd = R;
+    hEnd = 0.0_km;
   }
+
+  RunRC    rc;
+  if (ToDer()->m_mode == Derived::FlightMode::UNDEFINED)
+    // We have run out of propellant:
+    rc     = RunRC::FlameOut;
   else
   {
     // Then we should get hEnd==0 (because the only other possibility is
-    // that the integration ran until tMin, which is extremely unlikely):
-    LenK hEnd = rEnd - R;
-    if  (hEnd > 0.5_km)
-    {
-      if (m_os != nullptr && m_logLevel >= 1)
-        *m_os  << "# Ascent2::Run: WARNING: Expected h=0 but got h="
+    // that the integration ran until tMin, which is extremely unlikely
+    // (TODO: still handle this condition!):
+    if  (hEnd > 0.5_km && m_os != nullptr && m_logLevel >= 1)
+        *m_os  << "# LVBase::PostProcessRun: WARNING: Expected h=0 but got h="
                << hEnd.Magnitude() << " km" << std::endl;
-      hEnd = 0.0_km; // Just reset it formally
-    }
-    return RunRes
-          {RunRC::ZeroH, a_T, lEnd, SqRt(VEnd2), mEnd, maxQ, sepQ, maxLongG};
+
+    // Still, formally it is a "ZeroH" outcome (this is OK, as we still correct
+    // the final velocity for "rEnd"):
+    rc     = RunRC::ZeroH;
   }
+  assert(!IsNeg(hEnd) && rEnd >= R);
+
+  // Convert the (rEnd, VEnd) into the equivalent Velocity @ h=0 using the
+  // Energy Integral:
+  //
+  VelK   V0 = SqRt(VEnd2 + 2.0 * K * (1.0 / R - 1.0 / rEnd));
+  return RunRes{rc, a_T, lEnd, V0, mEnd, maxQ, sepQ, maxLongG};
 }
 }
 // End namespace SpaceBallistics
