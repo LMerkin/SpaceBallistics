@@ -224,7 +224,7 @@ namespace SpaceBallistics
     AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const;
 
     // "PropBurnRate": (may be variable over time, >= 0):
-    MassRate PropBurnRate(Time a_t) const;
+    MassRate PropBurnRate(Mass a_m, Time a_t) const;
 
     // "AoA": Angle-of-Attack (variable over time, also constrained with the
     // curr pitch "psi"):
@@ -302,9 +302,10 @@ namespace SpaceBallistics
       double                      a_full_k1,
       double                      a_full_prop_rem1,
       Len                         a_diam,
-      // InitVals for the Ctl Params:
+      // Optimisation Params:
       std::vector<double>*        a_init_vals,
-      // Optimisation Constraints (Limits):
+      double                      a_min_prop_massSN,
+      double                      a_min_bbb_durN,
       LenK                        a_land_dL_limit,
       VelK                        a_land_V_limit,
       Pressure                    a_Q_limit,

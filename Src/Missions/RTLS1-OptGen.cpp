@@ -171,7 +171,6 @@ RTLS1::FindOptimalReturnCtls
   // NB: (HS, LS) are the Altitude and Down-Range Distance (of Stage1 @ Separ-
   // ation Time) from the Landing Site, NOT from the Launch Site (though they
   // are assumed to be close from to each other):
-  Mass   propMassS              (pt.get<double>("RTLS.propMassS"));
   LenK   hS                     (pt.get<double>("RTLS.hS"));
   LenK   lS                     (pt.get<double>("RTLS.lS"));
   VelK   VS                     (pt.get<double>("RTLS.VS"));
@@ -195,8 +194,16 @@ RTLS1::FindOptimalReturnCtls
   // XXX: The optimisation params are currently NOT configurable, with the
   // exception of the degree of "sin(theta)" expansion (0..3):
   int    sinThetaDeg      =      pt.get<int>   ("Opt.sinThetaDeg");
-  if (sinThetaDeg < 0 || sinThetaDeg > 3)
+  if (sinThetaDeg < 0     || sinThetaDeg > 3)
     throw std::invalid_argument("sinThetaDeg: Must be in [0..3]");
+
+  double minRelPropMassS  =      pt.get<double>("Opt.minRelPropMassS");
+  if (minRelPropMassS  <= 0 || minRelPropMassS  > 1)
+    throw std::invalid_argument("minRelPropMassS: Must be in (0..1]");
+
+  double minRelBBBurnDur  =      pt.get<double>("Opt.minRelBBBurnDur");
+  if (minRelBBBurnDur <= 0 || minRelBBBurnDur > 1)
+    throw std::invalid_argument("minRelBBBurnDur: Must be in (0..1]");
 
   // The initial vals of all (NORMALISED) params:  0.5:
   std::vector<double> initParamsN(size_t(8 + sinThetaDeg), 0.5);
@@ -212,10 +219,10 @@ RTLS1::FindOptimalReturnCtls
   //-------------------------------------------------------------------------//
   RTLS1 proto
   (
-    maxFullMass1,  fullK1,  fullPropRem1, IspSL1, IspVac1, thrustVacI1,
-    minThrtL1, diam,
-    propMassS, hS,     lS,    VS,   phiS,
-    odeIntegrStep,     a_os,  optLogLevel
+    maxFullMass1,        fullK1,  fullPropRem1, IspSL1, IspVac1, thrustVacI1,
+    minThrtL1,           diam,
+    RTLS1::MaxPropMassS, hS,      lS,       VS, phiS,
+    odeIntegrStep,       a_os,    optLogLevel
   );
 
   proto.SetCtlParams(initParamsN);
@@ -228,10 +235,10 @@ RTLS1::FindOptimalReturnCtls
   bool ok =
     RunNOMAD
     (
-      &proto,      maxFullMass1, fullK1,   fullPropRem1, diam,
+      &proto,          maxFullMass1,    fullK1,         fullPropRem1, diam,
       &initParamsN,
-      landDLLimit, landVLimit,   QLimit,
-      optMaxEvals, optSeed,      stopIfFeasible, useVNS, useMT
+      minRelPropMassS, minRelBBBurnDur, landDLLimit,    landVLimit,   QLimit,
+      optMaxEvals,     optSeed,         stopIfFeasible, useVNS,       useMT
     );
   if (!ok)
       return std::make_pair(std::nullopt, std::nullopt);

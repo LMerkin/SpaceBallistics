@@ -124,6 +124,14 @@ public:
   {
     assert(8 <= a_x.size() && a_x.size() <= NP);
 
+    if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 2)
+    {
+      (*m_proto->m_os)   << '#';
+      for (int i = 0; i < int(a_x.size()); ++i)
+        (*m_proto->m_os) << "  " << a_x[i].todouble();
+      (*m_proto->m_os)   << std::endl;
+    }
+
     //-----------------------------------------------------------------------//
     // For Thread-Safety, construct a new "RTLS1" obj:                       //
     //-----------------------------------------------------------------------//
@@ -235,9 +243,10 @@ bool RTLS1::RunNOMAD
   double                  a_full_k1,
   double                  a_full_prop_rem1,
   Len                     a_diam,
-  // InitVals for the Ctl Params:
+  // Optimisation Params:
   std::vector<double>*    a_init_vals,
-  // Optimisation Constraints (Limits):
+  double                  a_min_prop_massSN,
+  double                  a_min_bbb_durN,
   LenK                    a_land_dL_limit,
   VelK                    a_land_V_limit,
   Pressure                a_Q_limit,
@@ -249,7 +258,9 @@ bool RTLS1::RunNOMAD
   bool                    a_use_mt
 )
 {
-  assert(a_proto != nullptr && a_init_vals != nullptr);
+  assert(a_proto != nullptr      && a_init_vals != nullptr   &&
+         0.0 < a_min_prop_massSN && a_min_prop_massSN <= 1.0 &&
+         0.0 < a_min_bbb_durN    && a_min_bbb_durN    <= 1.0);
 
   //-------------------------------------------------------------------------//
   // Generic Case: Perform NOMAD Optimisation:                               //
@@ -260,13 +271,24 @@ bool RTLS1::RunNOMAD
   // Create and set the NOMAD params:
   // There are 3 Constraints: (LandMissL, LandV, MaxQ), but their actual vals
   // are not required yet;
-  // LoBounds and UpBounds are all-0s and all-1s,  resp, EXCEPT PropMassS
-  // (idx=0) which must be bounded aways from 0 (and which should provide the
-  // PropMassS not below the unspendable limit):
+  // LoBounds and UpBounds are all-0s and all-1s, with some special cases below:
+  //
   std::vector<double> loBounds(a_init_vals->size(), 0.0);
-  loBounds[0] =
-    double(1.01 * a_full_mass1 * a_full_k1 * a_full_prop_rem1 / MaxPropMassS);
   std::vector<double> upBounds(a_init_vals->size(), 1.0);
+
+  // PropMassSN (Idx=0):
+  loBounds[0] =
+    std::max
+    (
+      a_min_prop_massSN,
+      double(1.01 * a_full_mass1 * a_full_k1 * a_full_prop_rem1 /
+             MaxPropMassS)
+    );
+  (*a_init_vals)[0] = 0.5 * (loBounds[0] + 1.0);
+
+  // BBBurnDurN (Idx=2):
+  loBounds[2] = a_min_bbb_durN;
+  (*a_init_vals)[2] = 0.5 * (loBounds[2] + 1.0);
 
   std::shared_ptr<NOMAD::AllParameters> params =
     MkNOMADParams(*a_init_vals, loBounds,   upBounds,        3,

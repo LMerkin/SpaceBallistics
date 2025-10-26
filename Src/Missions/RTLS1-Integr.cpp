@@ -174,6 +174,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   LenK   h             = r - R;          // Altitude
   VelK   Vr            = std::get<1>(*a_s);
   AngVel omega         = std::get<2>(*a_s);
+  VelK   Vhor          = r * omega / 1.0_rad;
   Mass   spentPropMass = std::get<3>(*a_s);
   Angle  phi           = std::get<4>(*a_s);
   assert(IsPos(r) && !IsNeg(spentPropMass));
@@ -181,15 +182,13 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   //-------------------------------------------------------------------------//
   // Similar to "Base::ODERHS", check if we are approaching the singularity: //
   //-------------------------------------------------------------------------//
-  VelK   Vhor          = r * omega / 1.0_rad;
-
   if (Vhor < Base::SingVhor)
   {
     omega              = AngVel(0.0);
     std::get<2>(*a_s)  = AngVel(0.0);
     Vhor               = VelK(0.0);
   }
-  if (IsZero(omega) && Vr < Base::SingV)
+  if (IsZero(omega) && Abs(Vr) < Base::SingV)
     // This is not an error -- just a stop integration now:
     throw Base::NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
@@ -215,6 +214,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
 
   // Constraints:
   double   M   = Base::Mach(atm, V);
+  Pressure pa  = std::get<0>(atm);
   Density  rho = std::get<1>(atm);
   auto     V2  = To_Len_m(Sqr(V));
   Pressure Q   = 0.5 * rho * V2;
@@ -267,41 +267,38 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
     m_eventStr = "Entry Burn Ends, Endo-Atmospheric Descent Starts";
   }
 
-  // EndoAtmDesc -> LandBurn: by Altitude:
-  if (m_mode == FlightMode::EndoAtmDesc && h <= m_landBurnH)
+  // EndoAtmDesc -> LandBurn: by Altitude;
+  // but more generally, if we have missed the "EntryBurn" (because the MaxQ
+  // was naturally below the threshold), then we would miss "EndoAtmDesc" as
+  // well. So for robustness, we allow switching to "LandBurn" from ANY mode,
+  // simply by the altitude:
+  if (h <= m_landBurnH && m_mode != FlightMode::LandBurn)
   {
     m_mode        = FlightMode::LandBurn;
     m_landIgnTime = a_t;
     m_eventStr    = "Endo-Atmospheric Descent Ends, Landing Burn Starts";
   }
 
-  // Any State (but mainly Landing Burn) -> UNDEFINED: by SpentPropMass:
-  if (spentPropMass >= Base::m_spendable1)
+  // LandBurn -> UNDEFINED:
+  // Switching Off the Engine when the altitude is less than the target one
+  // (XXX: in addition,  the Engine(s) are switched off in any mode when we
+  // run out of propellant -- eg in "BurnRate").
+  // But more generally, we can do so in ANY mode (for robustness), so here
+  // is just a stricter version of the above clause:
+  //
+  if (h <= 0.0005_km && m_mode != FlightMode::UNDEFINED)  // 50 cm!
   {
     m_mode      = FlightMode::UNDEFINED;
     m_finalTime = a_t;
-    m_eventStr  = "Stage1 Flamed-Out";
+    m_eventStr  = "Stage1 Landed";
   }
+
   //-------------------------------------------------------------------------//
   // Integration Stopping Conds:                                             //
   //-------------------------------------------------------------------------//
-  bool cont = true;
-
-  // Do NOT continue if:
-  // (*) we are on the surface (stopping by the Altitude);
-  // (*) we are in the UNDEFINED mode (stopping by Ignition Time);
-  // NB: both are NORMAL termination conds (as opposed to throwing
-  //     the "StopNowExn"):
-  if (!IsPos(h))
-  {
-    cont        = false;
-    m_eventStr += ": Integration Stopped @ H=0";
-  }
-  if (m_mode == FlightMode::UNDEFINED)
-  {
-    cont        = false;
-    m_eventStr += ": Integration Stopped @ MaxStartMass";
-  }
+  // Do not continue if we have Landed (successfully or otherwise):
+  //
+  bool cont = (m_mode != FlightMode::UNDEFINED);
 
   //-------------------------------------------------------------------------//
   // Log the Curr Event (if any):                                            //
@@ -347,7 +344,8 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
       << m.Magnitude()       << '\t' << ToString(m_mode)     << '\t'
       << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
       << Q.Magnitude()       << '\t' << M                    << '\t'
-      << longG               << '\t' << a_dt.Magnitude()     << std::endl;
+      << longG               << '\t' << pa.Magnitude()       << '\t'
+      << a_dt.Magnitude()    << std::endl;
   }
   return cont;
 }
@@ -361,8 +359,10 @@ std::pair<Angle,Angle> RTLS1::AoA(Time a_t, Angle a_psi) const
   switch (m_mode)
   {
   case FlightMode::Coast:
-    // Both angles do not matter in this mode, so return 0s:
-    return std::make_pair(0.0_rad, 0.0_rad);
+    // Both angles do not matter in this mode, so return AoA=0, theta=psi
+    // (we still preserve the invariant theta = AoA + psi, that is,  here
+    // we are still flying Head-First):
+    return std::make_pair(0.0_rad, a_psi);
 
   case FlightMode::BBBurn:
   {
@@ -382,11 +382,13 @@ std::pair<Angle,Angle> RTLS1::AoA(Time a_t, Angle a_psi) const
 
     // We assume that during this burn, the thrust vector is always pointing
     // towards the "return", so cosTheta <= 0, thus:
-    Angle theta(Pi<double> - ASin(sinTheta));  // theta in [Pi/2 .. 3*Pi/2]
+    Angle theta(Pi<double> - ASin(sinTheta));
+    // assert(PI_2 <= theta && theta <= 1.5 * PI); // XXX: Rounding errors here?
 
     // FIXME: the AoA is not much relevant in this mode, since we disreagard
-    // the aerodynamic forces during this Burn.
-    // Define it formalluy as psi + AoA = theta:
+    // the aerodynamic forces during this Burn;
+    // define it formally via the invariant: psi + AoA = theta, w/o normalisa-
+    // tion:
     Angle aoa = theta - a_psi;
     return std::make_pair(aoa, theta);
   }
@@ -396,14 +398,14 @@ std::pair<Angle,Angle> RTLS1::AoA(Time a_t, Angle a_psi) const
   case FlightMode::EndoAtmDesc:
   case FlightMode::LandBurn:
   case FlightMode::UNDEFINED:
-    // Assume we are descending "tail-first", so AoA = Pi and theta = Pi + psi;
-    // XXX: there is currently no "AoA maneuver"  at the end  before the final
-    // vertical landing:
+    // Assume we are descending Tail-First, so AoA = Pi  and theta = Pi + psi;
+    // XXX: there is currently no "overfly maneuver" at the end before the fi-
+    // nal vertical landing:
     return std::make_pair(PI, PI + a_psi);
 
   default:
     assert(false);
-    return std::make_pair(0.0_rad, 0.0_rad);
+    return std::make_pair(0.0_rad, a_psi);
   }
   __builtin_unreachable();
 }
@@ -449,8 +451,19 @@ RTLS1::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const
 //===========================================================================//
 // Propellant Burn Rate:                                                     //
 //===========================================================================//
-MassRate RTLS1::PropBurnRate(Time UNUSED_PARAM(a_t)) const
+MassRate RTLS1::PropBurnRate
+(
+  Mass  a_m,
+  Time  UNUSED_PARAM(a_t)
+)
+const
 {
+  // IMPORTANT: Irrespective to the Mode, if we are out of Propellant, the
+  // BurnRate is obviously 0:
+  if (a_m <= Base::m_emptyMass1 + Base::m_unSpendable1)
+    return MassRate(0.0);
+
+  // Otherwise:
   switch (m_mode)
   {
   case FlightMode::Coast:
@@ -484,6 +497,11 @@ MassRate RTLS1::PropBurnRate(Time UNUSED_PARAM(a_t)) const
 ForceK RTLS1::Thrust(MassRate a_burn_rate, Pressure a_p) const
 {
   assert(!(IsNeg(a_burn_rate) || IsNeg(a_p)));
+
+  // For optimisation: If BurnRate is 0 (in any Mode), then so is Thrust:
+  if (IsZero(a_burn_rate))
+    return ForceK(0.0);
+
   switch (m_mode)
   {
   case FlightMode::Coast:
@@ -529,7 +547,8 @@ Mass RTLS1::LVMass(Base::StateV const& a_s, Time UNUSED_PARAM(a_t)) const
   assert(IsPos(m));
 
   // In general, we must have m >= EmptyMass + UnSpendableMass, though this may
-  // be broken in some boundary cases. Enforce this condition explicitly:
+  // be broken in some edge cases due to rounding errors:
+  //
   m = std::max(m, Base::m_emptyMass1 + Base::m_unSpendable1);
   return m;
 }

@@ -141,7 +141,7 @@ const
   assert(!(IsNeg(drag) || IsNeg(lift)));
 
   // Propellant Burn Rate (>= 0) and Thrust:
-  MassRate burnRate = ToDer()->PropBurnRate(a_t);
+  MassRate burnRate = ToDer()->PropBurnRate(a_m, a_t);
   assert(!IsNeg(burnRate));
 
   Pressure p        = std::get<0> (atm);
@@ -371,7 +371,7 @@ const
   auto atm = EAM::GetAtmConds(h1);
 
   // Propellant BurnRate (>= 0) and Thrust:
-  MassRate burnRate1 = ToDer()->PropBurnRate(t1);
+  MassRate burnRate1 = ToDer()->PropBurnRate(m1, t1);
   assert(!IsNeg(burnRate1));
 
   // We will assume that the Thrust vector is pointing strictly UpWards

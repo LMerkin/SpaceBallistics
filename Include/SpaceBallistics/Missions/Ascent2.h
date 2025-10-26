@@ -255,7 +255,7 @@ namespace SpaceBallistics
     AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const;
 
     // "PropBurnRate": (may be variable over time, >= 0):
-    MassRate PropBurnRate(Time a_t) const;
+    MassRate PropBurnRate(Mass a_m, Time a_t) const;
 
     // "AoA": returns [Angle-of-Attack, ThrustVectorElevation]:
     std::pair<Angle,Angle> AoA(Time a_t, Angle a_psi) const;

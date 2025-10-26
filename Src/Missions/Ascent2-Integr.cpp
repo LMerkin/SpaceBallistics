@@ -305,9 +305,9 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
   LenK   h             = r - R;             // Altitude
   VelK   Vr            = std::get<1>(*a_s);
   AngVel omega         = std::get<2>(*a_s);
+  VelK   Vhor          = r * omega / 1.0_rad;
   Mass   spentPropMass = std::get<3>(*a_s);
   Angle  phi           = std::get<4>(*a_s);
-  VelK   Vhor          = r * omega / 1.0_rad;
 
   // NB: "spentPropMass" decreases over time, so increases in Bwd time.
   // It is 0 at Orbit Insertion Time (t=0):
@@ -367,7 +367,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
   LenK     L   = R * phi / 1.0_rad; // Down-Range Earth Distance, <= 0
   // AeroDynamic Conditions:
   double   M   = Base::Mach(atm, V);
-  Pressure pe  = std::get<0>(atm);
+  Pressure pa  = std::get<0>(atm);
   Density  rho = std::get<1>(atm);
   auto     V2  = To_Len_m(Sqr(V));
   Pressure Q   = 0.5 * rho * V2;
@@ -530,7 +530,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
       << m.Magnitude()       << '\t' << ToString(m_mode)     << '\t'
       << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
       << Q.Magnitude()       << '\t' << M                    << '\t'
-      << longG               << '\t' << pe.Magnitude()       << '\t'
+      << longG               << '\t' << pa.Magnitude()       << '\t'
       << a_dt.Magnitude()    << std::endl;
   }
   return cont;
@@ -649,7 +649,7 @@ Ascent2::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const
 //===========================================================================//
 // Propellant Burn Rate: May be variable:                                    //
 //===========================================================================//
-MassRate Ascent2::PropBurnRate(Time a_t) const
+MassRate Ascent2::PropBurnRate(Mass UNUSED_PARAM(a_m), Time a_t) const
 {
   switch (m_mode)
   {
