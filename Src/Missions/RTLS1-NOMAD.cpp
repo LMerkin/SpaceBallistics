@@ -122,13 +122,13 @@ public:
   )
   const override
   {
-    assert(8 <= a_x.size() && a_x.size() <= NP);
+    assert(NP - NS + 1 <= a_x.size() && a_x.size() <= NP);
 
     if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 2)
     {
       (*m_proto->m_os)   << '#';
       for (int i = 0; i < int(a_x.size()); ++i)
-        (*m_proto->m_os) << "  " << a_x[i].todouble();
+        (*m_proto->m_os) << "  " << a_x[size_t(i)].todouble();
       (*m_proto->m_os)   << std::endl;
     }
 
@@ -153,12 +153,12 @@ public:
       m_proto->Base::m_thrustVacI1,
       m_proto->Base::m_minThrtL1,
       m_diam,
-      propMassS,          // NB: Variable!
+      propMassS,          // NB: From a_x[0]!
       // Mission Params:
       m_proto->m_hS,
       m_proto->m_lS,
       m_proto->m_VS,
-      m_proto->m_phiS,
+      m_proto->m_psiS,
       // Integration and Output Params:
       m_proto->Base::m_odeIntegrStep,
       m_proto->Base::m_os,
@@ -172,13 +172,14 @@ public:
       a_x[2].todouble(),                              // bbBurnDurN
       a_x[3].todouble(),                              // entryBurnQN
       a_x[4].todouble(),                              // entryBurnDurN
-      a_x[5].todouble(),                              // landBurnHN
-      a_x[6].todouble(),                              // landBurnThrtN
-      // sin(theta) coeffs:
-      a_x[7].todouble(),                              // sinTheta0
-      (a_x.size() >=  9) ? a_x[ 8].todouble() : 0.5,  // sinTheta1
-      (a_x.size() >= 10) ? a_x[ 9].todouble() : 0.5,  // sinTheta2
-      (a_x.size() == 11) ? a_x[10].todouble() : 0.5   // sinTheta3
+      a_x[5].todouble(),                              // entryBurnThrtAL,
+      a_x[6].todouble(),                              // landBurnHN
+      a_x[7].todouble(),                              // landBurnThrtN
+      // sin(theta) coeffs: similar to "SetCtlParams":
+      a_x[8].todouble(),                              // sinTheta0
+      (a_x.size() >= 10) ? a_x[ 9].todouble() : 0.5,  // sinTheta1
+      (a_x.size() >= 11) ? a_x[10].todouble() : 0.5,  // sinTheta2
+      (a_x.size() == 12) ? a_x[11].todouble() : 0.5   // sinTheta3
     );
 
     //-----------------------------------------------------------------------//

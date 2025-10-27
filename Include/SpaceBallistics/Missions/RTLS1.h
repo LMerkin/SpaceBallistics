@@ -23,9 +23,6 @@ namespace SpaceBallistics
     using  Base = LVBase<RTLS1>;
     friend class  LVBase<RTLS1>;
 
-    // Number of Coeffs in sin(theta) expansion (so the degree is NS-1):
-    constexpr static int  NS = 4;
-
   private:
     //-----------------------------------------------------------------------//
     // "FlightMode":                                                         //
@@ -55,6 +52,7 @@ namespace SpaceBallistics
       }
     }
 
+  public:
     //=======================================================================//
     // Data Flds:                                                            //
     //=======================================================================//
@@ -62,6 +60,12 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Const Mission Params:                                                 //
     //-----------------------------------------------------------------------//
+    // Number of Engines in Stage1:
+    constexpr static int  NE = 9;
+
+    // Number of Coeffs in sin(theta) expansion (so the degree is NS-1):
+    constexpr static int  NS = 4;
+
     // NB: In this class, t=0 corresponds to the Stage1 Separation event, and
     // "t" runs FORWARD.
     // We assume that the landing site is (h=0, l=0). The co-ords at Separation
@@ -71,8 +75,9 @@ namespace SpaceBallistics
 
     // And the corresp Velocity and Trajectory Inclidation at Separation:
     VelK  const           m_VS;
-    Angle const           m_phiS;
+    Angle const           m_psiS;
 
+  private:
     //-----------------------------------------------------------------------//
     // Optimisation Params:                                                  //
     //-----------------------------------------------------------------------//
@@ -88,7 +93,8 @@ namespace SpaceBallistics
     // (-x),  so "theta" is around Pi. We expand sin(theta) into a CUBIC (or lo-
     // wer degree) polynomial of (t_burn / burn_duration), and it can be of any
     // sign, whereas we keep cos(theta) < 0. There are no other restrictions on
-    // "theta" / AoA in this case, because the BoostBackBurn is Exo-Atmospheric:    // XXX: Do we always need FullThrust here?
+    // "theta" / AoA in this case, because the BoostBackBurn is Exo-Atmospheric:
+    // XXX: Do we always need FullThrust here?
     Time                  m_bbBurnDur;
     double                m_bbBurnSinTheta[NS];
 
@@ -99,6 +105,7 @@ namespace SpaceBallistics
     // XXX: Do we always need FullThrust here?
     Pressure              m_entryBurnQ;
     Time                  m_entryBurnDur;
+    double                m_entryBurnThrtAL; // Assuming ALL engines are burning
 
     // XXX: For the Final Decsent and Landing, we currently do NOT perform any
     // special maneuvers  to avoid the "ballistic target" point and fly to the
@@ -109,19 +116,18 @@ namespace SpaceBallistics
     // ing (h=0), until v=0 (which means unsuccessful langing if "h" is above
     // the threshold), or until the propellant is exhausted:
     LenK                  m_landBurnH;
-    double                m_landBurnThrtL;
+    double                m_landBurnThrt1L; // Assuming 1 engine is burning
 
-    // So altogether: 11 params:
-    // [PropMassS,  CoastTime,    BBBurnDur, BBBurnSinTheta[4],
-    //  EntryBurnQ, EntryBurnDur, LandBurnH, LandBurnThrtL]
-    constexpr static int  NP = 11;
+    // So altogether: 12 params:
+    // [PropMassS,  CoastTime,    BBBurnDur,       BBBurnSinTheta[4],
+    //  EntryBurnQ, EntryBurnDur, EntryBurnThrtAL, LandBurnH, LandBurnThrt1L]
+    constexpr static int  NP = 12;
 
     //-----------------------------------------------------------------------//
     // Translation of Relative Opt Params in the Absolute Ones:              //
     //-----------------------------------------------------------------------//
     // Scaling Factor:
-    constexpr static Mass     MaxPropMassS     = 30000.0_kg;
-    constexpr static Time     MaxCoastDur      =   300.0_sec;
+    constexpr static Mass     MaxPropMassS     = 50000.0_kg;
     constexpr static Time     MaxBBBurnDur     =    20.0_sec;  // Too large?
     constexpr static Pressure MaxEntryBurnQ    = Pressure(30000.0);
     constexpr static Time     MaxEntryBurnDur  =    10.0_sec;  // Too large?
@@ -135,6 +141,7 @@ namespace SpaceBallistics
     Time                  m_landIgnTime;    // Triggered by H
     Time                  m_finalTime;
     std::string           m_eventStr;
+    Time                  m_nextOutputTime;
 
     // Vals which may be Constrained:
     Pressure              m_maxQ;
@@ -165,7 +172,7 @@ namespace SpaceBallistics
       LenK           a_hS,
       LenK           a_lS,
       VelK           a_VS,
-      Angle          a_phiS,
+      Angle          a_psiS,
 
       // Integration and Output Params:
       Time           a_ode_integr_step,
@@ -192,11 +199,12 @@ namespace SpaceBallistics
     // Individual Args Form:
     void SetCtlParams
     (
-      double a_coastDurN,     double a_bbBurnDurN,
-      double a_entryBurnQN,   double a_entryBurnDurN,
-      double a_landBurnHN,    double a_landBurnThrtN,
-      double a_sinTheta0,     double a_sinTheta1,
-      double a_sinTheta2,     double a_sinTheta3
+      double a_coastDurN,       double a_bbBurnDurN,
+      double a_entryBurnQN,     double a_entryBurnDurN,
+      double a_entryBurnThrtAL,
+      double a_landBurnHN,      double a_landBurnThrtN,
+      double a_sinTheta0,       double a_sinTheta1,
+      double a_sinTheta2,       double a_sinTheta3
     );
 
     //-----------------------------------------------------------------------//
@@ -258,7 +266,7 @@ namespace SpaceBallistics
       Pressure  const m_entryBurnQ;
       Time      const m_entryBurnDur;
       LenK      const m_landBurnH;
-      double    const m_landBurnThrtL;
+      double    const m_landBurnThrt1L;
 
       // Non-Default Ctor:
       OptRes(RTLS1 const& a_rtls);

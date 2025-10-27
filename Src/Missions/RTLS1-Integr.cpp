@@ -32,7 +32,7 @@ RTLS1::RTLS1
   LenK           a_hS,
   LenK           a_lS,
   VelK           a_VS,
-  Angle          a_phiS,
+  Angle          a_psiS,
 
   // Integration and Output Params:
   Time           a_ode_integr_step,
@@ -63,32 +63,34 @@ RTLS1::RTLS1
     a_log_level
   ),
   // Mission Params (constant):
-  m_hS            (a_hS),
-  m_lS            (a_lS),
-  m_VS            (a_VS),
-  m_phiS          (a_phiS),
+  m_hS              (a_hS),
+  m_lS              (a_lS),
+  m_VS              (a_VS),
+  m_psiS            (a_psiS),
   // Ctl Params are set to their default vals as yet:
-  m_coastDur      (),
-  m_bbBurnDur     (),
-  m_bbBurnSinTheta{ 0.0, 0.0, 0.0, 0.0 },
-  m_entryBurnQ    (),
-  m_entryBurnDur  (),
-  m_landBurnH     (),
-  m_landBurnThrtL (0.0),
+  m_coastDur        (),
+  m_bbBurnDur       (),
+  m_bbBurnSinTheta  { 0.0, 0.0, 0.0, 0.0 },
+  m_entryBurnQ      (),
+  m_entryBurnDur    (),
+  m_entryBurnThrtAL(0.0),
+  m_landBurnH       (),
+  m_landBurnThrt1L  (0.0),
   // Transient Data:
-  m_mode          (FlightMode::Coast),
-  m_entryIgnTime  (NAN),
-  m_landIgnTime   (NAN),
-  m_finalTime     (NAN),
-  m_eventStr      (),
+  m_mode            (FlightMode::Coast),
+  m_entryIgnTime    (NAN),
+  m_landIgnTime     (NAN),
+  m_finalTime       (NAN),
+  m_eventStr        (),
+  m_nextOutputTime  (),
   // NB: Constraints (subject to "max") must be initialisd to 0, not NAN:
-  m_maxQ          (),
-  m_sepQ          (),
-  m_maxLongG      (0.0)
+  m_maxQ            (),
+  m_sepQ            (),
+  m_maxLongG        (0.0)
 {
   // Checks:
-  if (!(IsPos(m_hS) && IsPos(m_lS) && IsPos(m_VS) && IsPos(m_phiS) &&
-        m_phiS < PI_2))
+  if (!(IsPos(m_hS) && IsPos(m_lS) && IsPos(m_VS) && IsPos(m_psiS) &&
+        m_psiS < PI_2))
     throw std::invalid_argument("RTLS1::Ctor: Invalid Mission Param(s)");
 
   // "m_propMass1" (in the Base) should be equal to "a_prop_massS" up to
@@ -111,8 +113,8 @@ RTLS1::Base::RunRes RTLS1::Run()
   //-------------------------------------------------------------------------//
   // (t=0 corresponds to Separation):
   LenK   rS     = R + m_hS;
-  VelK   VrS    = m_VS * Sin(m_phiS);
-  AngVel omegaS = m_VS * Cos(m_phiS) / rS * 1.0_rad;
+  VelK   VrS    = m_VS * Sin(m_psiS);
+  AngVel omegaS = m_VS * Cos(m_psiS) / rS * 1.0_rad;
   Angle  phiS   = m_lS / R * 1.0_rad;
   assert(IsPos(VrS) && IsPos(omegaS) && IsPos(phiS));
 
@@ -137,6 +139,7 @@ RTLS1::Base::RunRes RTLS1::Run()
   constexpr Time t0   = 0.0_sec;
   constexpr Time tMax = 3600.0_sec; // Certainly enough!
   Time           tEnd;  // Will be < tMax;
+  m_nextOutputTime    = 0.0_sec;    // Just to make sure
   try
   {
     //-----------------------------------------------------------------------//
@@ -180,9 +183,9 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   assert(IsPos(r) && !IsNeg(spentPropMass));
 
   //-------------------------------------------------------------------------//
-  // Similar to "Base::ODERHS", check if we are approaching the singularity: //
+  // Similar to "Base::ODERHS", check if we are approaching the Singularity: //
   //-------------------------------------------------------------------------//
-  if (Vhor < Base::SingVhor)
+  if (Abs(Vhor) < Base::SingVhor)
   {
     omega              = AngVel(0.0);
     std::get<2>(*a_s)  = AngVel(0.0);
@@ -329,12 +332,14 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   //-------------------------------------------------------------------------//
   // Main Output:                                                            //
   //-------------------------------------------------------------------------//
-  // Occurs with a 100 msec step, or if we are going to stop now:
-  if (Base::m_os  != nullptr && Base::m_logLevel >= 4 &&
-     (!cont || int(Round(double(a_t / 0.001_sec))) % 100 == 0))
+  // Occurs with a 0.1 sec step, or if we are going to stop now:
+  if (Base::m_os != nullptr && Base::m_logLevel >= 4 &&
+     (!cont || a_t >= m_nextOutputTime))
   {
+    m_nextOutputTime += 0.1_sec;
+
     // Thrust is more conveniently reported in kgf:
-    auto tkg = thrust / g0K;
+    auto tkgf = thrust / g0K;
 
     *Base::m_os
       << a_t.Magnitude()     << '\t' << h.Magnitude()        << '\t'
@@ -342,7 +347,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
       << Vhor.Magnitude()    << '\t' << V.Magnitude()        << '\t'
       << psi_deg.Magnitude() << '\t' << aoa_deg.Magnitude()  << '\t'
       << m.Magnitude()       << '\t' << ToString(m_mode)     << '\t'
-      << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
+      << tkgf.Magnitude()    << '\t' << burnRate.Magnitude() << '\t'
       << Q.Magnitude()       << '\t' << M                    << '\t'
       << longG               << '\t' << pa.Magnitude()       << '\t'
       << a_dt.Magnitude()    << std::endl;
@@ -474,15 +479,20 @@ const
     return MassRate(0.0);
 
   case FlightMode::BBBurn:
-  case FlightMode::EntryBurn:
     // XXX: Assume full MassRate here -- no throttling ctl yet:
     return Base::m_burnRateI1;
 
+  case FlightMode::EntryBurn:
+    // Here there is an "over-all" throttling level (we don't know as yet how
+    // many engines are burning):
+    assert(0.0 <= m_entryBurnThrtAL && m_entryBurnThrtAL <= 1.0);
+    return Base::m_burnRateI1 * m_entryBurnThrtAL;
+
   case FlightMode::LandBurn:
-    // XXX: Assume that only 1 engine is burning (of 9), at some throttled but
+    // XXX: Assume that only 1 engine is burning (of NE), at some throttled but
     // (as yet) constant rate:
-    assert(0.0 <= m_landBurnThrtL  && m_landBurnThrtL <= 1.0);
-    return Base::m_burnRateI1 / 9.0 * m_landBurnThrtL;
+    assert(0.0 <= m_landBurnThrt1L  && m_landBurnThrt1L  <= 1.0);
+    return Base::m_burnRateI1 / double(NE) * m_landBurnThrt1L;
 
   default:
     assert(false);

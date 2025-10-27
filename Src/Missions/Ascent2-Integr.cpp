@@ -148,6 +148,7 @@ Ascent2::Ascent2
   m_cutOffTime1   (NAN),
   m_ignTime1      (NAN),
   m_eventStr      (),
+  m_nextOutputTime(),
   m_maxQ          (0.0),
   m_sepQ          (0.0),
   m_maxLongG      (0.0)
@@ -249,6 +250,7 @@ Ascent2::Base::RunRes Ascent2::Run()
   constexpr Time t0   = 0.0_sec;
   constexpr Time tMin = -3600.0_sec;
   Time           tEnd;  // Will be > tMin;
+  m_nextOutputTime    = 0.0_sec;
   try
   {
     //-----------------------------------------------------------------------//
@@ -515,10 +517,12 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
   //-------------------------------------------------------------------------//
   // Main Output:                                                            //
   //-------------------------------------------------------------------------//
-  // Occurs with a 100 msec step, or if we are going to stop now:
-  if (Base::m_os  != nullptr && Base::m_logLevel >= 4 &&
-     (!cont || int(Round(double(a_t / 0.001_sec))) % 100 == 0))
+  // Occurs with a 0.1 msec step, or if we are going to stop now:
+  if (Base::m_os != nullptr && Base::m_logLevel >= 4 &&
+     (!cont || a_t >= m_nextOutputTime))
   {
+    m_nextOutputTime += 0.1_sec;
+
     // Thrust is more conveniently reported in kgf:
     auto tkg = thrust / g0K;
 

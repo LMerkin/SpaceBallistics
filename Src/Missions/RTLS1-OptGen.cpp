@@ -13,9 +13,9 @@ namespace SpaceBallistics
 //===========================================================================//
 // "SetCtlParams":                                                           //
 //===========================================================================//
-// Dimensioned (Physical) Params:
-// [PropMassS, CoastDur,      BBBurnDur, EntryBurnQ, EntryBurnDur,
-//  LandBurnH, LandBurnThrtL, BBBurnSinTheta[1..4]]
+// Physical Params:
+// [PropMassS,       CoastDur,  BBBurnDur,      EntryBurnQ,    EntryBurnDur,
+//  EntryBurnThrtAL, LandBurnH, LandBurnThrt1L, BBBurnSinTheta[1..4]]
 //
 // However, "a_opt_params_n" are all normalised to 0..1:
 //---------------------------------------------------------------------------//
@@ -28,42 +28,59 @@ void RTLS1::SetCtlParams
 (
   double a_coastDurN,     double a_bbBurnDurN,
   double a_entryBurnQN,   double a_entryBurnDurN,
-  double a_landBurnHN,    double a_landBurnThrtN,
+  double a_entryBurnThrtAN,
+  double a_landBurnHN,    double a_landBurnThrt1N,
   double a_sinTheta0,     double a_sinTheta1,
   double a_sinTheta2,     double a_sinTheta3
 )
 {
-  assert(0.0     <= a_coastDurN     && a_coastDurN     <= 1.0);
-  m_coastDur      = a_coastDurN     *  MaxCoastDur;
+  // NB: "m_coastDur" is set relative to the "flight time to the ballistic top",
+  // assuming a const gravity acceleration (as @ "m_hS"),  since it would prob-
+  // ably be too late and sub-optimal to start the BBBurn during the descending
+  // branch of the ballistic trajectory:
+  AccK gS    = K / Sqr(R + m_hS);
+  VelK VrS   = m_VS * Cos(m_psiS);
+  assert(IsPos(VrS));
+  Time toTop = VrS / gS;
 
-  assert(0.0     <= a_bbBurnDurN    && a_bbBurnDurN    <= 1.0);
-  m_bbBurnDur     = a_bbBurnDurN    *  MaxBBBurnDur;
+  assert(0.0       <= a_coastDurN       && a_coastDurN       <= 1.0);
+  m_coastDur        = a_coastDurN       *  toTop;
 
-  assert(0.0     <= a_entryBurnQN   && a_entryBurnQN   <= 1.0);
-  m_entryBurnQ    = a_entryBurnQN   *  MaxEntryBurnQ;
+  assert(0.0       <= a_bbBurnDurN      && a_bbBurnDurN      <= 1.0);
+  m_bbBurnDur       = a_bbBurnDurN      *  MaxBBBurnDur;
 
-  assert(0.0     <= a_entryBurnDurN && a_entryBurnDurN <= 1.0);
-  m_entryBurnDur  = a_entryBurnDurN *  MaxEntryBurnDur;
+  assert(0.0       <= a_entryBurnQN     && a_entryBurnQN     <= 1.0);
+  m_entryBurnQ      = a_entryBurnQN     *  MaxEntryBurnQ;
 
-  assert(0.0     <= a_landBurnHN    && a_landBurnHN    <= 1.0);
-  m_landBurnH     = a_landBurnHN    *  MaxLandBurnH;
+  assert(0.0       <= a_entryBurnDurN   && a_entryBurnDurN   <= 1.0);
+  m_entryBurnDur    = a_entryBurnDurN   *  MaxEntryBurnDur;
 
-  assert(0.0     <= a_landBurnThrtN && a_landBurnThrtN <= 1.0);
+  // NB: Take the actual Stage1 throttling range and the number of
+  // engines into account:
+  assert(0.0       <= a_entryBurnThrtAN && a_entryBurnThrtAN <= 1.0);
+  m_entryBurnThrtAL =
+    Base::m_minThrtL1 / double(NE) * (1.0 - a_entryBurnThrtAN) +
+    a_entryBurnThrtAN;
+
+  assert(0.0       <= a_landBurnHN      && a_landBurnHN      <= 1.0);
+  m_landBurnH       = a_landBurnHN      *  MaxLandBurnH;
+
+  assert(0.0       <= a_landBurnThrt1N && a_landBurnThrt1N   <= 1.0);
   // NB: Take the actual Stage1 throttling range into account:
-  m_landBurnThrtL =
-    Base::m_minThrtL1 * (1.0 - a_landBurnThrtN) + a_landBurnThrtN;
+  m_landBurnThrt1L  =
+    Base::m_minThrtL1 * (1.0 - a_landBurnThrt1N) + a_landBurnThrt1N;
 
   // sin(theta) coeffs:
-  assert(0.0     <= a_sinTheta0     && a_sinTheta0    <= 1.0);
+  assert(0.0       <= a_sinTheta0       && a_sinTheta0       <= 1.0);
   m_bbBurnSinTheta[0] = 2.0 * a_sinTheta0 - 1.0;
 
-  assert(0.0     <= a_sinTheta1     && a_sinTheta1    <= 1.0);
+  assert(0.0       <= a_sinTheta1       && a_sinTheta1       <= 1.0);
   m_bbBurnSinTheta[1] = 2.0 * a_sinTheta1 - 1.0;
 
-  assert(0.0     <= a_sinTheta2     && a_sinTheta2    <= 1.0);
+  assert(0.0       <= a_sinTheta2       && a_sinTheta2       <= 1.0);
   m_bbBurnSinTheta[2] = 2.0 * a_sinTheta2 - 1.0;
 
-  assert(0.0     <= a_sinTheta3     && a_sinTheta3    <= 1.0);
+  assert(0.0       <= a_sinTheta3       && a_sinTheta3       <= 1.0);
   m_bbBurnSinTheta[3] = 2.0 * a_sinTheta3 - 1.0;
   // All Done!
 }
@@ -84,15 +101,16 @@ void RTLS1::SetCtlParams(std::vector<double> const& a_opt_params_n)
     a_opt_params_n[2],                      // bbBurnDurN
     a_opt_params_n[3],                      // entryBurnQN
     a_opt_params_n[4],                      // entryBurnDurN
-    a_opt_params_n[5],                      // landBurnHN
-    a_opt_params_n[6],                      // landBurnThrtN
+    a_opt_params_n[5],                      // entryBurnThrtAL
+    a_opt_params_n[6],                      // landBurnHN
+    a_opt_params_n[7],                      // landBurnThrtN
 
     // sin(theta) coeffs: NB: the default normalised coeffs are equal to 0.5,
-    // which will translate into 0 (see the avove function):
-    a_opt_params_n[7],                      // sinTheta0
-    (np >=  9) ? a_opt_params_n[ 8] : 0.5,  // sinTheta1
-    (np >= 10) ? a_opt_params_n[ 9] : 0.5,  // sinTheta2
-    (np == 11) ? a_opt_params_n[10] : 0.5   // sinTheta3
+    // which will translate into 0 (see the above function):
+    a_opt_params_n[8],                      // sinTheta0
+    (np >= 10) ? a_opt_params_n[ 9] : 0.5,  // sinTheta1
+    (np >= 11) ? a_opt_params_n[10] : 0.5,  // sinTheta2
+    (np == 12) ? a_opt_params_n[11] : 0.5   // sinTheta3
   );
 }
 
@@ -110,7 +128,7 @@ RTLS1::OptRes::OptRes(RTLS1 const& a_rtls)
   m_entryBurnQ    (a_rtls.m_entryBurnQ),
   m_entryBurnDur  (a_rtls.m_entryBurnDur),
   m_landBurnH     (a_rtls.m_landBurnH),
-  m_landBurnThrtL (a_rtls.m_landBurnThrtL)
+  m_landBurnThrt1L(a_rtls.m_landBurnThrt1L)
 {
   static_assert(RTLS1::NS == 4);
 }
@@ -121,18 +139,18 @@ RTLS1::OptRes::OptRes(RTLS1 const& a_rtls)
 std::ostream& operator<< (std::ostream& a_os, RTLS1::OptRes const& a_res)
 {
   a_os
-    << "\tpropMassS     = "   << a_res.m_propMassS
-    << "\n\tcoastDur      = " << a_res.m_coastDur
-    << "\n\tbbBurnDur     = " << a_res.m_bbBurnDur;
+    << "\tpropMassS      = "   << a_res.m_propMassS
+    << "\n\tcoastDur       = " << a_res.m_coastDur
+    << "\n\tbbBurnDur      = " << a_res.m_bbBurnDur;
 
   for (int i = 0; i < RTLS1::NS; ++i)
     a_os << "\n\tsinTheta["   << i << "]   = " << a_res.m_bbBurnSinTheta[i];
 
   a_os
-    << "\n\tentryBurnQ    = " << a_res.m_entryBurnQ
-    << "\n\tentryBurnDur  = " << a_res.m_entryBurnDur
-    << "\n\tlandBurnH     = " << a_res.m_landBurnH
-    << "\n\tlandBurnThrtL = " << a_res.m_landBurnThrtL
+    << "\n\tentryBurnQ     = " << a_res.m_entryBurnQ
+    << "\n\tentryBurnDur   = " << a_res.m_entryBurnDur
+    << "\n\tlandBurnH      = " << a_res.m_landBurnH
+    << "\n\tlandBurnThrt1L = " << a_res.m_landBurnThrt1L
     << std::endl;
 
   return a_os;
@@ -174,7 +192,7 @@ RTLS1::FindOptimalReturnCtls
   LenK   hS                     (pt.get<double>("RTLS.hS"));
   LenK   lS                     (pt.get<double>("RTLS.lS"));
   VelK   VS                     (pt.get<double>("RTLS.VS"));
-  Angle  phiS                   (pt.get<double>("RTLS.phiS"));
+  Angle  psiS                   (pt.get<double>("RTLS.psiS"));
 
   // "Technical" Params:
   Time   odeIntegrStep          (pt.get<double>("Technical.ODEIntegrStep"));
@@ -206,7 +224,7 @@ RTLS1::FindOptimalReturnCtls
     throw std::invalid_argument("minRelBBBurnDur: Must be in (0..1]");
 
   // The initial vals of all (NORMALISED) params:  0.5:
-  std::vector<double> initParamsN(size_t(8 + sinThetaDeg), 0.5);
+  std::vector<double> initParamsN(size_t(NP - NS + 1 + sinThetaDeg), 0.5);
 
   // The Limits:
   // TODO: Possibly add the Acceleration Limit at Landing as well:
@@ -221,7 +239,7 @@ RTLS1::FindOptimalReturnCtls
   (
     maxFullMass1,        fullK1,  fullPropRem1, IspSL1, IspVac1, thrustVacI1,
     minThrtL1,           diam,
-    RTLS1::MaxPropMassS, hS,      lS,       VS, phiS,
+    RTLS1::MaxPropMassS, hS,      lS,       VS, psiS,
     odeIntegrStep,       a_os,    optLogLevel
   );
 
