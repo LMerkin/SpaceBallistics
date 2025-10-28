@@ -277,11 +277,11 @@ Ascent2::Base::RunRes Ascent2::Run()
 
     if (Base::m_os != nullptr && Base::m_logLevel >= 1)
       (*m_os)
-        << "# WARNING: Falling Back to Earth: t="          << fb.m_t
+        << "# ERROR: Falling Back to Earth: t="            << fb.m_t.Magnitude()
         << " sec,  h="         << (fb.m_r - R).Magnitude() << " km, l="
         << (R * fb.m_phi / 1.0_rad).Magnitude()            << " km, Vr="
         << fb.m_Vr.Magnitude() << " m/sec, V="             << V.Magnitude()
-        << " km/sec"           << std::endl;
+        << " km/sec, mode="    << ToString(m_mode)         << std::endl;
 
     // XXX: We do not propagate vals carried by "fb" to "RunRes":
     return Base::RunRes
@@ -519,9 +519,9 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
   //-------------------------------------------------------------------------//
   // Occurs with a 0.1 msec step, or if we are going to stop now:
   if (Base::m_os != nullptr && Base::m_logLevel >= 4 &&
-     (!cont || a_t >= m_nextOutputTime))
+     (!cont || a_t <= m_nextOutputTime))
   {
-    m_nextOutputTime += 0.1_sec;
+    m_nextOutputTime -= 0.1_sec;   // NB: Bwd Integration!
 
     // Thrust is more conveniently reported in kgf:
     auto tkg = thrust / g0K;

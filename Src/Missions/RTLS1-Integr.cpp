@@ -67,6 +67,11 @@ RTLS1::RTLS1
   m_lS              (a_lS),
   m_VS              (a_VS),
   m_psiS            (a_psiS),
+  // Memoised Params for a "Fully-Prop-Loaded" Stage1:
+  m_fullMass1       (a_full_mass1),
+  m_fullK1          (a_full_k1),
+  m_fullPropRem1    (a_full_prop_rem1),
+  m_diam            (a_diam),
   // Ctl Params are set to their default vals as yet:
   m_coastDur        (),
   m_bbBurnDur       (),

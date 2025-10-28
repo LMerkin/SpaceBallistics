@@ -58,7 +58,7 @@ namespace SpaceBallistics
     //=======================================================================//
     // Stage1 params are contained in the Base:
     //-----------------------------------------------------------------------//
-    // Const Mission Params:                                                 //
+    // Const LV and Mission Params:                                          //
     //-----------------------------------------------------------------------//
     // Number of Engines in Stage1:
     constexpr static int  NE = 9;
@@ -70,14 +70,20 @@ namespace SpaceBallistics
     // "t" runs FORWARD.
     // We assume that the landing site is (h=0, l=0). The co-ords at Separation
     // are (hS > 0, lS > 0), and they are considered to be const params:
-    LenK  const           m_hS;
-    LenK  const           m_lS;
+    LenK   const          m_hS;
+    LenK   const          m_lS;
 
     // And the corresp Velocity and Trajectory Inclidation at Separation:
-    VelK  const           m_VS;
-    Angle const           m_psiS;
+    VelK   const          m_VS;
+    Angle  const          m_psiS;
 
   private:
+    // Params of a "Fully-Prop-Loaded" Stage1:
+    Mass   const          m_fullMass1;
+    double const          m_fullK1;
+    double const          m_fullPropRem1;
+    Len    const          m_diam;
+
     //-----------------------------------------------------------------------//
     // Optimisation Params:                                                  //
     //-----------------------------------------------------------------------//
@@ -124,14 +130,12 @@ namespace SpaceBallistics
     constexpr static int  NP = 12;
 
     //-----------------------------------------------------------------------//
-    // Translation of Relative Opt Params in the Absolute Ones:              //
+    // Scaling Factors for Translation of Rel Opt Params into the Abs Ones:  //
     //-----------------------------------------------------------------------//
-    // Scaling Factor:
-    constexpr static Mass     MaxPropMassS     = 50000.0_kg;
-    constexpr static Time     MaxBBBurnDur     =    20.0_sec;  // Too large?
-    constexpr static Pressure MaxEntryBurnQ    = Pressure(30000.0);
-    constexpr static Time     MaxEntryBurnDur  =    10.0_sec;  // Too large?
-    constexpr static LenK     MaxLandBurnH     =     5.0_km;   // Too low?
+    constexpr static Mass MaxPropMassS    = 50000.0_kg;
+    constexpr static Time MaxBBBurnDur    =    20.0_sec; // Too large?
+    constexpr static Time MaxEntryBurnDur =    10.0_sec; // Too large?
+    constexpr static LenK MaxLandBurnH    =     5.0_km;  // Too low?
 
     //-----------------------------------------------------------------------//
     // Transient Data (during flight path integration):                      //
@@ -186,19 +190,13 @@ namespace SpaceBallistics
     RTLS1(RTLS1 const&) = default;
 
     //-----------------------------------------------------------------------//
-    // "SetCtlParams":                                                       //
+    // Ctor from a "Proto" and the Normalised Ctl Params:                    //
     //-----------------------------------------------------------------------//
-    // See the implementation for details. There are 2 overloaded forms of this
-    // methods.
-    // IMPORTANT: "PropMassS" is NOT set by these methods; it is NOT a Ctl Par-
-    // am; it can only be set when a new "RTLS1" obj is constructed!
-    //
-    // Vector Form:
-    void SetCtlParams(std::vector<double> const& a_opt_params_n);
-
-    // Individual Args Form:
-    void SetCtlParams
+    RTLS1
     (
+      RTLS1  const&             a_proto,
+      Pressure                  a_Q_limit,
+      double a_propMassSN,
       double a_coastDurN,       double a_bbBurnDurN,
       double a_entryBurnQN,     double a_entryBurnDurN,
       double a_entryBurnThrtAL,
@@ -304,12 +302,8 @@ namespace SpaceBallistics
     //
     static bool RunNOMAD
     (
-      // LV Params:
+      // LV Proto:
       RTLS1 const*                a_proto,
-      Mass                        a_full_mass1,
-      double                      a_full_k1,
-      double                      a_full_prop_rem1,
-      Len                         a_diam,
       // Optimisation Params:
       std::vector<double>*        a_init_vals,
       double                      a_min_prop_massSN,

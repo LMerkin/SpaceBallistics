@@ -11,21 +11,17 @@
 namespace SpaceBallistics
 {
 //===========================================================================//
-// "SetCtlParams":                                                           //
+// "RTLS1" Ctor from a Proto and Normalised Ctl Params:                      //
 //===========================================================================//
 // Physical Params:
 // [PropMassS,       CoastDur,  BBBurnDur,      EntryBurnQ,    EntryBurnDur,
 //  EntryBurnThrtAL, LandBurnH, LandBurnThrt1L, BBBurnSinTheta[1..4]]
 //
-// However, "a_opt_params_n" are all normalised to 0..1:
-//---------------------------------------------------------------------------//
-// Individual Args Form:                                                     //
-//---------------------------------------------------------------------------//
-// NB: "PropMassS" cannot be set here; it can  only be set when the "RTLS1" obj
-// is constructed!
-//
-void RTLS1::SetCtlParams
+RTLS1::RTLS1
 (
+  RTLS1  const&           a_proto,
+  Pressure                a_Q_limit,
+  double a_propMassSN,
   double a_coastDurN,     double a_bbBurnDurN,
   double a_entryBurnQN,   double a_entryBurnDurN,
   double a_entryBurnThrtAN,
@@ -33,7 +29,37 @@ void RTLS1::SetCtlParams
   double a_sinTheta0,     double a_sinTheta1,
   double a_sinTheta2,     double a_sinTheta3
 )
+: //-------------------------------------------------------------------------//
+  // Construct the "RTLS1" Obj from "Proto":                                 //
+  //-------------------------------------------------------------------------//
+  RTLS1
+	(
+    // Stage Params:
+    a_proto.m_fullMass1,
+    a_proto.m_fullK1,
+    a_proto.m_fullPropRem1,
+    a_proto.Base::m_IspSL1,
+    a_proto.Base::m_IspVac1,
+    a_proto.Base::m_thrustVacI1,
+    a_proto.Base::m_minThrtL1,
+    a_proto.m_diam,
+		// IMPORTANT: Specifying the "PropMassS"!
+    a_propMassSN * MaxPropMassS,
+    // Mission Params:
+    a_proto.m_hS,
+    a_proto.m_lS,
+    a_proto.m_VS,
+    a_proto.m_psiS,
+    // Integration and Output Params:
+    a_proto.Base::m_odeIntegrStep,
+    a_proto.Base::m_os,
+    a_proto.Base::m_logLevel
+	)
 {
+  assert(!IsNeg(a_Q_limit) && 0.0 < a_propMassSN && a_propMassSN <= 1.0);
+  //-------------------------------------------------------------------------//
+	// Now set the Ctl Params:                                                 //
+	//-------------------------------------------------------------------------//
   // NB: "m_coastDur" is set relative to the "flight time to the ballistic top",
   // assuming a const gravity acceleration (as @ "m_hS"),  since it would prob-
   // ably be too late and sub-optimal to start the BBBurn during the descending
@@ -50,7 +76,7 @@ void RTLS1::SetCtlParams
   m_bbBurnDur       = a_bbBurnDurN      *  MaxBBBurnDur;
 
   assert(0.0       <= a_entryBurnQN     && a_entryBurnQN     <= 1.0);
-  m_entryBurnQ      = a_entryBurnQN     *  MaxEntryBurnQ;
+  m_entryBurnQ      = a_entryBurnQN     *  a_Q_limit,
 
   assert(0.0       <= a_entryBurnDurN   && a_entryBurnDurN   <= 1.0);
   m_entryBurnDur    = a_entryBurnDurN   *  MaxEntryBurnDur;
@@ -83,35 +109,6 @@ void RTLS1::SetCtlParams
   assert(0.0       <= a_sinTheta3       && a_sinTheta3       <= 1.0);
   m_bbBurnSinTheta[3] = 2.0 * a_sinTheta3 - 1.0;
   // All Done!
-}
-
-//---------------------------------------------------------------------------//
-// Vector Form:                                                              //
-//---------------------------------------------------------------------------//
-void RTLS1::SetCtlParams(std::vector<double> const& a_opt_params_n)
-{
-  int    np = int(a_opt_params_n.size());
-  assert(NP - 3 <= np && np <= NP);
-
-  // NB: As above: Skipping  a_opt_params[0]  here, since "PropMassS" is not a
-  // Ctl Param -- it can only be set when the "RTLS1" obj is constructed:
-  SetCtlParams
-  (
-    a_opt_params_n[1],                      // coastDurN
-    a_opt_params_n[2],                      // bbBurnDurN
-    a_opt_params_n[3],                      // entryBurnQN
-    a_opt_params_n[4],                      // entryBurnDurN
-    a_opt_params_n[5],                      // entryBurnThrtAL
-    a_opt_params_n[6],                      // landBurnHN
-    a_opt_params_n[7],                      // landBurnThrtN
-
-    // sin(theta) coeffs: NB: the default normalised coeffs are equal to 0.5,
-    // which will translate into 0 (see the above function):
-    a_opt_params_n[8],                      // sinTheta0
-    (np >= 10) ? a_opt_params_n[ 9] : 0.5,  // sinTheta1
-    (np >= 11) ? a_opt_params_n[10] : 0.5,  // sinTheta2
-    (np == 12) ? a_opt_params_n[11] : 0.5   // sinTheta3
-  );
 }
 
 //===========================================================================//
@@ -243,8 +240,6 @@ RTLS1::FindOptimalReturnCtls
     odeIntegrStep,       a_os,    optLogLevel
   );
 
-  proto.SetCtlParams(initParamsN);
-
   //-------------------------------------------------------------------------//
   // Actually run the Optimiser:                                             //
   //-------------------------------------------------------------------------//
@@ -253,8 +248,7 @@ RTLS1::FindOptimalReturnCtls
   bool ok =
     RunNOMAD
     (
-      &proto,          maxFullMass1,    fullK1,         fullPropRem1, diam,
-      &initParamsN,
+      &proto,          &initParamsN,
       minRelPropMassS, minRelBBBurnDur, landDLLimit,    landVLimit,   QLimit,
       optMaxEvals,     optSeed,         stopIfFeasible, useVNS,       useMT
     );
@@ -264,24 +258,37 @@ RTLS1::FindOptimalReturnCtls
   //-------------------------------------------------------------------------//
   // Post-Processing:                                                        //
   //-------------------------------------------------------------------------//
-  // In order to get the final "OptRes",  put  the "initVals" (now containing
-  // the opt args found) into the "proto" obj, and extract the "optRes"  from
-  // the "proto":
-  //
-  proto.SetCtlParams(initParamsN);
+  // In order to get the final "OptRes",  put  the "initVals"  (now containing
+  // the opt args found) into a new "RTLS1" obj, and extract the "optRes" from
+  // it:
+  RTLS1 rtls
+  (
+    proto,
+    QLimit,
+    initParamsN[0],                                     // propMassSN
+    initParamsN[1],                                     // coastDurN
+    initParamsN[2],                                     // bbBurnDurN
+    initParamsN[3],                                     // entryBurnQN
+    initParamsN[4],                                     // entryBurnDurN
+    initParamsN[5],                                     // entryBurnThrtAL,
+    initParamsN[6],                                     // landBurnHN
+    initParamsN[7],                                     // landBurnThrtN
+    initParamsN[8],                                     // sinTheta0
+    (initParamsN.size() >= 10) ? initParamsN[ 9] : 0.5, // sinTheta1
+    (initParamsN.size() >= 11) ? initParamsN[10] : 0.5, // sinTheta2
+    (initParamsN.size() == 12) ? initParamsN[11] : 0.5  // sinTheta3
+  );
 
   // The Optimisation Result:
-  std::optional<OptRes> optRes = OptRes(proto);
+  std::optional<OptRes> optRes = OptRes(rtls);
 
   if (withFinalRun)
   {
     //-----------------------------------------------------------------------//
-    // Perform the Final Run on the optimised params:                        //
+    // Perform the Final Run on the optimised params (in "rtls"):            //
     //-----------------------------------------------------------------------//
-    // "proto" is already set up with those params, except for the LogLevel:
-    //
-    proto.m_logLevel    = finalRunLogLevel;
-    Base::RunRes runRes = proto.Run();
+    rtls.m_logLevel     = finalRunLogLevel;
+    Base::RunRes runRes = rtls.Run();
     return std::make_pair(optRes, runRes);
   }
   // Otherwise, there is no "runRes":

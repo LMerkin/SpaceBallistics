@@ -310,6 +310,10 @@ const
   //-------------------------------------------------------------------------//
   // Checks:                                                                 //
   //-------------------------------------------------------------------------//
+  // TOLERATNCES:
+  constexpr LenK HTol = 0.05_km;
+  constexpr VelK VTol = VelK(0.01);
+
   // If we got here, the horizontal velocity is considered to be negligible;
   // only use the radial one which is equal to the total velocity:
   LenK  r1  = a_nse.m_r;
@@ -331,20 +335,30 @@ const
   // NB: "Vr1"  is assumed to be small; typically:
   // (*) for the Ascent-To-Orbit (Bwd integration), Vr1 > 0;
   // (*) for the Descent (RTLS)  (Fwd integration), Vr1 < 0:
-  // We enforce Vr1 >= 0 in case of Ascent:
-  //
+  // XXX: First, if "Vr1" is really small, we simply reset it to 0:
+  if (Abs(Vr1) < VTol)
+    Vr1 = VelK(0.0);
+
+  // Otherwise: Check for Vr < 0:
+  // In the Ascent mode,  Vr < 0 may occur (eg near the Orbital Insertion), but
+  // definitely not near the Singularity;   in the Descent mode, Vr < 0 is nor-
+  // mal:
   if (a_is_ascent && IsNeg(Vr1))
   {
     if (m_os != nullptr && m_logLevel >= 1)
-      *m_os << "# LVBase::LocateSingularPoint: WARNING: Ascent, but Vr1="
-            << Vr1.Magnitude() << " km/sec; reset to 0" << std::endl;
-    Vr1 = VelK(0.0);
+      *m_os << "# LVBase::LocateSingularPoint: ERROR: Ascent, but Vr1="
+            << Vr1.Magnitude() << " km/sec" << std::endl;
+    return RunRes
+          {RunRC::Error,  Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
+           Pressure(NAN), Pressure(NAN),  NAN};
   }
- 
+  // Thus: at this point, Ascent => Vr > 0:
+  assert(!a_is_ascent || IsPos(Vr1));
+
   // Check for a degenerate "h1": it should not happen, but may:
   if (!IsPos(h1))
   {
-    if (m_os != nullptr && m_logLevel >= 1)
+    if (m_os != nullptr && m_logLevel >= 1 && h1 < -HTol)
       *m_os << "# LVBase::LocateSingularPoint: WARNING: h1=" << h1.Magnitude()
             << " km; reset to 0" << std::endl;
 
@@ -353,9 +367,19 @@ const
     r1  = R;
     h1  = 0.0_km;
   }
+  if (IsZero(h1))
+    return RunRes{RunRC::ZeroH,       t1, LS, Vr1, m1, maxQ, sepQ, maxLongG};
+
   // The "equivalent" velocity @ h=0:
-  assert(r1 >= R);
-  VelK   V0  = SqRt(Sqr(Vr1) + 2.0 * K * (1.0 / R - 1.0 / r1));
+  VelK V0 = SqRt(Sqr(Vr1) + 2.0 * K * (1.0 / R - 1.0 / r1));
+
+  // If Vr1=0, then we are at the Singular Point -- but with h1 > 0, we must
+  // return the equivalent "V0":
+  if (IsZero(Vr1))
+    return RunRes{RunRC::Singularity, t1, LS, V0,  m1, maxQ, sepQ, maxLongG};
+
+  // So: the remaining Generic Case:
+  assert(r1 > R && IsPos(h1));
 
   //-------------------------------------------------------------------------//
   // Forces and Acceleration:                                                //
@@ -388,11 +412,12 @@ const
     // is not reachable:
     if (a_is_ascent)
     {
-      // During the Ascent, this is an error cond, which is very unlikely to
-      // occur:
+      // During the Ascent, this is definitely an error cond, which is very un-
+      // likely to occur:
       if (m_os != nullptr && m_logLevel >= 1)
-        *m_os << "# LVBase::LocateSingularPoint: WARNING: UnReachable: Acc="
-              << double(acc1 / g1) << " g" << std::endl;
+        *m_os << "# LVBase::LocateSingularPoint: ERROR: UnReachable: Acc="
+              << double(acc1 / g1) << " g, Vr="      << Vr1.Magnitude()
+              << " km/sec, h="     << h1.Magnitude() << " km" << std::endl;
       return RunRes
             {RunRC::Error, Time(NAN), LenK(NAN), VelK(NAN), Mass(NAN),
              Pressure(NAN), Pressure(NAN), NAN};
@@ -404,42 +429,47 @@ const
       // "ZeroH" condition:
       if (m_os != nullptr && m_logLevel >= 1)
         *m_os << "# LVBase::LocateSingularPoint: WARNING: Descending, and Acc="
-              << double(acc1 / g1) << " g" << std::endl;
-      // XXX:
+              << double(acc1 / g1) << " g, Vr="      << Vr1.Magnitude()
+              << " km/sec, h="     << h1.Magnitude() << " km" << std::endl;
+
       // (*) "V0" is approximated by the Energy Integral (see above);
       // (*) the final LVMass is taken to be the curr one -- this is OK in the
       //     Descent mode;
-      // (*) Fall Time is totally undefined, so use NAN:
+      // (*) XXX: We do not compute the Fall Time, so use NAN (not "t1"):
       //
       return RunRes{RunRC::ZeroH, Time(NAN), LS, V0, m1, maxQ, sepQ, maxLongG};
     }
   }
-  // Otherwise: Remaining Time and Distance to the singular point:
+  assert(IsPos(acc1));
+
+  // Otherwise: Remaining Time and Distance to the Singular Point:
   Time tau = -Vr1            / acc1;    // Of any sign!
   LenK dr  = -0.5 * Sqr(Vr1) / acc1;    // Consistent with the exact solution!
-  assert(!IsPos(dr));
+  assert(!(IsPos(dr)  || IsZero(tau)));
 
-  // If follows from the above that for Ascent, we always have Vr1 >= 0 and
-  // acc1 >= 0, so tau <= 0, which is perfectly correct in the Bwd Integration
-  // mode:   IsAscent  => tau <= 0:
-  assert(!(a_is_ascent && IsPos(tau)));
+  // If follows from the above that for Ascent, we always have Vr1 > 0 and
+  // acc1 > 0, so tau < 0, which is perfectly correct in the Bwd Integration
+  // mode:   IsAscent => tau < 0:
+  assert(!a_is_ascent || IsNeg(tau));
 
-  // In the Descent mode, we may have Vr1 > 0 (with acc1 > 0), and then tau < 0,
-  // which is wrong in Fwd Integration. This means we are moving UpWards with
-  // acceleration! This is definitely wrong, and XXX we will not even analyse
-  // this motion in detail -- produce the approximate results on the eventual
-  // Fall Back to Earth, similar to above:
-  //
+  // In the Descent mode (Fwd Integration), we should normally have tau > 0.
+  // The opposite case requires a special handling:
   if (!a_is_ascent && IsNeg(tau))
   {
-    assert(IsPos(Vr1) && IsPos(acc1));
+    // Since acc1 > 0 and tau < 0, then Vr1 > 0 in the Descent mode, which is
+    // wrong (somehow, we have started moving away up again):
+    assert(IsPos(Vr1));
 
     if (m_os != nullptr && m_logLevel >= 1)
-      *m_os << "# LVBase::LocateSingularPoint: WARNING: Descening, but Vr1="
-            << Vr1.Magnitude() << std::endl;
+      *m_os << "# LVBase::LocateSingularPoint: WARNING: Descending, but Vr1="
+            << Vr1.Magnitude() << " km/sec, h1=" << std::endl;
+
+    // XXX: Still, since acc1 < 0, we assume that we will eventually fall back
+    // to Earth with the velocity "V0", although the fall time is unknown:
     return RunRes{RunRC::ZeroH, Time(NAN), LS, V0, m1, maxQ, sepQ, maxLongG};
   }
-  assert(IsZero(tau) || a_is_ascent == IsNeg(tau));
+  // Thus:
+  assert(a_is_ascent == IsNeg(tau));
 
   //-------------------------------------------------------------------------//
   // Finally: State and Time of the Singular Point:                          //
@@ -451,7 +481,7 @@ const
   // We should have hS >= 0; negative vals will be converted to 0:
   if (IsNeg(hS))
   {
-    if (m_os != nullptr && m_logLevel >= 1)
+    if (m_os != nullptr && m_logLevel >= 1 && hS < -HTol)
       *m_os << "# LVBase::LocateSingularPoint: WARNING: Got hS="
             << hS.Magnitude() << " km; reset to 0" << std::endl;
     rS = R;
