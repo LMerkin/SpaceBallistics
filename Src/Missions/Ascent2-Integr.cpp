@@ -634,11 +634,7 @@ Ascent2::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const
 {
   auto atm  = EAM::GetAtmConds(std::max(a_r - R, 0.0_km));
   double M  = Base::Mach(atm, a_v);
-  if (!IsFinite(M))
-    return std::make_tuple(atm, ForceK(0.0), ForceK(0.0));
-
-  // Generic Case:
-  assert(M >= 0.0);
+  assert(IsFinite(M) &&  M >= 0.0);
 
   // The Aerodynamic Force Main Term:
   ForceK F  = 0.5 * To_Len_km(std::get<1>(atm)) * Sqr(a_v) * Base::m_crosS;

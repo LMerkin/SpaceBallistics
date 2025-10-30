@@ -5,7 +5,6 @@
 //===========================================================================//
 #include "SpaceBallistics/Missions/RTLS1.h"
 #include "LVBase.hpp"
-#include "SpaceBallistics/PhysEffects/LVAeroDyn.hpp"
 #include "SpaceBallistics/Maths/RKF5.hpp"
 
 namespace SpaceBallistics
@@ -18,9 +17,9 @@ namespace SpaceBallistics
 RTLS1::RTLS1
 (
   // Stage Params:
-  Mass           a_full_mass1,       // Assuming full prop load
-  double         a_full_k1,          // Based on "a_full_mass1"
-  double         a_full_prop_rem1,   // ditto
+  Mass           a_fpl_mass1,       // Assuming Full-Prop-Load
+  double         a_fpl_k1,          // Based on "a_fpl_mass1"
+  double         a_fpl_prop_rem1,   // ditto
   Time           a_Isp_sl1,
   Time           a_Isp_vac1,
   ForceK         a_thrust_vac1,
@@ -42,14 +41,14 @@ RTLS1::RTLS1
 : Base
   (
     // FullMassS (at Separation time):     EmptyMass1 + PropMassS:
-    a_full_mass1 * (1.0 - a_full_k1) + a_prop_massS,
+    a_fpl_mass1 * (1.0 - a_fpl_k1) + a_prop_massS,
 
     // The new effective "K1":
-    double(a_prop_massS / (a_full_mass1 * (1.0 - a_full_k1) + a_prop_massS)),
+    double(a_prop_massS / (a_fpl_mass1 * (1.0 - a_fpl_k1) + a_prop_massS)),
 
     // Re-calculate "PropRem":  Indeed, "a_prop_rem1" is based on the
     // FullPropMass, whereas we need one based on "a_prop_massS":
-    double(a_full_prop_rem1 * a_full_mass1 * a_full_k1 / a_prop_massS),
+    double(a_fpl_prop_rem1 * a_fpl_mass1 * a_fpl_k1 / a_prop_massS),
 
     a_Isp_sl1,
     a_Isp_vac1,
@@ -68,19 +67,20 @@ RTLS1::RTLS1
   m_VS              (a_VS),
   m_psiS            (a_psiS),
   // Memoised Params for a "Fully-Prop-Loaded" Stage1:
-  m_fullMass1       (a_full_mass1),
-  m_fullK1          (a_full_k1),
-  m_fullPropRem1    (a_full_prop_rem1),
+  m_fplMass1        (a_fpl_mass1),
+  m_fplK1           (a_fpl_k1),
+  m_fplPropRem1     (a_fpl_prop_rem1),
   m_diam            (a_diam),
   // Ctl Params are set to their default vals as yet:
   m_coastDur        (),
   m_bbBurnDur       (),
+  m_bbBurnThrtL     (0.0),
   m_bbBurnSinTheta  { 0.0, 0.0, 0.0, 0.0 },
   m_entryBurnQ      (),
   m_entryBurnDur    (),
-  m_entryBurnThrtAL(0.0),
+  m_entryBurnThrtL  (0.0),
   m_landBurnH       (),
-  m_landBurnThrt1L  (0.0),
+  m_landBurnThrtL   (0.0),
   // Transient Data:
   m_mode            (FlightMode::Coast),
   m_entryIgnTime    (NAN),
@@ -104,7 +104,7 @@ RTLS1::RTLS1
 
   // Obviously, "a_propMassS" must be within the following limits:
   if (!(IsPos(a_prop_massS) && a_prop_massS <= MaxPropMassS &&
-        a_prop_massS < a_full_mass1 * a_full_k1))
+        a_prop_massS < a_fpl_mass1 * a_fpl_k1))
     throw std::invalid_argument("RTLS1::Ctor: Invalid PropMassS");
 }
 
@@ -425,37 +425,37 @@ std::pair<Angle,Angle> RTLS1::AoA(Time a_t, Angle a_psi) const
 //===========================================================================//
 //         Conds          Drag      Lift
 std::tuple<EAM::AtmConds, ForceK,   ForceK>
-RTLS1::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const
+RTLS1::AeroDynForces(LenK a_r, VelK a_v, Angle DEBUG_ONLY(a_AoA)) const
 {
   auto atm  = EAM::GetAtmConds(std::max(a_r - R, 0.0_km));
 
-  // FIXME: In the "Coast" and "BBBurn" modes,  we completely disregard the
-  // aerodynamic forces as yet -- in particular because there may be arbit-
-  // rary AoAs for which we do not have a proper model yet; arguably, those
-  // models are exo-atmospheric, so this assumption is not grossly imprecise:
+  // NB: In the "Coast" and "BBBurn" modes, we completely disregard the aerody-
+  // namic forces as yet -- in particular because there may be arbitrary AoAs
+  // for which we do not have a proper model yet; arguably,   those modes are
+  // exo-atmospheric, so this assumption is reasonably precise:
   //
   if (m_mode == FlightMode::Coast || m_mode == FlightMode::BBBurn)
     return std::make_tuple(atm, ForceK(0.0), ForceK(0.0));
 
-  // Otherwise: Endo-Atmospheric Movement:
+  // Otherwise: Endo-Atmospheric Movement. XXX: Here we must have AoA=0 for
+  // now:
+  assert(IsZero(a_AoA));
+
   double M  = Base::Mach(atm, a_v);
-  if (!IsFinite(M))
-    return std::make_tuple(atm, ForceK(0.0), ForceK(0.0));
+  assert(IsFinite(M) && M >= 0.0);
 
-  // Generic Case:
-  assert(M >= 0.0);
+  // The following is a rough but reasonable approximation for the "cD" during
+  // the "tail-first" motion:
+  double cD =
+    1.40 + 0.25 * Exp(-Sqr(M-1.0) / 0.12) - 0.15 * TanH(0.8 * (M - 1.4));
+  assert(cD > 0.0);
 
-  // The Aerodynamic Force Main Term:
-  ForceK F  = 0.5 * To_Len_km(std::get<1>(atm)) * Sqr(a_v) * Base::m_crosS;
+  // The Aerodynamic Drag Force:
+  ForceK FD =
+    cD * 0.5 * To_Len_km(std::get<1>(atm)) * Sqr(a_v) * Base::m_crosS;
 
-  // The Drag and Lift Coeffs, using the default model:
-  // FIXME: There is no precise model for "tail-first" movement yet; we assume
-  // that "cL" is the same as for the "head-first" movement,  whereas the "cD"
-  // is just multiplied by 10 (???):
-  double cD = LVAeroDyn::cD(M, a_AoA) * 10.0;
-  double cL = LVAeroDyn::cL(M, a_AoA);
-
-  return std::make_tuple(atm, cD * F, cL * F);
+  // The Lift Force @ AoA=0 is assumed to be 0. Thus:
+  return std::make_tuple(atm, FD, ForceK(0.0));
 }
 
 //===========================================================================//
@@ -484,20 +484,13 @@ const
     return MassRate(0.0);
 
   case FlightMode::BBBurn:
-    // XXX: Assume full MassRate here -- no throttling ctl yet:
-    return Base::m_burnRateI1;
+    return Base::m_burnRateI1 * BBBurnEngPart    * m_bbBurnThrtL;
 
   case FlightMode::EntryBurn:
-    // Here there is an "over-all" throttling level (we don't know as yet how
-    // many engines are burning):
-    assert(0.0 <= m_entryBurnThrtAL && m_entryBurnThrtAL <= 1.0);
-    return Base::m_burnRateI1 * m_entryBurnThrtAL;
+    return Base::m_burnRateI1 * EntryBurnEngPart * m_entryBurnThrtL;
 
   case FlightMode::LandBurn:
-    // XXX: Assume that only 1 engine is burning (of NE), at some throttled but
-    // (as yet) constant rate:
-    assert(0.0 <= m_landBurnThrt1L  && m_landBurnThrt1L  <= 1.0);
-    return Base::m_burnRateI1 / double(NE) * m_landBurnThrt1L;
+    return Base::m_burnRateI1 * LandBurnEngPart  * m_landBurnThrtL;
 
   default:
     assert(false);

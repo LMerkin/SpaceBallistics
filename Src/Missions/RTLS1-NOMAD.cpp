@@ -120,16 +120,17 @@ public:
       a_x[0].todouble(),                              // propMassSN
       a_x[1].todouble(),                              // coastDurN
       a_x[2].todouble(),                              // bbBurnDurN
-      a_x[3].todouble(),                              // entryBurnQN
-      a_x[4].todouble(),                              // entryBurnDurN
-      a_x[5].todouble(),                              // entryBurnThrtAL,
-      a_x[6].todouble(),                              // landBurnHN
-      a_x[7].todouble(),                              // landBurnThrtN
+      a_x[3].todouble(),                              // bbBurnThrtLN
+      a_x[4].todouble(),                              // entryBurnQN
+      a_x[5].todouble(),                              // entryBurnDurN
+      a_x[6].todouble(),                              // entryBurnThrtLN,
+      a_x[7].todouble(),                              // landBurnHN
+      a_x[8].todouble(),                              // landBurnThrtLN
       // sin(theta) coeffs: similar to "SetCtlParams":
-      a_x[8].todouble(),                              // sinTheta0
-      (a_x.size() >= 10) ? a_x[ 9].todouble() : 0.5,  // sinTheta1
-      (a_x.size() >= 11) ? a_x[10].todouble() : 0.5,  // sinTheta2
-      (a_x.size() == 12) ? a_x[11].todouble() : 0.5   // sinTheta3
+      a_x[9].todouble(),                              // sinTheta0
+      (a_x.size() >= 11) ? a_x[10].todouble() : 0.5,  // sinTheta1
+      (a_x.size() >= 12) ? a_x[11].todouble() : 0.5,  // sinTheta2
+      (a_x.size() == 13) ? a_x[12].todouble() : 0.5   // sinTheta3
     );
 
     //-----------------------------------------------------------------------//
@@ -228,13 +229,14 @@ bool RTLS1::RunNOMAD
   std::vector<double> loBounds(a_init_vals->size(), 0.0);
   std::vector<double> upBounds(a_init_vals->size(), 1.0);
 
-  // PropMassSN (Idx=0):
+  // PropMassSN (Idx=0): Must be no less than the "remnant" computed using the
+  // "m_fpl*" vals (one of the reasons why we need them):
   loBounds[0] =
     std::max
     (
       a_min_prop_massSN,
-      double(a_proto->m_fullMass1    * a_proto->m_fullK1 *
-             a_proto->m_fullPropRem1 * 1.01 / MaxPropMassS)
+      double(a_proto->m_fplMass1    * a_proto->m_fplK1 *
+             a_proto->m_fplPropRem1 * 1.01 / MaxPropMassS)
     );
   (*a_init_vals)[0] = 0.5 * (loBounds[0] + 1.0);
 

@@ -61,10 +61,19 @@ namespace SpaceBallistics
     // Const LV and Mission Params:                                          //
     //-----------------------------------------------------------------------//
     // Number of Engines in Stage1:
-    constexpr static int  NE = 9;
+    constexpr static int    NE = 9;
+
+    // Engines Participating the the Boost-Back Burn:
+    constexpr static double BBBurnEngPart    = 3.0 / double(NE);
+
+    // Engines Participating in the Entry Burn:
+    constexpr static double EntryBurnEngPart = 3.0 / double(NE);
+
+    // Engines Participating in the Landing Burn:
+    constexpr static double LandBurnEngPart  = 1.0 / double(NE);
 
     // Number of Coeffs in sin(theta) expansion (so the degree is NS-1):
-    constexpr static int  NS = 4;
+    constexpr static int    NS = 4;
 
     // NB: In this class, t=0 corresponds to the Stage1 Separation event, and
     // "t" runs FORWARD.
@@ -78,10 +87,10 @@ namespace SpaceBallistics
     Angle  const          m_psiS;
 
   private:
-    // Params of a "Fully-Prop-Loaded" Stage1:
-    Mass   const          m_fullMass1;
-    double const          m_fullK1;
-    double const          m_fullPropRem1;
+    // Params of a "Fully-Prop-Loaded" Stage1 (nominal):
+    Mass   const          m_fplMass1;
+    double const          m_fplK1;
+    double const          m_fplPropRem1;
     Len    const          m_diam;
 
     //-----------------------------------------------------------------------//
@@ -100,8 +109,8 @@ namespace SpaceBallistics
     // wer degree) polynomial of (t_burn / burn_duration), and it can be of any
     // sign, whereas we keep cos(theta) < 0. There are no other restrictions on
     // "theta" / AoA in this case, because the BoostBackBurn is Exo-Atmospheric:
-    // XXX: Do we always need FullThrust here?
     Time                  m_bbBurnDur;
+    double                m_bbBurnThrtL;
     double                m_bbBurnSinTheta[NS];
 
     // The trigger for the Entry (Slowing-Down) Burn is based on the Q, not the
@@ -111,7 +120,7 @@ namespace SpaceBallistics
     // XXX: Do we always need FullThrust here?
     Pressure              m_entryBurnQ;
     Time                  m_entryBurnDur;
-    double                m_entryBurnThrtAL; // Assuming ALL engines are burning
+    double                m_entryBurnThrtL; // Assuming ALL engines are burning
 
     // XXX: For the Final Decsent and Landing, we currently do NOT perform any
     // special maneuvers  to avoid the "ballistic target" point and fly to the
@@ -122,12 +131,13 @@ namespace SpaceBallistics
     // ing (h=0), until v=0 (which means unsuccessful langing if "h" is above
     // the threshold), or until the propellant is exhausted:
     LenK                  m_landBurnH;
-    double                m_landBurnThrt1L; // Assuming 1 engine is burning
+    double                m_landBurnThrtL; // Assuming 1 engine is burning
 
-    // So altogether: 12 params:
-    // [PropMassS,  CoastTime,    BBBurnDur,       BBBurnSinTheta[4],
-    //  EntryBurnQ, EntryBurnDur, EntryBurnThrtAL, LandBurnH, LandBurnThrt1L]
-    constexpr static int  NP = 12;
+    // So altogether: 13 params:
+    // [PropMassS,    CoastTime,      BBBurnDur, BBBurnThrtL,  EntryBurnQ,
+    //  EntryBurnDur, EntryBurnThrtL, LandBurnH, LandBurnThrtL,
+    //  BBBurnSinTheta[4]]:
+    constexpr static int  NP = 13;
 
     //-----------------------------------------------------------------------//
     // Scaling Factors for Translation of Rel Opt Params into the Abs Ones:  //
@@ -162,9 +172,9 @@ namespace SpaceBallistics
     RTLS1
     (
       // Stage Params:
-      Mass           a_full_mass1,          // Assuming full prop load
-      double         a_full_K1,             // Based on "a_full_mass1"
-      double         a_full_prop_rem1,      // ditto
+      Mass           a_fpl_mass1,           // Assuming Full-Prop-Load
+      double         a_fpl_K1,              // Based on "a_fpl_mass1"
+      double         a_fpl_prop_rem1,       // ditto
       Time           a_Isp_sl1,
       Time           a_Isp_vac1,
       ForceK         a_thrust_vac1,
@@ -196,11 +206,11 @@ namespace SpaceBallistics
     (
       RTLS1  const&             a_proto,
       Pressure                  a_Q_limit,
-      double a_propMassSN,
-      double a_coastDurN,       double a_bbBurnDurN,
+      double a_propMassSN,      double a_coastDurN,
+      double a_bbBurnDurN,      double a_bbBurnThrtLN,
       double a_entryBurnQN,     double a_entryBurnDurN,
-      double a_entryBurnThrtAL,
-      double a_landBurnHN,      double a_landBurnThrtN,
+      double a_entryBurnThrtLN,
+      double a_landBurnHN,      double a_landBurnThrtLN,
       double a_sinTheta0,       double a_sinTheta1,
       double a_sinTheta2,       double a_sinTheta3
     );
@@ -260,11 +270,13 @@ namespace SpaceBallistics
       Mass      const m_propMassS;
       Time      const m_coastDur;
       Time      const m_bbBurnDur;
+      double    const m_bbBurnThrtL;
       double    const m_bbBurnSinTheta[NS];
       Pressure  const m_entryBurnQ;
       Time      const m_entryBurnDur;
+      double    const m_entryBurnThrtL;
       LenK      const m_landBurnH;
-      double    const m_landBurnThrt1L;
+      double    const m_landBurnThrtL;
 
       // Non-Default Ctor:
       OptRes(RTLS1 const& a_rtls);
