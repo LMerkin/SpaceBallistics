@@ -230,9 +230,10 @@ RTLS1::FindOptimalReturnCtls
 
   // The Limits:
   // TODO: Possibly add the Acceleration Limit at Landing as well:
-  LenK     landDLLimit(pt.get<double>("Opt.LandDLLimit"));
-  VelK     landVLimit (pt.get<double>("Opt.LandVLimit")) ;
-  Pressure QLimit     (pt.get<double>("Opt.QLimit"  ));
+  LenK     landDLLimit (pt.get<double>("Opt.LandDLLimit"));
+  VelK     landVLimit  (pt.get<double>("Opt.LandVLimit")) ;
+  Pressure QLimit      (pt.get<double>("Opt.QLimit"  ));
+  double   longGLimit = pt.get<double>("Opt.LongGLimit");
 
   //-------------------------------------------------------------------------//
   // Create the "prototype" "RTLS1" obj:                                     //
@@ -255,6 +256,7 @@ RTLS1::FindOptimalReturnCtls
     (
       &proto,          &initParamsN,
       minRelPropMassS, minRelBBBurnDur, landDLLimit,    landVLimit,   QLimit,
+      longGLimit,
       optMaxEvals,     optSeed,         stopIfFeasible, useVNS,       useMT
     );
   if (!ok)

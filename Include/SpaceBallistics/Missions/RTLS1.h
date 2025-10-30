@@ -323,6 +323,7 @@ namespace SpaceBallistics
       LenK                        a_land_dL_limit,
       VelK                        a_land_V_limit,
       Pressure                    a_Q_limit,
+      double                      a_longG_limit,
       // NOMAD Params:
       int                         a_max_evals,
       int                         a_opt_seed,

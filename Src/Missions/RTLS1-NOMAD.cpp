@@ -67,6 +67,7 @@ private:
 	LenK              const m_landDLLimit;
   VelK              const m_landVLimit;
   Pressure          const m_QLimit;
+  double            const m_longGLimit;
 
 public:
   //=========================================================================//
@@ -80,17 +81,20 @@ public:
     // Optimisation Limits (Constraints):
     LenK                                          a_land_dL_limit,
     VelK                                          a_land_V_limit,
-    Pressure                                      a_Q_limit
+    Pressure                                      a_Q_limit,
+    double                                        a_longG_limit
   )
   : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
     m_proto         (a_proto),
     m_landDLLimit   (a_land_dL_limit),
     m_landVLimit    (a_land_V_limit),
-    m_QLimit        (a_Q_limit)
+    m_QLimit        (a_Q_limit),
+    m_longGLimit    (a_longG_limit)
   {
     assert(m_proto != nullptr);
 
-    if (!(IsPos(m_landDLLimit) && IsPos(m_landVLimit) && IsPos(m_QLimit)))
+    if (!(IsPos(m_landDLLimit) && IsPos(m_landVLimit) && IsPos(m_QLimit) &&
+          IsPos(m_longGLimit)))
       throw std::invalid_argument
             ("RTLS1::NOMADEvaluator::Ctor: Invalid Limit(s)");
   }
@@ -167,6 +171,10 @@ public:
     assert(!IsNeg(res.m_maxQ));
     curr += sprintf(curr, " %.16e", (res.m_maxQ - m_QLimit).Magnitude());
 
+    // The Max LongG encountered:
+    assert(!IsNeg(res.m_maxLongG));
+    curr += sprintf(curr, " %.16e",  res.m_maxLongG - m_longGLimit);
+
     // Output done!
     assert(size_t(curr - buff) <= sizeof(buff));
 
@@ -203,6 +211,7 @@ bool RTLS1::RunNOMAD
   LenK                    a_land_dL_limit,
   VelK                    a_land_V_limit,
   Pressure                a_Q_limit,
+  double                  a_longG_limit,
   // NOMAD Params:
   int                     a_max_evals,
   int                     a_opt_seed,
@@ -222,10 +231,11 @@ bool RTLS1::RunNOMAD
   NOMAD::MainStep opt;
 
   // Create and set the NOMAD params:
-  // There are 3 Constraints: (LandMissL, LandV, MaxQ), but their actual vals
-  // are not required yet;
+  // There are 4 Constraints: (LandMissL, LandV, MaxQ, MaxLongG),
+  // but their actual vals are not required yet:
+  constexpr int NC = 4;
+
   // LoBounds and UpBounds are all-0s and all-1s, with some special cases below:
-  //
   std::vector<double> loBounds(a_init_vals->size(), 0.0);
   std::vector<double> upBounds(a_init_vals->size(), 1.0);
 
@@ -245,7 +255,7 @@ bool RTLS1::RunNOMAD
   (*a_init_vals)[2] = 0.5 * (loBounds[2] + 1.0);
 
   std::shared_ptr<NOMAD::AllParameters> params =
-    MkNOMADParams(*a_init_vals, loBounds,   upBounds,        3,
+    MkNOMADParams(*a_init_vals, loBounds,   upBounds,       NC,
                   a_max_evals,  a_opt_seed, a_stop_if_feasible, a_use_vns,
                   a_use_mt);
 
@@ -258,7 +268,7 @@ bool RTLS1::RunNOMAD
     (new NOMADEvaluator
     (
       params->getEvalParams(),
-      a_proto, a_land_dL_limit, a_land_V_limit, a_Q_limit
+      a_proto, a_land_dL_limit, a_land_V_limit, a_Q_limit, a_longG_limit
     ));
   opt.setEvaluator(std::move(ev));
 
