@@ -152,15 +152,16 @@ namespace SpaceBallistics
     // "RunRes" Struct:                                                      //
     //-----------------------------------------------------------------------//
     // "RunRC" plus extra info. XXX: It does not contain the Final Altitude, as
-    // it is always converted into the equivalent Velocity. However, the final
-    // Down-Range distance is returned:
+    // it is always converted into the Equivalent Velocity! However, the actual
+    // final Down-Range Distance and Acceleration are returned:
     //
     struct RunRes
     {
       RunRC    const m_rc;       // Return Code
       Time     const m_T;        // Final Flight Time (< 0 if Bwd integration)
       LenK     const m_LT;       // Final Down-Range distance
-      VelK     const m_VT;       // Final Velocity
+      VelK     const m_VT;       // Final Absolute Equivalent Velocity
+      AccK     const m_aT;       // Final Absolute Acceleration
       Mass     const m_mT;       // Final LV Mass
       Pressure const m_maxQ;     // Max Dynamic Pressure (Q) encountered so far
       Pressure const m_sepQ;     // Q @ Stage1 Separation   (if encountered)
@@ -266,7 +267,7 @@ namespace SpaceBallistics
     // NB: It is generic (can be put in the parent class) since it is implemen-
     // ted in terms of other methods:
     //
-    DStateV ODERHS(StateV const& a_s, Time a_t, Time a_dt) const;
+    DStateV ODERHS(StateV const& a_s, Time a_t, bool a_is_ascent) const;
 
     //-----------------------------------------------------------------------//
     // Integration Post-Processing:                                          //
@@ -286,7 +287,7 @@ namespace SpaceBallistics
     // "PostProcessRun":
     // If integration has come to completion but NOT to the Singular Point:
     //
-    RunRes PostProcessRun(StateV const& a_sT, Time a_T) const;
+    RunRes PostProcessRun(StateV const& a_sT, Time a_T, bool a_is_ascent) const;
 
   private:
     //-----------------------------------------------------------------------//

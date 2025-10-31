@@ -215,13 +215,12 @@ public:
     curr += sprintf(curr, " %.16e", (res.m_maxQ     - m_QLimit).Magnitude());
     curr += sprintf(curr, " %.16e", (res.m_sepQ     - m_sepQLimit).Magnitude());
     curr += sprintf(curr, " %.16e", (res.m_maxLongG - m_longGLimit));
-
-    // Output done!
+    // Done!
     assert(size_t(curr - buff) <= sizeof(buff));
 
     if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 2)
     {
-#     pragma omp critical(NOMADOutput)
+#     pragma omp critical(Output)
       *(m_proto->m_os) << buff << std::endl;
     }
     // Set the results back in "a_x":

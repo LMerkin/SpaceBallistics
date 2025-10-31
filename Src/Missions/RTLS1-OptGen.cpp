@@ -13,22 +13,25 @@ namespace SpaceBallistics
 //===========================================================================//
 // "RTLS1" Ctor from a Proto and Normalised Ctl Params:                      //
 //===========================================================================//
-// Physical Params:
-// [PropMassS,    CoastDur,       BBBurnDur,  BBBurnThrtL,   EntryBurnQ,
-//  EntryBurnDur, EntryBurnThrtL, LandBurnH,  LandBurnThrtL,
-//  BBBurnSinTheta[1..4]]
-//
+// Params:
+// [
+//  PropMassS,  CoastDur,
+//  BBBurnDur,  BBBurnThrtL0,   BBBurnThrtL1,    BBBurnTheta0, BBBurnTheta1,
+//  EntryBurnQ, EntryBurnDur,   EntryBurnThrtL0, EntryBurnThrtL1,
+//  LandBurnH,  LandBurnThrtL0, LandBurnThrtL1
+// ]:
 RTLS1::RTLS1
 (
-  RTLS1  const&           a_proto,
-  Pressure                a_Q_limit,
-  double a_propMassSN,    double a_coastDurN,
-  double a_bbBurnDurN,    double a_bbBurnThrtLN,
-  double a_entryBurnQN,   double a_entryBurnDurN,
-  double a_entryBurnThrtLN,
-  double a_landBurnHN,    double a_landBurnThrtLN,
-  double a_sinTheta0,     double a_sinTheta1,
-  double a_sinTheta2,     double a_sinTheta3
+  RTLS1  const&               a_proto,
+  Pressure                    a_Q_limit,
+  double a_propMassSN,        double a_coastDurN,
+  double a_bbBurnDurN,        double a_bbBurnThrtL0N,
+  double a_bbBurnThrtL1N,     double a_bbBurnTheta0N,
+  double a_bbBurnTheta1N,
+  double a_entryBurnQN,       double a_entryBurnDurN,
+  double a_entryBurnThrtL0N,  double a_entryBurnThrtL1N,
+  double a_landBurnHN,        double a_landBurnThrtL0N,
+  double a_landBurnThrtL1N
 )
 : //-------------------------------------------------------------------------//
   // Construct the "RTLS1" Obj from "Proto":                                 //
@@ -70,45 +73,81 @@ RTLS1::RTLS1
   assert(IsPos(VrS));
   Time toTop = VrS / gS;
 
-  assert(0.0      <= a_coastDurN       && a_coastDurN      <= 1.0);
-  m_coastDur       = a_coastDurN       *  toTop;
+  //------------//
+  // Coast:     //
+  //------------//
+  assert(0.0       <= a_coastDurN        && a_coastDurN      <= 1.0);
+  m_coastDur        = a_coastDurN        *  toTop;
 
-  assert(0.0      <= a_bbBurnDurN      && a_bbBurnDurN     <= 1.0);
-  m_bbBurnDur      = a_bbBurnDurN      *  MaxBBBurnDur;
+  //------------//
+  // BBBurn:    //
+  //------------//
+  assert(0.0       <= a_bbBurnDurN       && a_bbBurnDurN     <= 1.0);
+  m_bbBurnDur       = a_bbBurnDurN       *  MaxBBBurnDur;
 
-  assert(0.0      <= a_bbBurnThrtLN    && a_bbBurnThrtLN   <= 1.0);
-  m_bbBurnThrtL    =
-    Base::m_minThrtL1 * (1.0 - a_bbBurnThrtLN)    + a_bbBurnThrtLN;
+  assert(0.0       <= a_bbBurnThrtL0N    && a_bbBurnThrtL0N  <= 1.0);
+  m_bbBurnThrtL0    =
+    Base::m_minThrtL1 * (1.0 - a_bbBurnThrtL0N) +   a_bbBurnThrtL0N;
+  assert(Base::m_minThrtL1  <= m_bbBurnThrtL0   &&  m_bbBurnThrtL0 <= 1.0);
 
-  assert(0.0      <= a_entryBurnQN     && a_entryBurnQN    <= 1.0);
-  m_entryBurnQ     = a_entryBurnQN     *  a_Q_limit;
+  // NB: "m_bbBurnThrtL1" must be in [Base::m_minThrtL1 .. m_bbBurnThrtL0]:
+  assert(0.0       <= a_bbBurnThrtL1N    && a_bbBurnThrtL1N  <= 1.0);
+  m_bbBurnThrtL1    =
+    Base::m_minThrtL1 * (1.0 - a_bbBurnThrtL1N) +
+    m_bbBurnThrtL0    * a_bbBurnThrtL1N;
+  assert(Base::m_minThrtL1  <= m_bbBurnThrtL1   &&
+         m_bbBurnThrtL1     <= m_bbBurnThrtL0);
 
-  assert(0.0      <= a_entryBurnDurN   && a_entryBurnDurN  <= 1.0);
-  m_entryBurnDur   = a_entryBurnDurN   *  MaxEntryBurnDur;
+  // NB: "theta"s are centered on Pi:
+  assert(0.0       <= a_bbBurnTheta0N    && a_bbBurnTheta0N  <= 1.0);
+  m_bbBurnTheta0    = PI * (a_bbBurnTheta0N + 0.5);
 
-  assert(0.0      <= a_entryBurnThrtLN && a_entryBurnThrtLN <= 1.0);
-  m_entryBurnThrtL =
-    Base::m_minThrtL1 * (1.0 - a_entryBurnThrtLN) + a_entryBurnThrtLN;
+  assert(0.0       <= a_bbBurnTheta1N    && a_bbBurnTheta1N  <= 1.0);
+  m_bbBurnTheta1    = PI * (a_bbBurnTheta1N + 0.5);
 
-  assert(0.0      <= a_landBurnHN      && a_landBurnHN      <= 1.0);
-  m_landBurnH      = a_landBurnHN      *  MaxLandBurnH;
+  //------------//
+  // EntryBurn: //
+  //------------//
+  assert(0.0       <= a_entryBurnQN      && a_entryBurnQN      <= 1.0);
+  m_entryBurnQ      = a_entryBurnQN      *  a_Q_limit;
 
-  assert(0.0      <= a_landBurnThrtLN  && a_landBurnThrtLN   <= 1.0);
-  m_landBurnThrtL  =
-    Base::m_minThrtL1 * (1.0 - a_landBurnThrtLN)  + a_landBurnThrtLN;
+  assert(0.0       <= a_entryBurnDurN    && a_entryBurnDurN    <= 1.0);
+  m_entryBurnDur    = a_entryBurnDurN    *  MaxEntryBurnDur;
 
-  // sin(theta) coeffs:
-  assert(0.0       <= a_sinTheta0      && a_sinTheta0       <= 1.0);
-  m_bbBurnSinTheta[0] = 2.0 * a_sinTheta0 - 1.0;
+  assert(0.0       <= a_entryBurnThrtL0N && a_entryBurnThrtL0N <= 1.0);
+  m_entryBurnThrtL0 =
+    Base::m_minThrtL1 * (1.0 - a_entryBurnThrtL0N) +  a_entryBurnThrtL0N;
+  assert(Base::m_minThrtL1  <= m_entryBurnThrtL0   && m_entryBurnThrtL0 <= 1.0);
 
-  assert(0.0       <= a_sinTheta1      && a_sinTheta1       <= 1.0);
-  m_bbBurnSinTheta[1] = 2.0 * a_sinTheta1 - 1.0;
+  // NB: "m_entryBurnThrtL1" must be in
+  // [Base::m_minThrtL1 .. m_entryBurnThrtL0]:
+  assert(0.0       <= a_entryBurnThrtL1N && a_entryBurnThrtL1N <= 1.0);
+  m_entryBurnThrtL1 =
+    Base::m_minThrtL1 * (1.0 - a_entryBurnThrtL1N) +
+    m_entryBurnThrtL0 * a_entryBurnThrtL1N;
+  assert(Base::m_minThrtL1  <= m_entryBurnThrtL1   &&
+         m_entryBurnThrtL1  <= m_entryBurnThrtL0);
 
-  assert(0.0       <= a_sinTheta2      && a_sinTheta2       <= 1.0);
-  m_bbBurnSinTheta[2] = 2.0 * a_sinTheta2 - 1.0;
+  //------------//
+  // LandBurn:  //
+  //------------//
+  assert(0.0       <= a_landBurnHN      && a_landBurnHN      <= 1.0);
+  m_landBurnH       = a_landBurnHN      *  MaxLandBurnH;
 
-  assert(0.0       <= a_sinTheta3      && a_sinTheta3       <= 1.0);
-  m_bbBurnSinTheta[3] = 2.0 * a_sinTheta3 - 1.0;
+  assert(0.0       <= a_landBurnThrtL0N && a_landBurnThrtL0N <= 1.0);
+  m_landBurnThrtL0  =
+    Base::m_minThrtL1 * (1.0 - a_landBurnThrtL0N) + a_landBurnThrtL0N;
+  assert(Base::m_minThrtL1  <= m_landBurnThrtL0  && m_landBurnThrtL0 <= 1.0);
+
+  // NB: "m_landBurnThrtL1" must be in
+  // [Base::m_minThrtL1 .. m_landBurnThrtL0]:
+  assert(0.0       <= a_landBurnThrtL1N && a_landBurnThrtL1N <= 1.0);
+  m_landBurnThrtL1 =
+    Base::m_minThrtL1 * (1.0 - a_landBurnThrtL1N) +
+    m_landBurnThrtL0  * a_landBurnThrtL1N;
+  assert(Base::m_minThrtL1  <= m_landBurnThrtL1   &&
+         m_landBurnThrtL1   <= m_landBurnThrtL0);
+
   // All Done!
 }
 
@@ -116,46 +155,44 @@ RTLS1::RTLS1
 // "OptRes" Non-Default Ctor:                                                //
 //===========================================================================//
 RTLS1::OptRes::OptRes(RTLS1 const& a_rtls)
-: m_propMassS     (a_rtls.Base::m_propMass1),
-  m_coastDur      (a_rtls.m_coastDur),
-  m_bbBurnDur     (a_rtls.m_bbBurnDur),
-  m_bbBurnThrtL   (a_rtls.m_bbBurnThrtL),
-  m_bbBurnSinTheta{a_rtls.m_bbBurnSinTheta[0],
-                   a_rtls.m_bbBurnSinTheta[1],
-                   a_rtls.m_bbBurnSinTheta[2],
-                   a_rtls.m_bbBurnSinTheta[3]},
-  m_entryBurnQ    (a_rtls.m_entryBurnQ),
-  m_entryBurnDur  (a_rtls.m_entryBurnDur),
-  m_entryBurnThrtL(a_rtls.m_entryBurnThrtL),
-  m_landBurnH     (a_rtls.m_landBurnH),
-  m_landBurnThrtL (a_rtls.m_landBurnThrtL)
-{
-  static_assert(RTLS1::NS == 4);
-}
+: m_propMassS      (a_rtls.Base::m_propMass1),
+  m_coastDur       (a_rtls.m_coastDur),
+  m_bbBurnDur      (a_rtls.m_bbBurnDur),
+  m_bbBurnThrtL0   (a_rtls.m_bbBurnThrtL0),
+  m_bbBurnThrtL1   (a_rtls.m_bbBurnThrtL1),
+  m_bbBurnTheta0   (a_rtls.m_bbBurnTheta0),
+  m_bbBurnTheta1   (a_rtls.m_bbBurnTheta1),
+  m_entryBurnQ     (a_rtls.m_entryBurnQ),
+  m_entryBurnDur   (a_rtls.m_entryBurnDur),
+  m_entryBurnThrtL0(a_rtls.m_entryBurnThrtL0),
+  m_entryBurnThrtL1(a_rtls.m_entryBurnThrtL1),
+  m_landBurnH      (a_rtls.m_landBurnH),
+  m_landBurnThrtL0 (a_rtls.m_landBurnThrtL0),
+  m_landBurnThrtL1 (a_rtls.m_landBurnThrtL1)
+{}
 
 //===========================================================================//
 // "OptRes" Output:                                                          //
 //===========================================================================//
 std::ostream& operator<< (std::ostream& a_os, RTLS1::OptRes const& a_res)
 {
-  a_os
-    <<   "\tpropMassS      = " << a_res.m_propMassS
-    << "\n\tcoastDur       = " << a_res.m_coastDur
-    << "\n\tbbBurnDur      = " << a_res.m_bbBurnDur
-    << "\n\tbbBurnThrtL    = " << a_res.m_bbBurnThrtL;
-
-  for (int i = 0; i < RTLS1::NS; ++i)
-    a_os << "\n\tsinTheta["  << i << "]    = " << a_res.m_bbBurnSinTheta[i];
-
-  a_os
-    << "\n\tentryBurnQ     = " << a_res.m_entryBurnQ
-    << "\n\tentryBurnDur   = " << a_res.m_entryBurnDur
-    << "\n\tentryBurnThrtL = " << a_res.m_entryBurnThrtL
-    << "\n\tlandBurnH      = " << a_res.m_landBurnH
-    << "\n\tlandBurnThrtL  = " << a_res.m_landBurnThrtL
-    << std::endl;
-
-  return a_os;
+  return
+    a_os
+      <<   "\tpropMassS       = " << a_res.m_propMassS
+      << "\n\tcoastDur        = " << a_res.m_coastDur
+      << "\n\tbbBurnDur       = " << a_res.m_bbBurnDur
+      << "\n\tbbBurnThrtL0    = " << a_res.m_bbBurnThrtL0
+      << "\n\tbbBurnThrtL1    = " << a_res.m_bbBurnThrtL1
+      << "\n\tbbBurnTheta0    = " << To_Angle_deg(a_res.m_bbBurnTheta0)
+      << "\n\tbbBurnTheta1    = " << To_Angle_deg(a_res.m_bbBurnTheta1)
+      << "\n\tentryBurnQ      = " << a_res.m_entryBurnQ
+      << "\n\tentryBurnDur    = " << a_res.m_entryBurnDur
+      << "\n\tentryBurnThrtL0 = " << a_res.m_entryBurnThrtL0
+      << "\n\tentryBurnThrtL1 = " << a_res.m_entryBurnThrtL1
+      << "\n\tlandBurnH       = " << a_res.m_landBurnH
+      << "\n\tlandBurnThrtL0  = " << a_res.m_landBurnThrtL0
+      << "\n\tlandBurnThrtL1  = " << a_res.m_landBurnThrtL1
+      << std::endl;
 }
 
 //===========================================================================//
@@ -226,14 +263,15 @@ RTLS1::FindOptimalReturnCtls
     throw std::invalid_argument("minRelBBBurnDur: Must be in (0..1]");
 
   // The initial vals of all (NORMALISED) params:  0.5:
-  std::vector<double> initParamsN(size_t(NP - NS + 1 + sinThetaDeg), 0.5);
+  std::vector<double> initParamsN(NP, 0.5);
 
   // The Limits:
   // TODO: Possibly add the Acceleration Limit at Landing as well:
-  LenK     landDLLimit (pt.get<double>("Opt.LandDLLimit"));
-  VelK     landVLimit  (pt.get<double>("Opt.LandVLimit")) ;
-  Pressure QLimit      (pt.get<double>("Opt.QLimit"  ));
-  double   longGLimit = pt.get<double>("Opt.LongGLimit");
+  LenK     landDLLimit    (pt.get<double>("Opt.LandDLLimit"));
+  VelK     landVLimit     (pt.get<double>("Opt.LandVLimit")) ;
+  double   landAccGLimit = pt.get<double>("opt.LandAccGLimit");
+  Pressure QLimit         (pt.get<double>("Opt.QLimit"  ));
+  double   longGLimit    = pt.get<double>("Opt.LongGLimit");
 
   //-------------------------------------------------------------------------//
   // Create the "prototype" "RTLS1" obj:                                     //
@@ -255,9 +293,9 @@ RTLS1::FindOptimalReturnCtls
     RunNOMAD
     (
       &proto,          &initParamsN,
-      minRelPropMassS, minRelBBBurnDur, landDLLimit,    landVLimit,   QLimit,
-      longGLimit,
-      optMaxEvals,     optSeed,         stopIfFeasible, useVNS,       useMT
+      minRelPropMassS, minRelBBBurnDur, landDLLimit,    landVLimit,
+      landAccGLimit,   QLimit,          longGLimit,
+      optMaxEvals,     optSeed,         stopIfFeasible, useVNS,  useMT
     );
   if (!ok)
       return std::make_pair(std::nullopt, std::nullopt);
@@ -272,20 +310,22 @@ RTLS1::FindOptimalReturnCtls
   (
     proto,
     QLimit,
-    initParamsN[0],                                     // propMassSN
-    initParamsN[1],                                     // coastDurN
-    initParamsN[2],                                     // bbBurnDurN
-    initParamsN[3],                                     // bbBurnThrtLN
-    initParamsN[4],                                     // entryBurnQN
-    initParamsN[5],                                     // entryBurnDurN
-    initParamsN[6],                                     // entryBurnThrtLN,
-    initParamsN[7],                                     // landBurnHN
-    initParamsN[8],                                     // landBurnThrtLN
-    initParamsN[9],                                     // sinTheta0
-    (initParamsN.size() >= 11) ? initParamsN[10] : 0.5, // sinTheta1
-    (initParamsN.size() >= 12) ? initParamsN[11] : 0.5, // sinTheta2
-    (initParamsN.size() == 13) ? initParamsN[12] : 0.5  // sinTheta3
+    initParamsN[ 0],  // propMassSN
+    initParamsN[ 1],  // coastDurN
+    initParamsN[ 2],  // bbBurnDurN
+    initParamsN[ 3],  // bbBurnThrtL0N
+    initParamsN[ 4],  // bbBurnThrtL1N
+    initParamsN[ 5],  // bbBurnTheta0N
+    initParamsN[ 6],  // bbBurnTheta1N
+    initParamsN[ 7],  // entryBurnQN
+    initParamsN[ 8],  // entryBurnDurN
+    initParamsN[ 9],  // entryBurnThrtL0N,
+    initParamsN[10],  // entryBurnThrtL1N,
+    initParamsN[11],  // landBurnHN
+    initParamsN[12],  // landBurnThrtL0N
+    initParamsN[13]   // landBurnThrtL1N
   );
+  static_assert(13 == NP-1);
 
   // The Optimisation Result:
   std::optional<OptRes> optRes = OptRes(rtls);

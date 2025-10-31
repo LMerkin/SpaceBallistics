@@ -35,7 +35,7 @@ namespace
   // The ODE RHS is the Time derivative of "StateV":
   using RHSV   = tuple<VelK, VelK, VelK, AccK, AccK, AccK>;
 
-  RHSV ODERHS(StateV const& a_s, Time a_t, Time UNUSED_PARAM(a_dt))
+  RHSV ODERHS(StateV const& a_s, Time a_t)
   {
     // Co-Ords and Velocity Components in the "quasi-inertial" SelenoCentric
     // Equatorial Fixed-Axes COS ("EqFixCOS"):

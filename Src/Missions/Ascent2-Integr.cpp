@@ -231,10 +231,10 @@ Ascent2::Base::RunRes Ascent2::Run()
   // is also 0, and the initial Polar Angle is 0:
   Base::StateV s0 = std::make_tuple(m_Rins, VelK(0.0), omega0, 0.0_kg, 0.0_rad);
 
-  // The RHS and the Call-Back Lambdas:
+  // The RHS and the Call-Back Lambdas (IsAscent=true):
   auto rhs =
-    [this](Base::StateV const&  a_s, Time a_t, Time a_dt) -> Base::DStateV
-    { return this->Base::ODERHS(a_s, a_t, a_dt); };
+    [this](Base::StateV const&  a_s, Time a_t) -> Base::DStateV
+    { return this->Base::ODERHS(a_s, a_t, true); };
 
   auto cb  =
     [this](Base::StateV*  a_s,  Time a_t, Time a_dt) -> bool
@@ -275,7 +275,8 @@ Ascent2::Base::RunRes Ascent2::Run()
     // ing to orbit:
     VelK V = SqRt(Sqr(fb.m_Vr) + Sqr(fb.m_Vhor));
 
-    if (Base::m_os != nullptr && Base::m_logLevel >= 1)
+    if (Base::m_os != nullptr)
+#     pragma omp critical(Output)
       (*m_os)
         << "# ERROR: Falling Back to Earth: t="            << fb.m_t.Magnitude()
         << " sec,  h="         << (fb.m_r - R).Magnitude() << " km, l="
@@ -285,14 +286,15 @@ Ascent2::Base::RunRes Ascent2::Run()
 
     // XXX: We do not propagate vals carried by "fb" to "RunRes":
     return Base::RunRes
-          {Base::RunRC::Error, Time(NAN),    LenK(NAN), VelK(NAN), Mass(NAN),
-           Pressure(NAN),      Pressure(NAN),     NAN};
+          {Base::RunRC::Error, Time(NAN),     LenK(NAN), VelK(NAN), AccK(NAN),
+           Mass(NAN),          Pressure(NAN), Pressure(NAN),             NAN};
   }
-  // XXX: Any other exceptions are propagated to the top level, it's better
-  // not to hide them...
+  // XXX: Any other exceptions are propagated to the top level, it's better not
+  // to hide them...
 
-  // Integration has run to completion, but NOT to the Singular Point:
-  return Base::PostProcessRun(s0, tEnd);
+  // Integration has run to completion, but NOT to the Singular Point; invoke
+  // the "PostProcessRun" (IsAscent=true):
+  return Base::PostProcessRun(s0, tEnd, true);
 }
 
 //===========================================================================//
@@ -330,7 +332,9 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
   }
   if (IsZero(omega) && Abs(Vr) < Base::SingV)
     // This is not an error -- just stop integration now. XXX: Small negative
-    // vals of "Vr" are handled in this case as well:
+    // vals of "Vr" are handled in this case as well. In theory, V=0 does not
+    // always imply a singularity; but in practice, it does:
+    //
     throw Base::NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
   // Otherwise, we allow Vr < 0 ONLY during "Burn2" and if the Ascent trajectory
@@ -496,7 +500,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
   Angle_deg aoa_deg = To_Angle_deg(aoa);
 
   if (!m_eventStr.empty() && Base::m_os != nullptr && Base::m_logLevel >= 3)
-  {
+#   pragma omp critical(Output)
     *Base::m_os
       << "# t="           << a_t.Magnitude()
       << " sec: "         << m_eventStr
@@ -513,7 +517,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
       << " Pa, M="        << M
       << ", LongG="       << longG
       << std::endl;
-  }
+
   //-------------------------------------------------------------------------//
   // Main Output:                                                            //
   //-------------------------------------------------------------------------//
@@ -526,6 +530,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
     // Thrust is more conveniently reported in kgf:
     auto tkg = thrust / g0K;
 
+#   pragma omp critical(Output)
     *Base::m_os
       << a_t.Magnitude()     << '\t' << h.Magnitude()        << '\t'
       << L.Magnitude()       << '\t' << Vr.Magnitude()       << '\t'
@@ -556,6 +561,7 @@ std::pair<Angle,Angle> Ascent2::AoA(Time a_t, Angle a_psi) const
   // of "psi" are accepatble and which are not, so we just log such events:
   //
   if (Abs(a_psi) > PI_2 && Base::m_os != nullptr && Base::m_logLevel >= 1)
+#   pragma omp critical(Output)
     *Base::m_os << "Ascent2::AoA: WARNING: psi="
                 << To_Angle_deg(a_psi).Magnitude() << " deg" << std::endl;
 
@@ -758,26 +764,29 @@ void Ascent2::OutputCtls() const
   if (Base::m_os == nullptr || Base::m_logLevel < 1)
     return;
 
-  // Here "t" is the time from Stage2 cut-off (so t=-T2..0):
-  *Base::m_os << "# T2   := " << m_T2.Magnitude() << ';'    << std::endl;
-  *Base::m_os << "# 0  <= tau <= T2"                        << std::endl;
-  *Base::m_os << "#-T2 <= t   <= 0"                         << std::endl;
-  *Base::m_os << "# AoA2 := t * ("   << m_aAoA2.Magnitude() << " * t - ("
-              << m_bAoA2.Magnitude() << ")); "              << std::endl;
-  *Base::m_os << "# mu2  := " << m_burnRateI2.Magnitude()   <<     " + ("
-              << m_bMu2.Magnitude()  << ") * tau + ("
-              << m_aMu2.Magnitude()  << ") * tau^2;"        << std::endl;
+# pragma omp critical(Output)
+  {
+    // Here "t" is the time from Stage2 cut-off (so t=-T2..0):
+    *Base::m_os << "# T2   := " << m_T2.Magnitude() << ';'    << std::endl;
+    *Base::m_os << "# 0  <= tau <= T2"                        << std::endl;
+    *Base::m_os << "#-T2 <= t   <= 0"                         << std::endl;
+    *Base::m_os << "# AoA2 := t * ("   << m_aAoA2.Magnitude() << " * t - ("
+                << m_bAoA2.Magnitude() << ")); "              << std::endl;
+    *Base::m_os << "# mu2  := " << m_burnRateI2.Magnitude()   <<     " + ("
+                << m_bMu2.Magnitude()  << ") * tau + ("
+                << m_aMu2.Magnitude()  << ") * tau^2;"        << std::endl;
 
-  // Here "t" is the time from Stage1 cut-off (so t=-T1..0), and "tau" is
-  // the time since Stage1 ignition (NB: the (-b) coeff at "tau" for AoA),
-  // so tau=0..T1:
-  *Base::m_os << "# T1   := " << Base::m_T1.Magnitude() << ';'    << std::endl;
-  *Base::m_os << "# 0  <= tau <= T1"                        << std::endl;
-  *Base::m_os << "# AoA1 := tau * (" << m_aAoA1.Magnitude() << " * tau + ("
-              << m_bAoA1.Magnitude() << ")); "              << std::endl;
-  *Base::m_os << "# mu1  := " << Base::m_burnRateI1.Magnitude()   << " + ("
-              << m_bMu1.Magnitude()  << ") * tau + ("
-              << m_aMu1.Magnitude()  << ") * tau^2;"        << std::endl;
+    // Here "t" is the time from Stage1 cut-off (so t=-T1..0), and "tau" is
+    // the time since Stage1 ignition (NB: the (-b) coeff at "tau" for AoA),
+    // so tau=0..T1:
+    *Base::m_os << "# T1   := " << Base::m_T1.Magnitude() << ';'  << std::endl;
+    *Base::m_os << "# 0  <= tau <= T1"                        << std::endl;
+    *Base::m_os << "# AoA1 := tau * (" << m_aAoA1.Magnitude() << " * tau + ("
+                << m_bAoA1.Magnitude() << ")); "              << std::endl;
+    *Base::m_os << "# mu1  := " << Base::m_burnRateI1.Magnitude() << " + ("
+                << m_bMu1.Magnitude()  << ") * tau + ("
+                << m_aMu1.Magnitude()  << ") * tau^2;"        << std::endl;
+  }
 }
 }
 // End namespace SpaceBallistics

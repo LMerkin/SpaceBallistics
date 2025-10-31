@@ -20,7 +20,7 @@ namespace
   // Phase Space: s = [x, y, u, v]:
   using S = tuple<double, double, double, double>;
 
-  S RHS(S const& a_s, double UNUSED_PARAM(a_t), double UNUSED_PARAM(a_dt))
+  S RHS(S const& a_s, double UNUSED_PARAM(a_t))
   {
     return make_tuple
           (get<1>(a_s),  get<0>(a_s),

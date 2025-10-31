@@ -74,18 +74,22 @@ RTLS1::RTLS1
   // Ctl Params are set to their default vals as yet:
   m_coastDur        (),
   m_bbBurnDur       (),
-  m_bbBurnThrtL     (0.0),
-  m_bbBurnSinTheta  { 0.0, 0.0, 0.0, 0.0 },
+  m_bbBurnThrtL0    (0.0),
+  m_bbBurnThrtL1    (0.0),
+  m_bbBurnTheta0    (),
+  m_bbBurnTheta1    (),
   m_entryBurnQ      (),
   m_entryBurnDur    (),
-  m_entryBurnThrtL  (0.0),
+  m_entryBurnThrtL0 (0.0),
+  m_entryBurnThrtL1 (0.0),
   m_landBurnH       (),
-  m_landBurnThrtL   (0.0),
+  m_landBurnThrtL0  (0.0),
+  m_landBurnThrtL1  (0.0),
   // Transient Data:
   m_mode            (FlightMode::Coast),
   m_entryIgnTime    (NAN),
   m_landIgnTime     (NAN),
-  m_finalTime       (NAN),
+  m_maxLandBurnDur  (),
   m_eventStr        (),
   m_nextOutputTime  (),
   // NB: Constraints (subject to "max") must be initialisd to 0, not NAN:
@@ -126,10 +130,10 @@ RTLS1::Base::RunRes RTLS1::Run()
   // The initial State Vector:
   Base::StateV s0 = std::make_tuple(rS, VrS, omegaS, 0.0_kg, phiS);
 
-  // The RHS and the Call-Back Lambdas:
+  // The RHS and the Call-Back Lambdas (IsAscent=false):
   auto rhs =
-    [this](Base::StateV const&  a_s, Time a_t, Time a_dt) -> Base::DStateV
-    { return this->Base::ODERHS(a_s, a_t, a_dt); };
+    [this](Base::StateV const&  a_s, Time a_t) -> Base::DStateV
+    { return this->Base::ODERHS(a_s, a_t, false); };
 
   auto cb  =
     [this](Base::StateV*  a_s,  Time a_t, Time a_dt) -> bool
@@ -163,11 +167,12 @@ RTLS1::Base::RunRes RTLS1::Run()
     // precise singular point position;  IsAscent=false:
     return Base::LocateSingularPoint(ns, false);
   }
-  // XXX: Any other exceptions are propagated to the top level, it's better
-  // not to hide them...
+  // XXX: Any other exceptions are propagated to the top level, it's better not
+  // to hide them...
 
-  // Integration has run to completion, but not to the Singular Point:
-  return Base::PostProcessRun(s0, tEnd);
+  // Integration has run to completion, but not to the Singular Point. Invoke
+  // the "PostProcessRun" (IsAscent=false):
+  return Base::PostProcessRun(s0, tEnd, false);
 }
 
 //===========================================================================//
@@ -197,7 +202,9 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
     Vhor               = VelK(0.0);
   }
   if (IsZero(omega) && Abs(Vr) < Base::SingV)
-    // This is not an error -- just a stop integration now:
+    // This is not an error -- just a stop integration now. XXX: In theory, V=0
+    // does not always imply a singularity; but in practice, it does:
+    //
     throw Base::NearSingularityExn(r, Vr, spentPropMass, phi, a_t);
 
   //-------------------------------------------------------------------------//
@@ -237,6 +244,8 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   //-------------------------------------------------------------------------//
   // Mode Switching:                                                         //
   //-------------------------------------------------------------------------//
+  bool cont = true;
+
   // At the beginning: Stage1 separation:
   if (IsZero(a_t))
   {
@@ -285,6 +294,17 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
     m_mode        = FlightMode::LandBurn;
     m_landIgnTime = a_t;
     m_eventStr    = "Endo-Atmospheric Descent Ends, Landing Burn Starts";
+
+    // At this point, given the ThrtLevels and the spendable prop mass, compute
+    // the MaxLandBurnDur (it will be used in BurnRate ctl):
+    Mass spendable   =
+      std::max(Base::m_propMass1 - spentPropMass - Base::m_unSpendable1,
+               0.0_kg);
+
+    m_maxLandBurnDur =
+      2.0 * spendable /
+      (m_burnRateI1 * LandBurnEngPart * (m_landBurnThrtL0 + m_landBurnThrtL1));
+    assert(!IsNeg(m_maxLandBurnDur));
   }
 
   // LandBurn -> UNDEFINED:
@@ -296,17 +316,10 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   //
   if (h <= 0.0005_km && m_mode != FlightMode::UNDEFINED)  // 50 cm!
   {
-    m_mode      = FlightMode::UNDEFINED;
-    m_finalTime = a_t;
-    m_eventStr  = "Stage1 Landed";
+    m_mode       = FlightMode::UNDEFINED;
+    m_eventStr   = "Stage1 Landed";
+    cont         = false;      // Stop now!
   }
-
-  //-------------------------------------------------------------------------//
-  // Integration Stopping Conds:                                             //
-  //-------------------------------------------------------------------------//
-  // Do not continue if we have Landed (successfully or otherwise):
-  //
-  bool cont = (m_mode != FlightMode::UNDEFINED);
 
   //-------------------------------------------------------------------------//
   // Log the Curr Event (if any):                                            //
@@ -317,6 +330,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
 
   if (!m_eventStr.empty() && Base::m_os != nullptr && Base::m_logLevel >= 3)
   {
+#   pragma omp critical(Output)
     *Base::m_os
       << "# t="           << a_t.Magnitude()
       << " sec: "         << m_eventStr
@@ -346,6 +360,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
     // Thrust is more conveniently reported in kgf:
     auto tkgf = thrust / g0K;
 
+#   pragma omp critical(Output)
     *Base::m_os
       << a_t.Magnitude()     << '\t' << h.Magnitude()        << '\t'
       << L.Magnitude()       << '\t' << Vr.Magnitude()       << '\t'
@@ -376,29 +391,18 @@ std::pair<Angle,Angle> RTLS1::AoA(Time a_t, Angle a_psi) const
 
   case FlightMode::BBBurn:
   {
-    // We actually control THETA and derive the AoA from it:
-    // sin(theta) is a cubic polynomial of "nt":
+    // We actually control THETA and derive the AoA from it. It is a linear
+    // function of the relative BBBurn time so far:
     double nt = double((a_t - m_coastDur) / m_bbBurnDur);
+    assert(-0.001 < nt && nt < 1.001);
+    nt = std::min(1.0, std::max(0.0, nt));
 
-    // By construction, 0 <= nt <= 1, but the latter inequality may be broken
-    // due to rounding errors etc, so:
-    assert(nt >= 0.0);
-    nt = std::min(nt, 1.0);
+    Angle  theta = m_bbBurnTheta0 * (1.0 - nt) + m_bbBurnTheta1 * nt;
+    assert(PI_2 <= theta && theta <= 3.0 * PI_2);
 
-    double sinTheta =
-      ((m_bbBurnSinTheta[3]  * nt + m_bbBurnSinTheta[2]) * nt +
-        m_bbBurnSinTheta[1]) * nt + m_bbBurnSinTheta[0];
-    sinTheta = std::min(1.0, std::max(-1.0, sinTheta));
-
-    // We assume that during this burn, the thrust vector is always pointing
-    // towards the "return", so cosTheta <= 0, thus:
-    Angle theta(Pi<double> - ASin(sinTheta));
-    // assert(PI_2 <= theta && theta <= 1.5 * PI); // XXX: Rounding errors here?
-
-    // FIXME: the AoA is not much relevant in this mode, since we disreagard
-    // the aerodynamic forces during this Burn;
-    // define it formally via the invariant: psi + AoA = theta, w/o normalisa-
-    // tion:
+    // XXX: the AoA is not much relevant in this mode, since we disreagard
+    // the aerodynamic forces during this Burn; define it formally via the
+    // invariant: psi + AoA = theta, w/o normalisation:
     Angle aoa = theta - a_psi;
     return std::make_pair(aoa, theta);
   }
@@ -461,11 +465,7 @@ RTLS1::AeroDynForces(LenK a_r, VelK a_v, Angle DEBUG_ONLY(a_AoA)) const
 //===========================================================================//
 // Propellant Burn Rate:                                                     //
 //===========================================================================//
-MassRate RTLS1::PropBurnRate
-(
-  Mass  a_m,
-  Time  UNUSED_PARAM(a_t)
-)
+MassRate RTLS1::PropBurnRate(Mass a_m, Time a_t)
 const
 {
   // IMPORTANT: Irrespective to the Mode, if we are out of Propellant, the
@@ -484,13 +484,57 @@ const
     return MassRate(0.0);
 
   case FlightMode::BBBurn:
-    return Base::m_burnRateI1 * BBBurnEngPart    * m_bbBurnThrtL;
+  {
+    // Linear function of the relative BBBurn time so far:
+    double   nt  = double((a_t - m_coastDur) / m_bbBurnDur);
+    assert(-0.001 < nt && nt < 1.001);
+    nt           = std::min(1.0, std::max(0.0, nt));
+    assert(0.0 <= m_bbBurnThrtL1 && m_bbBurnThrtL1 <= m_bbBurnThrtL0);
+    return
+      Base::m_burnRateI1 * BBBurnEngPart *
+      (m_bbBurnThrtL0 * (1.0 - nt) + m_bbBurnThrtL1 * nt);
+  }
 
   case FlightMode::EntryBurn:
-    return Base::m_burnRateI1 * EntryBurnEngPart * m_entryBurnThrtL;
+  {
+    // Linear function of the relative EntryBurn time so far:
+    double nt = double((a_t - m_entryIgnTime) / m_entryBurnDur);
+    assert(-0.001 < nt && nt < 1.001);
+    nt        = std::min(1.0, std::max(0.0, nt));
+    assert(0.0 <= m_entryBurnThrtL1 && m_entryBurnThrtL1 <= m_entryBurnThrtL0);
+    return
+      Base::m_burnRateI1 * EntryBurnEngPart *
+      (m_entryBurnThrtL0 * (1.0 - nt) + m_entryBurnThrtL1 * nt);
+  }
 
   case FlightMode::LandBurn:
-    return Base::m_burnRateI1 * LandBurnEngPart  * m_landBurnThrtL;
+  {
+    // Linear function of the relative LandBurn time so far (using the estimated
+    // LandBurn Duration -- so apply the min/max w/o "assert"):
+    if (IsPos(m_maxLandBurnDur))
+    {
+      double nt = double((a_t - m_landIgnTime) / m_maxLandBurnDur);
+      nt        = std::min(1.0, std::max(0.0, nt));
+      assert(0.0 <= m_landBurnThrtL1 && m_landBurnThrtL1 <= m_landBurnThrtL0);
+
+      return Base::m_burnRateI1 * LandBurnEngPart  *
+             (m_landBurnThrtL0  * (1.0 - nt) + m_landBurnThrtL1 * nt);
+    }
+    else
+    {
+      // Then there is no propellant remaining for the LandBurn at all, so we
+      // should not be there at all:
+      if (Base::m_os != nullptr)
+#       pragma omp critical(Output)
+        *Base::m_os
+          << "RTLS1::PropBurnRate: ERROR: Inconsistency: CurrMass = "
+          << a_m.Magnitude()                  << " kg, EmptyMass1="
+          << Base::m_emptyMass1  .Magnitude() << " kg, UnSpendable1="
+          << Base::m_unSpendable1.Magnitude() << " kg, but MaxLandBurnDur=0 sec"
+          << std::endl;
+      return MassRate(0.0);
+    }
+  }
 
   default:
     assert(false);

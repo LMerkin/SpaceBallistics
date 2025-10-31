@@ -72,9 +72,6 @@ namespace SpaceBallistics
     // Engines Participating in the Landing Burn:
     constexpr static double LandBurnEngPart  = 1.0 / double(NE);
 
-    // Number of Coeffs in sin(theta) expansion (so the degree is NS-1):
-    constexpr static int    NS = 4;
-
     // NB: In this class, t=0 corresponds to the Stage1 Separation event, and
     // "t" runs FORWARD.
     // We assume that the landing site is (h=0, l=0). The co-ords at Separation
@@ -103,24 +100,25 @@ namespace SpaceBallistics
     // Coast Dur (before BBBurn): Equals to BBIgnTime:
     Time                  m_coastDur;
 
-    // AoA ctl during BBBurn  (more precisely, we control "theta" -- the Thrust
-    // vector inclination angle).   Generally, the Thrust vector points towards
-    // (-x),  so "theta" is around Pi. We expand sin(theta) into a CUBIC (or lo-
-    // wer degree) polynomial of (t_burn / burn_duration), and it can be of any
-    // sign, whereas we keep cos(theta) < 0. There are no other restrictions on
-    // "theta" / AoA in this case, because the BoostBackBurn is Exo-Atmospheric:
+    // Boost-Back Burn: Throttling Level decreases from "m_bbBurnThrtL0"  to
+    // "m_bbBurnThrtL1" linearly in time,    and the Thrust vector elevation
+    // changes linearly from "m_bbBurnTheta0" to "m_bbBurnTheta1"; both angles
+    // should be around Pi (with cos(theta) < 0), obviously:
     Time                  m_bbBurnDur;
-    double                m_bbBurnThrtL;
-    double                m_bbBurnSinTheta[NS];
+    double                m_bbBurnThrtL0;
+    double                m_bbBurnThrtL1;
+    Angle                 m_bbBurnTheta0;
+    Angle                 m_bbBurnTheta1;
 
     // The trigger for the Entry (Slowing-Down) Burn is based on the Q, not the
     // temporal separation. Its purpose it to limit the Q durting re-entry.  We
     // assume that this burn occurs at full-thrust, with AoA=0, so the only var-
-    // iable param is the burn duration:
-    // XXX: Do we always need FullThrust here?
+    // iable param is the burn duration.   We again assume a linear decrease of
+    // the throttling level:
     Pressure              m_entryBurnQ;
     Time                  m_entryBurnDur;
-    double                m_entryBurnThrtL; // Assuming ALL engines are burning
+    double                m_entryBurnThrtL0;
+    double                m_entryBurnThrtL1;
 
     // XXX: For the Final Decsent and Landing, we currently do NOT perform any
     // special maneuvers  to avoid the "ballistic target" point and fly to the
@@ -129,23 +127,28 @@ namespace SpaceBallistics
     // subject to optimisation) "mu", given by the corresp ThrottlingLevel.  A
     // reasonable trigger is the LandBurn altitude; the burn lasts until land-
     // ing (h=0), until v=0 (which means unsuccessful langing if "h" is above
-    // the threshold), or until the propellant is exhausted:
+    // the threshold), or until the propellant is exhausted.  We again assume
+    // a linear decrease in the throttling level:
     LenK                  m_landBurnH;
-    double                m_landBurnThrtL; // Assuming 1 engine is burning
+    double                m_landBurnThrtL0;
+    double                m_landBurnThrtL1;
 
-    // So altogether: 13 params:
-    // [PropMassS,    CoastTime,      BBBurnDur, BBBurnThrtL,  EntryBurnQ,
-    //  EntryBurnDur, EntryBurnThrtL, LandBurnH, LandBurnThrtL,
-    //  BBBurnSinTheta[4]]:
-    constexpr static int  NP = 13;
+    // So altogether: 14 params:
+    // [
+    //  PropMassS,  CoastDur,
+    //  BBBurnDur,  BBBurnThrtL0,   BBBurnThrtL1,    BBBurnTheta0, BBBurnTheta1,
+    //  EntryBurnQ, EntryBurnDur,   EntryBurnThrtL0, EntryBurnThrtL1,
+    //  LandBurnH,  LandBurnThrtL0, LandBurnThrtL1
+    // ]:
+    constexpr static int  NP = 14;
 
     //-----------------------------------------------------------------------//
     // Scaling Factors for Translation of Rel Opt Params into the Abs Ones:  //
     //-----------------------------------------------------------------------//
     constexpr static Mass MaxPropMassS    = 50000.0_kg;
-    constexpr static Time MaxBBBurnDur    =    20.0_sec; // Too large?
-    constexpr static Time MaxEntryBurnDur =    10.0_sec; // Too large?
-    constexpr static LenK MaxLandBurnH    =     5.0_km;  // Too low?
+    constexpr static Time MaxBBBurnDur    =    50.0_sec;
+    constexpr static Time MaxEntryBurnDur =    30.0_sec;
+    constexpr static LenK MaxLandBurnH    =     3.0_km;
 
     //-----------------------------------------------------------------------//
     // Transient Data (during flight path integration):                      //
@@ -153,7 +156,7 @@ namespace SpaceBallistics
     FlightMode            m_mode;
     Time                  m_entryIgnTime;   // Triggered by Q
     Time                  m_landIgnTime;    // Triggered by H
-    Time                  m_finalTime;
+    Time                  m_maxLandBurnDur; // Auto-computed
     std::string           m_eventStr;
     Time                  m_nextOutputTime;
 
@@ -202,17 +205,26 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Ctor from a "Proto" and the Normalised Ctl Params:                    //
     //-----------------------------------------------------------------------//
+    // So altogether: 14 params:
+    // [
+    //  PropMassS,  CoastDur,
+    //  BBBurnDur,  BBBurnThrtL0,   BBBurnThrtL1,    BBBurnTheta0, BBBurnTheta1,
+    //  EntryBurnQ, EntryBurnDur,   EntryBurnThrtL0, EntryBurnThrtL1,
+    //  LandBurnH,  LandBurnThrtL0, LandBurnThrtL1
+    // ]:
+
     RTLS1
     (
-      RTLS1  const&             a_proto,
-      Pressure                  a_Q_limit,
-      double a_propMassSN,      double a_coastDurN,
-      double a_bbBurnDurN,      double a_bbBurnThrtLN,
-      double a_entryBurnQN,     double a_entryBurnDurN,
-      double a_entryBurnThrtLN,
-      double a_landBurnHN,      double a_landBurnThrtLN,
-      double a_sinTheta0,       double a_sinTheta1,
-      double a_sinTheta2,       double a_sinTheta3
+      RTLS1  const&               a_proto,
+      Pressure                    a_Q_limit,
+      double a_propMassSN,        double a_coastDurN,
+      double a_bbBurnDurN,        double a_bbBurnThrtL0N,
+      double a_bbBurnThrtL1N,     double a_bbBurnTheta0N,
+      double a_bbBurnTheta1N,
+      double a_entryBurnQN,       double a_entryBurnDurN,
+      double a_entryBurnThrtL0N,  double a_entryBurnThrtL1N,
+      double a_landBurnHN,        double a_landBurnThrtL0N,
+      double a_landBurnThrtL1N
     );
 
     //-----------------------------------------------------------------------//
@@ -266,17 +278,21 @@ namespace SpaceBallistics
     //
     struct OptRes
     {
-      // Data Flds:
+      // Data Flds: Same NP params:
       Mass      const m_propMassS;
       Time      const m_coastDur;
       Time      const m_bbBurnDur;
-      double    const m_bbBurnThrtL;
-      double    const m_bbBurnSinTheta[NS];
+      double    const m_bbBurnThrtL0;
+      double    const m_bbBurnThrtL1;
+      Angle     const m_bbBurnTheta0;
+      Angle     const m_bbBurnTheta1;
       Pressure  const m_entryBurnQ;
       Time      const m_entryBurnDur;
-      double    const m_entryBurnThrtL;
+      double    const m_entryBurnThrtL0;
+      double    const m_entryBurnThrtL1;
       LenK      const m_landBurnH;
-      double    const m_landBurnThrtL;
+      double    const m_landBurnThrtL0;
+      double    const m_landBurnThrtL1;
 
       // Non-Default Ctor:
       OptRes(RTLS1 const& a_rtls);
@@ -322,14 +338,15 @@ namespace SpaceBallistics
       double                      a_min_bbb_durN,
       LenK                        a_land_dL_limit,
       VelK                        a_land_V_limit,
+      double                      a_land_accG_limit, // Final Acc in "g" units
       Pressure                    a_Q_limit,
       double                      a_longG_limit,
       // NOMAD Params:
       int                         a_max_evals,
       int                         a_opt_seed,
       bool                        a_stop_if_feasible,
-      double                      a_use_vns,    // In [0..1), 0: no VNS
-      bool                        a_use_mt      // true unless debugging
+      double                      a_use_vns,         // In [0..1), 0: no VNS
+      bool                        a_use_mt           // true unless debugging
     );
   };
 }

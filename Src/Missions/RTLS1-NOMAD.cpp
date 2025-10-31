@@ -66,6 +66,7 @@ private:
 	// Optimisation Limits (Constraints):
 	LenK              const m_landDLLimit;
   VelK              const m_landVLimit;
+  double            const m_landAccGLimit;
   Pressure          const m_QLimit;
   double            const m_longGLimit;
 
@@ -81,6 +82,7 @@ public:
     // Optimisation Limits (Constraints):
     LenK                                          a_land_dL_limit,
     VelK                                          a_land_V_limit,
+    double                                        a_land_accG_limit,
     Pressure                                      a_Q_limit,
     double                                        a_longG_limit
   )
@@ -88,13 +90,14 @@ public:
     m_proto         (a_proto),
     m_landDLLimit   (a_land_dL_limit),
     m_landVLimit    (a_land_V_limit),
+    m_landAccGLimit (a_land_accG_limit),
     m_QLimit        (a_Q_limit),
     m_longGLimit    (a_longG_limit)
   {
     assert(m_proto != nullptr);
 
-    if (!(IsPos(m_landDLLimit) && IsPos(m_landVLimit) && IsPos(m_QLimit) &&
-          IsPos(m_longGLimit)))
+    if (!(IsPos(m_landDLLimit)   && IsPos(m_landVLimit) &&
+          IsPos(m_landAccGLimit) && IsPos(m_QLimit)     && IsPos(m_longGLimit)))
       throw std::invalid_argument
             ("RTLS1::NOMADEvaluator::Ctor: Invalid Limit(s)");
   }
@@ -112,7 +115,8 @@ public:
   )
   const override
   {
-    assert(NP - NS + 1 <= a_x.size() && a_x.size() <= NP);
+    // XXX: For the moment, all params are optimised over:
+    assert(a_x.size() == NP);
 
     //-----------------------------------------------------------------------//
     // For Thread-Safety, construct a new "RTLS1" obj:                       //
@@ -121,21 +125,22 @@ public:
     (
       *m_proto,
       m_QLimit,
-      a_x[0].todouble(),                              // propMassSN
-      a_x[1].todouble(),                              // coastDurN
-      a_x[2].todouble(),                              // bbBurnDurN
-      a_x[3].todouble(),                              // bbBurnThrtLN
-      a_x[4].todouble(),                              // entryBurnQN
-      a_x[5].todouble(),                              // entryBurnDurN
-      a_x[6].todouble(),                              // entryBurnThrtLN,
-      a_x[7].todouble(),                              // landBurnHN
-      a_x[8].todouble(),                              // landBurnThrtLN
-      // sin(theta) coeffs: similar to "SetCtlParams":
-      a_x[9].todouble(),                              // sinTheta0
-      (a_x.size() >= 11) ? a_x[10].todouble() : 0.5,  // sinTheta1
-      (a_x.size() >= 12) ? a_x[11].todouble() : 0.5,  // sinTheta2
-      (a_x.size() == 13) ? a_x[12].todouble() : 0.5   // sinTheta3
+      a_x[ 0].todouble(),    // propMassSN
+      a_x[ 1].todouble(),    // coastDurN
+      a_x[ 2].todouble(),    // bbBurnDurN
+      a_x[ 3].todouble(),    // bbBurnThrtLN0
+      a_x[ 4].todouble(),    // bbBurnThrtLN1
+      a_x[ 5].todouble(),    // bbBurnTheta0
+      a_x[ 6].todouble(),    // bbBurnTheta1
+      a_x[ 7].todouble(),    // entryBurnQN
+      a_x[ 8].todouble(),    // entryBurnDurN
+      a_x[ 9].todouble(),    // entryBurnThrtLN0,
+      a_x[10].todouble(),    // entryBurnThrtLN1,
+      a_x[11].todouble(),    // landBurnHN
+      a_x[12].todouble(),    // landBurnThrtLN0
+      a_x[13].todouble()     // landBurnThrtLN1
     );
+    static_assert(13 == NP-1);
 
     //-----------------------------------------------------------------------//
     // Run the Integrator!                                                   //
@@ -165,7 +170,10 @@ public:
     assert(!IsNeg(res.m_VT));
     curr += sprintf(curr, " %.16e", (res.m_VT   - m_landVLimit).Magnitude());
 
-    // XXX: Possibly TODO: Landing Acceleration as well
+    // The Final (Landing) Acceleration:
+    assert(!IsNeg(res.m_aT));
+    double landAccG = double(res.m_aT / g0K);
+    curr += sprintf(curr, " %.16e", (landAccG   - m_landAccGLimit));
 
     // The MaxQ encountered:
     assert(!IsNeg(res.m_maxQ));
@@ -175,11 +183,11 @@ public:
     assert(!IsNeg(res.m_maxLongG));
     curr += sprintf(curr, " %.16e",  res.m_maxLongG - m_longGLimit);
 
-    // Output done!
+    // Done!
     assert(size_t(curr - buff) <= sizeof(buff));
 
     if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 2)
-#   pragma omp critical(NOMADOutput)
+#   pragma omp critical(Output)
     {
       (*m_proto->m_os)   << "# PARAMS:";
       for (int i = 0; i < int(a_x.size()); ++i)
@@ -210,6 +218,7 @@ bool RTLS1::RunNOMAD
   double                  a_min_bbb_durN,
   LenK                    a_land_dL_limit,
   VelK                    a_land_V_limit,
+  double                  a_land_accG_limit,
   Pressure                a_Q_limit,
   double                  a_longG_limit,
   // NOMAD Params:
@@ -223,6 +232,7 @@ bool RTLS1::RunNOMAD
   assert(a_proto != nullptr      && a_init_vals != nullptr   &&
          0.0 < a_min_prop_massSN && a_min_prop_massSN <= 1.0 &&
          0.0 < a_min_bbb_durN    && a_min_bbb_durN    <= 1.0);
+  // NB: Other params are passed to the "NOMADEvaluator" Ctor and checked there
 
   //-------------------------------------------------------------------------//
   // Generic Case: Perform NOMAD Optimisation:                               //
@@ -231,9 +241,9 @@ bool RTLS1::RunNOMAD
   NOMAD::MainStep opt;
 
   // Create and set the NOMAD params:
-  // There are 4 Constraints: (LandMissL, LandV, MaxQ, MaxLongG),
+  // There are 5 Constraints: (LandMissL, LandV, LandAccG, MaxQ, MaxLongG),
   // but their actual vals are not required yet:
-  constexpr int NC = 4;
+  constexpr int NC = 5;
 
   // LoBounds and UpBounds are all-0s and all-1s, with some special cases below:
   std::vector<double> loBounds(a_init_vals->size(), 0.0);
@@ -268,7 +278,9 @@ bool RTLS1::RunNOMAD
     (new NOMADEvaluator
     (
       params->getEvalParams(),
-      a_proto, a_land_dL_limit, a_land_V_limit, a_Q_limit, a_longG_limit
+      a_proto,
+      a_land_dL_limit, a_land_V_limit, a_land_accG_limit,
+      a_Q_limit,       a_longG_limit
     ));
   opt.setEvaluator(std::move(ev));
 
