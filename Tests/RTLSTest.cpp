@@ -45,6 +45,7 @@ int main(int argc, char* argv[])
         << "finalTime = " << frr.m_T        << endl
         << "finalL    = " << frr.m_LT       << endl
         << "finalV    = " << frr.m_VT       << endl
+        << "finalAccG = " << double(frr.m_aT / g0K) << endl
         << "finalMass = " << frr.m_mT       << endl
         << "maxQ      = " << frr.m_maxQ     << endl
         << "sepQ      = " << frr.m_sepQ     << endl

@@ -35,8 +35,6 @@ namespace SpaceBallistics
     constexpr static GMK      K              = BodyData<Body::Earth>::K;
     constexpr static LenK     R /* Mean */   = BodyData<Body::Earth>::Rm;
 
-    // ODE Integration Params: 1 msec step; it may only be reduced, never
-    // increased beyond the original value:
     constexpr static double   ODERelPrec     = 1e-6;
 
     // Singular Point detection criteria: NB:  We ASSUME that "Vhor" approaches
@@ -95,7 +93,6 @@ namespace SpaceBallistics
     //
     struct NearSingularityExn
     {
-    public:
       // Data Flds:
       LenK  const m_r;
       VelK  const m_Vr; // Because "Vhor" is assumed to be 0 near Singularity
@@ -157,15 +154,30 @@ namespace SpaceBallistics
     //
     struct RunRes
     {
-      RunRC    const m_rc;       // Return Code
-      Time     const m_T;        // Final Flight Time (< 0 if Bwd integration)
-      LenK     const m_LT;       // Final Down-Range distance
-      VelK     const m_VT;       // Final Absolute Equivalent Velocity
-      AccK     const m_aT;       // Final Absolute Acceleration
-      Mass     const m_mT;       // Final LV Mass
-      Pressure const m_maxQ;     // Max Dynamic Pressure (Q) encountered so far
-      Pressure const m_sepQ;     // Q @ Stage1 Separation   (if encountered)
-      double   const m_maxLongG; // Max Longitudinal G       encountered so far
+      // Data Flds:
+      RunRC     m_rc;       // Return Code
+      Time      m_T;        // Final Flight Time (< 0 if Bwd integration)
+      LenK      m_LT;       // Final Down-Range distance
+      VelK      m_VT;       // Final Absolute Equivalent Velocity
+      AccK      m_aT;       // Final Absolute Acceleration
+      Mass      m_mT;       // Final LV Mass
+      Pressure  m_maxQ;     // Max Dynamic Pressure (Q) encountered so far
+      Pressure  m_sepQ;     // Q @ Stage1 Separation   (if encountered)
+      double    m_maxLongG; // Max Longitudinal G       encountered so far
+
+      // Default Ctor:
+      RunRes()
+      : m_rc(RunRC::Error),
+        m_T   (NAN), m_LT(NAN), m_VT(NAN),  m_aT(NAN), m_mT(NAN), m_maxQ(NAN),
+        m_sepQ(NAN), m_maxLongG(NAN)
+      {}
+
+      // Non-Default Ctor:
+      RunRes(RunRC a_rc, Time a_T,  LenK a_LT, VelK a_VT, AccK a_aT, Mass a_mT,
+             Pressure a_maxQ, Pressure a_sepQ, double a_maxLongG)
+      : m_rc(a_rc), m_T   (a_T),    m_LT(a_LT),     m_VT(a_VT),  m_aT(a_aT),
+        m_mT(a_mT), m_maxQ(a_maxQ), m_sepQ(a_sepQ), m_maxLongG(a_maxLongG)
+      {}
     };
 
   protected:

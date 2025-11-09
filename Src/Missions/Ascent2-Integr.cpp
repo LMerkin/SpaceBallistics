@@ -248,9 +248,11 @@ Ascent2::Base::RunRes Ascent2::Run()
 
   // The ascent maximum duration (which is certainly enough) is 1 hour:
   constexpr Time t0   = 0.0_sec;
-  constexpr Time tMin = -3600.0_sec;
-  Time           tEnd;  // Will be > tMin;
-  m_nextOutputTime    = 0.0_sec;
+  constexpr Time tMin = -3600.0_sec;  // Certainly enough!
+  Time           tEnd;                // Will be > tMin
+  m_nextOutputTime    = 0.0_sec;      // Just to make sure
+
+  Base::RunRes   res;                 // "Error" as yet
   try
   {
     //-----------------------------------------------------------------------//
@@ -261,13 +263,17 @@ Ascent2::Base::RunRes Ascent2::Run()
            -Base::m_odeIntegrStep, -Base::m_odeIntegrStep,
             Base::ODERelPrec, &cb,  Base::m_os);
     assert(tEnd >= tMin);
+
+    // If we got here: Integration has run to completion, but not to the Singu-
+    // lar Point. Invoke the "PostProcessRun" (IsAscent=false):
+    res  = Base::PostProcessRun(s0, tEnd, false);
   }
   catch (Base::NearSingularityExn const& ns)
   {
     // We have reached a vicinity of the Singular Point:
     // This is a NORMAL (and moreover, a desirable) outcome. Compute a more
     // precise singular point position;  IsAscent=true:
-    return Base::LocateSingularPoint(ns, true);
+    res  = Base::LocateSingularPoint(ns, true);
   }
   catch (FallingBackExn const& fb)
   {
@@ -284,17 +290,18 @@ Ascent2::Base::RunRes Ascent2::Run()
         << fb.m_Vr.Magnitude() << " m/sec, V="             << V.Magnitude()
         << " km/sec, mode="    << ToString(m_mode)         << std::endl;
 
-    // XXX: We do not propagate vals carried by "fb" to "RunRes":
-    return Base::RunRes
-          {Base::RunRC::Error, Time(NAN),     LenK(NAN), VelK(NAN), AccK(NAN),
-           Mass(NAN),          Pressure(NAN), Pressure(NAN),             NAN};
+    // XXX: We do not propagate vals carried by "fb" to "RunRes" which remains
+    // an error...
   }
   // XXX: Any other exceptions are propagated to the top level, it's better not
   // to hide them...
-
-  // Integration has run to completion, but NOT to the Singular Point; invoke
-  // the "PostProcessRun" (IsAscent=true):
-  return Base::PostProcessRun(s0, tEnd, true);
+  // The result:
+  if (Base::m_os != nullptr && Base::m_logLevel >= 3)
+#   pragma omp critical(Output)
+    *Base::m_os
+      << "# t=" << res.m_T.Magnitude() << " sec: Integration Done, RC="
+      << Base::ToString(res.m_rc)      << std::endl;
+  return res;
 }
 
 //===========================================================================//
@@ -655,7 +662,13 @@ Ascent2::AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const
 //===========================================================================//
 // Propellant Burn Rate: May be variable:                                    //
 //===========================================================================//
-MassRate Ascent2::PropBurnRate(Mass UNUSED_PARAM(a_m), Time a_t) const
+MassRate Ascent2::PropBurnRate
+(
+  Mass UNUSED_PARAM(a_m),
+  LenK UNUSED_PARAM(a_h),
+  Time a_t
+)
+const
 {
   switch (m_mode)
   {

@@ -76,101 +76,107 @@ namespace SpaceBallistics
     // "t" runs FORWARD.
     // We assume that the landing site is (h=0, l=0). The co-ords at Separation
     // are (hS > 0, lS > 0), and they are considered to be const params:
-    LenK   const          m_hS;
-    LenK   const          m_lS;
+    LenK   const            m_hS;
+    LenK   const            m_lS;
 
     // And the corresp Velocity and Trajectory Inclidation at Separation:
-    VelK   const          m_VS;
-    Angle  const          m_psiS;
+    VelK   const            m_VS;
+    Angle  const            m_psiS;
+
+    // The following is just an estimate, to help the optimisation process:
+    // The total Horizontal DeltaV for the Boost-Back Burn:
+    VelK   const            m_dVhor;
 
   private:
-    // Params of a "Fully-Prop-Loaded" Stage1 (nominal):
-    Mass   const          m_fplMass1;
-    double const          m_fplK1;
-    double const          m_fplPropRem1;
-    Len    const          m_diam;
+    //-----------------------------------------------------------------------//
+    // Scaling Factors and Ranges used in Optimisation:                      //
+    //-----------------------------------------------------------------------//
+    constexpr static double PropMassSRelVar      = 0.25;      // +- 25% range
+    constexpr static double MinBBBurnThetaPiFrac = 0.8;
+    constexpr static double BBBurnRelDurVar      = 0.25;      // +- 25% range
+    constexpr static Time   MaxEntryBurnDur      = 50.0_sec;  // XXX ???
+    constexpr static LenK   MaxLandBurnH         = 5.0_km;
+
+    //-----------------------------------------------------------------------//
+    // Params of a "Fully-Prop-Loaded" Stage1 (nominal):                     //
+    //-----------------------------------------------------------------------//
+    Mass   const            m_fplMass1;
+    double const            m_fplK1;
+    double const            m_fplPropRem1;
+    Len    const            m_diam;
 
     //-----------------------------------------------------------------------//
     // Optimisation Params:                                                  //
     //-----------------------------------------------------------------------//
     // "PropMassS" is the propellant mass at Stage1 Separation, used to achieve
-    // the soft RTLS and landing. Is to be MINIMISED subject to all constraints.
+    // the RTLS and soft landing. Is to be MINIMISED subject to all constraints.
     // No need for a separate fld for it -- it will become Base::m_propMass1 !
 
     // Coast Dur (before BBBurn): Equals to BBIgnTime:
-    Time                  m_coastDur;
+    Time                    m_coastDur;
 
     // Boost-Back Burn: Throttling Level decreases from "m_bbBurnThrtL0"  to
     // "m_bbBurnThrtL1" linearly in time,    and the Thrust vector elevation
     // changes linearly from "m_bbBurnTheta0" to "m_bbBurnTheta1"; both angles
     // should be around Pi (with cos(theta) < 0), obviously:
-    Time                  m_bbBurnDur;
-    double                m_bbBurnThrtL0;
-    double                m_bbBurnThrtL1;
-    Angle                 m_bbBurnTheta0;
-    Angle                 m_bbBurnTheta1;
+    Time                    m_bbBurnDur;
+    double                  m_bbBurnThrtL0;
+    double                  m_bbBurnThrtL1;
+    Angle                   m_bbBurnTheta0;
+    Angle                   m_bbBurnTheta1;
 
-    // The trigger for the Entry (Slowing-Down) Burn is based on the Q, not the
-    // temporal separation. Its purpose it to limit the Q durting re-entry.  We
-    // assume that this burn occurs at full-thrust, with AoA=0, so the only var-
-    // iable param is the burn duration.   We again assume a linear decrease of
-    // the throttling level:
-    Pressure              m_entryBurnQ;
-    Time                  m_entryBurnDur;
-    double                m_entryBurnThrtL0;
-    double                m_entryBurnThrtL1;
+    // The trigger for the Entry (Slowing-Down) Burn is based on the Q, not on
+    // the temporal separation from the BBBurn. Its purpose it to limit the "Q"
+    // durting re-entry.  We assume that this burn occurs at full-thrust, with
+    // AoA=0, so the only variable param is the burn duration. We again assume
+    // a linear decrease of the throttling level:
+    Pressure                m_entryBurnQ;
+    Time                    m_entryBurnDur;
+    double                  m_entryBurnThrtL0;
+    double                  m_entryBurnThrtL1;
 
-    // XXX: For the Final Decsent and Landing, we currently do NOT perform any
-    // special maneuvers  to avoid the "ballistic target" point and fly to the
-    // actual landing site. We just perform a continuous burn in order to land
-    // with near-zero velocity. So we currently assume AoA=0 and a const  (but
-    // subject to optimisation) "mu", given by the corresp ThrottlingLevel.  A
-    // reasonable trigger is the LandBurn altitude; the burn lasts until land-
-    // ing (h=0), until v=0 (which means unsuccessful langing if "h" is above
-    // the threshold), or until the propellant is exhausted.  We again assume
-    // a linear decrease in the throttling level:
-    LenK                  m_landBurnH;
-    double                m_landBurnThrtL0;
-    double                m_landBurnThrtL1;
-
-    // So altogether: 14 params:
+    // So altogether: 11 params:
     // [
-    //  PropMassS,  CoastDur,
-    //  BBBurnDur,  BBBurnThrtL0,   BBBurnThrtL1,    BBBurnTheta0, BBBurnTheta1,
-    //  EntryBurnQ, EntryBurnDur,   EntryBurnThrtL0, EntryBurnThrtL1,
-    //  LandBurnH,  LandBurnThrtL0, LandBurnThrtL1
+    //  PropMassS,    CoastDur,
+    //  BBBurnDur,    BBBurnThrtL0, BBBurnThrtL1,    BBBurnTheta0,
+    //  BBBurnTheta1,
+    //  EntryBurnQ,   EntryBurnDur, EntryBurnThrtL0, EntryBurnThrtL1
     // ]:
-    constexpr static int  NP = 14;
+    constexpr static int NP = 11;
 
-    //-----------------------------------------------------------------------//
-    // Scaling Factors for Translation of Rel Opt Params into the Abs Ones:  //
-    //-----------------------------------------------------------------------//
-    constexpr static Mass MaxPropMassS    = 50000.0_kg;
-    constexpr static Time MaxBBBurnDur    =    50.0_sec;
-    constexpr static Time MaxEntryBurnDur =    30.0_sec;
-    constexpr static LenK MaxLandBurnH    =     3.0_km;
+    // LandBurn:
+    // The following params are only used in calibartion of the resp "dynamic"
+    // funcs, NOT in real trajectories. If they are set, those "dynamic" funcs
+    // are NOT used (because they have not been properly constructed yet -- we
+    // are only in the process of calibrating them):
+    LenK                    m_calibrLandBurnH;
+    double                  m_calibrLandBurnGamma;
+
+    // And the following params are actually used -- they are set dynamically
+    // either from the above "m_calibr*" params (if they are themselves set!),
+    // or by the functions provided in "SetLandBurnParams":
+    LenK                    m_landBurnH;
+    double                  m_landBurnGamma;
 
     //-----------------------------------------------------------------------//
     // Transient Data (during flight path integration):                      //
     //-----------------------------------------------------------------------//
-    FlightMode            m_mode;
-    Time                  m_entryIgnTime;   // Triggered by Q
-    Time                  m_landIgnTime;    // Triggered by H
-    Time                  m_maxLandBurnDur; // Auto-computed
-    std::string           m_eventStr;
-    Time                  m_nextOutputTime;
+    FlightMode              m_mode;
+    Time                    m_entryIgnTime;   // Triggered by Q
+    std::string             m_eventStr;
+    Time                    m_nextOutputTime;
 
     // Vals which may be Constrained:
-    Pressure              m_maxQ;
+    Pressure                m_maxQ;
     // The following is primarily for compatibility with the "LVBase":
-    Pressure              m_sepQ;
-    double                m_maxLongG;
+    Pressure                m_sepQ;
+    double                  m_maxLongG;
 
     //=======================================================================//
     // Methods:                                                              //
     //=======================================================================//
     //-----------------------------------------------------------------------//
-    // Non-Default Ctor:                                                     //
+    // "Main" Non-Default Ctor:                                              //
     //-----------------------------------------------------------------------//
     RTLS1
     (
@@ -190,6 +196,7 @@ namespace SpaceBallistics
       LenK           a_lS,
       VelK           a_VS,
       Angle          a_psiS,
+      VelK           a_dVhor,               // Estimate only!
 
       // Integration and Output Params:
       Time           a_ode_integr_step,
@@ -203,16 +210,8 @@ namespace SpaceBallistics
     RTLS1(RTLS1 const&) = default;
 
     //-----------------------------------------------------------------------//
-    // Ctor from a "Proto" and the Normalised Ctl Params:                    //
+    // Non-Default Ctor using a "Proto" and the Normalised Ctl Params:       //
     //-----------------------------------------------------------------------//
-    // So altogether: 14 params:
-    // [
-    //  PropMassS,  CoastDur,
-    //  BBBurnDur,  BBBurnThrtL0,   BBBurnThrtL1,    BBBurnTheta0, BBBurnTheta1,
-    //  EntryBurnQ, EntryBurnDur,   EntryBurnThrtL0, EntryBurnThrtL1,
-    //  LandBurnH,  LandBurnThrtL0, LandBurnThrtL1
-    // ]:
-
     RTLS1
     (
       RTLS1  const&               a_proto,
@@ -222,9 +221,17 @@ namespace SpaceBallistics
       double a_bbBurnThrtL1N,     double a_bbBurnTheta0N,
       double a_bbBurnTheta1N,
       double a_entryBurnQN,       double a_entryBurnDurN,
-      double a_entryBurnThrtL0N,  double a_entryBurnThrtL1N,
-      double a_landBurnHN,        double a_landBurnThrtL0N,
-      double a_landBurnThrtL1N
+      double a_entryBurnThrtL0N,  double a_entryBurnThrtL1N
+    );
+
+    //-----------------------------------------------------------------------//
+    // Non-Default Ctor using a "Proto" and the LandBurn Params:             //
+    //-----------------------------------------------------------------------//
+    RTLS1
+    (
+      RTLS1  const&               a_proto,
+      LenK                        a_land_burn_h,
+      double                      a_land_burn_gamma
     );
 
     //-----------------------------------------------------------------------//
@@ -252,7 +259,7 @@ namespace SpaceBallistics
     AeroDynForces(LenK a_r, VelK a_v, Angle a_AoA) const;
 
     // "PropBurnRate": (may be variable over time, >= 0):
-    MassRate PropBurnRate(Mass a_m, Time a_t) const;
+    MassRate PropBurnRate(Mass a_m, LenK a_h, Time a_t) const;
 
     // "AoA": Angle-of-Attack (variable over time, also constrained with the
     // curr pitch "psi"):
@@ -290,9 +297,9 @@ namespace SpaceBallistics
       Time      const m_entryBurnDur;
       double    const m_entryBurnThrtL0;
       double    const m_entryBurnThrtL1;
+      // Separately-calibrated params:
       LenK      const m_landBurnH;
-      double    const m_landBurnThrtL0;
-      double    const m_landBurnThrtL1;
+      double    const m_landBurnGamma;
 
       // Non-Default Ctor:
       OptRes(RTLS1 const& a_rtls);
@@ -331,23 +338,49 @@ namespace SpaceBallistics
     static bool RunNOMAD
     (
       // LV Proto:
-      RTLS1 const*                a_proto,
+      RTLS1 const*          a_proto,
       // Optimisation Params:
-      std::vector<double>*        a_init_vals,
-      double                      a_min_prop_massSN,
-      double                      a_min_bbb_durN,
-      LenK                        a_land_dL_limit,
-      VelK                        a_land_V_limit,
-      double                      a_land_accG_limit, // Final Acc in "g" units
-      Pressure                    a_Q_limit,
-      double                      a_longG_limit,
+      std::vector<double>*  a_init_vals,
+      LenK                  a_land_dL_limit,
+      VelK                  a_land_V_limit,
+      Pressure              a_Q_limit,
+      double                a_longG_limit,
       // NOMAD Params:
-      int                         a_max_evals,
-      int                         a_opt_seed,
-      bool                        a_stop_if_feasible,
-      double                      a_use_vns,         // In [0..1), 0: no VNS
-      bool                        a_use_mt           // true unless debugging
+      int                   a_max_evals,
+      int                   a_opt_seed,
+      bool                  a_stop_if_feasible,
+      double                a_use_vns,         // In [0..1), 0: no VNS
+      bool                  a_use_mt           // true unless debugging
     );
+
+    //=======================================================================//
+    // "MkEstimates": To narrow down the optimisation domain:                //
+    //=======================================================================//
+    // Returns (dVhor, propMassS) estimates, w/o accounting for the atmospheric 
+    // drag effects:
+    //
+    static std::pair<VelK, Mass>
+    MkEstimates
+    (
+      LenK  a_hS,
+      LenK  a_lS,
+      VelK  a_VS,
+      Angle a_psiS,
+      Mass  a_empty_mass,
+      Mass  a_unspendable_mass,
+      Time  a_IspVac1
+    );
+
+    //=======================================================================//
+    // "LandBurn" Calibration and Application:                               //
+    //=======================================================================//
+    // "CalibrateLandBurnParams" is run "OFF-LINE" to generate the data for the
+    // "on-line" LandBurn Ctl function ("SetLandBurnParams"):
+  public:
+    static void CalibrateLandBurnParams();
+
+  private:
+    void SetLandBurnParams(LenK a_ref_h, VelK a_ref_Vr, VelK a_ref_Vhor);
   };
 }
 // End namespace SpaceBallistics

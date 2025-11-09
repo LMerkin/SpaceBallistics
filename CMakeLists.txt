@@ -217,8 +217,8 @@ SET(SRCS
   Src/Missions/Ascent2-OptGen.cpp
   Src/Missions/Ascent2-NOMAD.cpp
   Src/Missions/RTLS1-Integr.cpp
-  Src/Missions/RTLS1-OptGen.cpp
-  Src/Missions/RTLS1-NOMAD.cpp)
+  Src/Missions/RTLS1-Opt.cpp
+  Src/Missions/RTLS1-Landing.cpp)
 
 ADD_LIBRARY          (${PROJECT_NAME} STATIC ${SRCS})
 

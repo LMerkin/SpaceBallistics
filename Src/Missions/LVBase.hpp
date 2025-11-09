@@ -141,7 +141,7 @@ const
   assert(!(IsNeg(drag) || IsNeg(lift)));
 
   // Propellant Burn Rate (>= 0) and Thrust:
-  MassRate burnRate = ToDer()->PropBurnRate(a_m, a_t);
+  MassRate burnRate = ToDer()->PropBurnRate(a_m, a_r - R, a_t);
   assert(!IsNeg(burnRate));
 
   Pressure p        = std::get<0> (atm);
@@ -218,6 +218,8 @@ template<typename Derived>
 typename LVBase<Derived>::DStateV
 LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t, bool a_is_ascent) const
 {
+  assert((a_is_ascent && !IsPos(a_t)) || (!a_is_ascent && !IsNeg(a_t)));
+
   // NB: In the RHS evaluation, r <= R is allowed, as it does not cause any
   // singularities by itself; but we detect this condition in the Call-Back,
   // which means that the integration is over (successfully or otherwise):
@@ -281,7 +283,7 @@ LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t, bool a_is_ascent) const
   // In the Descent(Fwd) mode, spentPropMass = int_0^t burnRate(t') dt',
   // therefore
   //   dot(spentPropMass)  =  burnRate  >= 0;
-  // in the Ascent (Bwd) mode, spentPropMass = int_t^0 birnRate(t') dt'
+  // in the Ascent (Bwd) mode, spentPropMass = int_t^0 burnRate(t') dt'
   // (where t <= 0), and thus
   //   dot(spentPropMass)  = -burnRate  <= 0,
   // but in both cases, spentPropMass >= 0:
@@ -352,10 +354,8 @@ const
 #     pragma omp critical(Output)
       *m_os << "# LVBase::LocateSingularPoint: ERROR: Ascent, but Vr1="
             << Vr1.Magnitude() << " km/sec" << std::endl;
-
-    return RunRes
-          {RunRC::Error,  Time(NAN), LenK(NAN), VelK(NAN), AccK(NAN), Mass(NAN),
-           Pressure(NAN), Pressure(NAN),  NAN};
+    // Return Error:
+    return RunRes();
   }
   // Thus: at this point, Ascent => Vr > 0:
   assert(!a_is_ascent || IsPos(Vr1));
@@ -392,7 +392,7 @@ const
   auto atm = EAM::GetAtmConds(h1);
 
   // Propellant BurnRate (>= 0) and Thrust:
-  MassRate burnRate1 = ToDer()->PropBurnRate(m1, t1);
+  MassRate burnRate1 = ToDer()->PropBurnRate(m1, h1, t1);
   assert(!IsNeg(burnRate1));
 
   // We will assume that the Thrust vector is pointing strictly UpWards
@@ -417,14 +417,14 @@ const
   // Edge Cases:                                                             //
   //-------------------------------------------------------------------------//
   if (IsZero(h1))
-    return RunRes{RunRC::ZeroH,       t1, LS, Abs(Vr1), Abs(acc1), m1,
-                  maxQ, sepQ, maxLongG};
+    return RunRes(RunRC::ZeroH,       t1, LS, Abs(Vr1), Abs(acc1), m1,
+                  maxQ, sepQ, maxLongG);
 
   // If Vr1=0, then we are at the Singular Point -- but with h1 > 0, we must
   // return the equivalent "V0":
   if (IsZero(Vr1))
-    return RunRes{RunRC::Singularity, t1, LS, V0,  Abs(acc1), m1,
-                  maxQ, sepQ, maxLongG};
+    return RunRes(RunRC::Singularity, t1, LS, V0,  Abs(acc1), m1,
+                  maxQ, sepQ, maxLongG);
 
   if (!IsPos(acc1))
   {
@@ -439,10 +439,8 @@ const
         *m_os << "# LVBase::LocateSingularPoint: ERROR: UnReachable: Acc="
               << double(acc1 / g1) << " g, Vr="      << Vr1.Magnitude()
               << " km/sec, h="     << h1.Magnitude() << " km" << std::endl;
-
-      return RunRes
-            {RunRC::Error, Time(NAN),     LenK(NAN),     VelK(NAN), AccK(NAN),
-             Mass(NAN),    Pressure(NAN), Pressure(NAN),      NAN};
+      // Return Error:
+      return RunRes();
     }
     else
     {
@@ -460,8 +458,8 @@ const
       //     Descent mode;
       // (*) XXX: We do not compute the Fall Time, so use NAN (not "t1"):
       //
-      return RunRes{RunRC::ZeroH, Time(NAN), LS, V0, Abs(acc1), m1,
-                    maxQ,   sepQ, maxLongG};
+      return RunRes(RunRC::ZeroH, Time(NAN), LS, V0, Abs(acc1), m1,
+                    maxQ,   sepQ, maxLongG);
     }
   }
   // So: The remaining Generic Case:
@@ -495,8 +493,8 @@ const
     // XXX: Still, since acc1 < 0, we assume that we will eventually fall back
     // to Earth with the velocity "V0", although the fall time is UNKNOWN (NAN):
     //
-    return RunRes{RunRC::ZeroH, Time(NAN), LS, V0, Abs(acc1), m1,
-                  maxQ,  sepQ,  maxLongG};
+    return RunRes(RunRC::ZeroH, Time(NAN), LS, V0, Abs(acc1), m1,
+                  maxQ,  sepQ,  maxLongG);
   }
   // Thus:
   assert(a_is_ascent == IsNeg(tau));
@@ -553,8 +551,8 @@ const
   AccK accS = thrust1 / mS - g1;
 
   // The final result:
-  return RunRes{RunRC::Singularity, tS, LS, V0, Abs(accS), mS,
-                maxQ, sepQ, maxLongG};
+  return RunRes(RunRC::Singularity, tS, LS, V0, Abs(accS), mS,
+                maxQ, sepQ, maxLongG);
 }
 
 //===========================================================================//
@@ -640,7 +638,7 @@ const
   // OK for the moment:
   VelK   V0   = SqRt(VEnd2 + 2.0 * K * (1.0 / R - 1.0 / rEnd));
 
-  return RunRes{rc, a_T, lEnd, V0, accEnd, mEnd, maxQ, sepQ, maxLongG};
+  return RunRes(rc, a_T, lEnd, V0, accEnd, mEnd, maxQ, sepQ, maxLongG);
 }
 }
 // End namespace SpaceBallistics
