@@ -4,54 +4,10 @@
 //           Return-to-(Launch/Landing)-Site: Parametric Optimisation        //
 //===========================================================================//
 #include "SpaceBallistics/Missions/RTLS1.h"
+#include "SpaceBallistics/Missions/MkNOMADParams.hpp"
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/algorithm/string.hpp>
 #include <vector>
-
-// XXX: NOMAD headers produce tons of warnings, suppress them all:
-#ifdef   __clang__
-#pragma  clang diagnostic push
-#pragma  clang diagnostic ignored "-Wunused-parameter"
-#pragma  clang diagnostic ignored "-Wnon-virtual-dtor"
-#pragma  clang diagnostic ignored "-Wcast-qual"
-#pragma  clang diagnostic ignored "-Wcast-align"
-#pragma  clang diagnostic ignored "-Wold-style-cast"
-#pragma  clang diagnostic ignored "-Wsuggest-override"
-#pragma  clang diagnostic ignored "-Wsuggest-destructor-override"
-#pragma  clang diagnostic ignored "-Woverloaded-virtual"
-#pragma  clang diagnostic ignored "-Wshadow"
-#pragma  clang diagnostic ignored "-Wextra-semi"
-#pragma  clang diagnostic ignored "-Wunused-member-function"
-#pragma  clang diagnostic ignored "-Winconsistent-missing-destructor-override"
-#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-dtor"
-#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-copy"
-#pragma  clang diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
-#pragma  clang diagnostic ignored "-Wreserved-identifier"
-#pragma  clang diagnostic ignored "-Wheader-hygiene"
-#pragma  clang diagnostic ignored "-Wsign-conversion"
-#pragma  clang diagnostic ignored "-Warray-bounds"
-#pragma  clang diagnostic ignored "-Wmissing-noreturn"
-#pragma  clang diagnostic ignored "-Wexit-time-destructors"
-#pragma  clang diagnostic ignored "-Wglobal-constructors"
-#pragma  clang diagnostic ignored "-Wundefined-func-template"
-#else
-#pragma  GCC   diagnostic push
-#pragma  GCC   diagnostic ignored "-Wunused-parameter"
-#pragma  GCC   diagnostic ignored "-Woverloaded-virtual="
-#pragma  GCC   diagnostic ignored "-Wnon-virtual-dtor"
-#pragma  GCC   diagnostic ignored "-Wcast-qual"
-#pragma  GCC   diagnostic ignored "-Warray-bounds"
-#pragma  GCC   diagnostic ignored "-Wold-style-cast"
-#pragma  GCC   diagnostic ignored "-Wcast-align"
-#endif
-#include <Nomad/nomad.hpp>
-#include <Cache/CacheBase.hpp>
-#ifdef   __clang__
-#pragma  clang diagnostic pop
-#else
-#pragma  GCC   diagnostic pop
-#endif
-#include "MkNOMADParams.hpp"
 
 namespace SpaceBallistics
 {
@@ -250,25 +206,11 @@ RTLS1::RTLS1
   //-----------//
   // LandBurn: //
   //-----------//
-  // Use either the  "*calibr*" params (if we are in the Calibration mode), or
-  // the vals set by "SetLandBurnParams" method (which uses already-calibrated
-  // functions):
-  if (IsFinite(m_calibrLandBurnH))
-  {
-    assert  (IsFinite(m_calibrLandBurnGamma));
-    m_landBurnH     = m_calibrLandBurnH;
-    m_landBurnGamma = m_calibrLandBurnGamma;
-    assert(!IsNeg(m_landBurnH)    && m_landBurnH     <= MaxLandBurnH &&
-           0.0 <= m_landBurnGamma && m_landBurnGamma <= 1.0);
-  }
-  else
-  {
-    // Don't set the LandBurn params yet -- this can only be done when the args
-    // for "SetLandBurnParams" become known; for now, they are NANs:
-    assert (!IsFinite(m_calibrLandBurnGamma));
-    m_landBurnH     = LenK(NAN);
-    m_landBurnGamma = NAN;
-  }
+  // Don't set the LandBurn params yet -- they are set dynamically or externally
+  // at a later stage; for now, they are NANs:
+  m_landBurnH     = LenK(NAN);
+  m_landBurnGamma = NAN;
+
   // All Done!
 }
 
@@ -313,6 +255,140 @@ std::ostream& operator<< (std::ostream& a_os, RTLS1::OptRes const& a_res)
       << "\n\tlandBurnGamma   = " << a_res.m_landBurnGamma
       << std::endl;
 }
+
+//===========================================================================//
+// "RTLS1::NOMADMainEvaluator": Helper Class used in NOMAD Optimisation:     //
+//===========================================================================//
+class RTLS1::NOMADMainEvaluator final: public NOMAD::Evaluator
+{
+private:
+  //=========================================================================//
+  // Data Flds:                                                              //
+  //=========================================================================//
+  // LV Params:
+  RTLS1 const*  const m_proto;
+
+  // Optimisation Limits (Constraints):
+  LenK          const m_landDLLimit;
+  Pressure      const m_QLimit;
+  double        const m_longGLimit;
+
+public:
+  //=========================================================================//
+  // Non-Default Ctor, Dtor:                                                 //
+  //=========================================================================//
+  NOMADMainEvaluator
+  (
+    std::shared_ptr<NOMAD::EvalParameters> const& a_params,
+    // LV Proto:
+    RTLS1 const*                                  a_proto,
+    // Optimisation Limits (Constraints):
+    LenK                                          a_land_dL_limit,
+    Pressure                                      a_Q_limit,
+    double                                        a_longG_limit
+  )
+  : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
+    m_proto         (a_proto),
+    m_landDLLimit   (a_land_dL_limit),
+    m_QLimit        (a_Q_limit),
+    m_longGLimit    (a_longG_limit)
+  {
+    assert(m_proto != nullptr);
+
+    if (!(IsPos(m_landDLLimit) && IsPos(m_QLimit) && IsPos(m_longGLimit)))
+      throw std::invalid_argument
+            ("RTLS1::NOMADMainEvaluator::Ctor: Invalid Limit(s)");
+  }
+
+  ~NOMADMainEvaluator() override {}
+
+  //=========================================================================//
+  // "eval_x": The Actual Evaluation Method for NOMAD:                       //
+  //=========================================================================//
+  bool eval_x
+  (
+    NOMAD::EvalPoint&    a_x,  // Not "const" -- the result is also set here
+    NOMAD::Double const& UNUSED_PARAM(a_hMax),
+    bool&                a_countEval
+  )
+  const override
+  {
+    // XXX: For the moment, all params are optimised over:
+    assert(a_x.size() == NP);
+
+    //-----------------------------------------------------------------------//
+    // For Thread-Safety, construct a new "RTLS1" obj from "Proto":          //
+    //-----------------------------------------------------------------------//
+    RTLS1 rtls
+    (
+      *m_proto,
+      m_QLimit,
+      a_x[ 0].todouble(),    // propMassSN
+      a_x[ 1].todouble(),    // coastDurN
+      a_x[ 2].todouble(),    // bbBurnDurN
+      a_x[ 3].todouble(),    // bbBurnThrtLN0
+      a_x[ 4].todouble(),    // bbBurnThrtLN1
+      a_x[ 5].todouble(),    // bbBurnTheta0
+      a_x[ 6].todouble(),    // bbBurnTheta1
+      a_x[ 7].todouble(),    // entryBurnQN
+      a_x[ 8].todouble(),    // entryBurnDurN
+      a_x[ 9].todouble(),    // entryBurnThrtLN0
+      a_x[10].todouble()     // entryBurnThrtLN1
+    );
+    static_assert(10 == NP-1);
+
+    //-----------------------------------------------------------------------//
+    // Run the Integrator!                                                   //
+    //-----------------------------------------------------------------------//
+    // NB: Exceptions are handled inside "Run":
+    RunRes res = rtls.Run(RTLS1::FlightMode::Coast);
+
+    // IMPORTANT: NOMAD allows us to indicate that evaluation has failed:
+    if (res.m_rc == RunRC::Error)
+      return false;
+
+    //-----------------------------------------------------------------------//
+    // Push the results back to NOMAD in string form:                        //
+    //-----------------------------------------------------------------------//
+    char  buff[512];
+    char* curr = buff;
+
+    // The Objective Function Value (to me minimised): It is "propMassS" itself
+    // (provided that all constraints are satisfied):
+    curr += sprintf(curr, "%.16e",  rtls.m_propMass1.Magnitude());
+
+    // Constraints:
+    // Down-Range Miss (the aiming point is 0):
+    LenK dL = Abs(res.m_LT);
+    curr += sprintf(curr, " %.16e", (dL         - m_landDLLimit).Magnitude());
+
+    // The MaxQ encountered:
+    assert(!IsNeg(res.m_maxQ));
+    curr += sprintf(curr, " %.16e", (res.m_maxQ - m_QLimit).Magnitude());
+
+    // The Max LongG encountered:
+    assert(!IsNeg(res.m_maxLongG));
+    curr += sprintf(curr, " %.16e",  res.m_maxLongG - m_longGLimit);
+
+    // Done!
+    assert(size_t(curr - buff) <= sizeof(buff));
+
+    if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 2)
+#   pragma omp critical(Output)
+    {
+      (*m_proto->m_os)   << "# PARAMS:";
+      for (int i = 0; i < int(a_x.size()); ++i)
+        (*m_proto->m_os) << "  " << a_x[size_t(i)].todouble();
+
+      *(m_proto->m_os)   << "\n# RES   :  " << buff << std::endl << std::endl;
+    }
+
+    // Set the results back in "a_x":
+    a_x.setBBO(buff);
+    a_countEval = true;
+    return        true;
+  }
+};
 
 //===========================================================================//
 // "FindOptimalAscentCtls"                                                   //
@@ -370,10 +446,9 @@ RTLS1::FindOptimalReturnCtls
   // The initial vals of all (NORMALISED) params: 0.5:
   std::vector<double> initParamsN(NP, 0.5);
 
-  // The Limits:
-  // TODO: Possibly add the Acceleration Limit at Landing as well:
+  // The Limits: XXX: Landing Velocity and Acceleration Limits are treated
+  // SEPARETELY:
   LenK     landDLLimit    (pt.get<double>("Opt.LandDLLimit"));
-  VelK     landVLimit     (pt.get<double>("Opt.LandVLimit")) ;
   Pressure QLimit         (pt.get<double>("Opt.QLimit"  ));
   double   longGLimit    = pt.get<double>("Opt.LongGLimit");
 
@@ -401,21 +476,62 @@ RTLS1::FindOptimalReturnCtls
   );
 
   //-------------------------------------------------------------------------//
-  // Actually run the Optimiser:                                             //
+  // Create the NOMAD Optimiser:                                             //
   //-------------------------------------------------------------------------//
-  // XXX: For the moment, only the NOMAD Optimiser is available.
-  // The results are returned via the "initParamsN":
-  bool ok =
-    RunNOMAD
-    (
-      &proto,      &initParamsN,
-      landDLLimit, landVLimit, QLimit,         longGLimit,
-      optMaxEvals, optSeed,    stopIfFeasible, useVNS,  useMT
-    );
+  // Create the Main NOMAD obj:
+  NOMAD::MainStep opt;
 
-  if (!ok)
+  // Create and set the NOMAD params:
+  // There are 3 Constraints: (LandMissL, MaxQ, MaxLongG),
+  // but their actual vals are not required at this point;
+  // XXX: the Landing Velocity is NOT a formal constraint; we make it near-0 by
+  // calibrating the LandBurnH and LandBurnGamma, but do not include  it in the
+  // list of constraints to avoid the instabilities in NOMAD:
+  //
+  constexpr int NC = 3;
+
+  // LoBounds and UpBounds are All-0s and All-1s, resp.:
+  std::vector<double> loBounds(initParamsN.size(), 0.0);
+  std::vector<double> upBounds(initParamsN.size(), 1.0);
+
+  std::shared_ptr<NOMAD::AllParameters> params =
+    MkNOMADParams(initParamsN, loBounds, upBounds,       NC,
+                  optMaxEvals, optSeed,  stopIfFeasible, useVNS, useMT);
+
+  opt.setAllParameters(params);
+
+  // Create the "NOMADMainEvaluator":
+  std::unique_ptr<NOMADMainEvaluator> ev
+    (new NOMADMainEvaluator
+    (
+      params->getEvalParams(),
+      &proto,
+      landDLLimit, QLimit, longGLimit
+    ));
+  opt.setEvaluator(std::move(ev));
+
+  //-------------------------------------------------------------------------//
+  // RUN the Optimiser:                                                      //
+  //-------------------------------------------------------------------------//
+  opt.start();
+  opt.run();
+  opt.end();
+
+  //-------------------------------------------------------------------------//
+  // Extract the results:                                                    //
+  //-------------------------------------------------------------------------//
+  std::vector<NOMAD::EvalPoint> feasPts;
+  (void) NOMAD::CacheBase::getInstance()->findBestFeas(feasPts);
+
+  if (feasPts.empty())
     // No feasible solution has been found, "intParamsN" is invalid:
     return std::make_pair(std::nullopt, std::nullopt);
+
+  // If OK: Put the best solution back to "initParamsN":
+  NOMAD::EvalPoint bestF = feasPts[0];
+
+  for (int unsigned j = 0; j < initParamsN.size(); ++j)
+    initParamsN[j] = bestF[j].todouble();
 
   //-------------------------------------------------------------------------//
   // Post-Processing:                                                        //
@@ -441,19 +557,22 @@ RTLS1::FindOptimalReturnCtls
   );
   static_assert(10 == NP-1);
 
-  // The Optimisation Result:
-  std::optional<OptRes> optRes = OptRes(rtls);
-
   if (withFinalRun)
   {
     //-----------------------------------------------------------------------//
     // Perform the Final Run on the optimised params (in "rtls"):            //
     //-----------------------------------------------------------------------//
     rtls.m_logLevel     = finalRunLogLevel;
-    Base::RunRes runRes = rtls.Run();
-    return std::make_pair(optRes, runRes);
+    Base::RunRes runRes = rtls.Run(RTLS1::FlightMode::Coast);
+
+    // NB: "optRes" needs to reflect the dynamic effects of the Funal Run:
+    std::optional<OptRes> optRes = OptRes(rtls);
+    return std::make_pair(optRes,  runRes);
   }
-  // Otherwise, there is no "runRes":
+
+  // Otherwise, there is no "runRes", and "optRes" is taken w/o the dynamic
+  // effects:
+  std::optional<OptRes>   optRes = OptRes(rtls);
   return   std::make_pair(optRes, std::nullopt);
 }
 
@@ -526,225 +645,6 @@ std::pair<VelK, Mass> RTLS1::MkEstimates
 
   assert (propMassS > a_unspendable_mass);
   return std::make_pair(dVhor, propMassS);
-}
-
-//===========================================================================//
-// "RTLS1::NOMADEvaluator": Helper Class used in NOMAD Optimisation:         //
-//===========================================================================//
-class RTLS1::NOMADEvaluator final: public NOMAD::Evaluator
-{
-private:
-  //=========================================================================//
-  // Data Flds:                                                              //
-  //=========================================================================//
-  // LV Params:
-  RTLS1 const*      const m_proto;
-  // Optimisation Limits (Constraints):
-  LenK              const m_landDLLimit;
-  VelK              const m_landVLimit;
-  Pressure          const m_QLimit;
-  double            const m_longGLimit;
-
-public:
-  //=========================================================================//
-  // Non-Default Ctor, Dtor:                                                 //
-  //=========================================================================//
-  NOMADEvaluator
-  (
-    std::shared_ptr<NOMAD::EvalParameters> const& a_params,
-    // LV Proto:
-    RTLS1 const*                                  a_proto,
-    // Optimisation Limits (Constraints):
-    LenK                                          a_land_dL_limit,
-    VelK                                          a_land_V_limit,
-    Pressure                                      a_Q_limit,
-    double                                        a_longG_limit
-  )
-  : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
-    m_proto         (a_proto),
-    m_landDLLimit   (a_land_dL_limit),
-    m_landVLimit    (a_land_V_limit),
-    m_QLimit        (a_Q_limit),
-    m_longGLimit    (a_longG_limit)
-  {
-    assert(m_proto != nullptr);
-
-    if (!(IsPos(m_landDLLimit) && IsPos(m_landVLimit) &&
-          IsPos(m_QLimit)      && IsPos(m_longGLimit)))
-      throw std::invalid_argument
-            ("RTLS1::NOMADEvaluator::Ctor: Invalid Limit(s)");
-  }
-
-  ~NOMADEvaluator() override {}
-
-  //=========================================================================//
-  // "eval_x": The Actual Evaluation Method for NOMAD:                       //
-  //=========================================================================//
-  bool eval_x
-  (
-    NOMAD::EvalPoint&    a_x,  // Not "const" -- the result is also set here
-    NOMAD::Double const& UNUSED_PARAM(a_hMax),
-    bool&                a_countEval
-  )
-  const override
-  {
-    // XXX: For the moment, all params are optimised over:
-    assert(a_x.size() == NP);
-
-    //-----------------------------------------------------------------------//
-    // For Thread-Safety, construct a new "RTLS1" obj:                       //
-    //-----------------------------------------------------------------------//
-    RTLS1 rtls
-    (
-      *m_proto,
-      m_QLimit,
-      a_x[ 0].todouble(),    // propMassSN
-      a_x[ 1].todouble(),    // coastDurN
-      a_x[ 2].todouble(),    // bbBurnDurN
-      a_x[ 3].todouble(),    // bbBurnThrtLN0
-      a_x[ 4].todouble(),    // bbBurnThrtLN1
-      a_x[ 5].todouble(),    // bbBurnTheta0
-      a_x[ 6].todouble(),    // bbBurnTheta1
-      a_x[ 7].todouble(),    // entryBurnQN
-      a_x[ 8].todouble(),    // entryBurnDurN
-      a_x[ 9].todouble(),    // entryBurnThrtLN0
-      a_x[10].todouble()     // entryBurnThrtLN1
-    );
-    static_assert(10 == NP-1);
-
-    //-----------------------------------------------------------------------//
-    // Run the Integrator!                                                   //
-    //-----------------------------------------------------------------------//
-    RunRes res = rtls.Run(); // NB: Exceptions are handled inside "Run"
-
-    // IMPORTANT: NOMAD allows us to indicate that evaluation has failed:
-    if (res.m_rc == RunRC::Error)
-      return false;
-
-    //-----------------------------------------------------------------------//
-    // Push the results back to NOMAD in string form:                        //
-    //-----------------------------------------------------------------------//
-    char  buff[512];
-    char* curr = buff;
-
-    // The Objective Function Value (to me minimised): It is "propMassS" itself
-    // (provided that all constraints are satisfied):
-    curr += sprintf(curr, "%.16e",  rtls.m_propMass1.Magnitude());
-
-    // Constraints:
-    // Down-Range Miss (the aiming point is 0):
-    LenK dL = Abs(res.m_LT);
-    curr += sprintf(curr, " %.16e", (dL         - m_landDLLimit).Magnitude());
-
-    // The MaxQ encountered:
-    assert(!IsNeg(res.m_maxQ));
-    curr += sprintf(curr, " %.16e", (res.m_maxQ - m_QLimit).Magnitude());
-
-    // The Max LongG encountered:
-    assert(!IsNeg(res.m_maxLongG));
-    curr += sprintf(curr, " %.16e",  res.m_maxLongG - m_longGLimit);
-
-    // Done!
-    assert(size_t(curr - buff) <= sizeof(buff));
-
-    if (m_proto->m_os != nullptr && m_proto->m_logLevel >= 2)
-#   pragma omp critical(Output)
-    {
-      (*m_proto->m_os)   << "# PARAMS:";
-      for (int i = 0; i < int(a_x.size()); ++i)
-        (*m_proto->m_os) << "  " << a_x[size_t(i)].todouble();
-
-      *(m_proto->m_os)   << "\n# RES   :  " << buff << std::endl << std::endl;
-    }
-
-    // Set the results back in "a_x":
-    a_x.setBBO(buff);
-    a_countEval = true;
-    return        true;
-  }
-};
-
-//===========================================================================//
-// "RunNOMAD":                                                               //
-//===========================================================================//
-bool RTLS1::RunNOMAD
-(
-  // LV Proto:
-  RTLS1 const*            a_proto,
-  // Optimisation Params:
-  std::vector<double>*    a_init_vals,
-  LenK                    a_land_dL_limit,
-  VelK                    a_land_V_limit,
-  Pressure                a_Q_limit,
-  double                  a_longG_limit,
-  // NOMAD Params:
-  int                     a_max_evals,
-  int                     a_opt_seed,
-  bool                    a_stop_if_feasible,
-  double                  a_use_vns,
-  bool                    a_use_mt
-)
-{
-  assert(a_proto != nullptr && a_init_vals != nullptr);
-  // NB: Other params are passed to the "NOMADEvaluator" Ctor and checked there
-
-  //-------------------------------------------------------------------------//
-  // Generic Case: Perform NOMAD Optimisation:                               //
-  //-------------------------------------------------------------------------//
-  // Create the Main NOMAD obj:
-  NOMAD::MainStep opt;
-
-  // Create and set the NOMAD params:
-  // There are 3 Constraints: (LandMissL, MaxQ, MaxLongG),
-  // but their actual vals are not required at this point;
-  // XXX: the Landing Velocity is NOT a formal constraint; we make it near-0 by
-  // calibrating the LandBurnH and LandBurnGamma, but do not include  it in the
-  // list of constraints to avoid the instabilities in NOMAD:
-  //
-  constexpr int NC = 3;
-
-  // LoBounds and UpBounds are All-0s and All-1s, resp.:
-  std::vector<double> loBounds(a_init_vals->size(), 0.0);
-  std::vector<double> upBounds(a_init_vals->size(), 1.0);
-
-  std::shared_ptr<NOMAD::AllParameters> params =
-    MkNOMADParams(*a_init_vals, loBounds,   upBounds,       NC,
-                  a_max_evals,  a_opt_seed, a_stop_if_feasible, a_use_vns,
-                  a_use_mt);
-
-  opt.setAllParameters(params);
-
-  //-------------------------------------------------------------------------//
-  // Create and Run the "NOMADEvaluator":                                    //
-  //-------------------------------------------------------------------------//
-  std::unique_ptr<NOMADEvaluator> ev
-    (new NOMADEvaluator
-    (
-      params->getEvalParams(),
-      a_proto,
-      a_land_dL_limit, a_land_V_limit, a_Q_limit, a_longG_limit
-    ));
-  opt.setEvaluator(std::move(ev));
-
-  // RUN!
-  opt.start();
-  opt.run();
-  opt.end();
-
-  // Extract the results:
-  std::vector<NOMAD::EvalPoint> feasPts;
-  (void) NOMAD::CacheBase::getInstance()->findBestFeas(feasPts);
-  if (feasPts.empty())
-    return false;
-
-  // If OK: Put the best solution back to "initVals":
-  NOMAD::EvalPoint bestF = feasPts[0];
-
-  for (int unsigned j = 0; j < a_init_vals->size(); ++j)
-    (*a_init_vals)[j] = bestF[j].todouble();
-
-  // All Done:
-  return true;
 }
 }
 // End namespace SpaceBallistics

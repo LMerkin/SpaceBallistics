@@ -436,34 +436,6 @@ namespace SpaceBallistics
       std::string const& a_config_ini,
       std::ostream*      a_os   // May be NULL
     );
-
-  private:
-    //=======================================================================//
-    // "RunNOMAD":                                                           //
-    //=======================================================================//
-    // Helper invoked from "FindOptimalAscentCtls". Returns "true" on success
-    // (then "a_init_vals" contains the optimal params),   "false" otherwise:
-    //
-    static bool RunNOMAD
-    (
-      // Main Optimisation Problem Setup:
-      Ascent2             const*    a_proto,
-      std::array<bool,NP> const&    a_act_opts,
-      std::vector<double>*          a_init_vals,  // Non-NULL, size <= NP
-      std::vector<double> const&    a_lo_bounds,  //           size <= NP
-      std::vector<double> const&    a_up_bounds,  //           size <= NP
-      // Optimisation Constraints:
-      VelK                          a_startV_limit,
-      Pressure                      a_Q_limit,
-      Pressure                      a_sepQ_limit,
-      double                        a_longG_limit,
-      // NOMAD Params:
-      int                           a_max_evals,
-      int                           a_opt_seed,
-      bool                          a_stop_if_feasible,
-      double                        a_use_vns,    // In [0..1), 0: no VNS
-      bool                          a_use_mt      // true unless debugging
-    );
   };
 }
 // End namespace SpaceBallistics

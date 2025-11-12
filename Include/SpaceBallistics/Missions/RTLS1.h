@@ -145,16 +145,9 @@ namespace SpaceBallistics
     constexpr static int NP = 11;
 
     // LandBurn:
-    // The following params are only used in calibartion of the resp "dynamic"
-    // funcs, NOT in real trajectories. If they are set, those "dynamic" funcs
-    // are NOT used (because they have not been properly constructed yet -- we
-    // are only in the process of calibrating them):
-    LenK                    m_calibrLandBurnH;
-    double                  m_calibrLandBurnGamma;
-
-    // And the following params are actually used -- they are set dynamically
-    // either from the above "m_calibr*" params (if they are themselves set!),
-    // or by the functions provided in "SetLandBurnParams":
+    // The following params are set either by the Calibrator or dynamically by
+    // the functions provided in "SetLandBurnParams", so they are NOT included
+    // into the above set of "NP" optimisation params:
     LenK                    m_landBurnH;
     double                  m_landBurnGamma;
 
@@ -237,7 +230,10 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // "Run": Integrate the Return Trajectory:                               //
     //-----------------------------------------------------------------------//
-    Base::RunRes Run();
+    // NB: "a_init_mode" is "Coast" in the "Main Run", and "EndoAtmDesc" in the
+    // "Calibration Run":
+    //
+    Base::RunRes Run(FlightMode a_init_mode);
 
   private:
     //=======================================================================//
@@ -272,10 +268,13 @@ namespace SpaceBallistics
     Mass LVMass(StateV const& a_s, Time a_t) const;
 
     //-----------------------------------------------------------------------//
-    // "NOMADEvaluator": Helper Class used in NOMAD Optimisation:            //
+    // "NOMAD{Main,Calibr}Evaluator": Helper Classes for NOMAD Optimisation: //
     //-----------------------------------------------------------------------//
-    class        NOMADEvaluator;
-    friend class NOMADEvaluator;
+    class        NOMADMainEvaluator;
+    friend class NOMADMainEvaluator;
+
+    class        NOMADCalibrEvaluator;
+    friend class NOMADCalibrEvaluator;
 
   public:
     //-----------------------------------------------------------------------//
@@ -330,30 +329,6 @@ namespace SpaceBallistics
 
   private:
     //=======================================================================//
-    // "RunNOMAD":                                                           //
-    //=======================================================================//
-    // Helper invoked from "FindOptimalReturnCtls". Returns "true" on success
-    // (then "a_init_vals" contains the optimal params),   "false" otherwise:
-    //
-    static bool RunNOMAD
-    (
-      // LV Proto:
-      RTLS1 const*          a_proto,
-      // Optimisation Params:
-      std::vector<double>*  a_init_vals,
-      LenK                  a_land_dL_limit,
-      VelK                  a_land_V_limit,
-      Pressure              a_Q_limit,
-      double                a_longG_limit,
-      // NOMAD Params:
-      int                   a_max_evals,
-      int                   a_opt_seed,
-      bool                  a_stop_if_feasible,
-      double                a_use_vns,         // In [0..1), 0: no VNS
-      bool                  a_use_mt           // true unless debugging
-    );
-
-    //=======================================================================//
     // "MkEstimates": To narrow down the optimisation domain:                //
     //=======================================================================//
     // Returns (dVhor, propMassS) estimates, w/o accounting for the atmospheric 
@@ -380,7 +355,13 @@ namespace SpaceBallistics
     static void CalibrateLandBurnParams();
 
   private:
-    void SetLandBurnParams(LenK a_ref_h, VelK a_ref_Vr, VelK a_ref_Vhor);
+    void SetLandBurnParams
+    (
+      LenK a_ref_h,
+      VelK a_ref_Vr,
+      VelK a_ref_Vhor,
+      Mass a_ref_prop_mass
+    );
   };
 }
 // End namespace SpaceBallistics

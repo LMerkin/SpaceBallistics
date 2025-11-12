@@ -1,12 +1,55 @@
 // vim:ts=2:et
 //===========================================================================//
-//                        "Missions/MkNOMADParams.hpp":                      //
-//               Common Part of NOMAD Interface Initialisation               //
+//              "SpaceBallistics/Missions/MkNOMADParams.hpp":                //
+//              Common Part of NOMAD Interface Initialisation                //
 //===========================================================================//
-// XXX: This header can only be included in the context of <Nomad/nomad.hpp>;
-// however,  it is not included automatically   because it requires multiple
-// pragmas to suppess cimpiler warnings
 #pragma  once
+//---------------------------------------------------------------------------//
+// XXX: NOMAD headers produce tons of warnings, suppress them all:           //
+//---------------------------------------------------------------------------//
+#ifdef   __clang__
+#pragma  clang diagnostic push
+#pragma  clang diagnostic ignored "-Wunused-parameter"
+#pragma  clang diagnostic ignored "-Wnon-virtual-dtor"
+#pragma  clang diagnostic ignored "-Wcast-qual"
+#pragma  clang diagnostic ignored "-Wcast-align"
+#pragma  clang diagnostic ignored "-Wold-style-cast"
+#pragma  clang diagnostic ignored "-Wsuggest-override"
+#pragma  clang diagnostic ignored "-Wsuggest-destructor-override"
+#pragma  clang diagnostic ignored "-Woverloaded-virtual"
+#pragma  clang diagnostic ignored "-Wshadow"
+#pragma  clang diagnostic ignored "-Wextra-semi"
+#pragma  clang diagnostic ignored "-Wunused-member-function"
+#pragma  clang diagnostic ignored "-Winconsistent-missing-destructor-override"
+#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-dtor"
+#pragma  clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-copy"
+#pragma  clang diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
+#pragma  clang diagnostic ignored "-Wreserved-identifier"
+#pragma  clang diagnostic ignored "-Wheader-hygiene"
+#pragma  clang diagnostic ignored "-Wsign-conversion"
+#pragma  clang diagnostic ignored "-Warray-bounds"
+#pragma  clang diagnostic ignored "-Wmissing-noreturn"
+#pragma  clang diagnostic ignored "-Wexit-time-destructors"
+#pragma  clang diagnostic ignored "-Wglobal-constructors"
+#pragma  clang diagnostic ignored "-Wundefined-func-template"
+#else
+#pragma  GCC   diagnostic push
+#pragma  GCC   diagnostic ignored "-Wunused-parameter"
+#pragma  GCC   diagnostic ignored "-Woverloaded-virtual="
+#pragma  GCC   diagnostic ignored "-Wnon-virtual-dtor"
+#pragma  GCC   diagnostic ignored "-Wcast-qual"
+#pragma  GCC   diagnostic ignored "-Warray-bounds"
+#pragma  GCC   diagnostic ignored "-Wold-style-cast"
+#pragma  GCC   diagnostic ignored "-Wcast-align"
+#endif
+#include <Nomad/nomad.hpp>
+#include <Cache/CacheBase.hpp>
+#ifdef   __clang__
+#pragma  clang diagnostic pop
+#else
+#pragma  GCC   diagnostic pop
+#endif
+
 #include <vector>
 
 namespace SpaceBallistics

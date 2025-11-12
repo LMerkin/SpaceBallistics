@@ -73,22 +73,19 @@ RTLS1::RTLS1
   m_fplK1              (a_fpl_k1),
   m_fplPropRem1        (a_fpl_prop_rem1),
   m_diam               (a_diam),
-  // Ctl Params are set to their default vals as yet:
-  m_coastDur           (),
-  m_bbBurnDur          (),
-  m_bbBurnThrtL0       (0.0),
-  m_bbBurnThrtL1       (0.0),
-  m_bbBurnTheta0       (),
-  m_bbBurnTheta1       (),
-  m_entryBurnQ         (),
-  m_entryBurnDur       (),
-  m_entryBurnThrtL0    (0.0),
-  m_entryBurnThrtL1    (0.0),
-  // For calibration only:
-  m_calibrLandBurnH    (NAN),
-  m_calibrLandBurnGamma(NAN),
-  m_landBurnH          (0.0),
-  m_landBurnGamma      (0.0),
+  // Ctl Params are set to "NAN"s as yet:
+  m_coastDur           (NAN),
+  m_bbBurnDur          (NAN),
+  m_bbBurnThrtL0       (NAN),
+  m_bbBurnThrtL1       (NAN),
+  m_bbBurnTheta0       (NAN),
+  m_bbBurnTheta1       (NAN),
+  m_entryBurnQ         (NAN),
+  m_entryBurnDur       (NAN),
+  m_entryBurnThrtL0    (NAN),
+  m_entryBurnThrtL1    (NAN),
+  m_landBurnH          (NAN),
+  m_landBurnGamma      (NAN),
   // Transient Data:
   m_mode               (FlightMode::UNDEFINED),
   m_entryIgnTime       (NAN),
@@ -116,8 +113,14 @@ RTLS1::RTLS1
 //===========================================================================//
 // "Run": Integrate the Return Trajectory:                                   //
 //===========================================================================//
-RTLS1::Base::RunRes RTLS1::Run()
+RTLS1::Base::RunRes RTLS1::Run(FlightMode a_init_mode)
 {
+  // NB: The initial mode is either "Coast" (Main Run) or "EndoAtmDesc" (Calib-
+  // ration Run):
+  assert(a_init_mode == FlightMode::Coast ||
+         a_init_mode == FlightMode::EndoAtmDesc);
+  m_mode = a_init_mode;
+
   //-------------------------------------------------------------------------//
   // Run the integration FORWARDS from the Stage1 Separation point:          //
   //-------------------------------------------------------------------------//
@@ -140,10 +143,6 @@ RTLS1::Base::RunRes RTLS1::Run()
     [this](Base::StateV*  a_s,  Time a_t, Time a_dt) -> bool
     { return this->ODECB (a_s,  a_t, a_dt); };
 
-  // NB: Transient fields have been initialised in the Ctor. XXX: IMPORTANT:
-  // It is currently assumed that "Run" is invoked only once per the object
-  // lifetime!
-  m_mode              = FlightMode::Coast;
   constexpr Time t0   = 0.0_sec;
   constexpr Time tMax = 3600.0_sec; // Certainly enough!
   Time           tEnd;              // Will be < tMax
@@ -296,12 +295,17 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   }
 
   // In any mode (but generically in "EntryBurn"): Set the "LandBurn" params
-  // which will (later or immediately) trigger the "LandBurn":
+  // which will (later or immediately) trigger the "LandBurn".
+  // NB: These params would already be set in the Calibration mode, in which
+  // case "SetLandBurnParams" is not invoked:
+  //
   if (h <= MaxLandBurnH && !IsFinite(m_landBurnH))
   {
     // Then "m_landBurnGamma" is not set either:
     assert(!IsFinite(m_landBurnGamma));
-    SetLandBurnParams(h, Vr, Vhor);
+
+    // Set both of them using pre-calibrated functions:
+    SetLandBurnParams(h, Vr, Vhor, m_propMass1 - spentPropMass);
 
     assert(!IsNeg(m_landBurnH)    && m_landBurnH     <= MaxLandBurnH &&
            0.0 <= m_landBurnGamma && m_landBurnGamma <= 1.0);
