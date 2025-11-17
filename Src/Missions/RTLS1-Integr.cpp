@@ -32,7 +32,15 @@ RTLS1::RTLS1
   LenK           a_lS,
   VelK           a_VS,
   Angle          a_psiS,
-  VelK           a_dVhor,
+
+  // Estimates and Constraints:
+  VelK           a_dVhor_est,
+  LenK           a_land_dl_limit,
+  VelK           a_land_vel_limit,
+  AccK           a_land_acc_limit,
+  Pressure       a_Q_limit,
+  double         a_longG_limit,
+  bool           a_approx_land_burn,
 
   // Integration and Output Params:
   Time           a_ode_integr_step,
@@ -67,7 +75,15 @@ RTLS1::RTLS1
   m_lS                 (a_lS),
   m_VS                 (a_VS),
   m_psiS               (a_psiS),
-  m_dVhor              (a_dVhor),
+  // Estimates and Limits:
+  m_dVhorEst           (a_dVhor_est),
+  m_landDLLimit        (a_land_dl_limit),
+  m_landVelLimit       (a_land_vel_limit),
+  m_landAccLimit       (a_land_acc_limit),
+  m_QLimit             (a_Q_limit),
+  m_longGLimit         (a_longG_limit),
+  m_approxLandBurn     (a_approx_land_burn),
+
   // Memoised Params for a "Fully-Prop-Loaded" Stage1:
   m_fplMass1           (a_fpl_mass1),
   m_fplK1              (a_fpl_k1),
@@ -97,9 +113,10 @@ RTLS1::RTLS1
   m_maxLongG           (0.0)
 {
   // Checks:
-  if (!(IsPos(m_hS)   && IsPos(m_lS) && IsPos(m_VS) && IsPos(m_psiS) &&
-        m_psiS < PI_2 && IsPos(m_dVhor)))
-    throw std::invalid_argument("RTLS1::Ctor: Invalid Mission Param(s)");
+  if (!(IsPos(m_hS)     && IsPos(m_lS)       && IsPos(m_VS) && IsPos(m_psiS) &&
+        m_psiS < PI_2   && IsPos(m_dVhorEst) && IsPos(m_landDLLimit)         &&
+        IsPos(m_QLimit) && m_longGLimit > 0.0))
+    throw std::invalid_argument("RTLS1::Ctor: Invalid Param(s)");
 
   // "m_propMass1" (in the Base) should be equal to "a_prop_massS" up to
   // rounding errors:
@@ -140,8 +157,17 @@ RTLS1::Base::RunRes RTLS1::Run(FlightMode a_init_mode)
     { return this->Base::ODERHS(a_s, a_t, false); };
 
   auto cb  =
-    [this](Base::StateV*  a_s,  Time a_t, Time a_dt) -> bool
-    { return this->ODECB (a_s,  a_t, a_dt); };
+    [this]
+    (
+      Base::StateV*        a_s,
+      Time                 a_t,
+      Base::DStateV const& a_ds,
+      Base::StateV  const& a_prev_s,
+      Time                 a_prev_t,
+      Base::DStateV const& a_prev_ds
+    )
+    -> bool
+    { return this->ODECB (a_s, a_t, a_ds, a_prev_s, a_prev_t, a_prev_ds); };
 
   constexpr Time t0   = 0.0_sec;
   constexpr Time tMax = 3600.0_sec; // Certainly enough!
@@ -171,6 +197,15 @@ RTLS1::Base::RunRes RTLS1::Run(FlightMode a_init_mode)
     // precise singular point position;  IsAscent=false:
     res  = Base::LocateSingularPoint(ns, false);
   }
+  catch (LandBurnApproxExn const& lba)
+  {
+    res = LandBurnApprox(lba);
+  }
+  catch (GrossMissExn)
+  {
+    // Return the empty "res" which is an error -- the integration has already
+    // broken the constrains very severely...
+  }
   // XXX: Any other exceptions are propagated to the top level, it's better not
   // to hide them...
 
@@ -186,9 +221,14 @@ RTLS1::Base::RunRes RTLS1::Run(FlightMode a_init_mode)
 //===========================================================================//
 // ODE CallBack (invoked after the completion of each RKF5 step):            //
 //===========================================================================//
-// HERE FlightMode switching occurs, so this method is non-"const":
+// HERE FlightMode switching occurs, so this method is non-"const";
+// some args are unused yet:
 //
-bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
+bool RTLS1::ODECB
+(
+  Base::StateV*       a_s,      Time a_t,      Base::DStateV const& a_ds,
+  Base::StateV const& a_prev_s, Time a_prev_t, Base::DStateV const& a_prev_ds
+)
 {
   assert(a_s != nullptr && !IsNeg(a_t));
   LenK   r             = std::get<0>(*a_s);
@@ -196,7 +236,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   VelK   Vr            = std::get<1>(*a_s);
   AngVel omega         = std::get<2>(*a_s);
   VelK   Vhor          = r * omega / 1.0_rad;
-  Mass   spentPropMass = std::get<3>(*a_s);
+  Mass   spentPropMass = std::max(std::get<3>(*a_s), 0.0_kg);
   Angle  phi           = std::get<4>(*a_s);
   assert(IsPos(r) && !IsNeg(spentPropMass));
 
@@ -235,7 +275,9 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
 
   LenK     L   = R * phi / 1.0_rad; // Down-Range Earth Distance, <= 0
 
-  // Constraints:
+  //-------------------------------------------------------------------------//
+  // Constraints:                                                            //
+  //-------------------------------------------------------------------------//
   double   M   = Base::Mach(atm, V);
   Pressure pa  = std::get<0>(atm);
   Density  rho = std::get<1>(atm);
@@ -246,12 +288,19 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
   assert(!IsNeg(longG));
   m_maxLongG   = std::max(m_maxLongG, longG);
 
-  // Curr event for logging (if any):
-  m_eventStr.clear();
+  // Stop integration NOW if we know for sure that some constraint has been
+  // broken severely. NB: Obviously, over-shots can be detected,    whereas
+  // under-shots remain undected until the near-end of integration:
+  //
+  if (L < -GrossLError ||  m_maxQ > 1.5 * m_QLimit ||
+      m_maxLongG > 1.5 * m_longGLimit)
+    throw GrossMissExn();
 
   //-------------------------------------------------------------------------//
   // Mode Switching:                                                         //
   //-------------------------------------------------------------------------//
+  // Curr event for logging (if any):
+  m_eventStr.clear();
   bool cont = true;
 
   // At the beginning: Stage1 separation:
@@ -304,8 +353,13 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
     // Then "m_landBurnGamma" is not set either:
     assert(!IsFinite(m_landBurnGamma));
 
-    // Set both of them using pre-calibrated functions:
-    SetLandBurnParams(h, Vr, Vhor, m_propMass1 - spentPropMass);
+    if (m_approxLandBurn)
+      // If only APPROXIMATE LandBurn evaluation is required, immediately return
+      // an estimate of the outcome, via an exception:
+      throw LandBurnApproxExn(Vr, Vhor, spentPropMass, phi, a_t);
+
+    // Otherwise: Set both of them using pre-calibrated functions:
+    SetLandBurnParams(*a_s, a_t, a_ds, a_prev_s, a_prev_t, a_prev_ds);
 
     assert(!IsNeg(m_landBurnH)    && m_landBurnH     <= MaxLandBurnH &&
            0.0 <= m_landBurnGamma && m_landBurnGamma <= 1.0);
@@ -375,6 +429,10 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
     // Thrust is more conveniently reported in kgf:
     auto tkgf = thrust / g0K;
 
+    // Time Step (for the step done):
+    Time dt   = a_t - a_prev_t;
+    assert(IsPos(dt));
+
 #   pragma omp critical(Output)
     *Base::m_os
       << a_t.Magnitude()     << '\t' << h.Magnitude()        << '\t'
@@ -385,7 +443,7 @@ bool RTLS1::ODECB(StateV* a_s, Time a_t, Time a_dt)
       << tkgf.Magnitude()    << '\t' << burnRate.Magnitude() << '\t'
       << Q.Magnitude()       << '\t' << M                    << '\t'
       << longG               << '\t' << pa.Magnitude()       << '\t'
-      << a_dt.Magnitude()    << std::endl;
+      << dt.Magnitude()      << std::endl;
   }
   return cont;
 }
@@ -597,7 +655,7 @@ ForceK RTLS1::Thrust(MassRate a_burn_rate, Pressure a_p) const
 //===========================================================================//
 Mass RTLS1::LVMass(Base::StateV const& a_s, Time UNUSED_PARAM(a_t)) const
 {
-  Mass spentPropMass = std::get<3>(a_s);
+  Mass spentPropMass = std::max(std::get<3>(a_s), 0.0_kg);
   assert(!IsNeg(spentPropMass));
 
   Mass m = Base::m_fullMass1 - spentPropMass;

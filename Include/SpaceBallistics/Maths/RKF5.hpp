@@ -48,17 +48,24 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Outer Loop: Time Marshaling:                                          //
     //-----------------------------------------------------------------------//
-    T t   = a_t0;
-    T tau = a_tau0;
+    T    t      = a_t0;
+    T    tau    = a_tau0;
+
+    // Initially, there are no "prev" vals:
+    T    prev_t =  a_t0;
+    X    prev_x = *a_x;
+    auto prev_f = a_rhs(prev_x, prev_t);
 
     while (true)
     try    // Guard against any exceptions, eg in the RHS evaluation
     {
+      auto f0 = a_rhs(*a_x, t);
+
       // Invoke the Call-Back if present, stop immediately if it returns
       // "false". If there is no Call-Back, just continue.
       // NB: The Call-Back MAY (in some cases) modify "a_x":
       //
-      if (a_cb != nullptr && !(*a_cb)(a_x, t, tau))
+      if (a_cb != nullptr && !(*a_cb)(a_x, t, f0, prev_x, prev_t, prev_f))
         return t;     // We may or may not have reached the end
 
       if (t == a_tf)
@@ -82,7 +89,6 @@ namespace SpaceBallistics
       // cannot meet the accuracy requirements, something is deeply wrong!
       // NB: the step can only be reduced, never enlarged:
       //
-      auto f0 = a_rhs(*a_x, t);
       bool ok = false;
 
       for (int nsr = 0; nsr < 10; ++nsr)
@@ -147,6 +153,9 @@ namespace SpaceBallistics
           b6      = Add (b6,     2.0 / 55.0,    f5);
 
           // This step is done:
+          prev_x  = *a_x;
+          prev_t  = t;
+          prev_f  = f0;
           *a_x    = Add(*a_x, tau, b6);
           t       = tn;
           ok      = true;

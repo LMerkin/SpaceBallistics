@@ -220,13 +220,16 @@ LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t, bool a_is_ascent) const
 {
   assert((a_is_ascent && !IsPos(a_t)) || (!a_is_ascent && !IsNeg(a_t)));
 
-  // NB: In the RHS evaluation, r <= R is allowed, as it does not cause any
-  // singularities by itself; but we detect this condition in the Call-Back,
-  // which means that the integration is over (successfully or otherwise):
+  // NB:
+  // (*) In the RHS evaluation, r <= R is allowed, as it does not cause any
+  //     singularities by itself; but we detect this condition in the Call-Back,
+  //     which means that the integration is over (successfully or otherwise);
+  // (*) "spentPropMass" may sometimes become < 0 due to rounding errors, so
+  //     guard against that:
   LenK   r                = std::get<0>(a_s);
   VelK   Vr               = std::get<1>(a_s);
   AngVel omega            = std::get<2>(a_s);
-  Mass   spentPropMass    = std::get<3>(a_s);
+  Mass   spentPropMass    = std::max(std::get<3>(a_s), 0.0_kg);
   Angle  phi              = std::get<4>(a_s);
   assert(IsPos(r));
   // The "horizontal" velocity (orthogonal to the radius-vector):
@@ -289,6 +292,9 @@ LVBase<Derived>::ODERHS   (StateV const& a_s, Time a_t, bool a_is_ascent) const
   // but in both cases, spentPropMass >= 0:
   //
   MassRate spmDot = a_is_ascent ? -burnRate : burnRate;
+
+  assert(( a_is_ascent && !IsPos(spmDot)) ||
+         (!a_is_ascent && !IsNeg(spmDot)));
 
   // The result:
   return std::make_tuple(Vr, r2Dot, omegaDot, spmDot, omega);
@@ -375,8 +381,8 @@ const
   }
   assert(r1 >= R && !IsNeg(h1));
 
-  // The "equivalent" velocity @ h=0:
-  VelK V0 = SqRt(Sqr(Vr1) + 2.0 * K * (1.0 / R - 1.0 / r1));
+  // The "equivalent" velocity @ h=0, using the Energy Integral:
+  VelK V0 = SqRt(Sqr(Vr1) + K * (2.0 / R - 2.0 / r1));
 
   //-------------------------------------------------------------------------//
   // Forces and Acceleration:                                                //
@@ -452,6 +458,9 @@ const
         *m_os << "# LVBase::LocateSingularPoint: WARNING: Descending, and Acc="
               << double(acc1 / g1) << " g, Vr="      << Vr1.Magnitude()
               << " km/sec, h="     << h1.Magnitude() << " km" << std::endl;
+
+      // Estimate the Fall Time (w/o the aerodynamic forces, and assuming the
+      // constant Thrust but still 
 
       // (*) "V0" is approximated by the Energy Integral (see above);
       // (*) the final LVMass is taken to be the curr one -- this is OK in the
@@ -545,7 +554,7 @@ const
   // Convert "rS" into the velocity @ H=0 (to allow for uniform treatment of
   // constraints) using the Energy Integral:  Adjust "V0" using "rS":
   assert(rS >= R);
-  V0 = SqRt(2.0 * K * (1.0 / R - 1.0 / rS));
+  V0 = SqRt(K * (2.0 / R - 2.0 / rS));
 
   // Re-calculate (approximately) the final (radial) acceleration:
   AccK accS = thrust1 / mS - g1;
@@ -636,7 +645,7 @@ const
   // XXX: IMPORTANT: BEWARE: Convert the (rEnd, VEnd) into the equivalent Velo-
   // city @ h=0 using the Energy Integral, but use the actual "accEnd"! This is
   // OK for the moment:
-  VelK   V0   = SqRt(VEnd2 + 2.0 * K * (1.0 / R - 1.0 / rEnd));
+  VelK   V0   = SqRt(VEnd2 + K * (2.0 / R - 2.0 / rEnd));
 
   return RunRes(rc, a_T, lEnd, V0, accEnd, mEnd, maxQ, sepQ, maxLongG);
 }

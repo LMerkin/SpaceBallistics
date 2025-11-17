@@ -52,6 +52,39 @@ namespace SpaceBallistics
       }
     }
 
+    //-----------------------------------------------------------------------//
+    // "GrossMissExn":                                                       //
+    //-----------------------------------------------------------------------//
+    // Thrown when there is no point in continuing the integration process:
+    // some constraint(s) have already been broken severely:
+    struct GrossMissExn {};
+
+    //-----------------------------------------------------------------------//
+    // "LandBurnApproxExn" Class:                                            //
+    //-----------------------------------------------------------------------//
+    // Exception thrown at the "MaxLandBurnH" when we want to replace further
+    // integration with the Tsiolkovsky-based approximation:
+    //
+    struct LandBurnApproxExn
+    {
+      // Data Flds:
+      VelK  const m_Vr;
+      VelK  const m_Vhor;
+      Mass  const m_spentPropMass;
+      Angle const m_phi;
+      Time  const m_t;
+
+      // Non-Default Ctor:
+      LandBurnApproxExn(VelK  a_Vr,  VelK a_Vhor, Mass a_spent_prop_mass,
+                        Angle a_phi, Time a_t)
+      : m_Vr           (a_Vr),
+        m_Vhor         (a_Vhor),
+        m_spentPropMass(a_spent_prop_mass),
+        m_phi          (a_phi),
+        m_t            (a_t)
+      {}
+    };
+
   public:
     //=======================================================================//
     // Data Flds:                                                            //
@@ -76,26 +109,37 @@ namespace SpaceBallistics
     // "t" runs FORWARD.
     // We assume that the landing site is (h=0, l=0). The co-ords at Separation
     // are (hS > 0, lS > 0), and they are considered to be const params:
-    LenK   const            m_hS;
-    LenK   const            m_lS;
+    LenK     const          m_hS;
+    LenK     const          m_lS;
 
     // And the corresp Velocity and Trajectory Inclidation at Separation:
-    VelK   const            m_VS;
-    Angle  const            m_psiS;
+    VelK     const          m_VS;
+    Angle    const          m_psiS;
 
     // The following is just an estimate, to help the optimisation process:
     // The total Horizontal DeltaV for the Boost-Back Burn:
-    VelK   const            m_dVhor;
+    VelK     const          m_dVhorEst;
+
+    // Limits (we may need to check them early and interrupt integration if
+    // it has already broken the resp constraints):
+    LenK     const          m_landDLLimit;
+    VelK     const          m_landVelLimit;
+    AccK     const          m_landAccLimit;
+    Pressure const          m_QLimit;
+    double   const          m_longGLimit;
+    bool     const          m_approxLandBurn;
 
   private:
     //-----------------------------------------------------------------------//
     // Scaling Factors and Ranges used in Optimisation:                      //
     //-----------------------------------------------------------------------//
-    constexpr static double PropMassSRelVar      = 0.25;      // +- 25% range
+    constexpr static double PropMassSRelLo       = -0.20;
+    constexpr static double PropMassSRelUp       =  0.35;
     constexpr static double MinBBBurnThetaPiFrac = 0.8;
     constexpr static double BBBurnRelDurVar      = 0.25;      // +- 25% range
-    constexpr static Time   MaxEntryBurnDur      = 50.0_sec;  // XXX ???
+    constexpr static Time   MaxEntryBurnDur      = 20.0_sec;  // XXX ???
     constexpr static LenK   MaxLandBurnH         = 5.0_km;
+    constexpr static LenK   GrossLError          = 50.0_km;
 
     //-----------------------------------------------------------------------//
     // Params of a "Fully-Prop-Loaded" Stage1 (nominal):                     //
@@ -189,7 +233,15 @@ namespace SpaceBallistics
       LenK           a_lS,
       VelK           a_VS,
       Angle          a_psiS,
-      VelK           a_dVhor,               // Estimate only!
+
+      // Estimates and Limits:
+      VelK           a_dVhor_est,
+      LenK           a_land_dl_limit,
+      VelK           a_land_vel_limit,
+      AccK           a_land_acc_limit,
+      Pressure       a_Q_limit,
+      double         a_longG_limit,
+      bool           a_approx_land_burn,
 
       // Integration and Output Params:
       Time           a_ode_integr_step,
@@ -208,23 +260,12 @@ namespace SpaceBallistics
     RTLS1
     (
       RTLS1  const&               a_proto,
-      Pressure                    a_Q_limit,
       double a_propMassSN,        double a_coastDurN,
       double a_bbBurnDurN,        double a_bbBurnThrtL0N,
       double a_bbBurnThrtL1N,     double a_bbBurnTheta0N,
       double a_bbBurnTheta1N,
       double a_entryBurnQN,       double a_entryBurnDurN,
       double a_entryBurnThrtL0N,  double a_entryBurnThrtL1N
-    );
-
-    //-----------------------------------------------------------------------//
-    // Non-Default Ctor using a "Proto" and the LandBurn Params:             //
-    //-----------------------------------------------------------------------//
-    RTLS1
-    (
-      RTLS1  const&               a_proto,
-      LenK                        a_land_burn_h,
-      double                      a_land_burn_gamma
     );
 
     //-----------------------------------------------------------------------//
@@ -246,7 +287,11 @@ namespace SpaceBallistics
     // CallBack (invoked after the completion of each integration step):
     // Here FlightMode switching occurs, so this method is non-"const":
     //
-    bool ODECB(StateV* a_s, Time a_t, Time a_dt);
+    bool ODECB
+    (
+      StateV*       a_s,      Time a_t,      DStateV const& a_ds,
+      StateV const& a_prev_s, Time a_prev_t, DStateV const& a_prev_ds
+    );
 
     // "AeroDynForces":
     // Atmospheric Conditions and Aerodynamic Drag Force:
@@ -352,16 +397,22 @@ namespace SpaceBallistics
     // "CalibrateLandBurnParams" is run "OFF-LINE" to generate the data for the
     // "on-line" LandBurn Ctl function ("SetLandBurnParams"):
   public:
-    static void CalibrateLandBurnParams();
+    static void CalibrateLandBurnParams(std::string const& a_config_ini);
 
   private:
     void SetLandBurnParams
     (
-      LenK a_ref_h,
-      VelK a_ref_Vr,
-      VelK a_ref_Vhor,
-      Mass a_ref_prop_mass
+      Base::StateV  const& a_s,
+      Time                 a_t,
+      Base::DStateV const& a_ds,
+      Base::StateV  const& a_prev_s,
+      Time                 a_prev_t,
+      Base::DStateV const& a_prev_ds
     );
+
+    // Processing of "LandBurnApproxExn": Approximate computation of the
+    // "RunRes" based on the state @ or near "MaxLandBurnH":
+    RunRes LandBurnApprox(LandBurnApproxExn const& a_lba) const;
   };
 }
 // End namespace SpaceBallistics

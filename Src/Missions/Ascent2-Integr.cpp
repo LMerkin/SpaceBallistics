@@ -183,7 +183,7 @@ Ascent2::Ascent2
   m_Rins = R +        a_h_perigee;
 
   // The required orbital velocity at the orbital insertion point (which is
-  // always assumed to be the Perigee):
+  // always assumed to be the Perigee), using the Energy Integral:
   VelK Vq = SqRt(K * (2.0 / m_Rins - 1.0 / a));
 
   // The Orbit Inclination and the Launch Site Latitude:
@@ -237,8 +237,17 @@ Ascent2::Base::RunRes Ascent2::Run()
     { return this->Base::ODERHS(a_s, a_t, true); };
 
   auto cb  =
-    [this](Base::StateV*  a_s,  Time a_t, Time a_dt) -> bool
-    { return this->ODECB (a_s,  a_t, a_dt); };
+    [this]
+    (
+      Base::StateV*        a_s,
+      Time                 a_t,
+      Base::DStateV const& a_ds,
+      Base::StateV  const& a_prev_s,
+      Time                 a_prev_t,
+      Base::DStateV const& a_prev_ds
+    )
+    -> bool
+    { return this->ODECB (a_s, a_t, a_ds, a_prev_s, a_prev_t, a_prev_ds); };
 
   // NB: Transient fields have been initialised in the Ctor. XXX: IMPORTANT:
   // It is currently assumed that "Run" is invoked only once per the object
@@ -307,9 +316,14 @@ Ascent2::Base::RunRes Ascent2::Run()
 //===========================================================================//
 // ODE CallBack (invoked after the completion of each RKF5 step):            //
 //===========================================================================//
-// HERE FlightMode switching occurs, so this method is non-"const":
+// HERE FlightMode switching occurs, so this method is non-"const";
+// some args are unused yet:
 //
-bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
+bool Ascent2::ODECB
+(
+  Base::StateV*   a_s, Time a_t,      Base::DStateV const&,
+  Base::StateV const&, Time a_prev_t, Base::DStateV const&
+)
 {
   assert(a_s != nullptr && !IsPos(a_t));
   LenK   r             = std::get<0>(*a_s);
@@ -536,6 +550,8 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
 
     // Thrust is more conveniently reported in kgf:
     auto tkg = thrust / g0K;
+    Time dt  = a_t - a_prev_t;
+    assert(IsNeg(dt));
 
 #   pragma omp critical(Output)
     *Base::m_os
@@ -547,7 +563,7 @@ bool Ascent2::ODECB(Base::StateV* a_s, Time a_t, Time a_dt)
       << tkg.Magnitude()     << '\t' << burnRate.Magnitude() << '\t'
       << Q.Magnitude()       << '\t' << M                    << '\t'
       << longG               << '\t' << pa.Magnitude()       << '\t'
-      << a_dt.Magnitude()    << std::endl;
+      << dt.Magnitude()      << std::endl;
   }
   return cont;
 }

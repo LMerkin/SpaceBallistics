@@ -6,7 +6,6 @@
 #include "SpaceBallistics/Missions/RTLS1.h"
 #include "SpaceBallistics/Missions/MkNOMADParams.hpp"
 #include <boost/property_tree/ini_parser.hpp>
-#include <boost/algorithm/string.hpp>
 #include <vector>
 
 namespace SpaceBallistics
@@ -23,7 +22,6 @@ namespace SpaceBallistics
 RTLS1::RTLS1
 (
   RTLS1  const&               a_proto,
-  Pressure                    a_Q_limit,
   double a_propMassSN,        double a_coastDurN,
   double a_bbBurnDurN,        double a_bbBurnThrtL0N,
   double a_bbBurnThrtL1N,     double a_bbBurnTheta0N,
@@ -46,12 +44,14 @@ RTLS1::RTLS1
     a_proto.Base::m_minThrtL1,
     a_proto.m_diam,
     // IMPORTANT: Specifying the "PropMassS" here, relative to the (previously
-    // estimated) value stored in "a_proto", in the (1 +- PropMassSRelVar) ra-
-    // nge, AND making sure it is not below the UnSpendable Remnant:
+    // estimated) value stored in "a_proto", in   the
+    // (1 + PropMassSRelLo .. 1 + PropMassSRelUp) range,
+    // AND making sure it is not below the UnSpendable Remnant:
     std::max
     (
       a_proto.Base::m_propMass1 *
-        (1.0 - PropMassSRelVar + 2.0 * a_propMassSN * PropMassSRelVar),
+        (1.0 + PropMassSRelLo   +
+         a_propMassSN * (PropMassSRelUp - PropMassSRelLo)),
       a_proto.m_unSpendable1
     ),
     // Mission Params:
@@ -59,14 +59,21 @@ RTLS1::RTLS1
     a_proto.m_lS,
     a_proto.m_VS,
     a_proto.m_psiS,
-    a_proto.m_dVhor,
+    // Estimates and Limits:
+    a_proto.m_dVhorEst,
+    a_proto.m_landDLLimit,
+    a_proto.m_landVelLimit,
+    a_proto.m_landAccLimit,
+    a_proto.m_QLimit,
+    a_proto.m_longGLimit,
+    a_proto.m_approxLandBurn,
     // Integration and Output Params:
     a_proto.Base::m_odeIntegrStep,
     a_proto.Base::m_os,
     a_proto.Base::m_logLevel
   )
 {
-  assert(!IsNeg(a_Q_limit) && 0.0 <= a_propMassSN && a_propMassSN <= 1.0);
+  assert(0.0 <= a_propMassSN && a_propMassSN <= 1.0);
   Mass propMassS = Base::m_propMass1;
 
   //-------------------------------------------------------------------------//
@@ -147,8 +154,8 @@ RTLS1::RTLS1
   assert(IsPos(muMin) &&  muMin <= muMax);
   MassRate muAvg = 0.5 * (muMin +  muMax);
 
-  Time   tBBBMin = (propMassS / muMax) * (1.0 - Exp(- m_dVhor / WhorMax));
-  Time   tBBBMax = (propMassS / muMin) * (1.0 - Exp(- m_dVhor / WhorMin));
+  Time   tBBBMin = (propMassS / muMax) * (1.0 - Exp(- m_dVhorEst / WhorMax));
+  Time   tBBBMax = (propMassS / muMin) * (1.0 - Exp(- m_dVhorEst / WhorMin));
   assert(tBBBMin <= tBBBMax);
 
   // Make the range wider:
@@ -184,7 +191,7 @@ RTLS1::RTLS1
   // EntryBurn: //
   //------------//
   assert(0.0       <= a_entryBurnQN      && a_entryBurnQN      <= 1.0);
-  m_entryBurnQ      = a_entryBurnQN      * a_Q_limit;
+  m_entryBurnQ      = a_entryBurnQN      * m_QLimit;
 
   assert(0.0       <= a_entryBurnDurN    && a_entryBurnDurN    <= 1.0);
   m_entryBurnDur    = a_entryBurnDurN    * MaxEntryBurnDur;
@@ -265,13 +272,7 @@ private:
   //=========================================================================//
   // Data Flds:                                                              //
   //=========================================================================//
-  // LV Params:
   RTLS1 const*  const m_proto;
-
-  // Optimisation Limits (Constraints):
-  LenK          const m_landDLLimit;
-  Pressure      const m_QLimit;
-  double        const m_longGLimit;
 
 public:
   //=========================================================================//
@@ -281,23 +282,12 @@ public:
   (
     std::shared_ptr<NOMAD::EvalParameters> const& a_params,
     // LV Proto:
-    RTLS1 const*                                  a_proto,
-    // Optimisation Limits (Constraints):
-    LenK                                          a_land_dL_limit,
-    Pressure                                      a_Q_limit,
-    double                                        a_longG_limit
+    RTLS1 const*                                  a_proto
   )
   : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
-    m_proto         (a_proto),
-    m_landDLLimit   (a_land_dL_limit),
-    m_QLimit        (a_Q_limit),
-    m_longGLimit    (a_longG_limit)
+    m_proto         (a_proto)
   {
     assert(m_proto != nullptr);
-
-    if (!(IsPos(m_landDLLimit) && IsPos(m_QLimit) && IsPos(m_longGLimit)))
-      throw std::invalid_argument
-            ("RTLS1::NOMADMainEvaluator::Ctor: Invalid Limit(s)");
   }
 
   ~NOMADMainEvaluator() override {}
@@ -322,7 +312,6 @@ public:
     RTLS1 rtls
     (
       *m_proto,
-      m_QLimit,
       a_x[ 0].todouble(),    // propMassSN
       a_x[ 1].todouble(),    // coastDurN
       a_x[ 2].todouble(),    // bbBurnDurN
@@ -355,20 +344,34 @@ public:
 
     // The Objective Function Value (to me minimised): It is "propMassS" itself
     // (provided that all constraints are satisfied):
-    curr += sprintf(curr, "%.16e",  rtls.m_propMass1.Magnitude());
+//  curr += sprintf(curr, "%.16e",  rtls.m_propMass1.Magnitude());
+    curr += sprintf(curr, "%.16e",  res.m_VT.Magnitude());
 
     // Constraints:
     // Down-Range Miss (the aiming point is 0):
     LenK dL = Abs(res.m_LT);
-    curr += sprintf(curr, " %.16e", (dL         - m_landDLLimit).Magnitude());
+    curr += sprintf(curr, " %.16e",
+                   (dL             - m_proto->m_landDLLimit) .Magnitude());
+
+    // Landing Velocity:
+//  curr += sprintf(curr, " %.16e",
+//                 (res.m_VT       - m_proto->m_landVelLimit).Magnitude());
+
+    // NB: Landing Acceleration is constrained ONLY if we are NOT in the
+    // "approximate" Landing Mode -- otherwise, it is not computed (NAN):
+    if (!m_proto->m_approxLandBurn)
+      curr += sprintf(curr, " %.16e",
+                     (res.m_aT     - m_proto->m_landAccLimit).Magnitude());
 
     // The MaxQ encountered:
     assert(!IsNeg(res.m_maxQ));
-    curr += sprintf(curr, " %.16e", (res.m_maxQ - m_QLimit).Magnitude());
+    curr += sprintf(curr, " %.16e",
+                   (res.m_maxQ     - m_proto->m_QLimit).Magnitude());
 
     // The Max LongG encountered:
     assert(!IsNeg(res.m_maxLongG));
-    curr += sprintf(curr, " %.16e",  res.m_maxLongG - m_longGLimit);
+    curr += sprintf(curr, " %.16e",
+                    res.m_maxLongG - m_proto->m_longGLimit);
 
     // Done!
     assert(size_t(curr - buff) <= sizeof(buff));
@@ -391,7 +394,7 @@ public:
 };
 
 //===========================================================================//
-// "FindOptimalAscentCtls"                                                   //
+// "FindOptimalReturnCtls"                                                   //
 //===========================================================================//
 std::pair<std::optional<RTLS1::OptRes>,
           std::optional<RTLS1::Base::RunRes>>  // If the FinalRun is performed
@@ -438,19 +441,23 @@ RTLS1::FindOptimalReturnCtls
   // NOMAD-Specific Params:
   int    optSeed          =      pt.get<int>   ("Technical.NOMADSeed");
   bool   stopIfFeasible   =      pt.get<bool>  ("Technical.NOMADStopIfFeasible");
-  double useVNS           =      pt.get<double>("Technical.NOMADUseVNS");
-  if (useVNS < 0.0 || useVNS >= 1.0)      // 0: VNS not used
-    throw std::invalid_argument("NOMADUseVNS: Must be in [0..1)");
   bool   useMT            =      pt.get<bool>  ("Technical.NOMADUseMT");
+  double useVNS           =      pt.get<double>("Technical.NOMADUseVNS");
+
+  if (useVNS < 0.0 || useVNS >= 1.0)      // 0: VNS not used
+    throw std::invalid_argument
+          ("RTLS1::FindOptimalReturnCtls: NOMADUseVNS: Must be in [0..1)");
 
   // The initial vals of all (NORMALISED) params: 0.5:
   std::vector<double> initParamsN(NP, 0.5);
 
-  // The Limits: XXX: Landing Velocity and Acceleration Limits are treated
-  // SEPARETELY:
-  LenK     landDLLimit    (pt.get<double>("Opt.LandDLLimit"));
-  Pressure QLimit         (pt.get<double>("Opt.QLimit"  ));
-  double   longGLimit    = pt.get<double>("Opt.LongGLimit");
+  // The Limits:
+  LenK     landDLLimit          (pt.get<double>("Opt.LandDLLimit"));
+  VelK     landVelLimit         (pt.get<double>("Opt.LandVelLimit"));
+  AccK     landAccLimit         (pt.get<double>("Opt.LandAccLimit"));
+  Pressure QLimit               (pt.get<double>("Opt.QLimit"  ));
+  double   longGLimit     =      pt.get<double>("Opt.LongGLimit");
+  bool     approxLandBurn =      pt.get<bool>  ("Opt.ApproxLandBurn");
 
   //-------------------------------------------------------------------------//
   // Create the "prototype" "RTLS1" obj:                                     //
@@ -469,10 +476,12 @@ RTLS1::FindOptimalReturnCtls
 
   RTLS1 proto
   (
-    maxFPLMass1,   fplK1, fplPropRem1, IspSL1, IspVac1, thrustVacI1,
+    maxFPLMass1,   fplK1, fplPropRem1,  IspSL1, IspVac1, thrustVacI1,
     minThrtL1,     diam,
-    propMassS,     hS,    lS,     VS,  psiS,   dVhor,
-    odeIntegrStep, a_os,  optLogLevel
+    propMassS,     hS,      lS,     VS, psiS,
+    dVhor,         landDLLimit, landVelLimit,   landAccLimit, QLimit,
+    longGLimit,    approxLandBurn,
+    odeIntegrStep, a_os,    optLogLevel
   );
 
   //-------------------------------------------------------------------------//
@@ -482,13 +491,11 @@ RTLS1::FindOptimalReturnCtls
   NOMAD::MainStep opt;
 
   // Create and set the NOMAD params:
-  // There are 3 Constraints: (LandMissL, MaxQ, MaxLongG),
-  // but their actual vals are not required at this point;
-  // XXX: the Landing Velocity is NOT a formal constraint; we make it near-0 by
-  // calibrating the LandBurnH and LandBurnGamma, but do not include  it in the
-  // list of constraints to avoid the instabilities in NOMAD:
-  //
-  constexpr int NC = 3;
+  // There are 4 or 5 Constraints:
+  // (LandMissL, LandV, [LandAcc,] MaxQ, MaxLongG),
+  // but their actual vals are not required at this point; "LandAcc" is NOT
+  // used in the "approx" Landing mode:
+  int const NC = approxLandBurn ? 3 : 4;
 
   // LoBounds and UpBounds are All-0s and All-1s, resp.:
   std::vector<double> loBounds(initParamsN.size(), 0.0);
@@ -505,8 +512,7 @@ RTLS1::FindOptimalReturnCtls
     (new NOMADMainEvaluator
     (
       params->getEvalParams(),
-      &proto,
-      landDLLimit, QLimit, longGLimit
+      &proto
     ));
   opt.setEvaluator(std::move(ev));
 
@@ -542,7 +548,6 @@ RTLS1::FindOptimalReturnCtls
   RTLS1 rtls
   (
     proto,
-    QLimit,
     initParamsN[ 0],  // propMassSN
     initParamsN[ 1],  // coastDurN
     initParamsN[ 2],  // bbBurnDurN
@@ -633,7 +638,7 @@ std::pair<VelK, Mass> RTLS1::MkEstimates
   }
   // So: Got "dVhor", "dVr" estimates. Then the total DeltaV required for fly-
   // back and soft landing must also include the "velocity equivalent" of the
-  // altitude "hS":
+  // altitude "hS", using the Energy Integral:
   //
   VelK dV = SqRt(Sqr(dVr) + Sqr(dVhor) + K * (2.0 / R - 2.0 / (R + a_hS)));
 

@@ -28,7 +28,7 @@ namespace
   }
 
   // User Call-Back:
-  bool CB(S* a_x, double a_t, double UNUSED_PARAM(a_dt))
+  bool CB(S* a_x, double a_t, S const&, S const&, double, S const&)
   {
     assert(a_x != nullptr);
     // Expected solution:

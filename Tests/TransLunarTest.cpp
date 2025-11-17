@@ -348,7 +348,7 @@ namespace
 
     auto cb  =
       [a_ctx, a_verbose, a_tauObs, &tObs, &minRhoM, &minRhoMTime, &minRhoMVel]
-      (StateV*, Time, Time) -> bool
+      (StateV*, Time, RHSV const&, StateV const&, Time, RHSV const&) -> bool
       {
         // XXX: The actual lambda args are ignored -- all the data are taken
         // from "a_ctx":
