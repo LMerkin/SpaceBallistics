@@ -107,7 +107,6 @@ void RTLS1::SetLandBurnParams
   //-------------------------------------------------------------------------//
   // Curr and Prev State:                                                    //
   //-------------------------------------------------------------------------//
-  LenK  l         = std::get<4>(a_s) * R / 1.0_rad;
   LenK  r         = std::get<0>(a_s);
   LenK  h         = r      - R;
 # ifndef NDEBUG
@@ -120,13 +119,6 @@ void RTLS1::SetLandBurnParams
   Angle psi       = Angle(ATan2(Vr, Vhor));
   Mass  propMass  = Base::m_propMass1 - std::get<3>(a_s);
   assert(IsPos(propMass));
-
-  // XXX: We are at a low altitude, so if we are far away from the landing
-  // site, or moving in the wrong direction, we could stop integration now.
-  // HOWEVER, this apparently interferes with NOMAD initialisation, so don't
-  // do that -- just skip the LandBurn and hit the ground at full speed:
-  if (Abs(l) > GrossLError || IsPos(Vhor))
-    return;
 
   if (Base::m_os != nullptr && Base::m_logLevel >= 2)
 #   pragma omp critical(Output)
@@ -212,11 +204,13 @@ public:
       m_proto->m_diam,
       // IMPORTANT: The actual initial "PropMass":
       m_propMassL,
+
       // The Initial Conds:
       MaxLandBurnH,
       0.0_km,       // The horizontal distance does not matter here
       m_VL,
       m_psiL,
+
       // Estimates and Limits:
       m_proto->m_dVhorEst,
       m_proto->m_landDLLimit,
@@ -225,6 +219,13 @@ public:
       m_proto->m_QLimit,
       m_proto->m_longGLimit,
       false,        // Do NOT use the LandBurn Approximation!
+
+      // Optimisation Ranges:
+      m_proto->m_propMassSRange,
+      m_proto->m_bbBurnThetaMinPi,
+      m_proto->m_bbBurnDurRange,
+      m_proto->m_entryBurnDurRange,
+
       // Other Params:
       m_proto->Base::m_odeIntegrStep,
       m_proto->Base::m_os,
@@ -369,15 +370,22 @@ void RTLS1::CalibrateLandBurnParams(std::string const& a_config_ini)
     //     some built-in constraints on "dL" in "RTLS1"), but setting it to 0 is
     //     OK here;
     // (*) "dVhor" estimate and "landDLLimit" can be safely set to 0;
-    // (*) obviously, approxLandBurn = false:
+    // (*) obviously, approxLandBurn = false;
+    // (*) optimisation Ranges are irrelevant for the LandBurn:
+    //
+    double propMassSRange   [2] {NAN, NAN};
+    double bbBurnDurRange   [2] {NAN, NAN};
+    Time   entryBurnDurRange[2] {Time(NAN), Time(NAN)};
+
     RTLS1 proto
     (
-      maxFPLMass1,   fplK1, fplPropRem1, IspSL1, IspVac1, thrustVacI1,
-      minThrtL1,     diam,
-      propM,         MaxLandBurnH,       0.0_km, v,       To_Angle(psi),
-      VelK(0.0),     0.0_km,             landVelLimit,    landAccLimit,
-      QLimit,        longGLimit,         false,
-      odeIntegrStep, &std::cout,         optLogLevel
+      maxFPLMass1,    fplK1, fplPropRem1,  IspSL1,   IspVac1,  thrustVacI1,
+      minThrtL1,      diam,
+      propM,          MaxLandBurnH,  0.0_km,    v,   To_Angle(psi),
+      VelK(0.0),      0.0_km,        landVelLimit,   landAccLimit,
+      QLimit,         longGLimit,    false,
+      propMassSRange, NAN,           bbBurnDurRange, entryBurnDurRange,
+      odeIntegrStep,  &std::cout,    optLogLevel
     );
   }
 }

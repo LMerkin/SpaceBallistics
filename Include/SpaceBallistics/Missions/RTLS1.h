@@ -53,13 +53,6 @@ namespace SpaceBallistics
     }
 
     //-----------------------------------------------------------------------//
-    // "GrossMissExn":                                                       //
-    //-----------------------------------------------------------------------//
-    // Thrown when there is no point in continuing the integration process:
-    // some constraint(s) have already been broken severely:
-    struct GrossMissExn {};
-
-    //-----------------------------------------------------------------------//
     // "LandBurnApproxExn" Class:                                            //
     //-----------------------------------------------------------------------//
     // Exception thrown at the "MaxLandBurnH" when we want to replace further
@@ -109,12 +102,12 @@ namespace SpaceBallistics
     // "t" runs FORWARD.
     // We assume that the landing site is (h=0, l=0). The co-ords at Separation
     // are (hS > 0, lS > 0), and they are considered to be const params:
-    LenK     const          m_hS;
-    LenK     const          m_lS;
+    LenK      const         m_hS;
+    LenK      const         m_lS;
 
     // And the corresp Velocity and Trajectory Inclidation at Separation:
-    VelK     const          m_VS;
-    Angle    const          m_psiS;
+    VelK      const         m_VS;
+    Angle     const         m_psiS;
 
     // The following is just an estimate, to help the optimisation process:
     // The total Horizontal DeltaV for the Boost-Back Burn:
@@ -122,25 +115,15 @@ namespace SpaceBallistics
 
     // Limits (we may need to check them early and interrupt integration if
     // it has already broken the resp constraints):
-    LenK     const          m_landDLLimit;
-    VelK     const          m_landVelLimit;
-    AccK     const          m_landAccLimit;
-    Pressure const          m_QLimit;
-    double   const          m_longGLimit;
-    bool     const          m_approxLandBurn;
+    LenK      const         m_landDLLimit;
+    VelK      const         m_landVelLimit;
+    AccK      const         m_landAccLimit;
+    Pressure  const         m_QLimit;
+    double    const         m_longGLimit;
+    bool      const         m_approxLandBurn;
+    constexpr static LenK   MaxLandBurnH  = 5.0_km;
 
   private:
-    //-----------------------------------------------------------------------//
-    // Scaling Factors and Ranges used in Optimisation:                      //
-    //-----------------------------------------------------------------------//
-    constexpr static double PropMassSRelLo       = -0.20;
-    constexpr static double PropMassSRelUp       =  0.35;
-    constexpr static double MinBBBurnThetaPiFrac = 0.8;
-    constexpr static double BBBurnRelDurVar      = 0.25;      // +- 25% range
-    constexpr static Time   MaxEntryBurnDur      = 20.0_sec;  // XXX ???
-    constexpr static LenK   MaxLandBurnH         = 5.0_km;
-    constexpr static LenK   GrossLError          = 50.0_km;
-
     //-----------------------------------------------------------------------//
     // Params of a "Fully-Prop-Loaded" Stage1 (nominal):                     //
     //-----------------------------------------------------------------------//
@@ -148,6 +131,14 @@ namespace SpaceBallistics
     double const            m_fplK1;
     double const            m_fplPropRem1;
     Len    const            m_diam;
+
+    //-----------------------------------------------------------------------//
+    // Optimisation Ranges:                                                  //
+    //-----------------------------------------------------------------------//
+    double const            m_propMassSRange   [2]; // Relative to the Estimate
+    double const            m_bbBurnThetaMinPi;     // Relative to Pi
+    double const            m_bbBurnDurRange   [2]; // Relative to the Estimate
+    Time   const            m_entryBurnDurRange[2]; // Absolute!
 
     //-----------------------------------------------------------------------//
     // Optimisation Params:                                                  //
@@ -242,6 +233,12 @@ namespace SpaceBallistics
       Pressure       a_Q_limit,
       double         a_longG_limit,
       bool           a_approx_land_burn,
+
+      // Optimisation Ranges:
+      double const   a_prop_massSN   [2],
+      double         a_bbb_theta_minN,
+      double const   a_bbb_durN      [2],
+      Time   const   a_entry_burn_dur[2],
 
       // Integration and Output Params:
       Time           a_ode_integr_step,

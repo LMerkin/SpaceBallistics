@@ -42,6 +42,12 @@ RTLS1::RTLS1
   double         a_longG_limit,
   bool           a_approx_land_burn,
 
+  // Optimisation Ranges:
+  double const   a_prop_massSN   [2],
+  double         a_bbb_theta_minN,
+  double const   a_bbb_durN      [2],
+  Time   const   a_entry_burn_dur[2],
+
   // Integration and Output Params:
   Time           a_ode_integr_step,
   std::ostream*  a_os,
@@ -75,6 +81,7 @@ RTLS1::RTLS1
   m_lS                 (a_lS),
   m_VS                 (a_VS),
   m_psiS               (a_psiS),
+
   // Estimates and Limits:
   m_dVhorEst           (a_dVhor_est),
   m_landDLLimit        (a_land_dl_limit),
@@ -89,6 +96,13 @@ RTLS1::RTLS1
   m_fplK1              (a_fpl_k1),
   m_fplPropRem1        (a_fpl_prop_rem1),
   m_diam               (a_diam),
+
+  // Optimisation Ranges:
+  m_propMassSRange     {a_prop_massSN   [0], a_prop_massSN   [1]},
+  m_bbBurnThetaMinPi   (a_bbb_theta_minN),
+  m_bbBurnDurRange     {a_bbb_durN      [0], a_bbb_durN      [1]},
+  m_entryBurnDurRange  {a_entry_burn_dur[0], a_entry_burn_dur[1]},
+
   // Ctl Params are set to "NAN"s as yet:
   m_coastDur           (NAN),
   m_bbBurnDur          (NAN),
@@ -125,6 +139,8 @@ RTLS1::RTLS1
   // Obviously, "a_propMassS" must be within the following limits:
   if (!(IsPos(a_prop_massS) && a_prop_massS < a_fpl_mass1 * a_fpl_k1))
     throw std::invalid_argument("RTLS1::Ctor: Invalid PropMassS");
+
+  // XXX: The Optimisation Ranges are chcked at the point of use...
 }
 
 //===========================================================================//
@@ -200,11 +216,6 @@ RTLS1::Base::RunRes RTLS1::Run(FlightMode a_init_mode)
   catch (LandBurnApproxExn const& lba)
   {
     res = LandBurnApprox(lba);
-  }
-  catch (GrossMissExn)
-  {
-    // Return the empty "res" which is an error -- the integration has already
-    // broken the constrains very severely...
   }
   // XXX: Any other exceptions are propagated to the top level, it's better not
   // to hide them...
@@ -287,14 +298,6 @@ bool RTLS1::ODECB
   m_maxQ       = std::max(m_maxQ, Q);
   assert(!IsNeg(longG));
   m_maxLongG   = std::max(m_maxLongG, longG);
-
-  // Stop integration NOW if we know for sure that some constraint has been
-  // broken severely. NB: Obviously, over-shots can be detected,    whereas
-  // under-shots remain undected until the near-end of integration:
-  //
-  if (L < -GrossLError ||  m_maxQ > 1.5 * m_QLimit ||
-      m_maxLongG > 1.5 * m_longGLimit)
-    throw GrossMissExn();
 
   //-------------------------------------------------------------------------//
   // Mode Switching:                                                         //
