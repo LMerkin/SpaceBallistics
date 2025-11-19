@@ -99,6 +99,7 @@ RTLS1::RTLS1
 
   // Optimisation Ranges:
   m_propMassSRange     {a_prop_massSN   [0], a_prop_massSN   [1]},
+  m_minCoastDur        (a_min_coast_dur),
   m_bbBurnThetaMinPi   (a_bbb_theta_minN),
   m_bbBurnDurRange     {a_bbb_durN      [0], a_bbb_durN      [1]},
   m_entryBurnDurRange  {a_entry_burn_dur[0], a_entry_burn_dur[1]},
@@ -666,7 +667,6 @@ Mass RTLS1::LVMass(Base::StateV const& a_s, Time UNUSED_PARAM(a_t)) const
 
   // In general, we must have m >= EmptyMass + UnSpendableMass, though this may
   // be broken in some edge cases due to rounding errors:
-  //
   m = std::max(m, Base::m_emptyMass1 + Base::m_unSpendable1);
   return m;
 }

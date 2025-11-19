@@ -369,7 +369,8 @@ void RTLS1::CalibrateLandBurnParams(std::string const& a_config_ini)
     // (*) the horizontal distance is not entirely irrelevant (because there are
     //     some built-in constraints on "dL" in "RTLS1"), but setting it to 0 is
     //     OK here;
-    // (*) "dVhor" estimate and "landDLLimit" can be safely set to 0;
+    // (*) "minCoastDur", "dVhor" estimate, "landDLLimit" can all  safely be set
+    //     to ;
     // (*) obviously, approxLandBurn = false;
     // (*) optimisation Ranges are irrelevant for the LandBurn:
     //
@@ -379,13 +380,13 @@ void RTLS1::CalibrateLandBurnParams(std::string const& a_config_ini)
 
     RTLS1 proto
     (
-      maxFPLMass1,    fplK1, fplPropRem1,  IspSL1,   IspVac1,  thrustVacI1,
-      minThrtL1,      diam,
-      propM,          MaxLandBurnH,  0.0_km,    v,   To_Angle(psi),
-      VelK(0.0),      0.0_km,        landVelLimit,   landAccLimit,
-      QLimit,         longGLimit,    false,
-      propMassSRange, NAN,           bbBurnDurRange, entryBurnDurRange,
-      odeIntegrStep,  &std::cout,    optLogLevel
+      maxFPLMass1,       fplK1, fplPropRem1,  IspSL1,   IspVac1,  thrustVacI1,
+      minThrtL1,         diam,
+      propM,             MaxLandBurnH,  0.0_km,    v,   To_Angle(psi),
+      VelK(0.0),         0.0_km,        landVelLimit,   landAccLimit,
+      QLimit,            longGLimit,    false,
+      propMassSRange,    Time(NAN),     NAN,            bbBurnDurRange,
+      entryBurnDurRange, odeIntegrStep,  &std::cout,    optLogLevel
     );
   }
 }

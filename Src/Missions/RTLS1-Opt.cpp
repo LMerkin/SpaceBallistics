@@ -14,21 +14,31 @@ namespace SpaceBallistics
 //===========================================================================//
 // "RTLS1" Ctor from a Proto and Normalised Ctl Params:                      //
 //===========================================================================//
-// Params:
+// Main Opt Vars:
 // [
 //  PropMassS,  CoastDur,
-//  BBBurnDur,  BBBurnThrtL0,   BBBurnThrtL1,    BBBurnTheta0, BBBurnTheta1,
-//  EntryBurnQ, EntryBurnDur,   EntryBurnThrtL0, EntryBurnThrtL1
-// ]:
+//  BBBurnDur,  BBBurnThrtL1, BBBurnTheta1,
+//  EntryBurnQ, EntryBurnDur, EntryBurnThrtL0, EntryBurnThrtL1
+// ];
+// Aux Opt Vars:
+// [ CoastDur,  BBBurnThrtL0, BBBurnTheta0 ]:
+//
 RTLS1::RTLS1
 (
-  RTLS1  const&               a_proto,
-  double a_propMassSN,        double a_coastDurN,
-  double a_bbBurnDurN,        double a_bbBurnThrtL0N,
-  double a_bbBurnThrtL1N,     double a_bbBurnTheta0N,
+  RTLS1  const& a_proto,
+  // "Main" Vars:
+  double a_propMassSN,
+  double a_bbBurnDurN,
+  double a_bbBurnThrtL1N,
   double a_bbBurnTheta1N,
-  double a_entryBurnQN,       double a_entryBurnDurN,
-  double a_entryBurnThrtL0N,  double a_entryBurnThrtL1N
+  double a_entryBurnQN,
+  double a_entryBurnDurN,
+  double a_entryBurnThrtL0N,
+  double a_entryBurnThrtL1N,
+  // "Aux" Vars:
+  double a_coastDurN,
+  double a_bbBurnThrtL0N,
+  double a_bbBurnTheta0N
 )
 : //-------------------------------------------------------------------------//
   // Construct the "RTLS1" Obj from "Proto":                                 //
@@ -73,6 +83,7 @@ RTLS1::RTLS1
 
     // Optimisation Ranges:
     a_proto.m_propMassSRange,
+    a_proto.m_minCoastDur,
     a_proto.m_bbBurnThetaMinPi,
     a_proto.m_bbBurnDurRange,
     a_proto.m_entryBurnDurRange,
@@ -88,6 +99,7 @@ RTLS1::RTLS1
   //-------------------------------------------------------------------------//
   if (!(0.0 < m_propMassSRange[0]                              &&
               m_propMassSRange[0] <  m_propMassSRange[1]       &&
+       !IsNeg(m_minCoastDur)                                   &&
         0.5 < m_bbBurnThetaMinPi  && m_bbBurnThetaMinPi <= 1.0 &&
         0.0 < m_bbBurnDurRange[0]                              &&
               m_bbBurnDurRange[0] <  m_bbBurnDurRange[1]       &&
@@ -122,8 +134,10 @@ RTLS1::RTLS1
         << " km/sec, timeToTop="     << toTop.Magnitude()
         << " sec"                    << std::endl;
 
+  toTop = std::max(toTop, m_minCoastDur);
   assert(0.0 <= a_coastDurN && a_coastDurN <= 1.0);
-  m_coastDur  = a_coastDurN *  toTop;
+  m_coastDur  = (1.0 - a_coastDurN) * m_minCoastDur +  toTop * a_coastDurN;
+  assert(m_minCoastDur <= m_coastDur  &&  m_costDur <= toTop);
 
   //------------//
   // BBBurn:    //
@@ -150,7 +164,7 @@ RTLS1::RTLS1
   //     but not too much: if theta < 3/4*Pi, then the vertical impulse is high-
   //     er than the horizontal one (which provides the actual Boost-Back);
   //     that's why we limit "theta"s from below by min*Pi, where min > 3/4:
-  // So: theta{0,1} in [MinBBBurnThetaPiFrac .. 1] * Pi:
+  // So: theta{0,1} in [MinBBBurnThetaMinN .. 1] * Pi:
   //
   assert(0.0       <= a_bbBurnTheta0N && a_bbBurnTheta0N <= 1.0);
   m_bbBurnTheta0    =
@@ -294,6 +308,7 @@ private:
   // Data Flds:                                                              //
   //=========================================================================//
   RTLS1  const* const m_proto;
+  bool          const m_withAuxOptVars;
 
 public:
   //=========================================================================//
@@ -302,11 +317,12 @@ public:
   NOMADMainEvaluator
   (
     std::shared_ptr<NOMAD::EvalParameters> const& a_params,
-    // LV Proto:
-    RTLS1  const*                                 a_proto
+    RTLS1  const*  a_proto,
+    bool           a_with_aux_opt_vars
   )
-  : NOMAD::Evaluator   (a_params,          NOMAD::EvalType::BB),
-    m_proto            (a_proto)
+  : NOMAD::Evaluator(a_params, NOMAD::EvalType::BB),
+    m_proto         (a_proto),
+    m_withAuxOptVars(a_with_aux_opt_vars)
   { assert(m_proto  != nullptr);  }
 
   ~NOMADMainEvaluator() override {}
@@ -322,8 +338,9 @@ public:
   )
   const override
   {
-    // XXX: For the moment, all params are optimised over:
-    assert(a_x.size() == NP);
+    // For the moment, there are either "NM" or the full "NP" params:
+    assert(( m_withAuxOptVars && int(a_x.size()) == NP) ||
+           (!m_withAuxOptVars && int(a_x.size()) == NM));
 
     //-----------------------------------------------------------------------//
     // For Thread-Safety, construct a new "RTLS1" obj from "Proto":          //
@@ -331,19 +348,21 @@ public:
     RTLS1 rtls
     (
       *m_proto,
-      a_x[ 0].todouble(),    // propMassSN
-      a_x[ 1].todouble(),    // coastDurN
-      a_x[ 2].todouble(),    // bbBurnDurN
-      a_x[ 3].todouble(),    // bbBurnThrtLN0
-      a_x[ 4].todouble(),    // bbBurnThrtLN1
-      a_x[ 5].todouble(),    // bbBurnTheta0
-      a_x[ 6].todouble(),    // bbBurnTheta1
-      a_x[ 7].todouble(),    // entryBurnQN
-      a_x[ 8].todouble(),    // entryBurnDurN
-      a_x[ 9].todouble(),    // entryBurnThrtLN0
-      a_x[10].todouble()     // entryBurnThrtLN1
+      // "Main" Opt Vars:
+      a_x[ 0].todouble(),                           // propMassSN
+      a_x[ 1].todouble(),                           // bbBurnDurN
+      a_x[ 2].todouble(),                           // bbBurnThrtLN1
+      a_x[ 3].todouble(),                           // bbBurnTheta1
+      a_x[ 4].todouble(),                           // entryBurnQN
+      a_x[ 5].todouble(),                           // entryBurnDurN
+      a_x[ 6].todouble(),                           // entryBurnThrtLN0
+      a_x[ 7].todouble(),                           // entryBurnThrtLN1
+      // "Aux" Opt Vars: If not present, the defaults are used:
+      m_withAuxOptVars ? a_x[ 8].todouble() : 0.0,  // coastDurN
+      m_withAuxOptVars ? a_x[ 9].todouble() : 1.0,  // bbBurnThrtLN0
+      m_withAuxOptVars ? a_x[10].todouble() : 1.0   // bbBurnTheta0
     );
-    static_assert(10 == NP-1);
+    static_assert(7 == NM-1 && 10 == NP-1);
 
     //-----------------------------------------------------------------------//
     // Run the Integrator!                                                   //
@@ -390,7 +409,6 @@ public:
     assert(!IsNeg(res.m_maxLongG));
     curr += sprintf(curr, " %.16e",
                     res.m_maxLongG - m_proto->m_longGLimit);
-
     // Done!
     assert(size_t(curr - buff) <= sizeof(buff));
 
@@ -467,9 +485,6 @@ RTLS1::FindOptimalReturnCtls
     throw std::invalid_argument
           ("RTLS1::FindOptimalReturnCtls: NOMADUseVNS: Must be in [0..1)");
 
-  // The initial vals of all (NORMALISED) params: 0.5:
-  std::vector<double> initParamsN(NP, 0.5);
-
   // The Limits:
   LenK     landDLLimit      (pt.get<double>("Opt.LandDLLimit"));
   VelK     landVelLimit     (pt.get<double>("Opt.LandVelLimit"));
@@ -477,6 +492,7 @@ RTLS1::FindOptimalReturnCtls
   Pressure QLimit           (pt.get<double>("Opt.QLimit"  ));
   double   longGLimit     =  pt.get<double>("Opt.LongGLimit");
   bool     approxLandBurn =  pt.get<bool>  ("Opt.ApproxLandBurn");
+  Time     minCoastDur      (pt.get<double>("Opt.MinCoastDur"));
 
   // Optimisation Ranges:
   std::string propMassSRangeS =    pt.get<std::string>("Opt.PropMassSRangeN");
@@ -498,6 +514,9 @@ RTLS1::FindOptimalReturnCtls
   Time        entryBurnDurRange[2] {Time(entryBurnDurRangeD[0]),
                                     Time(entryBurnDurRangeD[1])};
 
+  // Optimise over the Auxiliary Variables as well?
+  bool        withAuxOptVars     = pt.get<bool>       ("Opt.WithAuxOptVars");
+
   //-------------------------------------------------------------------------//
   // Create the "prototype" "RTLS1" obj:                                     //
   //-------------------------------------------------------------------------//
@@ -511,13 +530,14 @@ RTLS1::FindOptimalReturnCtls
 
   RTLS1 proto
   (
-    maxFPLMass1,    fplK1, fplPropRem1,  IspSL1, IspVac1, thrustVacI1,
+    maxFPLMass1,    fplK1, fplPropRem1, IspSL1,  IspVac1, thrustVacI1,
     minThrtL1,      diam,
-    propMassS,      hS,      lS,     VS, psiS,
-    dVhor,          landDLLimit,         landVelLimit,    landAccLimit,
-    QLimit,         longGLimit,          approxLandBurn,
-    propMassSRange, bbBurnThetaMinPi,    bbBurnDurRange,  entryBurnDurRange,
-    odeIntegrStep,  a_os,                optLogLevel
+    propMassS,      hS,      lS,    VS, psiS,
+    dVhor,          landDLLimit,        landVelLimit,     landAccLimit,
+    QLimit,         longGLimit,         approxLandBurn,
+    propMassSRange, minCoastDur,        bbBurnThetaMinPi, bbBurnDurRange,
+    entryBurnDurRange,
+    odeIntegrStep,  a_os,               optLogLevel
   );
 
   //-------------------------------------------------------------------------//
@@ -533,9 +553,12 @@ RTLS1::FindOptimalReturnCtls
   // used in the "approx" Landing mode:
   int const NC = approxLandBurn ? 4 : 5;
 
+  // The initial vals of all (NORMALISED) params: 0.5:
+  std::vector<double> initParamsN(withAuxOptVars ? NP : NM, 0.5);
+
   // LoBounds and UpBounds are All-0s and All-1s, resp.:
-  std::vector<double> loBounds(initParamsN.size(), 0.0);
-  std::vector<double> upBounds(initParamsN.size(), 1.0);
+  std::vector<double> loBounds   (initParamsN.size(), 0.0);
+  std::vector<double> upBounds   (initParamsN.size(), 1.0);
 
   std::shared_ptr<NOMAD::AllParameters> params =
     MkNOMADParams(initParamsN, loBounds, upBounds,       NC,
@@ -545,7 +568,11 @@ RTLS1::FindOptimalReturnCtls
 
   // Create the "NOMADMainEvaluator":
   std::unique_ptr<NOMADMainEvaluator> ev
-    (new NOMADMainEvaluator(params->getEvalParams(), &proto));
+    (new NOMADMainEvaluator
+         (params->getEvalParams(),
+          &proto,
+          withAuxOptVars)
+    );
   opt.setEvaluator(std::move(ev));
 
   //-------------------------------------------------------------------------//
@@ -580,19 +607,21 @@ RTLS1::FindOptimalReturnCtls
   RTLS1 rtls
   (
     proto,
-    initParamsN[ 0],  // propMassSN
-    initParamsN[ 1],  // coastDurN
-    initParamsN[ 2],  // bbBurnDurN
-    initParamsN[ 3],  // bbBurnThrtL0N
-    initParamsN[ 4],  // bbBurnThrtL1N
-    initParamsN[ 5],  // bbBurnTheta0N
-    initParamsN[ 6],  // bbBurnTheta1N
-    initParamsN[ 7],  // entryBurnQN
-    initParamsN[ 8],  // entryBurnDurN
-    initParamsN[ 9],  // entryBurnThrtL0N,
-    initParamsN[10]   // entryBurnThrtL1N,
+    // Main Vars:
+    initParamsN[ 0],                        // propMassSN
+    initParamsN[ 1],                        // bbBurnDurN
+    initParamsN[ 2],                        // bbBurnThrtL1N
+    initParamsN[ 3],                        // bbBurnTheta1N
+    initParamsN[ 4],                        // entryBurnQN
+    initParamsN[ 5],                        // entryBurnDurN
+    initParamsN[ 6],                        // entryBurnThrtL0N,
+    initParamsN[ 7],                        // entryBurnThrtL1N,
+    // Aux Vars (if available):
+    withAuxOptVars ? initParamsN[ 8] : 0.0, // coastDurN
+    withAuxOptVars ? initParamsN[ 9] : 1.0, // bbBurnThrtL0N
+    withAuxOptVars ? initParamsN[10] : 1.0  // bbBurnTheta0N
   );
-  static_assert(10 == NP-1);
+  static_assert(7 == NM-1 && 10 == NP-1);
 
   if (withFinalRun)
   {

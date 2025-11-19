@@ -127,18 +127,19 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     // Params of a "Fully-Prop-Loaded" Stage1 (nominal):                     //
     //-----------------------------------------------------------------------//
-    Mass   const            m_fplMass1;
-    double const            m_fplK1;
-    double const            m_fplPropRem1;
-    Len    const            m_diam;
+    Mass      const         m_fplMass1;
+    double    const         m_fplK1;
+    double    const         m_fplPropRem1;
+    Len       const         m_diam;
 
     //-----------------------------------------------------------------------//
     // Optimisation Ranges:                                                  //
     //-----------------------------------------------------------------------//
-    double const            m_propMassSRange   [2]; // Relative to the Estimate
-    double const            m_bbBurnThetaMinPi;     // Relative to Pi
-    double const            m_bbBurnDurRange   [2]; // Relative to the Estimate
-    Time   const            m_entryBurnDurRange[2]; // Absolute!
+    double    const         m_propMassSRange   [2]; // Relative to the Estimate
+    Time      const         m_minCoastDur;          // To avoid collision...
+    double    const         m_bbBurnThetaMinPi;     // Relative to Pi
+    double    const         m_bbBurnDurRange   [2]; // Relative to the Estimate
+    Time      const         m_entryBurnDurRange[2]; // Absolute!
 
     //-----------------------------------------------------------------------//
     // Optimisation Params:                                                  //
@@ -170,13 +171,20 @@ namespace SpaceBallistics
     double                  m_entryBurnThrtL0;
     double                  m_entryBurnThrtL1;
 
-    // So altogether: 11 params:
+    // So altogether: up to 11 optimisation variables:
+    // Main Vars (8):
     // [
-    //  PropMassS,    CoastDur,
-    //  BBBurnDur,    BBBurnThrtL0, BBBurnThrtL1,    BBBurnTheta0,
-    //  BBBurnTheta1,
-    //  EntryBurnQ,   EntryBurnDur, EntryBurnThrtL0, EntryBurnThrtL1
+    //  PropMassS,
+    //  BBBurnDur,    BBBurnThrtL1,  BBBurnTheta1,
+    //  EntryBurnQ,   EntryBurnDur,  EntryBurnThrtL0,  EntryBurnThrtL1
+    // ];
+    // Auxiliary Vars (3):
+    // [
+    //   CoastDur     (default = 0.0_sec),
+    //   BBBurnThrtL0 (default = 1.0),
+    //   BBBurnTheta0 (default = Pi)
     // ]:
+    constexpr static int NM =  8;
     constexpr static int NP = 11;
 
     // LandBurn:
@@ -236,6 +244,7 @@ namespace SpaceBallistics
 
       // Optimisation Ranges:
       double const   a_prop_massSN   [2],
+      Time           a_min_coast_dur,
       double         a_bbb_theta_minN,
       double const   a_bbb_durN      [2],
       Time   const   a_entry_burn_dur[2],
