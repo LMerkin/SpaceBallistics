@@ -137,7 +137,7 @@ RTLS1::RTLS1
   toTop = std::max(toTop, m_minCoastDur);
   assert(0.0 <= a_coastDurN && a_coastDurN <= 1.0);
   m_coastDur  = (1.0 - a_coastDurN) * m_minCoastDur +  toTop * a_coastDurN;
-  assert(m_minCoastDur <= m_coastDur  &&  m_costDur <= toTop);
+  assert(m_minCoastDur <= m_coastDur  && m_coastDur <= toTop);
 
   //------------//
   // BBBurn:    //
@@ -351,16 +351,16 @@ public:
       // "Main" Opt Vars:
       a_x[ 0].todouble(),                           // propMassSN
       a_x[ 1].todouble(),                           // bbBurnDurN
-      a_x[ 2].todouble(),                           // bbBurnThrtLN1
-      a_x[ 3].todouble(),                           // bbBurnTheta1
+      a_x[ 2].todouble(),                           // bbBurnThrtL1N
+      a_x[ 3].todouble(),                           // bbBurnTheta1N
       a_x[ 4].todouble(),                           // entryBurnQN
       a_x[ 5].todouble(),                           // entryBurnDurN
-      a_x[ 6].todouble(),                           // entryBurnThrtLN0
-      a_x[ 7].todouble(),                           // entryBurnThrtLN1
+      a_x[ 6].todouble(),                           // entryBurnThrtL0N
+      a_x[ 7].todouble(),                           // entryBurnThrtL1N
       // "Aux" Opt Vars: If not present, the defaults are used:
       m_withAuxOptVars ? a_x[ 8].todouble() : 0.0,  // coastDurN
-      m_withAuxOptVars ? a_x[ 9].todouble() : 1.0,  // bbBurnThrtLN0
-      m_withAuxOptVars ? a_x[10].todouble() : 1.0   // bbBurnTheta0
+      m_withAuxOptVars ? a_x[ 9].todouble() : 1.0,  // bbBurnThrtL0N
+      m_withAuxOptVars ? a_x[10].todouble() : 1.0   // bbBurnTheta0N
     );
     static_assert(7 == NM-1 && 10 == NP-1);
 
@@ -614,8 +614,8 @@ RTLS1::FindOptimalReturnCtls
     initParamsN[ 3],                        // bbBurnTheta1N
     initParamsN[ 4],                        // entryBurnQN
     initParamsN[ 5],                        // entryBurnDurN
-    initParamsN[ 6],                        // entryBurnThrtL0N,
-    initParamsN[ 7],                        // entryBurnThrtL1N,
+    initParamsN[ 6],                        // entryBurnThrtL0N
+    initParamsN[ 7],                        // entryBurnThrtL1N
     // Aux Vars (if available):
     withAuxOptVars ? initParamsN[ 8] : 0.0, // coastDurN
     withAuxOptVars ? initParamsN[ 9] : 1.0, // bbBurnThrtL0N

@@ -44,6 +44,7 @@ RTLS1::RTLS1
 
   // Optimisation Ranges:
   double const   a_prop_massSN   [2],
+  Time           a_min_coast_dur,
   double         a_bbb_theta_minN,
   double const   a_bbb_durN      [2],
   Time   const   a_entry_burn_dur[2],
@@ -476,6 +477,7 @@ std::pair<Angle,Angle> RTLS1::AoA(Time a_t, Angle a_psi) const
     Angle  theta = m_bbBurnTheta0 * (1.0 - nt) + m_bbBurnTheta1 * nt;
     // XXX: The following cond holds, but up to rounding errors:
     // MinBBBurnThetaPiFrac * PI <= theta <= PI
+    theta = std::min(theta, PI);
 
     // XXX: the AoA is not much relevant in this mode, since we disreagard
     // the aerodynamic forces during this Burn; define it formally via the

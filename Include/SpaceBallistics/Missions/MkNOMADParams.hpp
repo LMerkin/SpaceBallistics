@@ -107,20 +107,23 @@ inline std::shared_ptr<NOMAD::AllParameters> MkNOMADParams
   params->setAttributeValue("DIRECTION_TYPE",
     NOMAD::DirectionType::ORTHO_2N);
 
-  // Other params:
+  // Other Params:
   params->setAttributeValue("DISPLAY_DEGREE",          2);    // TODO: Config!
   params->setAttributeValue("DISPLAY_ALL_EVAL",        false);
   params->setAttributeValue("DISPLAY_UNSUCCESSFUL",    false);
   params->getRunParams()->setAttributeValue("HOT_RESTART_READ_FILES",  false);
   params->getRunParams()->setAttributeValue("HOT_RESTART_WRITE_FILES", false);
 
-  params->setAttributeValue("SEED",             a_opt_seed);
-  params->setAttributeValue("STOP_IF_FEASIBLE", a_stop_if_feasible);
+  // Convergence Ctl:
+  params->setAttributeValue("SEED",               a_opt_seed);
+  params->setAttributeValue("STOP_IF_FEASIBLE",   a_stop_if_feasible);
+  params->setAttributeValue("LH_SEARCH",
+                            NOMAD::LHSearchType("100 10"));
+  params->setAttributeValue("EVAL_OPPORTUNISTIC", false);
+  params->setAttributeValue("ANISOTROPIC_MESH",   true);
+  params->setAttributeValue("ANISOTROPY_FACTOR",  NOMAD::Double(0.05));
 
-  if (a_use_vns <  0.0 || a_use_vns >= 1.0)
-    throw std::invalid_argument ("NOMADUseVNS: The arg must be in [0..1)");
-
-  if (a_use_vns != 0.0)
+  if (0.0 < a_use_vns && a_use_vns < 1.0)
   {
     assert(0.0 < a_use_vns && a_use_vns < 1.0);
     params->setAttributeValue("VNS_MADS_SEARCH",         true);

@@ -266,12 +266,15 @@ namespace SpaceBallistics
     RTLS1
     (
       RTLS1  const&               a_proto,
-      double a_propMassSN,        double a_coastDurN,
-      double a_bbBurnDurN,        double a_bbBurnThrtL0N,
-      double a_bbBurnThrtL1N,     double a_bbBurnTheta0N,
+      // "Main" Opt Vars:
+      double a_propMassSN,
+      double a_bbBurnDurN,        double a_bbBurnThrtL1N,
       double a_bbBurnTheta1N,
       double a_entryBurnQN,       double a_entryBurnDurN,
-      double a_entryBurnThrtL0N,  double a_entryBurnThrtL1N
+      double a_entryBurnThrtL0N,  double a_entryBurnThrtL1N,
+      // "Aux" Opt Vars:
+      double a_coastDurN,         double a_bbBurnThrtL0N,
+      double a_bbBurnTheta0N
     );
 
     //-----------------------------------------------------------------------//

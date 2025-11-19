@@ -222,6 +222,7 @@ public:
 
       // Optimisation Ranges:
       m_proto->m_propMassSRange,
+      m_proto->m_minCoastDur,
       m_proto->m_bbBurnThetaMinPi,
       m_proto->m_bbBurnDurRange,
       m_proto->m_entryBurnDurRange,
@@ -318,12 +319,12 @@ void RTLS1::CalibrateLandBurnParams(std::string const& a_config_ini)
 
   // "Technical" Params:
   Time   odeIntegrStep          (pt.get<double>("Technical.ODEIntegrStep"));
-  int    optMaxEvals      =      pt.get<int>   ("Technical.OptMaxEvals");
+//int    optMaxEvals      =      pt.get<int>   ("Technical.OptMaxEvals");
   int    optLogLevel      =      pt.get<int>   ("Technical.OptLogLevel");
-  int    optSeed          =      pt.get<int>   ("Technical.NOMADSeed");
-  bool   stopIfFeasible   =      pt.get<bool>  ("Technical.NOMADStopIfFeasible");
+//int    optSeed          =      pt.get<int>   ("Technical.NOMADSeed");
+//bool   stopIfFeasible   =      pt.get<bool>  ("Technical.NOMADStopIfFeasible");
   double useVNS           =      pt.get<double>("Technical.NOMADUseVNS");
-  bool   useMT            =      pt.get<bool>  ("Technical.NOMADUseMT");
+//bool   useMT            =      pt.get<bool>  ("Technical.NOMADUseMT");
 
   if (useVNS < 0.0 || useVNS >= 1.0)      // 0: VNS not used
     throw std::invalid_argument
