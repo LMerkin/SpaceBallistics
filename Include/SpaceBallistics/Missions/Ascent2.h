@@ -41,6 +41,16 @@ namespace SpaceBallistics
     friend class  LVBase<Ascent2>;
 
     //-----------------------------------------------------------------------//
+    // "Stage1RetMode":                                                      //
+    //-----------------------------------------------------------------------//
+    enum class Stage1RetMode: int
+    {
+      None      = 0,
+      RTLS      = 1
+      // TODO: Other Modes...
+    };
+
+    //-----------------------------------------------------------------------//
     // "FlightMode":                                                         //
     //-----------------------------------------------------------------------//
     enum class FlightMode: int
@@ -101,6 +111,17 @@ namespace SpaceBallistics
     //-----------------------------------------------------------------------//
     LenK                  m_Rins;        // Radius-Vector @ Orbital Insertion
     VelK                  m_Vins;        // LV Velocity   @ Orbital Insertion
+
+    // Stage1 Landing Site (relative to the Launch Site):
+    // Currently, only the Down-Range Distance is required (>0 means in the dir-
+    // ection of the Ascent flight).  If NAN, then RetMode mist be "None", and
+    // Stage1 is NOT returned:
+    Stage1RetMode const   m_retMode1;
+    LenK          const   m_landSiteDL;
+
+    // For the "returnable" Stage1: Propellant Mass in Stage1 at the Separation
+    // Time:
+    Mass                  m_propMassS1;
 
     //-----------------------------------------------------------------------//
     // Flight Control Program Parameterisation:                              //
@@ -204,6 +225,8 @@ namespace SpaceBallistics
       LenK            a_h_apogee,
       Angle_deg       a_incl,
       Angle_deg       a_launch_lat,
+      Stage1RetMode   a_ret_mode1,
+      LenK            a_land_site_dl,       // NAN -> no Stage1 return
 
       // Integration / Output Params:
       Time            a_ode_integr_step,
@@ -326,6 +349,11 @@ namespace SpaceBallistics
 
     //  "OutputCtls": For Testing Only:
     void OutputCtls() const;
+
+    //-----------------------------------------------------------------------//
+    // For Stage1 Return:                                                    //
+    //-----------------------------------------------------------------------//
+    void SetStage1RetParams(LenK a_h, VelK a_V, Angle a_psi);
 
     //=======================================================================//
     // "NOMADEvaluator": Helper Class used in NOMAD Optimisation:            //

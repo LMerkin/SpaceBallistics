@@ -46,6 +46,8 @@ Ascent2::Ascent2
   LenK            a_h_apogee,
   Angle_deg       a_incl,
   Angle_deg       a_launch_lat,
+  Stage1RetMode   a_ret_mode1,
+  LenK            a_land_site_dl,
 
   // Integration/Output Params:
   Time            a_ode_integr_step,
@@ -102,10 +104,13 @@ Ascent2::Ascent2
   m_T2            (m_spendable2  / m_burnRateI2),
 
   //-------------------------------------------------------------------------//
-  // Mission Params: Ininitiased in the Ctor Body:                           //
+  // Mission Params:                                                         //
   //-------------------------------------------------------------------------//
-  m_Rins          (0.0_km),
-  m_Vins          (0.0),
+  m_Rins          (0.0_km), // Initialised below
+  m_Vins          (0.0),    //
+  m_retMode1      (a_ret_mode1),
+  m_landSiteDL    (a_land_site_dl),
+  m_propMassS1    (Base::m_unSpendable1),  // May be adjusted set later
 
   //-------------------------------------------------------------------------//
   // Flight Ctl Params:                                                      //
@@ -172,7 +177,8 @@ Ascent2::Ascent2
   // XXX: We assume that launch is NOT from the North or South Pole:
   if (!(a_h_perigee       >=  100.0_km && a_h_perigee <= a_h_apogee &&
         a_incl            >= 0.0_deg   && a_incl      <= 180.0_deg  &&
-        Abs(a_launch_lat)  < 90.0_deg  && !IsNeg(m_payLoadMass)))
+        Abs(a_launch_lat)  < 90.0_deg  && !IsNeg(m_payLoadMass)     &&
+        (m_retMode1 != Stage1RetMode::None) == IsFinite(m_landSiteDL)))
     throw std::invalid_argument("Ascent2::Ctor: Invalid Mission Param(s)");
 
   //-------------------------------------------------------------------------//
@@ -274,8 +280,8 @@ Ascent2::Base::RunRes Ascent2::Run()
     assert(tEnd >= tMin);
 
     // If we got here: Integration has run to completion, but not to the Singu-
-    // lar Point. Invoke the "PostProcessRun" (IsAscent=false):
-    res  = Base::PostProcessRun(s0, tEnd, false);
+    // lar Point. Invoke the "PostProcessRun" (IsAscent=true):
+    res  = Base::PostProcessRun(s0, tEnd, true);
   }
   catch (Base::NearSingularityExn const& ns)
   {
@@ -444,6 +450,10 @@ bool Ascent2::ODECB
       // XXX: We assume that Stage1 separation occures at the cut-off moment,
       // so record the corresp Q:
       m_sepQ   = Q;
+
+      // IMPORTANT: If Stage1 is "returnable", set the corresp params:
+      if (m_retMode1 != Stage1RetMode::None)
+        SetStage1RetParams(h, V, psi);
     }
   }
 
@@ -583,9 +593,10 @@ std::pair<Angle,Angle> Ascent2::AoA(Time a_t, Angle a_psi) const
   // integration instabilities. It is difficult to say precisely which values
   // of "psi" are accepatble and which are not, so we just log such events:
   //
-  if (Abs(a_psi) > PI_2 && Base::m_os != nullptr && Base::m_logLevel >= 1)
+  if (Abs(a_psi) > 1.001 * PI_2 &&
+      Base::m_os != nullptr     && Base::m_logLevel >= 1)
 #   pragma omp critical(Output)
-    *Base::m_os << "Ascent2::AoA: WARNING: psi="
+    *Base::m_os << "# Ascent2::AoA: WARNING: psi="
                 << To_Angle_deg(a_psi).Magnitude() << " deg" << std::endl;
 
   Angle  aoa = 0.0_rad;
@@ -633,6 +644,8 @@ std::pair<Angle,Angle> Ascent2::AoA(Time a_t, Angle a_psi) const
   }
   default: ;
   }
+  // XXX: For the Ascent, we can always assume 0 <= aoa <= Pi/2:
+  assert(!IsNeg(aoa) && aoa <= PI_2);
 
   // XXX: In this case, we assume there is no chamber/nozzle gimbaling,  and
   // therefore, theta = psi + AoA; but "theta" is limited by Pi/2, otherwise
@@ -640,18 +653,10 @@ std::pair<Angle,Angle> Ascent2::AoA(Time a_t, Angle a_psi) const
   // is allowed under some circumstances (because Vr < 0 may be allowed):
   Angle theta = a_psi + aoa;
 
-  if (theta > PI_2)
-  {
-    aoa   =  PI_2 - a_psi;
-    theta =  PI_2;
-  }
-  else
-  if (theta < -PI_2)
-  {
-    aoa   = -PI_2 - a_psi;
-    theta = -PI_2;
-  }
-  return std::make_pair(aoa, theta);
+  // XXX: We apply the following limits on "theta" only, since "aoa" is already
+  // in the valid range:
+  theta = std::max(-PI_2, std::min(theta, PI_2));
+  return  std::make_pair(aoa, theta);
 }
 
 //===========================================================================//
@@ -770,10 +775,16 @@ Mass Ascent2::LVMass(Base::StateV const& a_s, Time a_t) const
   // In any case, ADD the SpentPropMass (between "a_t" and Orbital Insertion):
   m += spentPropMass;
 
-  // If Stage1 has NOT separated yet, add its Empty and PropRemnants:
+  // If Stage1 has NOT separated yet, add its Empty and PropRemnants. IMPORTANT:
+  // for a "returnable" Stage1, the latter is greater than the UnSpendable min:
   if (m_mode != FlightMode::Burn2 && m_mode != FlightMode::Gap)
-    m += Base::m_emptyMass1 + Base::m_unSpendable1;
-
+  {
+    assert((m_retMode1   == Stage1RetMode::None   &&
+            m_propMassS1 == Base::m_unSpendable1) ||
+           (m_retMode1   != Stage1RetMode::None   &&
+            m_propMassS1 >  Base::m_unSpendable1));
+    m += Base::m_emptyMass1 + m_propMassS1;
+  }
   // Add the FairingMass if the Fairing has NOT separated @  "a_t". In the
   // Bwd time, it means that "m_fairingSepTime" is known and "a_t" is below
   // it:

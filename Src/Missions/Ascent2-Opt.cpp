@@ -525,6 +525,12 @@ Ascent2::FindOptimalAscentCtls
   LenK      apogee            (pt.get<double>("Mission.Apogee" ));
   Angle_deg incl              (pt.get<double>("Mission.Inclination"));
   Angle_deg launchLat         (pt.get<double>("Mission.LaunchLat"));
+  LenK      landSiteDL        (pt.get<double>("Mission.LandSiteDL"));
+  // XXX: Currently, only the RTLS Return Mode is implemented:
+  Stage1RetMode retMode1 =
+    IsFinite(landSiteDL)
+    ? Stage1RetMode::RTLS
+    : Stage1RetMode::None;
 
   //-------------------------------------------------------------------------//
   // Now  get the "Opt" params:                                              //
@@ -643,8 +649,8 @@ Ascent2::FindOptimalAscentCtls
     k2,      propRem2,          IspVac2, thrustVacI2, minThrtL2, maxAoA2,
     k1,      propRem1,  IspSL1, IspVac1, thrustVacI1, minThrtL1, maxAoA1,
     alpha1,  maxStartMass,      fairingMass,    diam,            payLoadMass,
-    perigee, apogee,    incl,   launchLat,      odeIntegrStep,   a_os,
-    optLogLevel
+    perigee, apogee,    incl,   launchLat,      retMode1,        landSiteDL,
+    odeIntegrStep,      a_os,   optLogLevel
   );
 
   proto.SetCtlParams

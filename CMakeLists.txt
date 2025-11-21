@@ -215,6 +215,7 @@ SET(SRCS
   Src/PhysEffects/EarthAtmosphereModel.cpp
   Src/Missions/Ascent2-Integr.cpp
   Src/Missions/Ascent2-Opt.cpp
+  Src/Missions/Ascent2-Ret1.cpp
   Src/Missions/RTLS1-Integr.cpp
   Src/Missions/RTLS1-Opt.cpp
   Src/Missions/RTLS1-Landing.cpp)

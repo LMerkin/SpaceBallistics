@@ -348,7 +348,7 @@ const
   // (*) for the Descent (RTLS)  (Fwd integration), Vr1 < 0:
   // XXX: First, if "Vr1" is really small, we simply reset it to 0:
   if (Abs(Vr1) < VTol)
-    Vr1 = VelK(0.0);
+    Vr1 = VelK(0.0);      // So we are already at the Singular Point!
 
   // Otherwise: Check for Vr < 0:
   // In the Ascent mode,  Vr < 0 may occur (eg near the Orbital Insertion), but
@@ -363,8 +363,8 @@ const
     // Return Error:
     return RunRes();
   }
-  // Thus: at this point, Ascent => Vr > 0:
-  assert(!a_is_ascent || IsPos(Vr1));
+  // Thus: at this point, Ascent => Vr1 >= 0:
+  assert(!(a_is_ascent && IsNeg(Vr1)));
 
   // Check for a degenerate "h1": it should not happen, but may:
   if (!IsPos(h1))
